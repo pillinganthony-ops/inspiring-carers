@@ -1,9 +1,29 @@
 import React from 'react';
 import Papa from 'papaparse';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import Icons from '../Icons.jsx';
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient.js';
 
 const { IconTile, IArrow, IClose, ISearch, IHub, IAdvice, IWellbeing, IStar } = Icons;
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: markerIcon2x,
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+});
+
+const ADMIN_EMAIL_ALLOWLIST = (import.meta.env.VITE_ADMIN_EMAIL_ALLOWLIST || 'pillinganthony@gmail.com')
+  .split(',')
+  .map((item) => item.trim().toLowerCase())
+  .filter(Boolean);
+
+const CORNWALL_CENTER = [50.266, -5.052];
 
 const emptyResourceDraft = {
   id: null,
@@ -24,7 +44,11 @@ const emptyResourceDraft = {
   featured: false,
   is_archived: false,
   source_type: 'manual',
-  source_ref: '',
+  source_reference: '',
+  subcategory: '',
+  raw_folder: '',
+  needs_review: false,
+  last_reviewed_at: '',
   metadataText: '{}',
 };
 
@@ -60,28 +84,66 @@ const formatDate = (value) => {
   return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
 };
 
-const normalizeResourceDraft = (resource) => ({
-  id: resource?.id ?? null,
-  name: resource?.name ?? '',
-  slug: resource?.slug ?? '',
-  category_id: resource?.category_id ?? resource?.resource_categories?.id ?? '',
-  town: resource?.town ?? '',
-  summary: resource?.summary ?? '',
-  description: resource?.description ?? '',
-  website: resource?.website ?? '',
-  phone: resource?.phone ?? '',
-  email: resource?.email ?? '',
-  address: resource?.address ?? '',
-  postcode: resource?.postcode ?? '',
-  latitude: resource?.latitude ?? '',
-  longitude: resource?.longitude ?? '',
-  verified: Boolean(resource?.verified),
-  featured: Boolean(resource?.featured),
-  is_archived: Boolean(resource?.is_archived),
-  source_type: resource?.source_type ?? 'manual',
-  source_ref: resource?.source_ref ?? '',
-  metadataText: JSON.stringify(resource?.metadata ?? {}, null, 2),
-});
+const normalizeUkPostcode = (value) => value.toUpperCase().replace(/\s+/g, '').trim();
+
+const formatUkPostcode = (value) => {
+  const normalized = normalizeUkPostcode(value);
+  if (normalized.length <= 3) return normalized;
+  return `${normalized.slice(0, normalized.length - 3)} ${normalized.slice(-3)}`;
+};
+
+const asNumber = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
+
+const getResourceCompleteness = (resource) => {
+  const checks = [
+    Boolean(resource?.name?.trim()),
+    Boolean(resource?.category_id || resource?.resource_categories?.id),
+    Boolean(resource?.address?.trim()),
+    Boolean(resource?.town?.trim()),
+    Boolean(resource?.postcode?.trim()),
+    Boolean(resource?.description?.trim()),
+    Boolean(resource?.phone?.trim()),
+    Boolean(resource?.website?.trim()),
+    Number.isFinite(Number(resource?.latitude)) && Number.isFinite(Number(resource?.longitude)),
+  ];
+  const filled = checks.filter(Boolean).length;
+  const score = Math.round((filled / checks.length) * 100);
+  const tone = score >= 85 ? 'lime' : score >= 60 ? 'gold' : 'coral';
+  return { filled, total: checks.length, score, tone };
+};
+
+const normalizeResourceDraft = (resource) => {
+  const importReady = resource?.metadata?.import_ready ?? {};
+  return {
+    id: resource?.id ?? null,
+    name: resource?.name ?? '',
+    slug: resource?.slug ?? '',
+    category_id: resource?.category_id ?? resource?.resource_categories?.id ?? '',
+    town: resource?.town ?? '',
+    summary: resource?.summary ?? '',
+    description: resource?.description ?? '',
+    website: resource?.website ?? '',
+    phone: resource?.phone ?? '',
+    email: resource?.email ?? '',
+    address: resource?.address ?? '',
+    postcode: resource?.postcode ?? '',
+    latitude: resource?.latitude ?? '',
+    longitude: resource?.longitude ?? '',
+    verified: Boolean(resource?.verified),
+    featured: Boolean(resource?.featured),
+    is_archived: Boolean(resource?.is_archived),
+    source_type: resource?.source_type ?? 'manual',
+    source_reference: resource?.source_ref ?? importReady.source_reference ?? '',
+    subcategory: importReady.subcategory ?? '',
+    raw_folder: importReady.raw_folder ?? '',
+    needs_review: Boolean(importReady.needs_review),
+    last_reviewed_at: importReady.last_reviewed_at ?? '',
+    metadataText: JSON.stringify(resource?.metadata ?? {}, null, 2),
+  };
+};
 
 const normalizeCategoryDraft = (category) => ({
   id: category?.id ?? null,
@@ -134,8 +196,16 @@ const AdminPage = () => {
   const [importBusy, setImportBusy] = React.useState(false);
   const [importError, setImportError] = React.useState('');
   const [importSuccess, setImportSuccess] = React.useState('');
+  const [postcodeBusy, setPostcodeBusy] = React.useState(false);
+  const [postcodeError, setPostcodeError] = React.useState('');
+  const [postcodeCandidates, setPostcodeCandidates] = React.useState([]);
 
   const supabaseReady = isSupabaseConfigured();
+
+  const categoryOptions = React.useMemo(
+    () => [...categories].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'en', { sensitivity: 'base' })),
+    [categories],
+  );
 
   const loadDashboardData = React.useCallback(async () => {
     if (!supabase || !adminProfile) return;
@@ -213,9 +283,8 @@ const AdminPage = () => {
       setLoadingData(true);
       setDashboardError('');
 
-      // Verify email is authorized for admin access
-      if (session.user.email !== 'pillinganthony@gmail.com') {
-        setDashboardError('Your email address is not authorized for admin access. Contact your administrator for approval.');
+      if (!ADMIN_EMAIL_ALLOWLIST.includes((session.user.email || '').toLowerCase())) {
+        setDashboardError('Your account is authenticated but not approved for admin access.');
         setAdminProfile(null);
         setLoadingData(false);
         return;
@@ -230,6 +299,23 @@ const AdminPage = () => {
       if (cancelled) return;
 
       if (error) {
+        const message = error.message || '';
+        const missingAdminTable = message.includes('admin_users')
+          && (message.includes('schema cache') || message.includes('does not exist'));
+
+        if (missingAdminTable) {
+          setAdminProfile({
+            id: 'allowlist-fallback',
+            user_id: session.user.id,
+            display_name: session.user.email,
+            role: 'admin',
+            is_active: true,
+          });
+          setDashboardError('Admin allowlist mode is active because admin_users is missing. Run the SQL migration to enable full role management.');
+          setLoadingData(false);
+          return;
+        }
+
         setDashboardError(error.message || 'Unable to validate admin access.');
         setAdminProfile(null);
         setLoadingData(false);
@@ -344,6 +430,15 @@ const AdminPage = () => {
     setResourceError('');
     try {
       const metadata = resourceDraft.metadataText.trim() ? JSON.parse(resourceDraft.metadataText) : {};
+      const importReadyMetadata = {
+        ...(metadata.import_ready ?? {}),
+        raw_folder: resourceDraft.raw_folder.trim() || null,
+        subcategory: resourceDraft.subcategory.trim() || null,
+        source_reference: resourceDraft.source_reference.trim() || null,
+        needs_review: Boolean(resourceDraft.needs_review),
+        last_reviewed_at: resourceDraft.last_reviewed_at || null,
+      };
+
       const payload = {
         name: resourceDraft.name.trim(),
         slug: (resourceDraft.slug || slugify(resourceDraft.name)).trim(),
@@ -362,8 +457,11 @@ const AdminPage = () => {
         featured: resourceDraft.featured,
         is_archived: resourceDraft.is_archived,
         source_type: resourceDraft.source_type,
-        source_ref: resourceDraft.source_ref.trim() || null,
-        metadata,
+        source_ref: resourceDraft.source_reference.trim() || null,
+        metadata: {
+          ...metadata,
+          import_ready: importReadyMetadata,
+        },
         updated_by: session.user.id,
       };
 
@@ -540,6 +638,92 @@ const AdminPage = () => {
     setImportSuccess('Import draft saved to Supabase for future ingestion workflow.');
   };
 
+  const handleLookupPostcode = async () => {
+    const postcode = formatUkPostcode(resourceDraft.postcode || '');
+    if (!postcode) {
+      setPostcodeError('Enter a postcode to find addresses.');
+      return;
+    }
+
+    setPostcodeBusy(true);
+    setPostcodeError('');
+    setPostcodeCandidates([]);
+
+    try {
+      const postcodeResponse = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(postcode)}`);
+      const postcodePayload = postcodeResponse.ok ? await postcodeResponse.json() : null;
+      const postcodeResult = postcodePayload?.status === 200 ? postcodePayload.result : null;
+
+      const fallbackTown = postcodeResult?.admin_district || postcodeResult?.parish || postcodeResult?.admin_ward || '';
+      const formattedPostcode = formatUkPostcode(postcodeResult?.postcode || postcode);
+
+      const nominatimQuery = `${formattedPostcode} Cornwall United Kingdom`;
+      const nominatimResponse = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=gb&limit=8&q=${encodeURIComponent(nominatimQuery)}`);
+      const nominatimRows = nominatimResponse.ok ? await nominatimResponse.json() : [];
+
+      const candidates = (Array.isArray(nominatimRows) ? nominatimRows : []).map((row, index) => {
+        const lat = asNumber(row.lat);
+        const lng = asNumber(row.lon);
+        const label = row.display_name?.split(',').slice(0, 3).join(', ').trim() || row.display_name || `Address option ${index + 1}`;
+        const displayTown = row.address?.town || row.address?.city || row.address?.village || row.address?.county || fallbackTown;
+
+        return {
+          id: `${row.place_id || index}`,
+          label,
+          address: row.display_name || label,
+          town: displayTown || '',
+          postcode: formattedPostcode,
+          latitude: lat,
+          longitude: lng,
+        };
+      });
+
+      if (!candidates.length && postcodeResult) {
+        candidates.push({
+          id: 'postcode-fallback',
+          label: `${formattedPostcode} (${fallbackTown || 'postcode centre'})`,
+          address: formattedPostcode,
+          town: fallbackTown,
+          postcode: formattedPostcode,
+          latitude: asNumber(postcodeResult.latitude),
+          longitude: asNumber(postcodeResult.longitude),
+        });
+      }
+
+      if (!candidates.length) {
+        setPostcodeError('No addresses found for that postcode. You can still enter details manually.');
+        setPostcodeBusy(false);
+        return;
+      }
+
+      setPostcodeCandidates(candidates);
+      setResourceDraft((prev) => ({ ...prev, postcode: formattedPostcode }));
+    } catch {
+      setPostcodeError('Postcode lookup is temporarily unavailable. You can still enter details manually.');
+    } finally {
+      setPostcodeBusy(false);
+    }
+  };
+
+  const handleSelectPostcodeCandidate = (candidateId) => {
+    const selected = postcodeCandidates.find((candidate) => candidate.id === candidateId);
+    if (!selected) return;
+
+    setResourceDraft((prev) => ({
+      ...prev,
+      address: selected.address || prev.address,
+      town: selected.town || prev.town,
+      postcode: selected.postcode || prev.postcode,
+      latitude: Number.isFinite(selected.latitude) ? String(selected.latitude) : prev.latitude,
+      longitude: Number.isFinite(selected.longitude) ? String(selected.longitude) : prev.longitude,
+    }));
+  };
+
+  const mapResources = React.useMemo(
+    () => filteredResources.filter((resource) => Number.isFinite(Number(resource.latitude)) && Number.isFinite(Number(resource.longitude))),
+    [filteredResources],
+  );
+
   if (!supabaseReady) {
     return <AdminSetupState />;
   }
@@ -631,7 +815,7 @@ const AdminPage = () => {
             </div>
             <select value={filters.category} onChange={(event) => setFilters((prev) => ({ ...prev, category: event.target.value }))} style={fieldStyle}>
               <option value="all">All categories</option>
-              {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+              {categoryOptions.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
             </select>
             <select value={filters.town} onChange={(event) => setFilters((prev) => ({ ...prev, town: event.target.value }))} style={fieldStyle}>
               <option value="all">All towns</option>
@@ -656,7 +840,7 @@ const AdminPage = () => {
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 860 }}>
               <thead style={{ background: '#FAFBFF' }}>
                 <tr>
-                  {['Name', 'Category', 'Town', 'Verified', 'Featured', 'Updated', 'Status'].map((heading) => (
+                  {['Name', 'Category', 'Town', 'Complete', 'Verified', 'Featured', 'Updated', 'Status'].map((heading) => (
                     <th key={heading} style={tableHeaderStyle}>{heading}</th>
                   ))}
                 </tr>
@@ -670,6 +854,7 @@ const AdminPage = () => {
                     </td>
                     <td style={tableCellStyle}>{resource.resource_categories?.name || 'Unassigned'}</td>
                     <td style={tableCellStyle}>{resource.town || 'Not set'}</td>
+                    <td style={tableCellStyle}><StatusPill tone={getResourceCompleteness(resource).tone} label={`${getResourceCompleteness(resource).score}%`} /></td>
                     <td style={tableCellStyle}><StatusPill tone={resource.verified ? 'lime' : 'navy'} label={resource.verified ? 'Verified' : 'Needs review'} /></td>
                     <td style={tableCellStyle}><StatusPill tone={resource.featured ? 'gold' : 'sky'} label={resource.featured ? 'Featured' : 'Standard'} /></td>
                     <td style={tableCellStyle}>{formatDate(resource.updated_at)}</td>
@@ -678,7 +863,7 @@ const AdminPage = () => {
                 ))}
                 {!filteredResources.length ? (
                   <tr>
-                    <td style={{ ...tableCellStyle, textAlign: 'center', color: 'rgba(26,39,68,0.68)' }} colSpan={7}>
+                    <td style={{ ...tableCellStyle, textAlign: 'center', color: 'rgba(26,39,68,0.68)' }} colSpan={8}>
                       {loadingData ? 'Loading resources...' : 'No resources match the current filters.'}
                     </td>
                   </tr>
@@ -686,6 +871,15 @@ const AdminPage = () => {
               </tbody>
             </table>
           </div>
+        </div>
+
+        <div className="card" style={{ padding: 20, borderRadius: 26, marginBottom: 24 }}>
+          <div className="eyebrow" style={{ color: '#2D9CDB' }}>Location QA</div>
+          <div style={{ fontSize: 22, fontWeight: 800, marginTop: 8, marginBottom: 12 }}>Resource map overview</div>
+          <p style={{ color: 'rgba(26,39,68,0.72)', lineHeight: 1.65, marginBottom: 14 }}>
+            Pins show resources with coordinates so you can quickly spot location gaps, clusters, and bad imports.
+          </p>
+          <AdminResourceMap resources={mapResources} />
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.15fr) minmax(320px, 0.85fr)', gap: 24, alignItems: 'start' }}>
@@ -817,9 +1011,14 @@ const AdminPage = () => {
 
       {editorOpen ? (
         <ResourceEditorModal
-          categories={categories}
+          categories={categoryOptions}
           draft={resourceDraft}
           onChange={setResourceDraft}
+          onPostcodeLookup={handleLookupPostcode}
+          onPostcodeCandidateSelect={handleSelectPostcodeCandidate}
+          postcodeCandidates={postcodeCandidates}
+          postcodeBusy={postcodeBusy}
+          postcodeError={postcodeError}
           onClose={() => setEditorOpen(false)}
           onSave={handleSaveResource}
           onDelete={handleDeleteResource}
@@ -844,11 +1043,12 @@ const AdminSetupState = () => (
       <div className="eyebrow" style={{ color: '#2D9CDB' }}>Supabase required</div>
       <h1 style={{ marginTop: 10, fontSize: 34, fontWeight: 800 }}>Admin dashboard is ready for connection</h1>
       <p style={{ marginTop: 14, color: 'rgba(26,39,68,0.74)', lineHeight: 1.7 }}>
-        Add your Supabase environment variables, run the schema in supabase/schema.sql, and create at least one active row in admin_users tied to a Supabase auth account.
+        Add your Supabase environment variables and run the schema in supabase/schema.sql. You can immediately gate access with an email allowlist, then enable full role management with admin_users.
       </p>
       <div style={{ marginTop: 18, padding: 18, borderRadius: 18, background: '#FAFBFF', border: '1px solid #EFF1F7', fontFamily: 'monospace', fontSize: 13, whiteSpace: 'pre-wrap' }}>
 VITE_SUPABASE_URL=...
 VITE_SUPABASE_ANON_KEY=...
+VITE_ADMIN_EMAIL_ALLOWLIST=pillinganthony@gmail.com
       </div>
     </div>
   </AdminAuthLayout>
@@ -889,7 +1089,22 @@ const TopViewedCard = ({ items }) => (
   </div>
 );
 
-const ResourceEditorModal = ({ categories, draft, onChange, onClose, onSave, onDelete, onArchiveToggle, busy, error }) => (
+const ResourceEditorModal = ({
+  categories,
+  draft,
+  onChange,
+  onPostcodeLookup,
+  onPostcodeCandidateSelect,
+  postcodeCandidates,
+  postcodeBusy,
+  postcodeError,
+  onClose,
+  onSave,
+  onDelete,
+  onArchiveToggle,
+  busy,
+  error,
+}) => (
   <div style={{ position: 'fixed', inset: 0, zIndex: 160, background: 'rgba(15,23,42,0.42)', display: 'grid', placeItems: 'center', padding: 22 }}>
     <div className="card" style={{ width: '100%', maxWidth: 980, maxHeight: '92vh', overflowY: 'auto', padding: 28, borderRadius: 30, position: 'relative' }}>
       <button onClick={onClose} style={{ position: 'absolute', right: 22, top: 22, width: 42, height: 42, borderRadius: 999, border: '1px solid #E9EEF5', background: '#FFF', display: 'grid', placeItems: 'center' }}>
@@ -897,11 +1112,28 @@ const ResourceEditorModal = ({ categories, draft, onChange, onClose, onSave, onD
       </button>
       <div className="eyebrow" style={{ color: '#2D9CDB' }}>{draft.id ? 'Edit resource' : 'Create resource'}</div>
       <h2 style={{ marginTop: 10, fontSize: 32, fontWeight: 800 }}>Resource record</h2>
+      <div style={{ marginTop: 12, marginBottom: 8 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 6 }}>
+          <div style={{ fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.62)' }}>Record completeness</div>
+          <div style={{ fontWeight: 700, color: '#1A2744' }}>{getResourceCompleteness(draft).score}% ({getResourceCompleteness(draft).filled}/{getResourceCompleteness(draft).total})</div>
+        </div>
+        <div style={{ width: '100%', height: 10, borderRadius: 999, background: '#EEF2FA', overflow: 'hidden' }}>
+          <div
+            style={{
+              height: '100%',
+              width: `${getResourceCompleteness(draft).score}%`,
+              borderRadius: 999,
+              background: getResourceCompleteness(draft).tone === 'lime' ? '#5BC94A' : getResourceCompleteness(draft).tone === 'gold' ? '#F5A623' : '#F4613A',
+              transition: 'width 160ms ease',
+            }}
+          />
+        </div>
+      </div>
       <div style={{ marginTop: 18, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
         <input value={draft.name} onChange={(event) => onChange((prev) => ({ ...prev, name: event.target.value }))} placeholder="Resource name" style={fieldStyle} />
         <input value={draft.slug} onChange={(event) => onChange((prev) => ({ ...prev, slug: event.target.value }))} placeholder="Slug" style={fieldStyle} />
         <select value={draft.category_id} onChange={(event) => onChange((prev) => ({ ...prev, category_id: event.target.value }))} style={fieldStyle}>
-          <option value="">Choose category</option>
+          <option value="">{categories.length ? 'Choose category' : 'No categories yet - create one first'}</option>
           {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
         </select>
         <input value={draft.town} onChange={(event) => onChange((prev) => ({ ...prev, town: event.target.value }))} placeholder="Town" style={fieldStyle} />
@@ -916,8 +1148,30 @@ const ResourceEditorModal = ({ categories, draft, onChange, onClose, onSave, onD
         <input value={draft.website} onChange={(event) => onChange((prev) => ({ ...prev, website: event.target.value }))} placeholder="Website" style={fieldStyle} />
         <input value={draft.phone} onChange={(event) => onChange((prev) => ({ ...prev, phone: event.target.value }))} placeholder="Phone" style={fieldStyle} />
         <input value={draft.email} onChange={(event) => onChange((prev) => ({ ...prev, email: event.target.value }))} placeholder="Email" style={fieldStyle} />
-        <input value={draft.postcode} onChange={(event) => onChange((prev) => ({ ...prev, postcode: event.target.value }))} placeholder="Postcode" style={fieldStyle} />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10 }}>
+          <input value={draft.postcode} onChange={(event) => onChange((prev) => ({ ...prev, postcode: event.target.value }))} placeholder="Postcode" style={fieldStyle} />
+          <button className="btn btn-sky btn-sm" type="button" onClick={onPostcodeLookup} disabled={postcodeBusy}>
+            {postcodeBusy ? 'Looking up...' : 'Lookup'}
+          </button>
+        </div>
       </div>
+
+      {postcodeError ? <div style={{ ...errorTextStyle, marginTop: 10 }}>{postcodeError}</div> : null}
+      {postcodeCandidates.length ? (
+        <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
+          <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.68)' }}>Select an address candidate (manual edits are still allowed):</div>
+          <select
+            value=""
+            onChange={(event) => onPostcodeCandidateSelect(event.target.value)}
+            style={fieldStyle}
+          >
+            <option value="">Choose address candidate</option>
+            {postcodeCandidates.map((candidate) => (
+              <option key={candidate.id} value={candidate.id}>{candidate.label}</option>
+            ))}
+          </select>
+        </div>
+      ) : null}
 
       <div style={{ marginTop: 14, display: 'grid', gap: 12 }}>
         <input value={draft.address} onChange={(event) => onChange((prev) => ({ ...prev, address: event.target.value }))} placeholder="Address" style={fieldStyle} />
@@ -927,13 +1181,17 @@ const ResourceEditorModal = ({ categories, draft, onChange, onClose, onSave, onD
           <select value={draft.source_type} onChange={(event) => onChange((prev) => ({ ...prev, source_type: event.target.value }))} style={fieldStyle}>
             {['manual', 'kml', 'csv', 'json', 'community'].map((option) => <option key={option} value={option}>{option}</option>)}
           </select>
-          <input value={draft.source_ref} onChange={(event) => onChange((prev) => ({ ...prev, source_ref: event.target.value }))} placeholder="Source reference" style={fieldStyle} />
+          <input value={draft.source_reference} onChange={(event) => onChange((prev) => ({ ...prev, source_reference: event.target.value }))} placeholder="Source reference" style={fieldStyle} />
+          <input value={draft.subcategory} onChange={(event) => onChange((prev) => ({ ...prev, subcategory: event.target.value }))} placeholder="Subcategory" style={fieldStyle} />
+          <input value={draft.raw_folder} onChange={(event) => onChange((prev) => ({ ...prev, raw_folder: event.target.value }))} placeholder="Raw folder" style={fieldStyle} />
+          <input value={draft.last_reviewed_at} onChange={(event) => onChange((prev) => ({ ...prev, last_reviewed_at: event.target.value }))} placeholder="Last reviewed at" type="date" style={fieldStyle} />
         </div>
         <textarea value={draft.metadataText} onChange={(event) => onChange((prev) => ({ ...prev, metadataText: event.target.value }))} placeholder="Metadata JSON" rows={6} style={{ ...fieldStyle, resize: 'vertical', fontFamily: 'monospace' }} />
       </div>
 
       <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 16 }}>
         <label style={checkboxLabelStyle}><input type="checkbox" checked={draft.verified} onChange={(event) => onChange((prev) => ({ ...prev, verified: event.target.checked }))} /> Verified</label>
+        <label style={checkboxLabelStyle}><input type="checkbox" checked={draft.needs_review} onChange={(event) => onChange((prev) => ({ ...prev, needs_review: event.target.checked }))} /> Needs review</label>
         <label style={checkboxLabelStyle}><input type="checkbox" checked={draft.featured} onChange={(event) => onChange((prev) => ({ ...prev, featured: event.target.checked }))} /> Featured</label>
         <label style={checkboxLabelStyle}><input type="checkbox" checked={draft.is_archived} onChange={(event) => onChange((prev) => ({ ...prev, is_archived: event.target.checked }))} /> Archived</label>
       </div>
@@ -955,6 +1213,46 @@ const ResourceEditorModal = ({ categories, draft, onChange, onClose, onSave, onD
     </div>
   </div>
 );
+
+const AdminResourceMap = ({ resources }) => {
+  const mapCenter = React.useMemo(() => {
+    if (!resources.length) return CORNWALL_CENTER;
+
+    const latSum = resources.reduce((sum, item) => sum + Number(item.latitude || 0), 0);
+    const lngSum = resources.reduce((sum, item) => sum + Number(item.longitude || 0), 0);
+    return [latSum / resources.length, lngSum / resources.length];
+  }, [resources]);
+
+  if (!resources.length) {
+    return (
+      <div style={{ borderRadius: 20, border: '1px dashed #D8E2F2', background: '#FAFBFF', padding: 20, color: 'rgba(26,39,68,0.68)' }}>
+        No coordinates available in the current filtered results. Add postcode/lat-lng to display map pins.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ borderRadius: 20, overflow: 'hidden', border: '1px solid #E9EEF5' }}>
+      <MapContainer center={mapCenter} zoom={10} style={{ height: 360, width: '100%' }}>
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        {resources.map((resource) => (
+          <Marker key={resource.id} position={[Number(resource.latitude), Number(resource.longitude)]}>
+            <Popup>
+              <div style={{ minWidth: 180 }}>
+                <div style={{ fontWeight: 700 }}>{resource.name}</div>
+                <div style={{ marginTop: 4, fontSize: 12, color: '#334155' }}>{resource.address || resource.town || 'No address set'}</div>
+                <div style={{ marginTop: 6, fontSize: 12 }}>Completeness: {getResourceCompleteness(resource).score}%</div>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+      </MapContainer>
+    </div>
+  );
+};
 
 const StatusPill = ({ label, tone }) => {
   const tones = {

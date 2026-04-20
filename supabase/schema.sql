@@ -49,6 +49,11 @@ create table if not exists public.resources (
   verified boolean not null default false,
   featured boolean not null default false,
   is_archived boolean not null default false,
+  needs_review boolean not null default false,
+  subcategory text,
+  raw_folder text,
+  source_reference text,
+  last_reviewed_at date,
   source_type text not null default 'manual' check (source_type in ('manual', 'kml', 'csv', 'json', 'community')),
   source_ref text,
   metadata jsonb not null default '{}'::jsonb,
@@ -95,10 +100,17 @@ create table if not exists public.resource_import_jobs (
   created_at timestamptz not null default now()
 );
 
+alter table public.resources add column if not exists needs_review boolean not null default false;
+alter table public.resources add column if not exists subcategory text;
+alter table public.resources add column if not exists raw_folder text;
+alter table public.resources add column if not exists source_reference text;
+alter table public.resources add column if not exists last_reviewed_at date;
+
 create index if not exists resources_category_idx on public.resources(category_id);
 create index if not exists resources_town_idx on public.resources(town);
 create index if not exists resources_verified_idx on public.resources(verified);
 create index if not exists resources_featured_idx on public.resources(featured);
+create index if not exists resources_needs_review_idx on public.resources(needs_review);
 create index if not exists resources_updated_idx on public.resources(updated_at desc);
 create index if not exists submissions_status_idx on public.resource_update_submissions(status);
 create index if not exists submissions_created_idx on public.resource_update_submissions(created_at desc);
