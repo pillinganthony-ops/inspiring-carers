@@ -256,9 +256,21 @@ const AdminPage = () => {
     if (!supabase) return;
     setLoginBusy(true);
     setLoginError('');
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) setLoginError(error.message);
-    setLoginBusy(false);
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      setLoginError(error.message || 'Login failed. Please check your credentials.');
+      setLoginBusy(false);
+      return;
+    }
+    // Session should be available for auth listener to pick up
+    // Wait briefly for listener to update state
+    if (data?.session) {
+      // Auth listener will handle session update
+      setLoginBusy(false);
+    } else {
+      setLoginError('Login succeeded but session could not be established.');
+      setLoginBusy(false);
+    }
   };
 
   const handleSignOut = async () => {

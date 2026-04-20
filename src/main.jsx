@@ -246,15 +246,8 @@ const App = () => {
   }, []);
 
   const navigate = (key) => {
-    // If trying to access admin without session, redirect to login
-    if (key === 'admin' && !session) {
-      setPage('login');
-      localStorage.setItem('ic_page_v1', 'login');
-      window.history.pushState({ page: 'login' }, '', '/login');
-      window.scrollTo({ top: 0, behavior: 'instant' });
-      return;
-    }
-
+    // Let AdminPage handle session checking to avoid race condition
+    // AdminPage has built-in login form and session validation
     setPage(key);
     localStorage.setItem('ic_page_v1', key);
     const path = key === 'home' ? '/' : `/${key}`;
@@ -262,11 +255,7 @@ const App = () => {
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
-  // If visiting /admin without session, show login instead
   let displayPage = page;
-  if (page === 'admin' && !session) {
-    displayPage = 'login';
-  }
 
   let content;
   switch (displayPage) {

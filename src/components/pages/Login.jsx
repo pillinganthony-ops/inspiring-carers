@@ -38,9 +38,11 @@ const LoginPage = ({ onNavigate }) => {
 
     if (data?.session) {
       setSuccessMsg('Login successful. Redirecting to admin dashboard...');
+      // Wait for auth state to propagate, then navigate
+      // The auth listener in App.jsx will update session state automatically
       setTimeout(() => {
         onNavigate('admin');
-      }, 800);
+      }, 1200);
     }
   };
 
