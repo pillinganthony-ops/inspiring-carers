@@ -3,7 +3,7 @@ import Icons from '../Icons.jsx';
 const { IDot, ICard, IPin, IArrow, ISparkle, IDiscount, IReward, IRecognition, IChevron, IconTile, BloomMark } = Icons;
 
 const Hero = ({ headline }) => (
-  <section style={{ paddingTop: 88, paddingBottom: 96, position: 'relative', overflow: 'hidden', background: 'linear-gradient(180deg, #FEFEFE 0%, #FFFDF7 100%)' }}>
+  <section style={{ paddingTop: 100, paddingBottom: 104, position: 'relative', overflow: 'hidden', background: 'linear-gradient(180deg, #FEFEFE 0%, #FFFBF3 100%)' }}>
     {/* Enhanced decorative elements */}
     <div style={{
       position: 'absolute', right: -140, top: -100,
@@ -36,7 +36,7 @@ const Hero = ({ headline }) => (
     </div>
 
     <div className="container" style={{ position: 'relative', paddingTop: 80 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: 72, alignItems: 'center' }}>
+      <div className="hero-grid">
         <div>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 12, marginBottom: 32,
@@ -54,43 +54,66 @@ const Hero = ({ headline }) => (
             lineHeight: 1.02,
             fontWeight: 800,
             letterSpacing: '-0.045em',
-            textWrap: 'balance',
-            background: 'linear-gradient(135deg, #0F172A 0%, #1A2744 40%, #2D9CDB 70%)',
+            background: 'linear-gradient(135deg, #0F172A 0%, #1A2744 35%, #2D9CDB 70%)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
             backgroundClip: 'text',
             marginBottom: 24,
           }}>
-            You deserve this support.
+            A trusted national movement for carers and the people they support.
           </h1>
 
           <p style={{
-            marginTop: 0, fontSize: 20, lineHeight: 1.6,
-            color: 'rgba(26,39,68,0.8)', maxWidth: 620, textWrap: 'pretty', fontWeight: 500,
+            marginTop: 0, fontSize: 20, lineHeight: 1.7,
+            color: 'rgba(26,39,68,0.82)', maxWidth: 720, fontWeight: 500,
             fontFamily: 'Inter, sans-serif',
           }}>
-            Every carer in the UK deserves recognition, benefits, and real help. Our free member card unlocks discounts, local groups, activities, and advice — everything you need to care for yourself while caring for others.
+            Real support for the person who gives care, and for the person they care for. Your free member card, local groups, wellbeing, advice and rewards are designed to make life easier for the whole household.
           </p>
 
-          <div style={{ display: 'flex', gap: 16, marginTop: 48, flexWrap: 'wrap' }}>
+          <div className="hero-entry-grid">
+            <div className="hero-entry-card">
+              <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--authority-navy)' }}>
+                For carers personally
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--navy)' }}>
+                More recognition, relief and everyday rewards.
+              </div>
+              <div style={{ fontSize: 15, color: 'rgba(26,39,68,0.72)', lineHeight: 1.7 }}>
+                Discounts, wellbeing meetups, advice and a stronger support network so carers can look after themselves while they care.
+              </div>
+            </div>
+            <div className="hero-entry-card">
+              <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--authority-navy)' }}>
+                For the people they support
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--navy)' }}>
+                Practical local help and meaningful connection.
+              </div>
+              <div style={{ fontSize: 15, color: 'rgba(26,39,68,0.72)', lineHeight: 1.7 }}>
+                Nearby activities, family support groups and useful services that make everyday life more manageable for the person you care for.
+              </div>
+            </div>
+          </div>
+
+          <div className="hero-buttons">
             <button className="btn btn-gold btn-lg" style={{
-              boxShadow: '0 16px 48px rgba(245,166,35,0.45)',
-              fontSize: 19, padding: '24px 40px', fontWeight: 700,
+              boxShadow: '0 18px 60px rgba(212,175,55,0.34)',
+              fontSize: 19, padding: '24px 42px', fontWeight: 700,
               background: 'linear-gradient(135deg, #F5A623 0%, #D4AF37 100%)',
               border: '2px solid rgba(255,255,255,0.2)',
             }}>
               <ICard s={22} /> Claim your free card
             </button>
-            <button className="btn btn-ghost btn-lg" style={{
-              fontSize: 19, padding: '24px 40px', fontWeight: 700,
-              border: '2px solid rgba(26,39,68,0.15)',
-              color: '#1A2744',
+            <button className="btn btn-navy btn-lg" style={{
+              fontSize: 19, padding: '24px 42px', fontWeight: 700,
+              border: '1px solid rgba(255,255,255,0.12)',
             }}>
-              <IPin s={22} /> Find help nearby
+              <IPin s={22} /> Find support nearby
             </button>
           </div>
 
-          <div style={{ display: 'flex', gap: 48, marginTop: 64, flexWrap: 'wrap' }}>
+          <div className="hero-proof-grid">
             {[
               ['84,000+', 'carers joined'],
               ['1,240+', 'local partners'],
@@ -124,7 +147,7 @@ const Hero = ({ headline }) => (
 
 // Composed hero visual: layered cards showing both engines
 const HeroVisual = () => (
-  <div style={{ position: 'relative', height: 580 }}>
+  <div className="hero-visual" style={{ position: 'relative', minHeight: 580, width: '100%', maxWidth: 720, margin: '0 auto' }}>
     {/* background disc */}
     <div style={{
       position: 'absolute', inset: '20px 20px 20px 20px',
@@ -134,7 +157,7 @@ const HeroVisual = () => (
     }} />
 
     {/* Card 1: Membership card (top left) */}
-    <div style={{
+    <div className="card hero-card" style={{
       position: 'absolute', left: 0, top: 40,
       width: 295,
       borderRadius: 24,
@@ -165,7 +188,7 @@ const HeroVisual = () => (
     </div>
 
     {/* Card 2: Benefits snapshot (top right) */}
-    <div className="card" style={{
+    <div className="card hero-card" style={{
       position: 'absolute', right: 0, top: 0,
       width: 250, padding: 22,
       transform: 'rotate(3deg)',
@@ -191,7 +214,7 @@ const HeroVisual = () => (
     </div>
 
     {/* Card 3: Near you / map (center right) */}
-    <div className="card" style={{
+    <div className="card hero-card" style={{
       position: 'absolute', right: 10, top: 220,
       width: 310, padding: 22,
       boxShadow: 'var(--shadow-glow-navy), 0 0 32px rgba(15,23,42,0.12)',
@@ -215,7 +238,7 @@ const HeroVisual = () => (
     </div>
 
     {/* Card 4: Activity bubble (bottom left) */}
-    <div className="card" style={{
+    <div className="card hero-card" style={{
       position: 'absolute', left: 20, bottom: 24,
       width: 250, padding: 18,
       transform: 'rotate(-2deg)',
@@ -283,14 +306,14 @@ const DualEntry = ({ onNavigate }) => (
   <section style={{ paddingTop: 20 }}>
     <div className="container">
       <div style={{ textAlign: 'center', marginBottom: 48 }}>
-        <div className="eyebrow">The two-sided platform</div>
-        <h2 style={{ fontSize: 'clamp(32px, 3.5vw, 48px)', marginTop: 10, textWrap: 'balance' }}>
-          Something for <span style={{ color: '#F5A623' }}>you</span>.<br/>
-          Something useful for <span style={{ color: '#2D9CDB' }}>the people you support</span>.
+        <div className="eyebrow">Two-tier support for carers and families</div>
+        <h2 style={{ fontSize: 'clamp(32px, 3.5vw, 48px)', marginTop: 10, lineHeight: 1.05 }}>
+          One trusted movement.<br/>
+          Two essential support paths.
         </h2>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+      <div className="dual-entry-grid">
         <DualPanel
           eyebrow="Path 1 · For you"
           title="Benefits, rewards & recognition"
