@@ -15,6 +15,7 @@ import Businesses from './components/home/Businesses.jsx';
 import FindHelpPage from './components/pages/FindHelp.jsx';
 import BenefitsPage from './components/pages/Benefits.jsx';
 import WalksPage from './components/pages/Walks.jsx';
+import AdminPage from './components/pages/Admin.jsx';
 
 // Make icons global for JSX
 window.IDot = Icons.IDot;
@@ -186,6 +187,7 @@ const App = () => {
     if (normalized === '/find-help') return 'find-help';
     if (normalized === '/benefits') return 'benefits';
     if (normalized === '/walks') return 'walks';
+    if (normalized === '/admin') return 'admin';
     if (normalized === '/recognition') return 'recognition';
     if (normalized === '/business') return 'business';
     if (normalized === '/about') return 'about';
@@ -221,6 +223,7 @@ const App = () => {
     case 'find-help': content = <FindHelpPage onNavigate={navigate} />; break;
     case 'benefits': content = <BenefitsPage onNavigate={navigate} />; break;
     case 'walks': content = <WalksPage onNavigate={navigate} />; break;
+    case 'admin': content = <AdminPage />; break;
     case 'recognition': content = <Placeholder title="Recognition & awards" onNavigate={navigate} note="Carer of the Month, stories, nominations and community recognition — coming in the next round. Preview lives in the homepage Recognition section." />; break;
     case 'business': content = <Placeholder title="For businesses" onNavigate={navigate} note="Submit offers, see the why-carers-matter statement, badge tiers and featured partner placements — next round." />; break;
     case 'about': content = <Placeholder title="About inspiring carers" onNavigate={navigate} note="Mission, the two-tier model, and the local-first national vision — next round." />; break;

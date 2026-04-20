@@ -2,6 +2,8 @@
 // Style: rounded 24×24 grid, duotone with brand colors.
 // Each icon accepts `size` and `tone` (gold|lime|sky|coral|violet|navy).
 
+import { Route } from 'lucide-react';
+
 // BloomMark is defined in Logo.jsx, we'll reference it from window
 const toneMap = {
   gold:   { fg: '#F5A623', bg: 'rgba(245,166,35,0.18)' },
@@ -54,15 +56,7 @@ const IGroups = ({ s = 24 }) => (
   </svg>
 );
 const IWalks = ({ s = 24 }) => (
-  <svg {...g(s)} strokeWidth="2.1">
-    <ellipse cx="11.2" cy="14.3" rx="3.1" ry="4.4" transform="rotate(-16 11.2 14.3)" />
-    <circle cx="14.9" cy="8.1" r="1.15" />
-    <circle cx="13.2" cy="6.3" r="1.05" />
-    <circle cx="11.1" cy="5.4" r="0.95" />
-    <circle cx="8.9" cy="5.7" r="0.9" />
-    <path d="M15.9 16.9c1.1.8 2.2 1.8 3 3" />
-    <path d="M15.2 19.8h5" />
-  </svg>
+  <Route size={s} strokeWidth={2.35} absoluteStrokeWidth aria-hidden="true" />
 );
 const IEvent = ({ s = 24 }) => (
   <svg {...g(s)}>
