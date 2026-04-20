@@ -1,62 +1,266 @@
-// Find Help Near You — the signposting engine with postcode, filters, list/map
+// Find Help Near You — the signposting engine with live Supabase data
 
 import React from 'react';
 import Icons from '../Icons.jsx';
-const { ISparkle, IGroups, IPin, ISearch, IHeart, IChevron, IArrow, IconTile } = Icons;
+import Nav from '../Nav.jsx';
+import Footer from '../Footer.jsx';
+import supabase, { isSupabaseConfigured } from '../../lib/supabaseClient.js';
+
+const {
+  ISparkle,
+  IGroups,
+  IWalks,
+  IEvent,
+  IHub,
+  ILibrary,
+  IMind,
+  IFamily,
+  IAdvice,
+  IFinance,
+  ITransport,
+  IShield,
+  ICoffee,
+  IPin,
+  ISearch,
+  IHeart,
+  IChevron,
+  IArrow,
+  IClose,
+  IconTile,
+} = Icons;
+
+const CATEGORY_META = [
+  { id: 'groups', label: 'Groups', tone: 'sky', icon: <IGroups s={16} />, cardIcon: <IGroups s={22} />, matches: ['group', 'social', 'community'] },
+  { id: 'walks', label: 'Walks', tone: 'lime', icon: <IWalks s={16} />, cardIcon: <IWalks s={22} />, matches: ['walk', 'outdoor'] },
+  { id: 'events', label: 'Events', tone: 'violet', icon: <IEvent s={16} />, cardIcon: <IEvent s={22} />, matches: ['event', 'activity', 'arts'] },
+  { id: 'hubs', label: 'Community hubs', tone: 'sky', icon: <IHub s={16} />, cardIcon: <IHub s={22} />, matches: ['hub', 'centre', 'center', 'service'] },
+  { id: 'libs', label: 'Libraries', tone: 'gold', icon: <ILibrary s={16} />, cardIcon: <ILibrary s={22} />, matches: ['library', 'book'] },
+  { id: 'mind', label: 'Mental wellbeing', tone: 'violet', icon: <IMind s={16} />, cardIcon: <IMind s={22} />, matches: ['mind', 'mental', 'wellbeing', 'wellness'] },
+  { id: 'family', label: 'Family support', tone: 'lime', icon: <IFamily s={16} />, cardIcon: <IFamily s={22} />, matches: ['family', 'children', 'young'] },
+  { id: 'advice', label: 'Advice', tone: 'sky', icon: <IAdvice s={16} />, cardIcon: <IAdvice s={22} />, matches: ['advice', 'advocacy', 'guidance', 'support'] },
+  { id: 'money', label: 'Finance help', tone: 'lime', icon: <IFinance s={16} />, cardIcon: <IFinance s={22} />, matches: ['finance', 'benefit', 'money', 'cost', 'foodbank'] },
+  { id: 'travel', label: 'Transport', tone: 'coral', icon: <ITransport s={16} />, cardIcon: <ITransport s={22} />, matches: ['transport', 'travel', 'mobility'] },
+  { id: 'safe', label: 'Safe spaces', tone: 'gold', icon: <IShield s={16} />, cardIcon: <IShield s={22} />, matches: ['safe', 'safeguard', 'refuge'] },
+];
+
+const pickField = (row, keys) => {
+  for (const key of keys) {
+    const value = row?.[key];
+    if (value !== undefined && value !== null && `${value}`.trim() !== '') return value;
+  }
+  return '';
+};
+
+const toTitleCase = (value) =>
+  `${value || ''}`
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+
+const toSlug = (value) =>
+  `${value || ''}`
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+const getCategoryMeta = (value) => {
+  const raw = `${value || 'support'}`.toLowerCase();
+  const matched = CATEGORY_META.find((category) => category.matches.some((match) => raw.includes(match)));
+  if (matched) return matched;
+  return {
+    id: toSlug(raw) || 'support',
+    label: toTitleCase(raw) || 'Support',
+    tone: 'navy',
+    icon: <ISparkle s={16} />,
+    cardIcon: <ICoffee s={22} />,
+  };
+};
+
+const toTags = (row) => {
+  const rawTags = pickField(row, ['tags', 'tag_list', 'labels']);
+  let tags = [];
+
+  if (Array.isArray(rawTags)) {
+    tags = rawTags;
+  } else if (typeof rawTags === 'string') {
+    tags = rawTags.split(',');
+  }
+
+  tags = tags.map((tag) => `${tag}`.trim()).filter(Boolean);
+
+  if (row?.verified) tags.unshift('Verified');
+  if (row?.featured) tags.push('Featured');
+  if (!tags.length) tags = ['Local support'];
+
+  return Array.from(new Set(tags)).slice(0, 4);
+};
+
+const normalizeResource = (row, index) => {
+  const categoryName = pickField(row, ['category', 'category_name', 'category_label', 'resource_type', 'type']) || 'Support';
+  const category = getCategoryMeta(categoryName);
+  const title = pickField(row, ['name', 'title']) || `Support listing ${index + 1}`;
+  const venue = pickField(row, ['organisation', 'organization', 'provider', 'venue', 'location_name']) || 'Community support';
+  const area = pickField(row, ['town', 'area', 'location', 'city']) || pickField(row, ['postcode']) || 'Cornwall';
+  const availability = pickField(row, ['opening_hours', 'availability', 'service_hours', 'contact_hours']) || 'Contact for details';
+  const summary = pickField(row, ['summary', 'description', 'short_description']) || 'Local support for carers and the people they support.';
+  const website = pickField(row, ['website', 'url', 'link']);
+  const phone = pickField(row, ['phone', 'telephone']);
+  const email = pickField(row, ['email']);
+  const address = pickField(row, ['address', 'address_line_1', 'address_line1']);
+  const postcode = pickField(row, ['postcode']);
+  const locationBits = [area, postcode].filter(Boolean);
+  const shareText = [title, venue, locationBits.join(' · '), website || phone || email].filter(Boolean).join(' · ');
+
+  return {
+    id: row?.id ?? `${category.id}-${index}`,
+    cat: category.id,
+    categoryLabel: category.label,
+    title,
+    venue,
+    area,
+    when: availability,
+    distance: postcode || area,
+    tags: toTags(row),
+    tone: category.tone,
+    icon: category.cardIcon,
+    desc: summary,
+    website,
+    phone,
+    email,
+    address,
+    postcode,
+    locationKey: `${area}`.trim() || 'Cornwall',
+    searchText: `${title} ${venue} ${area} ${category.label} ${summary}`.toLowerCase(),
+    shareText,
+  };
+};
 
 const FindHelpPage = ({ onNavigate }) => {
-  const [view, setView] = React.useState('list'); // list | map
+  const [view, setView] = React.useState('list');
   const [activeCat, setActiveCat] = React.useState('all');
-  const [savedIds, setSavedIds] = React.useState(new Set([2]));
+  const [savedIds, setSavedIds] = React.useState(new Set());
+  const [keyword, setKeyword] = React.useState('');
+  const [areaFilter, setAreaFilter] = React.useState('all');
+  const [resources, setResources] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState('');
 
-  const categories = [
-    { id: 'all',    label: 'All',           icon: <ISparkle s={16}/>,   tone: 'navy' },
-    { id: 'groups', label: 'Groups',        icon: <IGroups s={16}/>,    tone: 'sky' },
-    { id: 'walks',  label: 'Walks',         icon: <IWalks s={16}/>,     tone: 'lime' },
-    { id: 'events', label: 'Events',        icon: <IEvent s={16}/>,     tone: 'violet' },
-    { id: 'hubs',   label: 'Community hubs',icon: <IHub s={16}/>,       tone: 'sky' },
-    { id: 'libs',   label: 'Libraries',     icon: <ILibrary s={16}/>,   tone: 'gold' },
-    { id: 'mind',   label: 'Mental wellbeing', icon: <IMind s={16}/>,   tone: 'violet' },
-    { id: 'family', label: 'Family support',icon: <IFamily s={16}/>,    tone: 'lime' },
-    { id: 'advice', label: 'Advice',        icon: <IAdvice s={16}/>,    tone: 'sky' },
-    { id: 'money',  label: 'Finance help',  icon: <IFinance s={16}/>,   tone: 'lime' },
-    { id: 'travel', label: 'Transport',     icon: <ITransport s={16}/>, tone: 'coral' },
-    { id: 'safe',   label: 'Safe spaces',   icon: <IShield s={16}/>,    tone: 'gold' },
-  ];
+  React.useEffect(() => {
+    let cancelled = false;
 
-  const listings = [
-    { id: 1, cat: 'groups', title: 'Parkinson\u2019s UK support group', venue: 'Holy Trinity Church Hall', area: 'St Austell', when: 'Mon 10:00–12:00', distance: '0.4 mi', tags: ['Accessible', 'Free', 'Weekly'], tone: 'sky', icon: <IGroups s={22}/>, desc: 'Peer support and guest speakers. New members welcome.' },
-    { id: 2, cat: 'walks', title: 'Memory walk · Menacuddle', venue: 'Menacuddle Woods entrance', area: 'St Austell', when: 'Wed 13:00', distance: '1.1 mi', tags: ['Accessible', 'Outdoor', 'Dementia friendly'], tone: 'lime', icon: <IWalks s={22}/>, desc: 'Gentle 1.2 mile loop with benches. Carer-led.' },
-    { id: 3, cat: 'groups', title: 'Stroke survivors coffee', venue: 'Community Hub Charlestown', area: 'Charlestown', when: 'Thu 11:00', distance: '1.8 mi', tags: ['Free', 'Refreshments'], tone: 'sky', icon: <ICoffee s={22}/>, desc: 'Relaxed social. 5 spaces left today.' },
-    { id: 4, cat: 'hubs', title: 'NHS Community Wellbeing Hub', venue: 'Penrice Hospital Annex', area: 'St Austell', when: 'Daily 09:00–16:00', distance: '0.9 mi', tags: ['NHS-linked', 'Drop-in'], tone: 'sky', icon: <IHub s={22}/>, desc: 'Nurse-led drop-in for carers and clients.' },
-    { id: 5, cat: 'events', title: 'Arts for wellbeing afternoon', venue: 'St Austell Arts Centre', area: 'St Austell', when: 'Fri 14:00', distance: '0.6 mi', tags: ['Creative', 'Free', '5 spaces'], tone: 'violet', icon: <IEvent s={22}/>, desc: 'Watercolour, ceramics, tea. Materials provided.' },
-    { id: 6, cat: 'libs', title: 'Books on prescription', venue: 'St Austell Library', area: 'St Austell', when: 'Mon–Sat', distance: '0.5 mi', tags: ['Advice', 'Free'], tone: 'gold', icon: <ILibrary s={22}/>, desc: 'Reading lists curated for carers and their clients.' },
-    { id: 7, cat: 'mind', title: 'Carer breathing space', venue: 'Mindline Cornwall', area: 'Online', when: 'Tue 19:00', distance: 'Online', tags: ['Online', 'Therapist-led'], tone: 'violet', icon: <IMind s={22}/>, desc: 'Small-group online wellbeing for carers only.' },
-    { id: 8, cat: 'money', title: 'Attendance Allowance advice', venue: 'Age UK Cornwall', area: 'Truro', when: 'By appointment', distance: '6.2 mi', tags: ['1-to-1', 'Free'], tone: 'lime', icon: <IFinance s={22}/>, desc: 'Free benefits check and application help.' },
-    { id: 9, cat: 'travel', title: 'Accessible taxi voucher scheme', venue: 'Cornwall Council', area: 'County-wide', when: 'Apply anytime', distance: 'N/A', tags: ['Subsidised'], tone: 'coral', icon: <ITransport s={22}/>, desc: 'Reduced-fare taxis for clients with mobility needs.' },
-  ];
+    const loadResources = async () => {
+      if (!isSupabaseConfigured() || !supabase) {
+        if (!cancelled) {
+          setResources([]);
+          setError('We’re having trouble loading local support right now.');
+          setLoading(false);
+        }
+        return;
+      }
 
-  const filtered = activeCat === 'all' ? listings : listings.filter(l => l.cat === activeCat);
+      setLoading(true);
+      setError('');
+
+      const { data, error: fetchError } = await supabase
+        .from('resources')
+        .select('*')
+        .eq('active', true)
+        .order('name', { ascending: true });
+
+      if (cancelled) return;
+
+      if (fetchError) {
+        setResources([]);
+        setError('We’re having trouble loading local support right now.');
+        setLoading(false);
+        return;
+      }
+
+      setResources((data ?? []).map(normalizeResource));
+      setLoading(false);
+    };
+
+    loadResources();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const categories = React.useMemo(() => {
+    const categoryMap = new Map();
+    categoryMap.set('all', { id: 'all', label: 'All', tone: 'navy', icon: <ISparkle s={16} /> });
+
+    resources.forEach((resource) => {
+      if (!categoryMap.has(resource.cat)) {
+        const meta = getCategoryMeta(resource.categoryLabel);
+        categoryMap.set(resource.cat, {
+          id: resource.cat,
+          label: resource.categoryLabel,
+          tone: meta.tone,
+          icon: meta.icon,
+        });
+      }
+    });
+
+    return Array.from(categoryMap.values());
+  }, [resources]);
+
+  const areaOptions = React.useMemo(
+    () => Array.from(new Set(resources.map((resource) => resource.locationKey).filter(Boolean))).sort(),
+    [resources],
+  );
+
+  const filtered = React.useMemo(() => {
+    const searchNeedle = keyword.trim().toLowerCase();
+
+    return resources.filter((resource) => {
+      if (activeCat !== 'all' && resource.cat !== activeCat) return false;
+      if (areaFilter !== 'all' && resource.locationKey !== areaFilter) return false;
+      if (searchNeedle && !resource.searchText.includes(searchNeedle)) return false;
+      return true;
+    });
+  }, [resources, activeCat, areaFilter, keyword]);
 
   const toggleSave = (id) => {
-    setSavedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+    setSavedIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
+  };
+
+  const clearFilters = () => {
+    setKeyword('');
+    setAreaFilter('all');
+    setActiveCat('all');
   };
 
   return (
     <>
       <Nav activePage="find-help" onNavigate={onNavigate} />
 
-      {/* Page hero */}
-      <section style={{
-        paddingTop: 40, paddingBottom: 36,
-        background: 'linear-gradient(180deg, #E7F3FB 0%, #FAFBFF 100%)',
-      }}>
+      <section
+        style={{
+          paddingTop: 40,
+          paddingBottom: 36,
+          background: 'linear-gradient(180deg, #E7F3FB 0%, #FAFBFF 100%)',
+        }}
+      >
         <div className="container">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'rgba(26,39,68,0.5)', fontSize: 13, marginBottom: 16 }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              color: 'rgba(26,39,68,0.5)',
+              fontSize: 13,
+              marginBottom: 16,
+            }}
+          >
             <button onClick={() => onNavigate('home')} style={{ color: 'inherit' }}>Home</button>
             <IChevron s={12} />
             <span style={{ color: '#1A2744', fontWeight: 600 }}>Find help near you</span>
@@ -69,73 +273,140 @@ const FindHelpPage = ({ onNavigate }) => {
                 Find help near you.
               </h1>
               <p style={{ marginTop: 14, fontSize: 17, color: 'rgba(26,39,68,0.7)', maxWidth: 520 }}>
-                Real groups, services, walks and support — filtered for what your client actually needs, right now.
+                Real groups, services, walks and support, now loading live from your support database.
               </p>
             </div>
 
-            {/* Search box */}
-            <div style={{
-              background: 'white', borderRadius: 20, padding: 18,
-              border: '1px solid #EFF1F7', boxShadow: 'var(--shadow-md)',
-            }}>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <div style={{
-                  flex: 1, display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '10px 12px', borderRadius: 12,
-                  background: '#FAFBFF', border: '1px solid #EFF1F7',
-                }}>
-                  <IPin s={18} />
-                  <input defaultValue="PL25 5QP" style={{
-                    border: 'none', outline: 'none', background: 'transparent',
-                    flex: 1, fontSize: 14, fontWeight: 600, color: '#1A2744',
-                    fontFamily: 'Inter, sans-serif',
-                  }} />
+            <div
+              style={{
+                background: 'white',
+                borderRadius: 20,
+                padding: 18,
+                border: '1px solid #EFF1F7',
+                boxShadow: 'var(--shadow-md)',
+              }}
+            >
+              <div style={{ display: 'grid', gap: 8 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '10px 12px',
+                    borderRadius: 12,
+                    background: '#FAFBFF',
+                    border: '1px solid #EFF1F7',
+                  }}
+                >
+                  <ISearch s={18} />
+                  <input
+                    value={keyword}
+                    onChange={(event) => setKeyword(event.target.value)}
+                    placeholder="Search support, services or keywords"
+                    style={{
+                      border: 'none',
+                      outline: 'none',
+                      background: 'transparent',
+                      flex: 1,
+                      fontSize: 14,
+                      fontWeight: 600,
+                      color: '#1A2744',
+                      fontFamily: 'Inter, sans-serif',
+                    }}
+                  />
                 </div>
-                <button className="btn btn-sky btn-sm">
-                  <ISearch s={14} /> Search
-                </button>
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <div
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '10px 12px',
+                      borderRadius: 12,
+                      background: '#FAFBFF',
+                      border: '1px solid #EFF1F7',
+                    }}
+                  >
+                    <IPin s={18} />
+                    <select
+                      value={areaFilter}
+                      onChange={(event) => setAreaFilter(event.target.value)}
+                      style={{
+                        border: 'none',
+                        outline: 'none',
+                        background: 'transparent',
+                        flex: 1,
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: '#1A2744',
+                        fontFamily: 'Inter, sans-serif',
+                      }}
+                    >
+                      <option value="all">All towns and areas</option>
+                      {areaOptions.map((area) => (
+                        <option key={area} value={area}>{area}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <button className="btn btn-sky btn-sm" onClick={clearFilters}>
+                    <IClose s={14} /> Clear
+                  </button>
+                </div>
               </div>
+
               <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
-                {['Within 2 mi', 'Today', 'Accessible', 'Free'].map(t => (
-                  <span key={t} className="chip" style={{ padding: '5px 10px', fontSize: 11 }}>
-                    {t} <IClose s={12} />
+                {activeCat !== 'all' && (
+                  <span className="chip" style={{ padding: '5px 10px', fontSize: 11 }}>
+                    {categories.find((category) => category.id === activeCat)?.label || 'Category'}
                   </span>
-                ))}
-                <button style={{ fontSize: 12, color: '#2D9CDB', fontWeight: 600, padding: '5px 6px' }}>
-                  + Add filter
-                </button>
+                )}
+                {areaFilter !== 'all' && (
+                  <span className="chip" style={{ padding: '5px 10px', fontSize: 11 }}>{areaFilter}</span>
+                )}
+                {keyword.trim() && (
+                  <span className="chip" style={{ padding: '5px 10px', fontSize: 11 }}>“{keyword.trim()}”</span>
+                )}
+                {!keyword.trim() && areaFilter === 'all' && activeCat === 'all' && (
+                  <span style={{ fontSize: 12, color: 'rgba(26,39,68,0.6)', fontWeight: 600 }}>
+                    Live listings sorted alphabetically.
+                  </span>
+                )}
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Category chip rail */}
       <section style={{ paddingTop: 24, paddingBottom: 0, background: '#FAFBFF' }}>
         <div className="container">
-          <div className="no-scrollbar" style={{
-            display: 'flex', gap: 8, overflowX: 'auto',
-            paddingBottom: 8,
-          }}>
-            {categories.map(c => {
-              const active = activeCat === c.id;
-              const tone = toneMapColor(c.tone);
+          <div className="no-scrollbar" style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 8 }}>
+            {categories.map((category) => {
+              const active = activeCat === category.id;
+              const tone = toneMapColor(category.tone);
+
               return (
                 <button
-                  key={c.id}
-                  onClick={() => setActiveCat(c.id)}
+                  key={category.id}
+                  onClick={() => setActiveCat(category.id)}
                   style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 8,
-                    padding: '10px 14px', borderRadius: 999,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '10px 14px',
+                    borderRadius: 999,
                     background: active ? tone.fg : 'white',
-                    color: active ? (c.tone === 'gold' || c.tone === 'lime' ? '#1A2744' : 'white') : '#1A2744',
-                    border: '1px solid ' + (active ? tone.fg : '#EFF1F7'),
-                    fontSize: 13.5, fontWeight: 600, whiteSpace: 'nowrap',
+                    color: active ? (category.tone === 'gold' || category.tone === 'lime' ? '#1A2744' : 'white') : '#1A2744',
+                    border: `1px solid ${active ? tone.fg : '#EFF1F7'}`,
+                    fontSize: 13.5,
+                    fontWeight: 600,
+                    whiteSpace: 'nowrap',
                     transition: 'all .15s',
-                    boxShadow: active ? '0 4px 12px ' + tone.fg + '55' : 'none',
+                    boxShadow: active ? `0 4px 12px ${tone.fg}55` : 'none',
                   }}
                 >
-                  {c.icon} {c.label}
+                  {category.icon} {category.label}
                 </button>
               );
             })}
@@ -143,30 +414,48 @@ const FindHelpPage = ({ onNavigate }) => {
         </div>
       </section>
 
-      {/* Main results */}
       <section style={{ paddingTop: 32, paddingBottom: 80, background: '#FAFBFF' }}>
         <div className="container">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <div style={{ fontSize: 14, color: 'rgba(26,39,68,0.7)' }}>
-              <strong style={{ color: '#1A2744' }}>{filtered.length} results</strong> near PL25 5QP · sorted by distance
+              <strong style={{ color: '#1A2744' }}>{filtered.length} results</strong> from live support listings
             </div>
             <div style={{ display: 'flex', gap: 6, padding: 4, background: 'white', borderRadius: 999, border: '1px solid #EFF1F7' }}>
-              {['list', 'map'].map(v => (
-                <button key={v} onClick={() => setView(v)} style={{
-                  padding: '7px 16px', borderRadius: 999,
-                  fontSize: 13, fontWeight: 600,
-                  background: view === v ? '#1A2744' : 'transparent',
-                  color: view === v ? 'white' : '#1A2744',
-                  textTransform: 'capitalize',
-                }}>{v}</button>
+              {['list', 'map'].map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setView(mode)}
+                  style={{
+                    padding: '7px 16px',
+                    borderRadius: 999,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    background: view === mode ? '#1A2744' : 'transparent',
+                    color: view === mode ? 'white' : '#1A2744',
+                    textTransform: 'capitalize',
+                  }}
+                >
+                  {mode}
+                </button>
               ))}
             </div>
           </div>
 
-          {view === 'list' ? (
+          {loading ? (
+            <LoadingGrid />
+          ) : error ? (
+            <StateCard title="We’re having trouble loading local support right now." />
+          ) : !filtered.length ? (
+            <StateCard title="No support listings found yet." />
+          ) : view === 'list' ? (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              {filtered.map(l => (
-                <ListingCard key={l.id} l={l} saved={savedIds.has(l.id)} onToggleSave={() => toggleSave(l.id)} />
+              {filtered.map((listing) => (
+                <ListingCard
+                  key={listing.id}
+                  listing={listing}
+                  saved={savedIds.has(listing.id)}
+                  onToggleSave={() => toggleSave(listing.id)}
+                />
               ))}
             </div>
           ) : (
@@ -189,13 +478,34 @@ const toneMapColor = (tone) => ({
   violet:{ fg: '#7B5CF5' },
 }[tone] || { fg: '#1A2744' });
 
-const ListingCard = ({ l, saved, onToggleSave }) => (
+const shareListing = async (listing) => {
+  const shareText = listing.shareText || listing.title;
+
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: listing.title, text: shareText, url: listing.website || undefined });
+      return;
+    } catch {
+      // Fall back to clipboard below.
+    }
+  }
+
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(shareText);
+    window.alert('Listing copied so you can share it with a client.');
+    return;
+  }
+
+  window.prompt('Copy this listing for your client:', shareText);
+};
+
+const ListingCard = ({ listing, saved, onToggleSave }) => (
   <div className="card" style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 14 }}>
     <div style={{ display: 'flex', gap: 14, alignItems: 'start' }}>
-      <IconTile tone={l.tone} size={52} radius={14}>{l.icon}</IconTile>
+      <IconTile tone={listing.tone} size={52} radius={14}>{listing.icon}</IconTile>
       <div style={{ flex: 1 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-          <div className="eyebrow" style={{ color: toneMapColor(l.tone).fg }}>{l.cat}</div>
+          <div className="eyebrow" style={{ color: toneMapColor(listing.tone).fg }}>{listing.categoryLabel}</div>
           <button onClick={onToggleSave} style={{
             width: 34, height: 34, borderRadius: 999,
             background: saved ? 'rgba(244,97,58,0.15)' : 'rgba(26,39,68,0.06)',
@@ -206,28 +516,38 @@ const ListingCard = ({ l, saved, onToggleSave }) => (
           </button>
         </div>
         <div style={{ fontFamily: 'Sora, sans-serif', fontWeight: 600, fontSize: 18, marginTop: 4, letterSpacing: '-0.01em' }}>
-          {l.title}
+          {listing.title}
         </div>
         <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.65)', marginTop: 4 }}>
-          {l.venue} · {l.area}
+          {listing.venue} · {listing.area}
         </div>
       </div>
     </div>
     <p style={{ fontSize: 14, color: 'rgba(26,39,68,0.72)', lineHeight: 1.5 }}>
-      {l.desc}
+      {listing.desc}
     </p>
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-      {l.tags.map(t => <span key={t} className="chip" style={{ padding: '4px 10px', fontSize: 11 }}>{t}</span>)}
+      {listing.tags.map((tag) => <span key={tag} className="chip" style={{ padding: '4px 10px', fontSize: 11 }}>{tag}</span>)}
+      {listing.website && (
+        <a href={listing.website} target="_blank" rel="noreferrer" className="chip" style={{ padding: '4px 10px', fontSize: 11 }}>
+          Website
+        </a>
+      )}
+      {listing.phone && (
+        <a href={`tel:${listing.phone}`} className="chip" style={{ padding: '4px 10px', fontSize: 11 }}>
+          {listing.phone}
+        </a>
+      )}
     </div>
     <div style={{
       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
       paddingTop: 12, borderTop: '1px solid #EFF1F7',
     }}>
       <div style={{ fontSize: 13 }}>
-        <span style={{ fontWeight: 600 }}>{l.when}</span>
-        <span style={{ color: 'rgba(26,39,68,0.5)' }}> · {l.distance}</span>
+        <span style={{ fontWeight: 600 }}>{listing.when}</span>
+        <span style={{ color: 'rgba(26,39,68,0.5)' }}> · {listing.distance}</span>
       </div>
-      <button className="btn btn-ghost btn-sm">
+      <button className="btn btn-ghost btn-sm" onClick={() => shareListing(listing)}>
         Share with client <IArrow s={14} />
       </button>
     </div>
@@ -237,17 +557,17 @@ const ListingCard = ({ l, saved, onToggleSave }) => (
 const MapView = ({ listings, savedIds, onToggleSave }) => (
   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: 16, minHeight: 640 }}>
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 640, overflowY: 'auto', paddingRight: 6 }}>
-      {listings.map(l => (
-        <div key={l.id} className="card" style={{ padding: 14, display: 'flex', gap: 12 }}>
-          <IconTile tone={l.tone} size={42} radius={10}>{l.icon}</IconTile>
+      {listings.map((listing) => (
+        <div key={listing.id} className="card" style={{ padding: 14, display: 'flex', gap: 12 }}>
+          <IconTile tone={listing.tone} size={42} radius={10}>{listing.icon}</IconTile>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 600, fontSize: 14.5 }}>{l.title}</div>
-            <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.6)', marginTop: 2 }}>{l.when} · {l.distance}</div>
+            <div style={{ fontWeight: 600, fontSize: 14.5 }}>{listing.title}</div>
+            <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.6)', marginTop: 2 }}>{listing.when} · {listing.distance}</div>
           </div>
-          <button onClick={() => onToggleSave(l.id)} style={{
+          <button onClick={() => onToggleSave(listing.id)} style={{
             width: 32, height: 32, borderRadius: 999,
-            background: savedIds.has(l.id) ? 'rgba(244,97,58,0.15)' : 'rgba(26,39,68,0.06)',
-            color: savedIds.has(l.id) ? '#F4613A' : '#1A2744',
+            background: savedIds.has(listing.id) ? 'rgba(244,97,58,0.15)' : 'rgba(26,39,68,0.06)',
+            color: savedIds.has(listing.id) ? '#F4613A' : '#1A2744',
             display: 'grid', placeItems: 'center', flexShrink: 0,
           }}>
             <IHeart s={14} />
@@ -284,7 +604,7 @@ const MapView = ({ listings, savedIds, onToggleSave }) => (
       </svg>
 
       {/* Pins */}
-      {listings.slice(0,7).map((l, i) => {
+      {listings.slice(0, 7).map((listing, index) => {
         const positions = [
           { x: '28%', y: '40%' },
           { x: '52%', y: '30%' },
@@ -294,22 +614,22 @@ const MapView = ({ listings, savedIds, onToggleSave }) => (
           { x: '20%', y: '70%' },
           { x: '58%', y: '78%' },
         ];
-        const p = positions[i % positions.length];
-        const color = toneMapColor(l.tone).fg;
+        const p = positions[index % positions.length];
+        const color = toneMapColor(listing.tone).fg;
         return (
-          <div key={l.id} style={{
+          <div key={listing.id} style={{
             position: 'absolute', left: p.x, top: p.y,
             transform: 'translate(-50%, -100%)',
           }}>
             <div style={{
-              background: color, color: l.tone === 'gold' || l.tone === 'lime' ? '#1A2744' : 'white',
+              background: color, color: listing.tone === 'gold' || listing.tone === 'lime' ? '#1A2744' : 'white',
               width: 38, height: 38, borderRadius: '50% 50% 50% 0',
               transform: 'rotate(-45deg)',
               display: 'grid', placeItems: 'center',
               boxShadow: '0 6px 14px rgba(26,39,68,0.25)',
               border: '3px solid white',
             }}>
-              <div style={{ transform: 'rotate(45deg)' }}>{React.cloneElement(l.icon, { s: 16 })}</div>
+              <div style={{ transform: 'rotate(45deg)' }}>{React.cloneElement(listing.icon, { s: 16 })}</div>
             </div>
           </div>
         );
@@ -337,6 +657,36 @@ const MapView = ({ listings, savedIds, onToggleSave }) => (
         St Austell · 2 mile radius
       </div>
     </div>
+  </div>
+);
+
+const LoadingGrid = () => (
+  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+    {Array.from({ length: 4 }).map((_, index) => (
+      <div key={index} className="card" style={{ padding: 22, minHeight: 220, background: 'linear-gradient(180deg, rgba(255,255,255,0.96), rgba(247,249,255,0.96))' }}>
+        <div style={{ width: 120, height: 12, borderRadius: 999, background: '#EEF2FA' }} />
+        <div style={{ width: '72%', height: 18, borderRadius: 999, background: '#E4EAF5', marginTop: 18 }} />
+        <div style={{ width: '55%', height: 12, borderRadius: 999, background: '#EEF2FA', marginTop: 10 }} />
+        <div style={{ width: '100%', height: 12, borderRadius: 999, background: '#F2F5FB', marginTop: 30 }} />
+        <div style={{ width: '88%', height: 12, borderRadius: 999, background: '#F2F5FB', marginTop: 10 }} />
+        <div style={{ display: 'flex', gap: 8, marginTop: 24 }}>
+          <div style={{ width: 72, height: 28, borderRadius: 999, background: '#EEF2FA' }} />
+          <div style={{ width: 88, height: 28, borderRadius: 999, background: '#EEF2FA' }} />
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+const StateCard = ({ title }) => (
+  <div className="card" style={{ padding: 30, textAlign: 'center', background: 'linear-gradient(180deg, rgba(255,255,255,0.98), rgba(244,248,255,0.98))' }}>
+    <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 56, height: 56, borderRadius: 18, background: 'rgba(45,156,219,0.12)', color: '#2D9CDB' }}>
+      <ISparkle s={24} />
+    </div>
+    <div style={{ marginTop: 16, fontFamily: 'Sora, sans-serif', fontSize: 22, fontWeight: 600, color: '#1A2744' }}>{title}</div>
+    <p style={{ marginTop: 10, color: 'rgba(26,39,68,0.65)', fontSize: 14 }}>
+      Try another category or area filter, or check back once more listings are published.
+    </p>
   </div>
 );
 
