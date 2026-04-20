@@ -5,12 +5,105 @@ import Footer from '../Footer.jsx';
 import walks from '../../data/walks.json';
 const { IWalks, IArrow, IChevron, IStar, IClose, IconTile } = Icons;
 
-// Compute true dataset bounds once — used for slider init and reset
-const DATASET_MAX_DISTANCE = Math.ceil(Math.max(...walks.map(w => w.distanceMiles)));
-const DATASET_MAX_DURATION = Math.ceil(Math.max(...walks.map(w => w.durationMinutes).filter(d => d > 0)));
+const parseDistanceMiles = (value) => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value !== 'string') return 0;
+
+  const normalized = value.trim().toLowerCase();
+  const milesMatch = normalized.match(/(\d+(?:\.\d+)?)\s*(?:mi|mile|miles)\b/);
+  if (milesMatch) return Number(milesMatch[1]);
+
+  const numeric = normalized.match(/\d+(?:\.\d+)?/);
+  return numeric ? Number(numeric[0]) : 0;
+};
+
+const parseDurationMinutes = (value) => {
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.max(0, Math.round(value));
+  if (typeof value !== 'string') return 0;
+
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return 0;
+
+  let totalMinutes = 0;
+  const hourMatch = normalized.match(/(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)\b/);
+  const minMatch = normalized.match(/(\d+(?:\.\d+)?)\s*(?:m|min|mins|minute|minutes)\b/);
+  const compactMatch = normalized.match(/^(\d+(?:\.\d+)?)h(\d+(?:\.\d+)?)m$/);
+
+  if (compactMatch) {
+    return Math.round(Number(compactMatch[1]) * 60 + Number(compactMatch[2]));
+  }
+
+  if (hourMatch) totalMinutes += Number(hourMatch[1]) * 60;
+  if (minMatch) totalMinutes += Number(minMatch[1]);
+
+  if (totalMinutes > 0) return Math.round(totalMinutes);
+
+  const numericOnly = normalized.match(/^(\d+(?:\.\d+)?)$/);
+  return numericOnly ? Math.round(Number(numericOnly[1])) : 0;
+};
+
+const normalizedWalks = walks.map((walk) => ({
+  ...walk,
+  distanceMiles: parseDistanceMiles(walk.distanceMiles),
+  durationMinutes: parseDurationMinutes(walk.durationMinutes),
+}));
+
+const hasText = (value) => typeof value === 'string' && value.trim().length > 0;
+const hasAccessibleTerrain = (walk) => {
+  const accessibilityText = hasText(walk.accessibility) ? walk.accessibility.toLowerCase() : '';
+  return /accessible|level|easy|wheelchair|partially accessible/.test(accessibilityText);
+};
+
+const isValidWalkRecord = (walk) => {
+  if (!hasText(walk.name) || !hasText(walk.area)) return false;
+  if (!Number.isFinite(walk.distanceMiles) || walk.distanceMiles < 0) return false;
+  if (!Number.isFinite(walk.durationMinutes) || walk.durationMinutes < 0) return false;
+  return true;
+};
+
+const validWalks = normalizedWalks.filter(isValidWalkRecord);
+
+const DATASET_TOTAL_ROUTES = validWalks.length;
+const DATASET_ACCESSIBLE_ROUTES = validWalks.filter((walk) => hasText(walk.accessibility) || hasAccessibleTerrain(walk)).length;
+const DATASET_PUBLIC_TRANSPORT_ROUTES = validWalks.filter((walk) => walk.publicTransport === true).length;
+
+// Compute true dataset bounds once from the complete normalized dataset.
+const DATASET_MAX_DISTANCE = Number(Math.max(...validWalks.map((w) => w.distanceMiles), 0).toFixed(1));
+const DATASET_MAX_DURATION = Math.ceil(Math.max(...validWalks.map((w) => w.durationMinutes), 0));
 
 const formatDistance = (miles) => `${miles.toFixed(1)} mi`;
 const formatDuration = (minutes) => minutes < 60 ? `${minutes} mins` : `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+
+const buildWalkEmailHref = (walk) => {
+  const walkName = hasText(walk.name) ? walk.name.trim() : 'Unnamed walk';
+  const area = hasText(walk.area) ? walk.area.trim() : 'Not provided';
+  const distance = Number.isFinite(walk.distanceMiles) && walk.distanceMiles > 0 ? formatDistance(walk.distanceMiles) : 'Not provided';
+  const duration = Number.isFinite(walk.durationMinutes) && walk.durationMinutes > 0 ? formatDuration(walk.durationMinutes) : 'Not provided';
+  const difficulty = hasText(walk.difficulty) ? walk.difficulty.trim() : 'Not provided';
+  const highlights = hasText(walk.highlights) ? walk.highlights.trim() : 'Not provided';
+  const mapsLink = hasText(walk.googleMapsLink) ? walk.googleMapsLink.trim() : 'Map link not available';
+
+  const subject = `Cornwall Walk Recommendation: ${walkName}`;
+  const body = [
+    'I thought this walk may be useful.',
+    '',
+    `Walk: ${walkName}`,
+    `Area: ${area}`,
+    `Distance: ${distance}`,
+    `Duration: ${duration}`,
+    `Difficulty: ${difficulty}`,
+    '',
+    'Highlights:',
+    highlights,
+    '',
+    'Google Maps:',
+    mapsLink,
+    '',
+    'Shared via Inspiring Carers Walk Finder',
+  ].join('\n');
+
+  return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+};
 
 const WalksPage = ({ onNavigate }) => {
   const [query, setQuery] = React.useState('');
@@ -24,7 +117,7 @@ const WalksPage = ({ onNavigate }) => {
 
   const difficultyOptions = ['Any', 'Easy', 'Moderate', 'Hard'];
 
-  const filteredWalks = React.useMemo(() => walks.filter((walk) => {
+  const filteredWalks = React.useMemo(() => validWalks.filter((walk) => {
     const searchText = `${walk.name} ${walk.area} ${walk.startLocation} ${walk.finishLocation}`.toLowerCase();
     if (query.trim() && !searchText.includes(query.trim().toLowerCase())) return false;
     if (area.trim() && !searchText.includes(area.trim().toLowerCase())) return false;
@@ -80,9 +173,9 @@ const WalksPage = ({ onNavigate }) => {
               </div>
 
               <div style={{ marginTop: 34, display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-                <Stat label="Curated Cornwall routes" value="15" />
-                <Stat label="Accessible options" value="7" />
-                <Stat label="Public transport friendly" value="10" />
+                <Stat label="Curated Cornwall routes" value={DATASET_TOTAL_ROUTES} />
+                <Stat label="Accessible options" value={DATASET_ACCESSIBLE_ROUTES} />
+                <Stat label="Public transport friendly" value={DATASET_PUBLIC_TRANSPORT_ROUTES} />
               </div>
             </div>
             <div style={{ minWidth: 0 }}>
@@ -126,8 +219,8 @@ const WalksPage = ({ onNavigate }) => {
                 <FilterField label="Area or town" value={area} onChange={setArea} placeholder="Cornwall area" />
                 <FilterSelect label="Difficulty" value={difficulty} options={difficultyOptions} onChange={setDifficulty} />
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 18 }}>
-                  <NumberInput label="Max distance" value={maxDistance} onChange={setMaxDistance} suffix="mi" min={1} max={DATASET_MAX_DISTANCE} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 14, marginTop: 18 }}>
+                  <NumberInput label="Max distance" value={maxDistance} onChange={setMaxDistance} suffix="mi" min={1} max={DATASET_MAX_DISTANCE} step={0.1} />
                   <NumberInput label="Max duration" value={maxDuration} onChange={setMaxDuration} suffix="mins" min={30} max={DATASET_MAX_DURATION} step={15} />
                 </div>
 
@@ -312,6 +405,9 @@ const WalkDetailModal = ({ walk, onClose }) => (
         <a href={walk.googleMapsLink} target="_blank" rel="noreferrer" className="btn btn-gold btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
           Open in Google Maps
           <IArrow s={18} />
+        </a>
+        <a href={buildWalkEmailHref(walk)} className="btn btn-sky btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+          Email Walk Details
         </a>
         <button onClick={onClose} className="btn btn-ghost btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
           Back to results
