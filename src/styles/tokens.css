@@ -221,6 +221,34 @@ a { color: inherit; text-decoration: none; }
   margin-top: 56px;
 }
 
+.walk-filter-panel {
+  display: block;
+}
+
+.walk-filter-panel-open {
+  display: block;
+}
+
+@media (max-width: 980px) {
+  .walk-filter-panel {
+    display: none;
+  }
+  .walk-filter-panel-open {
+    display: block;
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: 0;
+    top: unset;
+    max-height: 75vh;
+    overflow-y: auto;
+    background: white;
+    border-radius: 28px 28px 0 0;
+    box-shadow: 0 -24px 70px rgba(26,39,68,0.15);
+    z-index: 120;
+  }
+}
+
 .hero-proof-item {
   display: flex;
   flex-direction: column;

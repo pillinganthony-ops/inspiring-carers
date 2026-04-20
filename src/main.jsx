@@ -14,6 +14,7 @@ import Signposting from './components/home/Signposting.jsx';
 import Businesses from './components/home/Businesses.jsx';
 import FindHelpPage from './components/pages/FindHelp.jsx';
 import BenefitsPage from './components/pages/Benefits.jsx';
+import WalksPage from './components/pages/Walks.jsx';
 
 // Make icons global for JSX
 window.IDot = Icons.IDot;
@@ -180,15 +181,38 @@ const HomePage = ({ onNavigate, tweaks }) => (
 
 // App component
 const App = () => {
-  const [page, setPage] = React.useState(() => localStorage.getItem('ic_page_v1') || 'home');
+  const parseRoute = (path) => {
+    const normalized = path.replace(/\/\/+$/, '').toLowerCase();
+    if (normalized === '/find-help') return 'find-help';
+    if (normalized === '/benefits') return 'benefits';
+    if (normalized === '/walks') return 'walks';
+    if (normalized === '/recognition') return 'recognition';
+    if (normalized === '/business') return 'business';
+    if (normalized === '/about') return 'about';
+    if (normalized === '/card') return 'card';
+    return 'home';
+  };
+
+  const [page, setPage] = React.useState(() => {
+    const route = parseRoute(window.location.pathname);
+    return route !== 'home' ? route : localStorage.getItem('ic_page_v1') || 'home';
+  });
   const [tweaks, setTweaks] = React.useState(() => {
     try { return { ...{ hero_headline: "Support for you. Real help for those in your care.", greeting_name: "Sarah", location: "St Austell", accent_emphasis: "balanced" }, ...(JSON.parse(localStorage.getItem('ic_tweaks_v1') || '{}')) }; }
     catch { return { hero_headline: "Support for you. Real help for those in your care.", greeting_name: "Sarah", location: "St Austell", accent_emphasis: "balanced" }; }
   });
 
+  React.useEffect(() => {
+    const onPop = () => setPage(parseRoute(window.location.pathname));
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
   const navigate = (key) => {
     setPage(key);
     localStorage.setItem('ic_page_v1', key);
+    const path = key === 'home' ? '/' : `/${key}`;
+    window.history.pushState({ page: key }, '', path);
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
@@ -196,6 +220,7 @@ const App = () => {
   switch (page) {
     case 'find-help': content = <FindHelpPage onNavigate={navigate} />; break;
     case 'benefits': content = <BenefitsPage onNavigate={navigate} />; break;
+    case 'walks': content = <WalksPage onNavigate={navigate} />; break;
     case 'recognition': content = <Placeholder title="Recognition & awards" onNavigate={navigate} note="Carer of the Month, stories, nominations and community recognition — coming in the next round. Preview lives in the homepage Recognition section." />; break;
     case 'business': content = <Placeholder title="For businesses" onNavigate={navigate} note="Submit offers, see the why-carers-matter statement, badge tiers and featured partner placements — next round." />; break;
     case 'about': content = <Placeholder title="About inspiring carers" onNavigate={navigate} note="Mission, the two-tier model, and the local-first national vision — next round." />; break;

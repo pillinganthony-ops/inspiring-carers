@@ -58,6 +58,7 @@ const Nav = ({ activePage = 'home', onNavigate = () => {} }) => {
 
         <nav style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <NavItem label="For you" accent="#F5A623" active={activePage === 'benefits'} onClick={() => onNavigate('benefits')} hasCaret />
+          <NavItem label="Walks" accent="#5BC94A" active={activePage === 'walks'} onClick={() => onNavigate('walks')} />
           <NavItem label="For the people you support" accent="#2D9CDB" active={activePage === 'find-help'} onClick={() => onNavigate('find-help')} hasCaret />
           <NavItem label="Recognition" onClick={() => onNavigate('recognition')} />
           <NavItem label="For businesses" onClick={() => onNavigate('business')} />
