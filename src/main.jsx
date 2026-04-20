@@ -16,6 +16,8 @@ import FindHelpPage from './components/pages/FindHelp.jsx';
 import BenefitsPage from './components/pages/Benefits.jsx';
 import WalksPage from './components/pages/Walks.jsx';
 import AdminPage from './components/pages/Admin.jsx';
+import LoginPage from './components/pages/Login.jsx';
+import { supabase, isSupabaseConfigured } from './lib/supabaseClient.js';
 
 // Make icons global for JSX
 window.IDot = Icons.IDot;
@@ -184,6 +186,7 @@ const HomePage = ({ onNavigate, tweaks }) => (
 const App = () => {
   const parseRoute = (path) => {
     const normalized = path.replace(/\/\/+$/, '').toLowerCase();
+    if (normalized === '/login') return 'login';
     if (normalized === '/find-help') return 'find-help';
     if (normalized === '/benefits') return 'benefits';
     if (normalized === '/walks') return 'walks';
@@ -199,10 +202,42 @@ const App = () => {
     const route = parseRoute(window.location.pathname);
     return route !== 'home' ? route : localStorage.getItem('ic_page_v1') || 'home';
   });
+  const [session, setSession] = React.useState(null);
+  const [sessionLoading, setSessionLoading] = React.useState(true);
   const [tweaks, setTweaks] = React.useState(() => {
     try { return { ...{ hero_headline: "Support for you. Real help for those in your care.", greeting_name: "Sarah", location: "St Austell", accent_emphasis: "balanced" }, ...(JSON.parse(localStorage.getItem('ic_tweaks_v1') || '{}')) }; }
     catch { return { hero_headline: "Support for you. Real help for those in your care.", greeting_name: "Sarah", location: "St Austell", accent_emphasis: "balanced" }; }
   });
+
+  // Check session and set up auth listener
+  React.useEffect(() => {
+    if (!isSupabaseConfigured() || !supabase) {
+      setSessionLoading(false);
+      return;
+    }
+
+    let mounted = true;
+
+    // Check current session
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (mounted) {
+        setSession(data.session ?? null);
+        setSessionLoading(false);
+      }
+    });
+
+    // Subscribe to auth state changes
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (mounted) {
+        setSession(nextSession ?? null);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
 
   React.useEffect(() => {
     const onPop = () => setPage(parseRoute(window.location.pathname));
@@ -211,6 +246,15 @@ const App = () => {
   }, []);
 
   const navigate = (key) => {
+    // If trying to access admin without session, redirect to login
+    if (key === 'admin' && !session) {
+      setPage('login');
+      localStorage.setItem('ic_page_v1', 'login');
+      window.history.pushState({ page: 'login' }, '', '/login');
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      return;
+    }
+
     setPage(key);
     localStorage.setItem('ic_page_v1', key);
     const path = key === 'home' ? '/' : `/${key}`;
@@ -218,8 +262,15 @@ const App = () => {
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
+  // If visiting /admin without session, show login instead
+  let displayPage = page;
+  if (page === 'admin' && !session) {
+    displayPage = 'login';
+  }
+
   let content;
-  switch (page) {
+  switch (displayPage) {
+    case 'login': content = <LoginPage onNavigate={navigate} />; break;
     case 'find-help': content = <FindHelpPage onNavigate={navigate} />; break;
     case 'benefits': content = <BenefitsPage onNavigate={navigate} />; break;
     case 'walks': content = <WalksPage onNavigate={navigate} />; break;

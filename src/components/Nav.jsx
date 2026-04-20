@@ -66,7 +66,7 @@ const Nav = ({ activePage = 'home', onNavigate = () => {} }) => {
         </nav>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button className="btn btn-ghost btn-sm">Sign in</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => onNavigate('login')}>Admin sign in</button>
           <button className="btn btn-gold btn-sm">
             Get your free card
             <IArrow s={16} />
