@@ -590,20 +590,20 @@ const WalkDetailModal = ({ walk, onClose }) => {
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(15,23,42,0.42)', display: 'grid', placeItems: 'center', padding: 24 }}>
-      <div style={{ width: '100%', maxWidth: 980, maxHeight: '90vh', overflowY: 'auto', borderRadius: 32, background: 'white', boxShadow: '0 34px 85px rgba(26,39,68,0.24)', padding: 30, position: 'relative' }}>
+      <div style={{ width: '100%', maxWidth: 1100, maxHeight: '90vh', overflowY: 'auto', borderRadius: 34, background: 'white', boxShadow: '0 34px 85px rgba(26,39,68,0.24)', padding: 'clamp(22px, 3vw, 38px)', position: 'relative' }}>
         <button onClick={onClose} style={{ position: 'absolute', right: 24, top: 24, width: 42, height: 42, borderRadius: 999, border: '1px solid #E9EEF5', background: 'white', display: 'grid', placeItems: 'center' }}>
           <IClose s={20} />
         </button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20, flexWrap: 'wrap' }}>
-          <IconTile tone="lime" size={62} radius={20}><IWalks s={28} /></IconTile>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
+          <IconTile tone="lime" size={64} radius={20}><IWalks s={28} /></IconTile>
           <div>
             <div className="eyebrow" style={{ color: '#5BC94A' }}>Walk details</div>
-            <h2 style={{ marginTop: 10, fontSize: 32, fontWeight: 800, letterSpacing: '-0.03em' }}>{walk.name}</h2>
-            <div style={{ fontSize: 14, color: 'rgba(26,39,68,0.72)' }}>{walk.area} · {walk.postcode}</div>
+            <h2 style={{ marginTop: 8, fontSize: 'clamp(30px, 4vw, 40px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.08, maxWidth: 740 }}>{walk.name}</h2>
+            <div style={{ marginTop: 8, fontSize: 14, color: 'rgba(26,39,68,0.72)', letterSpacing: '0.02em' }}>{walk.area} · {walk.postcode}</div>
           </div>
         </div>
 
-        <div style={{ borderRadius: 24, overflow: 'hidden', border: '1px solid #E9EEF5', marginBottom: 22, background: '#F8FBFF' }}>
+        <div style={{ borderRadius: 24, overflow: 'hidden', border: '1px solid #E9EEF5', marginBottom: 26, background: '#F8FBFF' }}>
           <div style={{ padding: '12px 16px', borderBottom: '1px solid #E9EEF5', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: '#1A2744' }}>Route map preview</div>
             <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.68)' }}>Live route context</div>
@@ -634,8 +634,8 @@ const WalkDetailModal = ({ walk, onClose }) => {
           )}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 24, marginBottom: 28 }}>
-          <div style={{ display: 'grid', gap: 18, color: 'rgba(26,39,68,0.82)', lineHeight: 1.75, fontSize: 15 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.25fr 0.75fr', gap: 22, marginBottom: 28 }}>
+          <div style={{ display: 'grid', gap: 10, color: 'rgba(26,39,68,0.82)', lineHeight: 1.75, fontSize: 15, border: '1px solid #E9EEF5', background: '#FCFDFF', borderRadius: 22, padding: 16 }}>
             <SectionItem label="Distance" value={formatDistance(walk.distanceMiles)} />
             <SectionItem label="Duration" value={formatDuration(walk.durationMinutes)} />
             <SectionItem label="Difficulty" value={walk.difficulty} />
@@ -643,8 +643,8 @@ const WalkDetailModal = ({ walk, onClose }) => {
             <SectionItem label="Elevation" value={`${walk.elevation} m`} />
             <SectionItem label="Circular route" value={walk.circular ? 'Yes' : 'No'} />
           </div>
-          <div style={{ background: 'rgba(245,250,255,1)', border: '1px solid #E9EEF5', borderRadius: 26, padding: 20, display: 'grid', gap: 14 }}>
-            <div style={{ fontSize: 14, fontWeight: 700 }}>Practical details</div>
+          <div style={{ background: 'rgba(245,250,255,1)', border: '1px solid #E9EEF5', borderRadius: 22, padding: 18, display: 'grid', gap: 12 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#1A2744' }}>Practical details</div>
             <DetailBadge label="Toilets" value={walk.toilets} />
             <DetailBadge label="Parking" value={walk.parking} />
             <DetailBadge label="Public transport" value={walk.publicTransport} />
@@ -653,7 +653,7 @@ const WalkDetailModal = ({ walk, onClose }) => {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gap: 18, marginBottom: 20 }}>
+        <div style={{ display: 'grid', gap: 14, marginBottom: 20 }}>
           <DetailSection title="Highlights" content={walk.highlights} />
           <DetailSection title="Safety notes" content={walk.safetyNotes} />
           <DetailSection title="Accessibility notes" content={walk.accessibility} />
@@ -668,19 +668,19 @@ const WalkDetailModal = ({ walk, onClose }) => {
           </div>
         </div>
 
-        <div style={{ marginTop: 12, border: '1px solid #E9EEF5', borderRadius: 24, background: 'linear-gradient(180deg, #FFFFFF 0%, #F8FBFF 100%)', padding: 16 }}>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ marginTop: 14, border: '1px solid #E9EEF5', borderRadius: 24, background: 'linear-gradient(180deg, #FFFFFF 0%, #F8FBFF 100%)', padding: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10, alignItems: 'center' }}>
             <a href={walk.googleMapsLink} target="_blank" rel="noreferrer" className="btn btn-gold btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
               Open in Google Maps
               <IArrow s={18} />
             </a>
-            <a href={buildWalkEmailHref(walk)} className="btn btn-sky btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+            <a href={buildWalkEmailHref(walk)} className="btn btn-sky btn-lg" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
               Email walk details
             </a>
-            <button onClick={() => setShowUpdateForm((open) => !open)} className="btn btn-ghost btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+            <button onClick={() => setShowUpdateForm((open) => !open)} className="btn btn-ghost btn-lg" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
               Submit an update
             </button>
-            <button onClick={onClose} className="btn btn-ghost btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+            <button onClick={onClose} className="btn btn-ghost btn-lg" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
               Back to results
             </button>
           </div>
@@ -691,7 +691,7 @@ const WalkDetailModal = ({ walk, onClose }) => {
 
         <div style={{ marginTop: 24, borderTop: '1px solid #EFF1F7', paddingTop: 20 }}>
           <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 12 }}>Share</div>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
             {showNativeShare ? (
               <button onClick={handleNativeShare} className="btn btn-sky btn-sm">Share via device</button>
             ) : null}
@@ -826,23 +826,23 @@ const WalkDetailModal = ({ walk, onClose }) => {
 };
 
 const SectionItem = ({ label, value }) => (
-  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-    <div style={{ color: 'rgba(26,39,68,0.65)' }}>{label}</div>
-    <div style={{ fontWeight: 700, color: '#1A2744' }}>{value}</div>
+  <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: 12, alignItems: 'start', padding: '8px 6px', borderBottom: '1px solid rgba(233,238,245,0.65)' }}>
+    <div style={{ color: 'rgba(26,39,68,0.62)', fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 700 }}>{label}</div>
+    <div style={{ fontWeight: 700, color: '#1A2744', textAlign: 'left', lineHeight: 1.45 }}>{value}</div>
   </div>
 );
 
 const DetailBadge = ({ label, value, secondary }) => (
-  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 18, background: secondary ? 'rgba(255,255,255,0.8)' : 'rgba(245,255,235,1)', border: '1px solid #E9EEF5' }}>
-    <div style={{ color: '#1A2744', fontWeight: 600 }}>{label}</div>
-    <div style={{ color: value ? '#1A2744' : 'rgba(26,39,68,0.6)', fontWeight: 700 }}>{value ? (value === true ? 'Yes' : value) : 'No'}</div>
+  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'start', padding: '10px 12px', borderRadius: 14, background: secondary ? 'rgba(255,255,255,0.8)' : 'rgba(245,255,235,1)', border: '1px solid #E9EEF5' }}>
+    <div style={{ color: '#1A2744', fontWeight: 600, fontSize: 13 }}>{label}</div>
+    <div style={{ color: value ? '#1A2744' : 'rgba(26,39,68,0.6)', fontWeight: 700, fontSize: 13, textAlign: 'right', maxWidth: 180 }}>{value ? (value === true ? 'Yes' : value) : 'No'}</div>
   </div>
 );
 
 const DetailSection = ({ title, content }) => (
-  <div>
-    <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>{title}</div>
-    <div style={{ color: 'rgba(26,39,68,0.78)', lineHeight: 1.75 }}>{content}</div>
+  <div style={{ border: '1px solid #E9EEF5', borderRadius: 18, background: '#FFFFFF', padding: '14px 16px' }}>
+    <div style={{ fontSize: 14, letterSpacing: '0.04em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 8, color: '#1A2744' }}>{title}</div>
+    <div style={{ color: 'rgba(26,39,68,0.82)', lineHeight: 1.75, maxWidth: '72ch' }}>{content || 'Not provided for this route.'}</div>
   </div>
 );
 
