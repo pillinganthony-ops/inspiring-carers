@@ -43,6 +43,47 @@ const CATEGORY_META = [
   { id: 'safe', label: 'Safe spaces', tone: 'gold', icon: <IShield s={16} />, cardIcon: <IShield s={22} />, matches: ['safe', 'safeguard', 'refuge'] },
 ];
 
+const CATEGORY_DISPLAY_LABELS = {
+  'mental-health-wellbeing': 'Mental Health',
+  carers: 'Carers',
+  'carers-support': 'Carers',
+  'health-medical-support': 'Health',
+  'advice-guidance': 'Advice',
+  'housing-homelessness': 'Housing',
+  'food-essentials': 'Food',
+  'families-children-young-people': 'Families',
+  'family-children-support': 'Families',
+  'older-people-support': 'Older People',
+  'community-groups-social-connection': 'Community',
+  'faith-spiritual-support': 'Faith',
+  'employment-skills': 'Work & Skills',
+  'crisis-safety-support': 'Crisis',
+  'disability-accessibility': 'Accessibility',
+  'transport-access': 'Transport',
+  'nature-activity-outdoors': 'Outdoors',
+};
+
+const CATEGORY_DISPLAY_LABEL_ALIASES = {
+  'carers support': 'Carers',
+  'health & medical support': 'Health',
+  'advice & guidance': 'Advice',
+  'housing & homelessness': 'Housing',
+  'food & essentials': 'Food',
+  'family, children & young people': 'Families',
+  'family & children support': 'Families',
+  'older people support': 'Older People',
+  'community groups & social connection': 'Community',
+  'faith & spiritual support': 'Faith',
+  'employment & skills': 'Work & Skills',
+  'crisis & safety support': 'Crisis',
+  'disability & accessibility': 'Accessibility',
+  'transport & access': 'Transport',
+  'nature, activity & outdoors': 'Outdoors',
+  'mental health & wellbeing': 'Mental Health',
+};
+
+const FEATURED_CATEGORY_LABELS = ['Mental Health', 'Carers', 'Health', 'Advice', 'Community'];
+
 const pickField = (row, keys) => {
   for (const key of keys) {
     const value = row?.[key];
@@ -64,6 +105,11 @@ const toSlug = (value) =>
     .trim()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
+
+const getCategoryDisplayLabel = (name, slug) => {
+  const normalizedName = `${name || ''}`.trim().toLowerCase();
+  return CATEGORY_DISPLAY_LABELS[slug] || CATEGORY_DISPLAY_LABEL_ALIASES[normalizedName] || toTitleCase(name);
+};
 
 const getCategoryMeta = (value) => {
   const raw = `${value || 'support'}`.toLowerCase();
@@ -179,6 +225,7 @@ const FindHelpPage = ({ onNavigate }) => {
           return {
             id: cat.slug,
             label: cat.name,
+            displayLabel: getCategoryDisplayLabel(cat.name, cat.slug),
             tone: meta.tone,
             icon: meta.icon,
           };
@@ -274,11 +321,30 @@ const FindHelpPage = ({ onNavigate }) => {
   // Prepend "All" option to categories for rendering
   const categoryOptions = React.useMemo(
     () => [
-      { id: 'all', label: 'All', tone: 'navy', icon: <ISparkle s={16} /> },
+      { id: 'all', label: 'All', displayLabel: 'All', tone: 'navy', icon: <ISparkle s={16} /> },
       ...categories,
     ],
     [categories],
   );
+
+  const featuredCategoryOptions = React.useMemo(() => {
+    const baseCategories = categoryOptions.filter((category) => category.id !== 'all');
+    const featured = FEATURED_CATEGORY_LABELS
+      .map((label) => baseCategories.find((category) => category.displayLabel === label))
+      .filter(Boolean);
+
+    const featuredIds = new Set(featured.map((category) => category.id));
+    const remainder = baseCategories.filter((category) => !featuredIds.has(category.id));
+
+    return [categoryOptions[0], ...featured, ...remainder.slice(0, Math.max(0, 5 - featured.length))];
+  }, [categoryOptions]);
+
+  const overflowCategoryOptions = React.useMemo(() => {
+    const featuredIds = new Set(featuredCategoryOptions.map((category) => category.id));
+    return categoryOptions.filter((category) => !featuredIds.has(category.id));
+  }, [categoryOptions, featuredCategoryOptions]);
+
+  const hiddenCategoryValue = overflowCategoryOptions.some((category) => category.id === activeCat) ? activeCat : '';
 
   return (
     <>
@@ -400,7 +466,7 @@ const FindHelpPage = ({ onNavigate }) => {
               <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
                 {activeCat !== 'all' && (
                   <span className="chip" style={{ padding: '5px 10px', fontSize: 11 }}>
-                    {categoryOptions.find((category) => category.id === activeCat)?.label || 'Category'}
+                    {categoryOptions.find((category) => category.id === activeCat)?.displayLabel || 'Category'}
                   </span>
                 )}
                 {areaFilter !== 'all' && (
@@ -422,8 +488,33 @@ const FindHelpPage = ({ onNavigate }) => {
 
       <section style={{ paddingTop: 24, paddingBottom: 0, background: '#FAFBFF' }}>
         <div className="container">
-          <div className="no-scrollbar" style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 8 }}>
-            {categoryOptions.map((category) => {
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: 12,
+              padding: 14,
+              background: 'rgba(255,255,255,0.9)',
+              borderRadius: 22,
+              border: '1px solid #EFF1F7',
+              boxShadow: 'var(--shadow-sm)',
+            }}
+          >
+            <div
+              className="no-scrollbar"
+              style={{
+                display: 'flex',
+                gap: 10,
+                flex: '1 1 520px',
+                minWidth: 0,
+                overflowX: 'auto',
+                padding: '2px 2px 6px',
+                scrollSnapType: 'x proximity',
+                WebkitOverflowScrolling: 'touch',
+              }}
+            >
+            {featuredCategoryOptions.map((category) => {
               const active = activeCat === category.id;
               const tone = toneMapColor(category.tone);
 
@@ -434,23 +525,81 @@ const FindHelpPage = ({ onNavigate }) => {
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
+                    justifyContent: 'center',
                     gap: 8,
-                    padding: '10px 14px',
+                    flex: '0 0 auto',
+                    minHeight: 42,
+                    padding: '0 16px',
                     borderRadius: 999,
                     background: active ? tone.fg : 'white',
                     color: active ? (category.tone === 'gold' || category.tone === 'lime' ? '#1A2744' : 'white') : '#1A2744',
                     border: `1px solid ${active ? tone.fg : '#EFF1F7'}`,
                     fontSize: 13.5,
                     fontWeight: 600,
+                    lineHeight: 1,
                     whiteSpace: 'nowrap',
                     transition: 'all .15s',
                     boxShadow: active ? `0 4px 12px ${tone.fg}55` : 'none',
+                    scrollSnapAlign: 'start',
+                    backdropFilter: 'blur(8px)',
                   }}
                 >
-                  {category.icon} {category.label}
+                  {category.icon} {category.displayLabel || category.label}
                 </button>
               );
             })}
+            </div>
+            {overflowCategoryOptions.length > 0 && (
+              <div
+                style={{
+                  position: 'relative',
+                  flex: '0 0 210px',
+                  minWidth: 180,
+                }}
+              >
+                <select
+                  value={hiddenCategoryValue}
+                  onChange={(event) => {
+                    if (event.target.value) setActiveCat(event.target.value);
+                  }}
+                  style={{
+                    width: '100%',
+                    minHeight: 44,
+                    appearance: 'none',
+                    borderRadius: 999,
+                    border: `1px solid ${hiddenCategoryValue ? '#1A2744' : '#EFF1F7'}`,
+                    background: hiddenCategoryValue ? '#1A2744' : 'white',
+                    color: hiddenCategoryValue ? 'white' : '#1A2744',
+                    padding: '0 42px 0 16px',
+                    fontSize: 13.5,
+                    fontWeight: 600,
+                    boxShadow: hiddenCategoryValue ? '0 4px 12px rgba(26,39,68,0.18)' : 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="">More categories</option>
+                  {overflowCategoryOptions.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.displayLabel || category.label}
+                    </option>
+                  ))}
+                </select>
+                <div
+                  style={{
+                    position: 'absolute',
+                    right: 14,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    pointerEvents: 'none',
+                    color: hiddenCategoryValue ? 'white' : 'rgba(26,39,68,0.6)',
+                    display: 'grid',
+                    placeItems: 'center',
+                  }}
+                >
+                  <IChevron s={12} />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </section>
