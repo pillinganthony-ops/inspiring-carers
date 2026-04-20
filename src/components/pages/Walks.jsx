@@ -5,6 +5,10 @@ import Footer from '../Footer.jsx';
 import walks from '../../data/walks.json';
 const { IWalks, IArrow, IChevron, IStar, IClose, IconTile } = Icons;
 
+// Compute true dataset bounds once — used for slider init and reset
+const DATASET_MAX_DISTANCE = Math.ceil(Math.max(...walks.map(w => w.distanceMiles)));
+const DATASET_MAX_DURATION = Math.ceil(Math.max(...walks.map(w => w.durationMinutes).filter(d => d > 0)));
+
 const formatDistance = (miles) => `${miles.toFixed(1)} mi`;
 const formatDuration = (minutes) => minutes < 60 ? `${minutes} mins` : `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 
@@ -12,8 +16,8 @@ const WalksPage = ({ onNavigate }) => {
   const [query, setQuery] = React.useState('');
   const [area, setArea] = React.useState('');
   const [difficulty, setDifficulty] = React.useState('Any');
-  const [maxDistance, setMaxDistance] = React.useState(10);
-  const [maxDuration, setMaxDuration] = React.useState(120);
+  const [maxDistance, setMaxDistance] = React.useState(DATASET_MAX_DISTANCE);
+  const [maxDuration, setMaxDuration] = React.useState(DATASET_MAX_DURATION);
   const [filters, setFilters] = React.useState({ toilets: false, refreshments: false, parking: false, publicTransport: false, accessible: false, circular: false });
   const [detailWalk, setDetailWalk] = React.useState(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = React.useState(false);
@@ -40,8 +44,8 @@ const WalksPage = ({ onNavigate }) => {
     setQuery('');
     setArea('');
     setDifficulty('Any');
-    setMaxDistance(10);
-    setMaxDuration(120);
+    setMaxDistance(DATASET_MAX_DISTANCE);
+    setMaxDuration(DATASET_MAX_DURATION);
     setFilters({ toilets: false, refreshments: false, parking: false, publicTransport: false, accessible: false, circular: false });
   };
 
@@ -123,8 +127,8 @@ const WalksPage = ({ onNavigate }) => {
                 <FilterSelect label="Difficulty" value={difficulty} options={difficultyOptions} onChange={setDifficulty} />
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 18 }}>
-                  <NumberInput label="Max distance" value={maxDistance} onChange={setMaxDistance} suffix="mi" min={1} max={25} />
-                  <NumberInput label="Max duration" value={maxDuration} onChange={setMaxDuration} suffix="mins" min={30} max={300} step={15} />
+                  <NumberInput label="Max distance" value={maxDistance} onChange={setMaxDistance} suffix="mi" min={1} max={DATASET_MAX_DISTANCE} />
+                  <NumberInput label="Max duration" value={maxDuration} onChange={setMaxDuration} suffix="mins" min={30} max={DATASET_MAX_DURATION} step={15} />
                 </div>
 
                 <div style={{ marginTop: 22 }}>
@@ -206,18 +210,16 @@ const FilterSelect = ({ label, value, options, onChange }) => (
 const NumberInput = ({ label, value, onChange, suffix, min = 0, max = 100, step = 1 }) => (
   <div>
     <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#1A2744', marginBottom: 8 }}>{label}</label>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        style={{ flex: 1 }}
-      />
-      <div style={{ minWidth: 66, textAlign: 'right', fontSize: 15, fontWeight: 700, color: '#1A2744' }}>{value} {suffix}</div>
-    </div>
+    <input
+      type="range"
+      min={min}
+      max={max}
+      step={step}
+      value={value}
+      onChange={(e) => onChange(Number(e.target.value))}
+      style={{ width: '100%', display: 'block' }}
+    />
+    <div style={{ marginTop: 4, fontSize: 13, fontWeight: 700, color: '#1A2744' }}>{value} {suffix}</div>
   </div>
 );
 
