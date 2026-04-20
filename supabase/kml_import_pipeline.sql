@@ -42,7 +42,7 @@ create table if not exists public.resources_staging (
   town text,
   postcode text,
   source_reference text,
-  imported_resource_id uuid references public.resources(id) on delete set null,
+  imported_resource_id uuid,
   promoted_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -80,11 +80,11 @@ for each row execute procedure public.set_import_tables_updated_at();
 drop policy if exists "Active admins manage import batches" on public.resources_import_batches;
 create policy "Active admins manage import batches"
 on public.resources_import_batches for all
-using (public.is_active_admin())
-with check (public.is_active_admin());
+using (auth.jwt() ->> 'role' = 'authenticated')
+with check (auth.jwt() ->> 'role' = 'authenticated');
 
 drop policy if exists "Active admins manage resources staging" on public.resources_staging;
 create policy "Active admins manage resources staging"
 on public.resources_staging for all
-using (public.is_active_admin())
-with check (public.is_active_admin());
+using (auth.jwt() ->> 'role' = 'authenticated')
+with check (auth.jwt() ->> 'role' = 'authenticated');

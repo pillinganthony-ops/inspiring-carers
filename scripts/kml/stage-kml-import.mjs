@@ -46,7 +46,7 @@ const main = async () => {
 
     const { data: liveRows, error: liveError } = await supabase
       .from('resources')
-      .select('name,latitude,longitude,website,phone,postcode')
+      .select('name,lat,lng,website,phone,postcode')
       .limit(5000);
 
     if (liveError) throw liveError;

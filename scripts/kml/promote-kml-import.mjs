@@ -37,7 +37,7 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
 
 const ensureCategories = async () => {
   const { data: categories, error } = await supabase
-    .from('resource_categories')
+    .from('categories')
     .select('id,name,slug')
     .limit(500);
 
@@ -50,18 +50,16 @@ const ensureCategories = async () => {
     const payload = missing.map((name, idx) => ({
       name,
       slug: slugify(name),
-      description: `${name} imported category`,
       sort_order: idx,
-      is_active: true,
-      color: '#2D9CDB',
+      active: true,
     }));
 
-    const { error: insertError } = await supabase.from('resource_categories').insert(payload);
+    const { error: insertError } = await supabase.from('categories').insert(payload);
     if (insertError) throw insertError;
   }
 
   const { data: refreshed, error: refreshedError } = await supabase
-    .from('resource_categories')
+    .from('categories')
     .select('id,name')
     .limit(500);
 
@@ -84,6 +82,7 @@ const promote = async () => {
     .eq('import_batch', importBatch)
     .eq('parse_status', 'parsed')
     .is('imported_resource_id', null)
+    .order('confidence_score', { ascending: false })
     .order('created_at', { ascending: true })
     .limit(limit);
 
@@ -97,48 +96,36 @@ const promote = async () => {
   const promotedIds = [];
 
   for (const row of stagingRows || []) {
-    const categoryId = categoryMap.get(row.mapped_category) || categoryMap.get('Community Groups & Social Connection') || null;
     const slug = safeSlug(row.clean_slug || slugify(row.clean_name || row.raw_name || ''), row.id);
 
     const payload = {
       name: row.clean_name || row.raw_name || 'Unnamed resource',
       slug,
-      category_id: categoryId,
+      category: row.mapped_category || 'Community Groups & Social Connection',
       subcategory: row.subcategory || null,
       town: row.town || null,
       postcode: row.postcode || null,
-      summary: row.clean_summary || null,
       description: row.clean_description || null,
       website: row.clean_website || null,
       phone: row.clean_phone || null,
       email: row.clean_email || null,
-      latitude: Number.isFinite(Number(row.raw_lat)) ? Number(row.raw_lat) : null,
-      longitude: Number.isFinite(Number(row.raw_lng)) ? Number(row.raw_lng) : null,
+      lat: Number.isFinite(Number(row.raw_lat)) ? Number(row.raw_lat) : null,
+      lng: Number.isFinite(Number(row.raw_lng)) ? Number(row.raw_lng) : null,
+      active: true,
       verified: false,
       featured: false,
-      is_archived: false,
       needs_review: row.needs_review,
-      source_type: 'kml',
-      source_ref: row.source_reference || `kml:${importBatch}:${row.id}`,
-      source_reference: row.source_reference || `kml:${importBatch}:${row.id}`,
       raw_folder: row.raw_folder,
-      metadata: {
-        import_batch: importBatch,
-        staging_id: row.id,
-        duplicate_reasons: row.duplicate_reasons || [],
-        confidence_score: row.confidence_score,
-        source_folder: row.raw_folder,
-        raw_data: row.raw_data_json || {},
-      },
     };
 
     const { data: insertedRows, error: insertError } = await supabase
       .from('resources')
-      .upsert(payload, { onConflict: 'slug' })
+      .insert(payload)
       .select('id')
       .limit(1);
 
     if (insertError) {
+      console.error(`Row ${row.clean_name}: ${insertError.message}`);
       await supabase.from('resources_staging').update({
         parse_status: 'promotion_error',
       }).eq('id', row.id);
