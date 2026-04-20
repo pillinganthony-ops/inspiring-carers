@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "import:kml:dry-run": "node scripts/kml/stage-kml-import.mjs --dry-run",
+    "import:kml:stage": "node scripts/kml/stage-kml-import.mjs",
+    "import:kml:promote": "node scripts/kml/promote-kml-import.mjs"
   },
   "keywords": [],
   "author": "",
@@ -15,6 +18,8 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.104.0",
     "@vitejs/plugin-react": "^6.0.1",
+    "dotenv": "^17.4.2",
+    "fast-xml-parser": "^5.7.1",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.8.0",
     "papaparse": "^5.5.3",
