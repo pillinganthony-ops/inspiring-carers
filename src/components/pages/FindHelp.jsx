@@ -46,11 +46,13 @@ const CATEGORY_META = [
 const CATEGORY_DISPLAY_LABELS = {
   'mental-health-wellbeing': 'Mental Health',
   carers: 'Carers',
+  'carer-support': 'Carers',
   'carers-support': 'Carers',
   'health-medical-support': 'Health',
   'advice-guidance': 'Advice',
   'housing-homelessness': 'Housing',
   'food-essentials': 'Food',
+  'family-children': 'Families',
   'families-children-young-people': 'Families',
   'family-children-support': 'Families',
   'older-people-support': 'Older People',
