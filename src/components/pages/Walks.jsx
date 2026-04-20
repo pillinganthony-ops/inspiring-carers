@@ -145,6 +145,42 @@ const openMailtoHref = (href) => {
   }
 };
 
+const parseItinerarySteps = (itinerary) => {
+  if (!hasText(itinerary)) return [];
+
+  const chunks = itinerary
+    .split(';')
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (chunks.length > 1) {
+    return chunks.map((step) => step.replace(/^\d+\s*[-.)]?\s*/, '').trim()).filter(Boolean);
+  }
+
+  const numbered = itinerary
+    .split(/\s(?=\d+\s*[-.)]?\s)/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((step) => step.replace(/^\d+\s*[-.)]?\s*/, '').trim())
+    .filter(Boolean);
+
+  return numbered;
+};
+
+const getMapEmbedUrl = (walk) => {
+  if (!hasText(walk.googleMapsLink)) return '';
+  try {
+    const parsed = new URL(walk.googleMapsLink);
+    const query = parsed.searchParams.get('q');
+    if (query) {
+      return `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
+    }
+  } catch {
+    return '';
+  }
+  return '';
+};
+
 const buildWalkEmailHref = (walk) => {
   const walkName = hasText(walk.name) ? walk.name.trim() : 'Unnamed walk';
   const area = hasText(walk.area) ? walk.area.trim() : 'Not provided';
@@ -441,6 +477,11 @@ const WalkDetailModal = ({ walk, onClose }) => {
   const [updateErrors, setUpdateErrors] = React.useState({});
   const [commentErrors, setCommentErrors] = React.useState({});
 
+  const mapEmbedUrl = getMapEmbedUrl(walk);
+  const [mapPreviewEnabled, setMapPreviewEnabled] = React.useState(Boolean(mapEmbedUrl));
+  const itinerarySteps = parseItinerarySteps(walk.itinerary);
+  const showNativeShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+
   const [updateForm, setUpdateForm] = React.useState({
     walkName: walk.name || '',
     area: walk.area || '',
@@ -516,7 +557,7 @@ const WalkDetailModal = ({ walk, onClose }) => {
   };
 
   const handleNativeShare = async () => {
-    if (!navigator.share) return;
+    if (!showNativeShare) return;
     try {
       await navigator.share({
         title: `Inspiring Carers Walk Finder: ${walk.name}`,
@@ -530,6 +571,7 @@ const WalkDetailModal = ({ walk, onClose }) => {
 
   const handleCopyLink = async () => {
     try {
+      if (!navigator?.clipboard?.writeText) throw new Error('Clipboard unavailable');
       await navigator.clipboard.writeText(shareUrl);
       setCopySuccess('Link copied.');
       setTimeout(() => setCopySuccess(''), 1600);
@@ -561,6 +603,37 @@ const WalkDetailModal = ({ walk, onClose }) => {
           </div>
         </div>
 
+        <div style={{ borderRadius: 24, overflow: 'hidden', border: '1px solid #E9EEF5', marginBottom: 22, background: '#F8FBFF' }}>
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid #E9EEF5', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#1A2744' }}>Route map preview</div>
+            <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.68)' }}>Live route context</div>
+          </div>
+          {mapPreviewEnabled ? (
+            <iframe
+              title={`Map preview for ${walk.name}`}
+              src={mapEmbedUrl}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              onError={() => setMapPreviewEnabled(false)}
+              style={{ width: '100%', height: 250, border: 0, display: 'block' }}
+            />
+          ) : (
+            <div style={{ height: 250, padding: 20, display: 'grid', alignContent: 'space-between', background: 'linear-gradient(135deg, #F8FBFF 0%, #EFF6FF 100%)' }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#1A2744' }}>Preview unavailable in-app</div>
+                <div style={{ marginTop: 8, fontSize: 14, color: 'rgba(26,39,68,0.72)', maxWidth: 600 }}>
+                  Use Google Maps to view turn-by-turn details and live route conditions for this walk.
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <div style={{ borderRadius: 999, padding: '8px 12px', background: 'rgba(45,156,219,0.12)', fontSize: 12, color: '#1A2744', fontWeight: 700 }}>{walk.area}</div>
+                <div style={{ borderRadius: 999, padding: '8px 12px', background: 'rgba(91,201,74,0.12)', fontSize: 12, color: '#1A2744', fontWeight: 700 }}>{formatDistance(walk.distanceMiles)}</div>
+                <div style={{ borderRadius: 999, padding: '8px 12px', background: 'rgba(244,97,58,0.12)', fontSize: 12, color: '#1A2744', fontWeight: 700 }}>{formatDuration(walk.durationMinutes)}</div>
+              </div>
+            </div>
+          )}
+        </div>
+
         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 24, marginBottom: 28 }}>
           <div style={{ display: 'grid', gap: 18, color: 'rgba(26,39,68,0.82)', lineHeight: 1.75, fontSize: 15 }}>
             <SectionItem label="Distance" value={formatDistance(walk.distanceMiles)} />
@@ -585,29 +658,41 @@ const WalkDetailModal = ({ walk, onClose }) => {
           <DetailSection title="Safety notes" content={walk.safetyNotes} />
           <DetailSection title="Accessibility notes" content={walk.accessibility} />
           <DetailSection title="Bus information" content={walk.busInfo} />
-          <DetailSection title="Itinerary" content={walk.itinerary} />
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10 }}>Itinerary journey</div>
+            {itinerarySteps.length > 0 ? (
+              <ItineraryFlow steps={itinerarySteps} />
+            ) : (
+              <div style={{ color: 'rgba(26,39,68,0.72)', fontSize: 14 }}>Detailed itinerary not available for this route yet.</div>
+            )}
+          </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 12 }}>
-          <a href={walk.googleMapsLink} target="_blank" rel="noreferrer" className="btn btn-gold btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-            Open in Google Maps
-            <IArrow s={18} />
-          </a>
-          <a href={buildWalkEmailHref(walk)} className="btn btn-sky btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-            Email Walk Details
-          </a>
-          <button onClick={() => setShowUpdateForm((open) => !open)} className="btn btn-ghost btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-            Submit an update
-          </button>
-          <button onClick={onClose} className="btn btn-ghost btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-            Back to results
-          </button>
+        <div style={{ marginTop: 12, border: '1px solid #E9EEF5', borderRadius: 24, background: 'linear-gradient(180deg, #FFFFFF 0%, #F8FBFF 100%)', padding: 16 }}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <a href={walk.googleMapsLink} target="_blank" rel="noreferrer" className="btn btn-gold btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+              Open in Google Maps
+              <IArrow s={18} />
+            </a>
+            <a href={buildWalkEmailHref(walk)} className="btn btn-sky btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+              Email walk details
+            </a>
+            <button onClick={() => setShowUpdateForm((open) => !open)} className="btn btn-ghost btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+              Submit an update
+            </button>
+            <button onClick={onClose} className="btn btn-ghost btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+              Back to results
+            </button>
+          </div>
+          <div style={{ marginTop: 12, fontSize: 12, color: 'rgba(26,39,68,0.65)' }}>
+            Community-maintained route information. Updates may be reviewed before appearing. Check route conditions before travel.
+          </div>
         </div>
 
         <div style={{ marginTop: 24, borderTop: '1px solid #EFF1F7', paddingTop: 20 }}>
           <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 12 }}>Share</div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            {typeof navigator !== 'undefined' && navigator.share ? (
+            {showNativeShare ? (
               <button onClick={handleNativeShare} className="btn btn-sky btn-sm">Share via device</button>
             ) : null}
             <a href={shareLinks.facebook} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">Facebook</a>
@@ -758,6 +843,25 @@ const DetailSection = ({ title, content }) => (
   <div>
     <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>{title}</div>
     <div style={{ color: 'rgba(26,39,68,0.78)', lineHeight: 1.75 }}>{content}</div>
+  </div>
+);
+
+const ItineraryFlow = ({ steps }) => (
+  <div style={{ display: 'grid', gap: 10 }}>
+    {steps.map((step, index) => {
+      const isLast = index === steps.length - 1;
+      return (
+        <div key={`itinerary-step-${index}`} style={{ display: 'grid', gridTemplateColumns: '26px 1fr', gap: 10, alignItems: 'start' }}>
+          <div style={{ display: 'grid', justifyItems: 'center' }}>
+            <div style={{ width: 18, height: 18, borderRadius: 999, background: '#5BC94A', color: '#0F2B1A', fontSize: 11, fontWeight: 800, display: 'grid', placeItems: 'center' }}>{index + 1}</div>
+            {!isLast ? <div style={{ width: 2, minHeight: 30, marginTop: 6, background: 'linear-gradient(180deg, rgba(91,201,74,0.55), rgba(45,156,219,0.35))' }} /> : null}
+          </div>
+          <div style={{ borderRadius: 14, border: '1px solid #E9EEF5', background: '#FAFBFF', padding: '10px 12px', color: 'rgba(26,39,68,0.82)', lineHeight: 1.6, fontSize: 14 }}>
+            {step}
+          </div>
+        </div>
+      );
+    })}
   </div>
 );
 
