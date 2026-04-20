@@ -212,6 +212,15 @@ const AdminPage = () => {
     const loadAdminProfile = async () => {
       setLoadingData(true);
       setDashboardError('');
+
+      // Verify email is authorized for admin access
+      if (session.user.email !== 'pillinganthony@gmail.com') {
+        setDashboardError('Your email address is not authorized for admin access. Contact your administrator for approval.');
+        setAdminProfile(null);
+        setLoadingData(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('admin_users')
         .select('id,user_id,display_name,role,is_active')
