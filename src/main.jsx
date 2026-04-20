@@ -199,8 +199,7 @@ const App = () => {
   };
 
   const [page, setPage] = React.useState(() => {
-    const route = parseRoute(window.location.pathname);
-    return route !== 'home' ? route : localStorage.getItem('ic_page_v1') || 'home';
+    return parseRoute(window.location.pathname);
   });
   const [session, setSession] = React.useState(null);
   const [sessionLoading, setSessionLoading] = React.useState(true);
@@ -245,11 +244,24 @@ const App = () => {
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
+  React.useEffect(() => {
+    // Protect only /admin. Public routes remain open regardless of auth state.
+    if (page === 'admin' && !sessionLoading && !session) {
+      setPage('login');
+      window.history.replaceState({ page: 'login' }, '', '/login');
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+  }, [page, sessionLoading, session]);
+
   const navigate = (key) => {
-    // Let AdminPage handle session checking to avoid race condition
-    // AdminPage has built-in login form and session validation
+    if (key === 'admin' && !session) {
+      setPage('login');
+      window.history.pushState({ page: 'login' }, '', '/login');
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      return;
+    }
+
     setPage(key);
-    localStorage.setItem('ic_page_v1', key);
     const path = key === 'home' ? '/' : `/${key}`;
     window.history.pushState({ page: key }, '', path);
     window.scrollTo({ top: 0, behavior: 'instant' });
