@@ -64,11 +64,13 @@ const CATEGORY_DISPLAY_LABELS = {
 };
 
 const CATEGORY_DISPLAY_LABEL_ALIASES = {
+  'carer support': 'Carers',
   'carers support': 'Carers',
   'health & medical support': 'Health',
   'advice & guidance': 'Advice',
   'housing & homelessness': 'Housing',
   'food & essentials': 'Food',
+  'family & children': 'Families',
   'family, children & young people': 'Families',
   'family & children support': 'Families',
   'older people support': 'Older People',
@@ -82,7 +84,7 @@ const CATEGORY_DISPLAY_LABEL_ALIASES = {
   'mental health & wellbeing': 'Mental Health',
 };
 
-const FEATURED_CATEGORY_LABELS = ['Mental Health', 'Carers', 'Health', 'Advice', 'Community'];
+const FEATURED_CATEGORY_LABELS = ['Mental Health', 'Carers', 'Advice', 'Community', 'Crisis', 'Food'];
 
 const pickField = (row, keys) => {
   for (const key of keys) {
@@ -333,10 +335,7 @@ const FindHelpPage = ({ onNavigate }) => {
       .map((label) => baseCategories.find((category) => category.displayLabel === label))
       .filter(Boolean);
 
-    const featuredIds = new Set(featured.map((category) => category.id));
-    const remainder = baseCategories.filter((category) => !featuredIds.has(category.id));
-
-    return [categoryOptions[0], ...featured, ...remainder.slice(0, Math.max(0, 5 - featured.length))];
+    return [categoryOptions[0], ...featured];
   }, [categoryOptions]);
 
   const overflowCategoryOptions = React.useMemo(() => {
@@ -502,16 +501,13 @@ const FindHelpPage = ({ onNavigate }) => {
             }}
           >
             <div
-              className="no-scrollbar"
               style={{
                 display: 'flex',
+                flexWrap: 'wrap',
                 gap: 10,
                 flex: '1 1 520px',
                 minWidth: 0,
-                overflowX: 'auto',
-                padding: '2px 2px 6px',
-                scrollSnapType: 'x proximity',
-                WebkitOverflowScrolling: 'touch',
+                padding: '2px 2px 4px',
               }}
             >
             {featuredCategoryOptions.map((category) => {
@@ -540,7 +536,6 @@ const FindHelpPage = ({ onNavigate }) => {
                     whiteSpace: 'nowrap',
                     transition: 'all .15s',
                     boxShadow: active ? `0 4px 12px ${tone.fg}55` : 'none',
-                    scrollSnapAlign: 'start',
                     backdropFilter: 'blur(8px)',
                   }}
                 >
