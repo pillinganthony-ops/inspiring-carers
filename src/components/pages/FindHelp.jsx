@@ -144,8 +144,59 @@ const FindHelpPage = ({ onNavigate }) => {
   const [keyword, setKeyword] = React.useState('');
   const [areaFilter, setAreaFilter] = React.useState('all');
   const [resources, setResources] = React.useState([]);
+  const [categories, setCategories] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
+
+  // Fetch categories directly from resource_categories table
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const loadCategories = async () => {
+      if (!isSupabaseConfigured() || !supabase) {
+        if (!cancelled) setCategories([]);
+        return;
+      }
+
+      try {
+        const { data, error: fetchError } = await supabase
+          .from('resource_categories')
+          .select('id, name, slug, color')
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true })
+          .order('name', { ascending: true });
+
+        if (cancelled) return;
+
+        if (fetchError) {
+          console.warn('Failed to load categories:', fetchError);
+          setCategories([]);
+          return;
+        }
+
+        const mappedCategories = (data ?? []).map((cat) => {
+          const meta = getCategoryMeta(cat.name);
+          return {
+            id: cat.slug,
+            label: cat.name,
+            tone: meta.tone,
+            icon: meta.icon,
+          };
+        });
+
+        setCategories(mappedCategories);
+      } catch (err) {
+        console.warn('Error loading categories:', err);
+        setCategories([]);
+      }
+    };
+
+    loadCategories();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -189,25 +240,6 @@ const FindHelpPage = ({ onNavigate }) => {
     };
   }, []);
 
-  const categories = React.useMemo(() => {
-    const categoryMap = new Map();
-    categoryMap.set('all', { id: 'all', label: 'All', tone: 'navy', icon: <ISparkle s={16} /> });
-
-    resources.forEach((resource) => {
-      if (!categoryMap.has(resource.cat)) {
-        const meta = getCategoryMeta(resource.categoryLabel);
-        categoryMap.set(resource.cat, {
-          id: resource.cat,
-          label: resource.categoryLabel,
-          tone: meta.tone,
-          icon: meta.icon,
-        });
-      }
-    });
-
-    return Array.from(categoryMap.values());
-  }, [resources]);
-
   const areaOptions = React.useMemo(
     () => Array.from(new Set(resources.map((resource) => resource.locationKey).filter(Boolean))).sort(),
     [resources],
@@ -238,6 +270,15 @@ const FindHelpPage = ({ onNavigate }) => {
     setAreaFilter('all');
     setActiveCat('all');
   };
+
+  // Prepend "All" option to categories for rendering
+  const categoryOptions = React.useMemo(
+    () => [
+      { id: 'all', label: 'All', tone: 'navy', icon: <ISparkle s={16} /> },
+      ...categories,
+    ],
+    [categories],
+  );
 
   return (
     <>
@@ -359,7 +400,7 @@ const FindHelpPage = ({ onNavigate }) => {
               <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
                 {activeCat !== 'all' && (
                   <span className="chip" style={{ padding: '5px 10px', fontSize: 11 }}>
-                    {categories.find((category) => category.id === activeCat)?.label || 'Category'}
+                    {categoryOptions.find((category) => category.id === activeCat)?.label || 'Category'}
                   </span>
                 )}
                 {areaFilter !== 'all' && (
@@ -382,7 +423,7 @@ const FindHelpPage = ({ onNavigate }) => {
       <section style={{ paddingTop: 24, paddingBottom: 0, background: '#FAFBFF' }}>
         <div className="container">
           <div className="no-scrollbar" style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 8 }}>
-            {categories.map((category) => {
+            {categoryOptions.map((category) => {
               const active = activeCat === category.id;
               const tone = toneMapColor(category.tone);
 
