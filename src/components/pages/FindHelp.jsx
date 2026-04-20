@@ -148,7 +148,7 @@ const FindHelpPage = ({ onNavigate }) => {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
 
-  // Fetch categories directly from resource_categories table
+  // Fetch categories directly from public.categories table
   React.useEffect(() => {
     let cancelled = false;
 
@@ -160,9 +160,9 @@ const FindHelpPage = ({ onNavigate }) => {
 
       try {
         const { data, error: fetchError } = await supabase
-          .from('resource_categories')
-          .select('id, name, slug, color')
-          .eq('is_active', true)
+          .from('categories')
+          .select('id, name, slug, active, sort_order')
+          .eq('active', true)
           .order('sort_order', { ascending: true })
           .order('name', { ascending: true });
 
