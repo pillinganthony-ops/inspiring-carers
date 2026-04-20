@@ -5,6 +5,8 @@ import Footer from '../Footer.jsx';
 import walks from '../../data/walks.json';
 const { IWalks, IArrow, IChevron, IStar, IClose, IconTile } = Icons;
 
+const FEEDBACK_EMAIL = import.meta.env.VITE_WALKS_FEEDBACK_EMAIL || '';
+
 const parseDistanceMiles = (value) => {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
   if (typeof value !== 'string') return 0;
@@ -73,6 +75,75 @@ const DATASET_MAX_DURATION = Math.ceil(Math.max(...validWalks.map((w) => w.durat
 
 const formatDistance = (miles) => `${miles.toFixed(1)} mi`;
 const formatDuration = (minutes) => minutes < 60 ? `${minutes} mins` : `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+
+const getWalkShareUrl = (walk) => {
+  const mapsLink = hasText(walk.googleMapsLink) ? walk.googleMapsLink.trim() : '';
+  if (mapsLink) return mapsLink;
+  if (typeof window !== 'undefined') return `${window.location.origin}/walks`;
+  return '/walks';
+};
+
+const getWalkShareText = (walk) => {
+  const walkName = hasText(walk.name) ? walk.name.trim() : 'Cornwall walk';
+  const area = hasText(walk.area) ? walk.area.trim() : 'Cornwall';
+  return `Found this Cornwall walk on Inspiring Carers: ${walkName} in ${area}. Could be useful for a gentle local outing.`;
+};
+
+const getFeedbackRecipient = () => FEEDBACK_EMAIL.trim();
+
+const buildUpdateSubmissionMailtoHref = (walk, formData) => {
+  const recipient = getFeedbackRecipient();
+  const mapsLink = hasText(walk.googleMapsLink) ? walk.googleMapsLink.trim() : 'Map link not available';
+  const subject = `Walk Update Submission: ${walk.name} (${walk.area})`;
+  const body = [
+    'A walk update has been submitted for review.',
+    '',
+    `Walk: ${walk.name}`,
+    `Area: ${walk.area}`,
+    `Update type: ${formData.updateType}`,
+    '',
+    'Description:',
+    formData.description,
+    '',
+    `Name: ${formData.name || 'Not provided'}`,
+    `Email: ${formData.email || 'Not provided'}`,
+    '',
+    'Google Maps:',
+    mapsLink,
+    '',
+    'Submitted via Inspiring Carers Walk Finder',
+  ].join('\n');
+
+  return `mailto:${encodeURIComponent(recipient)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+};
+
+const buildCommentSubmissionMailtoHref = (walk, formData) => {
+  const recipient = getFeedbackRecipient();
+  const subject = `Community Note Submission: ${walk.name} (${walk.area})`;
+  const body = [
+    'A community note has been submitted for moderation.',
+    '',
+    `Walk: ${walk.name}`,
+    `Area: ${walk.area}`,
+    `Visited this walk: ${formData.visited ? 'Yes' : 'No'}`,
+    `Would recommend: ${formData.recommend ? 'Yes' : 'No'}`,
+    '',
+    'Comment:',
+    formData.comment,
+    '',
+    `Name: ${formData.name || 'Anonymous'}`,
+    '',
+    'Submitted via Inspiring Carers Walk Finder',
+  ].join('\n');
+
+  return `mailto:${encodeURIComponent(recipient)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+};
+
+const openMailtoHref = (href) => {
+  if (typeof window !== 'undefined') {
+    window.location.href = href;
+  }
+};
 
 const buildWalkEmailHref = (walk) => {
   const walkName = hasText(walk.name) ? walk.name.trim() : 'Unnamed walk';
@@ -359,63 +430,315 @@ const MiniStat = ({ label, value }) => (
   </div>
 );
 
-const WalkDetailModal = ({ walk, onClose }) => (
-  <div style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(15,23,42,0.42)', display: 'grid', placeItems: 'center', padding: 24 }}>
-    <div style={{ width: '100%', maxWidth: 980, maxHeight: '90vh', overflowY: 'auto', borderRadius: 32, background: 'white', boxShadow: '0 34px 85px rgba(26,39,68,0.24)', padding: 30, position: 'relative' }}>
-      <button onClick={onClose} style={{ position: 'absolute', right: 24, top: 24, width: 42, height: 42, borderRadius: 999, border: '1px solid #E9EEF5', background: 'white', display: 'grid', placeItems: 'center' }}>
-        <IClose s={20} />
-      </button>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20, flexWrap: 'wrap' }}>
-        <IconTile tone="lime" size={62} radius={20}><IWalks s={28} /></IconTile>
-        <div>
-          <div className="eyebrow" style={{ color: '#5BC94A' }}>Walk details</div>
-          <h2 style={{ marginTop: 10, fontSize: 32, fontWeight: 800, letterSpacing: '-0.03em' }}>{walk.name}</h2>
-          <div style={{ fontSize: 14, color: 'rgba(26,39,68,0.72)' }}>{walk.area} · {walk.postcode}</div>
-        </div>
-      </div>
+const WalkDetailModal = ({ walk, onClose }) => {
+  const [showUpdateForm, setShowUpdateForm] = React.useState(false);
+  const [showCommentForm, setShowCommentForm] = React.useState(false);
+  const [isSubmittingUpdate, setIsSubmittingUpdate] = React.useState(false);
+  const [isSubmittingComment, setIsSubmittingComment] = React.useState(false);
+  const [updateSuccess, setUpdateSuccess] = React.useState('');
+  const [commentSuccess, setCommentSuccess] = React.useState('');
+  const [copySuccess, setCopySuccess] = React.useState('');
+  const [updateErrors, setUpdateErrors] = React.useState({});
+  const [commentErrors, setCommentErrors] = React.useState({});
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 24, marginBottom: 28 }}>
-        <div style={{ display: 'grid', gap: 18, color: 'rgba(26,39,68,0.82)', lineHeight: 1.75, fontSize: 15 }}>
-          <SectionItem label="Distance" value={formatDistance(walk.distanceMiles)} />
-          <SectionItem label="Duration" value={formatDuration(walk.durationMinutes)} />
-          <SectionItem label="Difficulty" value={walk.difficulty} />
-          <SectionItem label="Terrain" value={walk.terrain} />
-          <SectionItem label="Elevation" value={`${walk.elevation} m`} />
-          <SectionItem label="Circular route" value={walk.circular ? 'Yes' : 'No'} />
-        </div>
-        <div style={{ background: 'rgba(245,250,255,1)', border: '1px solid #E9EEF5', borderRadius: 26, padding: 20, display: 'grid', gap: 14 }}>
-          <div style={{ fontSize: 14, fontWeight: 700 }}>Practical details</div>
-          <DetailBadge label="Toilets" value={walk.toilets} />
-          <DetailBadge label="Parking" value={walk.parking} />
-          <DetailBadge label="Public transport" value={walk.publicTransport} />
-          <DetailBadge label="Refreshments" value={walk.refreshments} />
-          <DetailBadge label="Accessibility" value={walk.accessibility} secondary />
-        </div>
-      </div>
+  const [updateForm, setUpdateForm] = React.useState({
+    walkName: walk.name || '',
+    area: walk.area || '',
+    updateType: 'Incorrect information',
+    description: '',
+    name: '',
+    email: '',
+    consent: false,
+  });
 
-      <div style={{ display: 'grid', gap: 18, marginBottom: 20 }}>
-        <DetailSection title="Highlights" content={walk.highlights} />
-        <DetailSection title="Safety notes" content={walk.safetyNotes} />
-        <DetailSection title="Accessibility notes" content={walk.accessibility} />
-        <DetailSection title="Bus information" content={walk.busInfo} />
-        <DetailSection title="Itinerary" content={walk.itinerary} />
-      </div>
+  const [commentForm, setCommentForm] = React.useState({
+    name: '',
+    comment: '',
+    visited: false,
+    recommend: false,
+  });
 
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 12 }}>
-        <a href={walk.googleMapsLink} target="_blank" rel="noreferrer" className="btn btn-gold btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-          Open in Google Maps
-          <IArrow s={18} />
-        </a>
-        <a href={buildWalkEmailHref(walk)} className="btn btn-sky btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-          Email Walk Details
-        </a>
-        <button onClick={onClose} className="btn btn-ghost btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-          Back to results
+  const existingComments = Array.isArray(walk.comments)
+    ? walk.comments.filter((item) => item && hasText(item.comment))
+    : [];
+
+  const shareText = getWalkShareText(walk);
+  const shareUrl = getWalkShareUrl(walk);
+  const feedbackConfigured = hasText(getFeedbackRecipient());
+
+  const validateUpdateForm = () => {
+    const nextErrors = {};
+    if (!hasText(updateForm.updateType)) nextErrors.updateType = 'Select an update type.';
+    if (!hasText(updateForm.description)) nextErrors.description = 'Please describe the update.';
+    if (!updateForm.consent) nextErrors.consent = 'Please confirm review consent.';
+    if (hasText(updateForm.email) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(updateForm.email.trim())) {
+      nextErrors.email = 'Enter a valid email or leave blank.';
+    }
+    setUpdateErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const validateCommentForm = () => {
+    const nextErrors = {};
+    if (!hasText(commentForm.comment)) nextErrors.comment = 'Please add a comment.';
+    setCommentErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const handleSubmitUpdate = (event) => {
+    event.preventDefault();
+    if (!validateUpdateForm()) return;
+
+    setIsSubmittingUpdate(true);
+    setUpdateSuccess('');
+    const href = buildUpdateSubmissionMailtoHref(walk, updateForm);
+    openMailtoHref(href);
+    setTimeout(() => {
+      setIsSubmittingUpdate(false);
+      setUpdateSuccess('Email draft opened. Thank you, your update can now be sent for review.');
+      setUpdateForm((prev) => ({ ...prev, description: '', name: '', email: '', consent: false }));
+    }, 350);
+  };
+
+  const handleSubmitComment = (event) => {
+    event.preventDefault();
+    if (!validateCommentForm()) return;
+
+    setIsSubmittingComment(true);
+    setCommentSuccess('');
+    const href = buildCommentSubmissionMailtoHref(walk, commentForm);
+    openMailtoHref(href);
+    setTimeout(() => {
+      setIsSubmittingComment(false);
+      setCommentSuccess('Email draft opened. Your comment can now be sent for moderation.');
+      setCommentForm({ name: '', comment: '', visited: false, recommend: false });
+    }, 350);
+  };
+
+  const handleNativeShare = async () => {
+    if (!navigator.share) return;
+    try {
+      await navigator.share({
+        title: `Inspiring Carers Walk Finder: ${walk.name}`,
+        text: shareText,
+        url: shareUrl,
+      });
+    } catch {
+      // Share cancellation should be silent.
+    }
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopySuccess('Link copied.');
+      setTimeout(() => setCopySuccess(''), 1600);
+    } catch {
+      setCopySuccess('Copy failed. Please copy from the address bar.');
+      setTimeout(() => setCopySuccess(''), 2200);
+    }
+  };
+
+  const shareLinks = {
+    facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
+    whatsapp: `https://wa.me/?text=${encodeURIComponent(`${shareText} ${shareUrl}`)}`,
+    twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`,
+    linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`,
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(15,23,42,0.42)', display: 'grid', placeItems: 'center', padding: 24 }}>
+      <div style={{ width: '100%', maxWidth: 980, maxHeight: '90vh', overflowY: 'auto', borderRadius: 32, background: 'white', boxShadow: '0 34px 85px rgba(26,39,68,0.24)', padding: 30, position: 'relative' }}>
+        <button onClick={onClose} style={{ position: 'absolute', right: 24, top: 24, width: 42, height: 42, borderRadius: 999, border: '1px solid #E9EEF5', background: 'white', display: 'grid', placeItems: 'center' }}>
+          <IClose s={20} />
         </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20, flexWrap: 'wrap' }}>
+          <IconTile tone="lime" size={62} radius={20}><IWalks s={28} /></IconTile>
+          <div>
+            <div className="eyebrow" style={{ color: '#5BC94A' }}>Walk details</div>
+            <h2 style={{ marginTop: 10, fontSize: 32, fontWeight: 800, letterSpacing: '-0.03em' }}>{walk.name}</h2>
+            <div style={{ fontSize: 14, color: 'rgba(26,39,68,0.72)' }}>{walk.area} · {walk.postcode}</div>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 24, marginBottom: 28 }}>
+          <div style={{ display: 'grid', gap: 18, color: 'rgba(26,39,68,0.82)', lineHeight: 1.75, fontSize: 15 }}>
+            <SectionItem label="Distance" value={formatDistance(walk.distanceMiles)} />
+            <SectionItem label="Duration" value={formatDuration(walk.durationMinutes)} />
+            <SectionItem label="Difficulty" value={walk.difficulty} />
+            <SectionItem label="Terrain" value={walk.terrain} />
+            <SectionItem label="Elevation" value={`${walk.elevation} m`} />
+            <SectionItem label="Circular route" value={walk.circular ? 'Yes' : 'No'} />
+          </div>
+          <div style={{ background: 'rgba(245,250,255,1)', border: '1px solid #E9EEF5', borderRadius: 26, padding: 20, display: 'grid', gap: 14 }}>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>Practical details</div>
+            <DetailBadge label="Toilets" value={walk.toilets} />
+            <DetailBadge label="Parking" value={walk.parking} />
+            <DetailBadge label="Public transport" value={walk.publicTransport} />
+            <DetailBadge label="Refreshments" value={walk.refreshments} />
+            <DetailBadge label="Accessibility" value={walk.accessibility} secondary />
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gap: 18, marginBottom: 20 }}>
+          <DetailSection title="Highlights" content={walk.highlights} />
+          <DetailSection title="Safety notes" content={walk.safetyNotes} />
+          <DetailSection title="Accessibility notes" content={walk.accessibility} />
+          <DetailSection title="Bus information" content={walk.busInfo} />
+          <DetailSection title="Itinerary" content={walk.itinerary} />
+        </div>
+
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 12 }}>
+          <a href={walk.googleMapsLink} target="_blank" rel="noreferrer" className="btn btn-gold btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+            Open in Google Maps
+            <IArrow s={18} />
+          </a>
+          <a href={buildWalkEmailHref(walk)} className="btn btn-sky btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+            Email Walk Details
+          </a>
+          <button onClick={() => setShowUpdateForm((open) => !open)} className="btn btn-ghost btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+            Submit an update
+          </button>
+          <button onClick={onClose} className="btn btn-ghost btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+            Back to results
+          </button>
+        </div>
+
+        <div style={{ marginTop: 24, borderTop: '1px solid #EFF1F7', paddingTop: 20 }}>
+          <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 12 }}>Share</div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {typeof navigator !== 'undefined' && navigator.share ? (
+              <button onClick={handleNativeShare} className="btn btn-sky btn-sm">Share via device</button>
+            ) : null}
+            <a href={shareLinks.facebook} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">Facebook</a>
+            <a href={shareLinks.whatsapp} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">WhatsApp</a>
+            <a href={shareLinks.twitter} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">X / Twitter</a>
+            <a href={shareLinks.linkedin} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">LinkedIn</a>
+            <button onClick={handleCopyLink} className="btn btn-ghost btn-sm">Copy Link</button>
+          </div>
+          {copySuccess ? <div style={{ marginTop: 10, fontSize: 13, color: '#1A2744' }}>{copySuccess}</div> : null}
+        </div>
+
+        <div style={{ marginTop: 24, borderTop: '1px solid #EFF1F7', paddingTop: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ fontSize: 17, fontWeight: 700 }}>Comments / Community Notes</div>
+            <button className="btn btn-sky btn-sm" onClick={() => setShowCommentForm((open) => !open)}>Leave a comment</button>
+          </div>
+          <div style={{ marginTop: 8, fontSize: 13, color: 'rgba(26,39,68,0.72)' }}>Comments may be reviewed before appearing.</div>
+
+          {existingComments.length > 0 ? (
+            <div style={{ marginTop: 14, display: 'grid', gap: 10 }}>
+              {existingComments.map((item, index) => (
+                <div key={`${walk.id}-comment-${index}`} style={{ border: '1px solid #E9EEF5', borderRadius: 16, padding: 14, background: '#FAFBFF' }}>
+                  <div style={{ fontWeight: 700, color: '#1A2744' }}>{hasText(item.name) ? item.name : 'Community member'}</div>
+                  <div style={{ marginTop: 6, color: 'rgba(26,39,68,0.82)' }}>{item.comment}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ marginTop: 14, fontSize: 14, color: 'rgba(26,39,68,0.72)' }}>No public comments yet for this walk.</div>
+          )}
+
+          {showCommentForm ? (
+            <form onSubmit={handleSubmitComment} style={{ marginTop: 14, border: '1px solid #E9EEF5', borderRadius: 18, padding: 16, display: 'grid', gap: 12 }}>
+              <input
+                type="text"
+                value={commentForm.name}
+                onChange={(event) => setCommentForm((prev) => ({ ...prev, name: event.target.value }))}
+                placeholder="Your name (optional)"
+                style={{ width: '100%', borderRadius: 12, border: '1px solid #E9EEF5', padding: '12px 14px', fontSize: 14 }}
+              />
+              <textarea
+                value={commentForm.comment}
+                onChange={(event) => setCommentForm((prev) => ({ ...prev, comment: event.target.value }))}
+                placeholder="Share your experience with this walk"
+                rows={4}
+                style={{ width: '100%', borderRadius: 12, border: '1px solid #E9EEF5', padding: '12px 14px', fontSize: 14, resize: 'vertical' }}
+              />
+              {commentErrors.comment ? <div style={{ color: '#A03A2D', fontSize: 13 }}>{commentErrors.comment}</div> : null}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14 }}>
+                <input type="checkbox" checked={commentForm.visited} onChange={(event) => setCommentForm((prev) => ({ ...prev, visited: event.target.checked }))} />
+                Visited this walk?
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14 }}>
+                <input type="checkbox" checked={commentForm.recommend} onChange={(event) => setCommentForm((prev) => ({ ...prev, recommend: event.target.checked }))} />
+                Would recommend
+              </label>
+              {!feedbackConfigured ? <div style={{ fontSize: 13, color: '#1A2744' }}>Feedback email is not configured. Set VITE_WALKS_FEEDBACK_EMAIL to route submissions to your team inbox.</div> : null}
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <button type="submit" className="btn btn-sky btn-sm" disabled={isSubmittingComment}>{isSubmittingComment ? 'Opening draft...' : 'Submit comment'}</button>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowCommentForm(false)}>Cancel</button>
+              </div>
+              {commentSuccess ? <div style={{ fontSize: 13, color: '#1A2744' }}>{commentSuccess}</div> : null}
+            </form>
+          ) : null}
+        </div>
+
+        {showUpdateForm ? (
+          <div style={{ marginTop: 24, borderTop: '1px solid #EFF1F7', paddingTop: 20 }}>
+            <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 12 }}>Submit an update</div>
+            <form onSubmit={handleSubmitUpdate} style={{ border: '1px solid #E9EEF5', borderRadius: 18, padding: 16, display: 'grid', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+                <input value={updateForm.walkName} readOnly style={{ width: '100%', borderRadius: 12, border: '1px solid #E9EEF5', padding: '12px 14px', fontSize: 14, background: '#F8FAFD' }} />
+                <input value={updateForm.area} readOnly style={{ width: '100%', borderRadius: 12, border: '1px solid #E9EEF5', padding: '12px 14px', fontSize: 14, background: '#F8FAFD' }} />
+              </div>
+              <select
+                value={updateForm.updateType}
+                onChange={(event) => setUpdateForm((prev) => ({ ...prev, updateType: event.target.value }))}
+                style={{ width: '100%', borderRadius: 12, border: '1px solid #E9EEF5', padding: '12px 14px', fontSize: 14 }}
+              >
+                <option value="Incorrect information">Incorrect information</option>
+                <option value="Accessibility change">Accessibility change</option>
+                <option value="Safety issue">Safety issue</option>
+                <option value="Toilet / refreshments update">Toilet / refreshments update</option>
+                <option value="Transport / parking update">Transport / parking update</option>
+                <option value="Route condition update">Route condition update</option>
+                <option value="Other">Other</option>
+              </select>
+              {updateErrors.updateType ? <div style={{ color: '#A03A2D', fontSize: 13 }}>{updateErrors.updateType}</div> : null}
+              <textarea
+                value={updateForm.description}
+                onChange={(event) => setUpdateForm((prev) => ({ ...prev, description: event.target.value }))}
+                placeholder="Describe what changed"
+                rows={5}
+                style={{ width: '100%', borderRadius: 12, border: '1px solid #E9EEF5', padding: '12px 14px', fontSize: 14, resize: 'vertical' }}
+              />
+              {updateErrors.description ? <div style={{ color: '#A03A2D', fontSize: 13 }}>{updateErrors.description}</div> : null}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+                <input
+                  type="text"
+                  value={updateForm.name}
+                  onChange={(event) => setUpdateForm((prev) => ({ ...prev, name: event.target.value }))}
+                  placeholder="Your name (optional)"
+                  style={{ width: '100%', borderRadius: 12, border: '1px solid #E9EEF5', padding: '12px 14px', fontSize: 14 }}
+                />
+                <input
+                  type="email"
+                  value={updateForm.email}
+                  onChange={(event) => setUpdateForm((prev) => ({ ...prev, email: event.target.value }))}
+                  placeholder="Your email (optional)"
+                  style={{ width: '100%', borderRadius: 12, border: '1px solid #E9EEF5', padding: '12px 14px', fontSize: 14 }}
+                />
+              </div>
+              {updateErrors.email ? <div style={{ color: '#A03A2D', fontSize: 13 }}>{updateErrors.email}</div> : null}
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 14, color: '#1A2744' }}>
+                <input type="checkbox" checked={updateForm.consent} onChange={(event) => setUpdateForm((prev) => ({ ...prev, consent: event.target.checked }))} />
+                <span>I understand this update may be reviewed before being published.</span>
+              </label>
+              {updateErrors.consent ? <div style={{ color: '#A03A2D', fontSize: 13 }}>{updateErrors.consent}</div> : null}
+              {!feedbackConfigured ? <div style={{ fontSize: 13, color: '#1A2744' }}>Feedback email is not configured. Set VITE_WALKS_FEEDBACK_EMAIL to route submissions to your team inbox.</div> : null}
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <button type="submit" className="btn btn-sky btn-sm" disabled={isSubmittingUpdate}>{isSubmittingUpdate ? 'Opening draft...' : 'Submit update'}</button>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowUpdateForm(false)}>Cancel</button>
+              </div>
+              {updateSuccess ? <div style={{ fontSize: 13, color: '#1A2744' }}>{updateSuccess}</div> : null}
+            </form>
+          </div>
+        ) : null}
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const SectionItem = ({ label, value }) => (
   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
