@@ -20,6 +20,18 @@ const inputStyle = {
 
 const slugify = (value) => `${value || ''}`.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
+const getProfileName = (profile, resources = []) => {
+  if (!profile) return 'Organisation profile';
+  const linkedResource = resources.find((resource) => `${resource.id}` === `${profile.resource_id}`) || null;
+  return `${profile.name || linkedResource?.name || profile.slug || profile.owner_email || 'Organisation profile'}`.trim();
+};
+
+const isPendingStatus = (value) => {
+  const status = `${value || ''}`.trim().toLowerCase();
+  if (!status) return true;
+  return ['pending', 'in_review', 'new', 'submitted'].includes(status);
+};
+
 const emptyCategory = { id: null, name: '', slug: '', sort_order: 0, active: true };
 const emptyResource = {
   id: null,
@@ -42,7 +54,7 @@ const emptyResource = {
 };
 const emptyProfile = {
   id: null,
-  display_name: '',
+  name: '',
   slug: '',
   resource_id: '',
   owner_email: '',
@@ -133,8 +145,8 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       ] = await Promise.all([
         supabase.from('categories').select('*').order('sort_order', { ascending: true }).order('name', { ascending: true }),
         supabase.from('resources').select('*').order('name', { ascending: true }),
-        supabase.from('organisation_profiles').select('*').order('display_name', { ascending: true }),
-        supabase.from('organisation_events').select('*').order('starts_at', { ascending: true }),
+        supabase.from('organisation_profiles').select('*'),
+        supabase.from('organisation_events').select('*'),
         supabase.from('listing_claims').select('*').order('created_at', { ascending: false }),
         supabase.from('resource_update_submissions').select('*').order('created_at', { ascending: false }),
         supabase.from('walk_risk_updates').select('*').order('created_at', { ascending: false }),
@@ -148,10 +160,26 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
 
       setCategories(categoriesResult.data || []);
       setResources(resourcesResult.data || []);
-      setProfiles(profilesResult.data || []);
-      setEvents(eventsResult.data || []);
-      setClaims(claimsResult.data || []);
-      setResourceUpdates(resourceUpdatesResult.data || []);
+  setProfiles((profilesResult.data || []).slice().sort((left, right) => getProfileName(left, resourcesResult.data || []).localeCompare(getProfileName(right, resourcesResult.data || []), 'en', { sensitivity: 'base' })));
+      setEvents((eventsResult.data || []).slice().sort((left, right) => `${left.starts_at || ''}`.localeCompare(`${right.starts_at || ''}`)));
+      const claimRows = claimsResult.error
+        ? (resourceUpdatesResult.data || [])
+          .filter((row) => `${row.update_type || ''}`.toLowerCase() === 'claim_request')
+          .map((row) => ({
+            id: row.id,
+            listing_id: row.resource_id,
+            listing_title: row.resource_name || row.listing_title || 'Claim request',
+            org_name: row.payload?.org_name || '',
+            full_name: row.submitter_name || row.payload?.full_name || '',
+            email: row.submitter_email || row.payload?.email || '',
+            status: row.status || 'pending',
+            created_at: row.created_at,
+            source: 'resource_update_submissions',
+          }))
+        : (claimsResult.data || []);
+
+      setClaims(claimRows);
+      setResourceUpdates((resourceUpdatesResult.data || []).filter((row) => `${row.update_type || ''}`.toLowerCase() !== 'claim_request'));
       setWalkUpdates(walkUpdatesResult.data || []);
       setWalkComments(walkCommentsResult.data || []);
     } catch (loadError) {
@@ -243,14 +271,14 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   };
 
   const saveProfile = async () => {
-    if (!profileDraft.display_name.trim()) {
-      setError('Profile display name is required.');
+    if (!profileDraft.name.trim()) {
+      setError('Profile name is required.');
       return;
     }
 
     const payload = {
-      display_name: profileDraft.display_name.trim(),
-      slug: slugify(profileDraft.slug || profileDraft.display_name),
+      name: profileDraft.name.trim(),
+      slug: slugify(profileDraft.slug || profileDraft.name),
       resource_id: profileDraft.resource_id || null,
       owner_email: profileDraft.owner_email?.trim() || null,
       email: profileDraft.email?.trim() || null,
@@ -339,7 +367,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
 
       const { error: insertError } = await supabase.from('organisation_profiles').insert({
         resource_id: claim.listing_id,
-        display_name: displayName,
+        name: displayName,
         slug: `${slugBase}-${`${claim.listing_id}`.slice(-6)}`,
         owner_email: ownerEmail,
         email: ownerEmail,
@@ -351,7 +379,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     }
 
     const { error: fallbackInsertError } = await supabase.from('organisation_profiles').insert({
-      display_name: displayName,
+      name: displayName,
       slug: `${slugBase}-${Date.now()}`,
       owner_email: ownerEmail,
       email: ownerEmail,
@@ -419,10 +447,10 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     );
   }
 
-  const pendingClaims = claims.filter((row) => (row.status || 'pending') === 'pending');
-  const pendingResourceUpdates = resourceUpdates.filter((row) => (row.status || 'pending') === 'pending');
-  const pendingWalkUpdates = walkUpdates.filter((row) => (row.status || 'pending') === 'pending');
-  const pendingWalkComments = walkComments.filter((row) => (row.status || 'pending') === 'pending');
+  const pendingClaims = claims.filter((row) => isPendingStatus(row.status));
+  const pendingResourceUpdates = resourceUpdates.filter((row) => isPendingStatus(row.status));
+  const pendingWalkUpdates = walkUpdates.filter((row) => isPendingStatus(row.status));
+  const pendingWalkComments = walkComments.filter((row) => isPendingStatus(row.status));
 
   return (
     <>
@@ -547,8 +575,14 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                         const res = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(pc)}`);
                         const json = await res.json();
                         if (json.status === 200 && json.result) {
+                          const town = json.result.admin_district || json.result.admin_ward || json.result.parish || json.result.nuts || json.result.region || '';
+                          const formattedPostcode = json.result.postcode || resourceDraft.postcode;
+                          const addressFallback = [town, formattedPostcode].filter(Boolean).join(', ');
                           setResourceDraft((p) => ({
                             ...p,
+                            postcode: formattedPostcode || p.postcode,
+                            town: town || p.town,
+                            address: `${p.address || ''}`.trim() ? p.address : addressFallback,
                             latitude: String(json.result.latitude),
                             longitude: String(json.result.longitude),
                           }));
@@ -595,7 +629,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
             <div className="card" style={{ padding: 18 }}>
               <h2 style={{ fontSize: 22, fontWeight: 700 }}>Organisation profile CRUD</h2>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginTop: 10 }}>
-                <input value={profileDraft.display_name} onChange={(e) => setProfileDraft((p) => ({ ...p, display_name: e.target.value }))} placeholder="Display name" style={inputStyle} />
+                <input value={profileDraft.name} onChange={(e) => setProfileDraft((p) => ({ ...p, name: e.target.value }))} placeholder="Profile name" style={inputStyle} />
                 <input value={profileDraft.slug} onChange={(e) => setProfileDraft((p) => ({ ...p, slug: e.target.value }))} placeholder="Slug" style={inputStyle} />
                 <select value={profileDraft.resource_id} onChange={(e) => setProfileDraft((p) => ({ ...p, resource_id: e.target.value }))} style={inputStyle}>
                   <option value="">Linked resource</option>
@@ -613,9 +647,9 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
               <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
                 {profiles.map((row) => (
                   <div key={row.id} style={{ border: '1px solid #E9EEF5', borderRadius: 10, padding: 10, display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
-                    <div>{row.display_name} <span style={{ color: 'rgba(26,39,68,0.55)' }}>({row.owner_email || 'No owner email'})</span></div>
+                    <div>{getProfileName(row, resources)} <span style={{ color: 'rgba(26,39,68,0.55)' }}>({row.owner_email || 'No owner email'})</span></div>
                     <div style={{ display: 'flex', gap: 6 }}>
-                      <button className="btn btn-ghost btn-sm" onClick={() => setProfileDraft({ ...emptyProfile, ...row, resource_id: row.resource_id || '' })}>Edit</button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setProfileDraft({ ...emptyProfile, ...row, name: row.name || '', resource_id: row.resource_id || '' })}>Edit</button>
                       <button className="btn btn-ghost btn-sm" onClick={() => deleteRow('organisation_profiles', row.id, 'Profile deleted.')}>Delete</button>
                     </div>
                   </div>
@@ -630,11 +664,18 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginTop: 10 }}>
                 <select value={eventDraft.organisation_profile_id} onChange={(e) => setEventDraft((p) => ({ ...p, organisation_profile_id: e.target.value }))} style={inputStyle}>
                   <option value="">Organisation profile</option>
-                  {profiles.map((row) => <option key={row.id} value={row.id}>{row.display_name}</option>)}
+                  {profiles.map((row) => <option key={row.id} value={row.id}>{getProfileName(row, resources)}</option>)}
                 </select>
                 <input value={eventDraft.title} onChange={(e) => setEventDraft((p) => ({ ...p, title: e.target.value }))} placeholder="Title" style={inputStyle} />
                 <input value={eventDraft.slug} onChange={(e) => setEventDraft((p) => ({ ...p, slug: e.target.value }))} placeholder="Slug" style={inputStyle} />
-                <input value={eventDraft.event_type} onChange={(e) => setEventDraft((p) => ({ ...p, event_type: e.target.value }))} placeholder="Event type" style={inputStyle} />
+                <select value={eventDraft.event_type} onChange={(e) => setEventDraft((p) => ({ ...p, event_type: e.target.value }))} style={inputStyle}>
+                  <option value="community meetup">Community meetup</option>
+                  <option value="support group">Support group</option>
+                  <option value="workshop">Workshop</option>
+                  <option value="training">Training</option>
+                  <option value="drop-in">Drop-in</option>
+                  <option value="information session">Information session</option>
+                </select>
                 <input type="datetime-local" value={eventDraft.starts_at} onChange={(e) => setEventDraft((p) => ({ ...p, starts_at: e.target.value }))} style={inputStyle} />
                 <input type="datetime-local" value={eventDraft.ends_at} onChange={(e) => setEventDraft((p) => ({ ...p, ends_at: e.target.value }))} style={inputStyle} />
                 <input value={eventDraft.location} onChange={(e) => setEventDraft((p) => ({ ...p, location: e.target.value }))} placeholder="Location" style={inputStyle} />
