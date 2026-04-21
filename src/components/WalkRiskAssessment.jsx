@@ -1,7 +1,7 @@
 import React from 'react';
 import Icons from './Icons.jsx';
 
-const { IShield, IAlert, ICheck, IDownload, IClose } = Icons;
+const { IShield, ICheck, IClose } = Icons;
 
 /**
  * Mandatory Disclaimer Component
@@ -35,7 +35,7 @@ export const RiskAssessmentDisclaimer = ({ compact = false }) => {
     }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
         <div style={{ marginTop: 2, color: '#A03A2D', flexShrink: 0 }}>
-          <IAlert s={18} />
+          <IShield s={18} />
         </div>
         <div>
           <div style={{ fontWeight: 700, color: '#A03A2D', fontSize: 14, marginBottom: 8 }}>

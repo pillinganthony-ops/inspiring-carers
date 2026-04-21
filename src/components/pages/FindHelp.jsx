@@ -218,7 +218,8 @@ const normalizeResource = (row, index) => {
   const categoryMeta = getCategoryMeta(rawCategory);
 
   const title = pickField(row, ['name', 'title']) || `Support listing ${index + 1}`;
-  const venue = pickField(row, ['organisation', 'organization', 'provider', 'venue', 'location_name']) || 'Community support';
+  const organisationName = pickField(row, ['organisation_name', 'organisation', 'organization', 'provider', 'venue', 'location_name']) || '';
+  const venue = organisationName || 'Community support';
   const area = pickField(row, ['town', 'area', 'location', 'city']) || pickField(row, ['postcode']) || 'Cornwall';
   const county = pickField(row, ['county', 'region', 'admin_county']) || '';
   const availability = pickField(row, ['opening_hours', 'availability', 'service_hours', 'contact_hours']) || 'Contact for details';
@@ -232,6 +233,7 @@ const normalizeResource = (row, index) => {
     tone: categoryMeta.tone,
     icon: categoryMeta.cardIcon,
     title,
+    organisationName,
     venue,
     area,
     when: availability,
@@ -257,6 +259,27 @@ const normalizeResource = (row, index) => {
     countyKey: `${county}`.trim().toLowerCase() || 'cornwall',
     searchText: `${title} ${venue} ${area} ${county} ${categoryLabel} ${summary}`.toLowerCase(),
   };
+};
+
+const GENERIC_ORG_NAMES = new Set(['community support', 'support service', 'local support', 'organisation', 'organization']);
+const deriveClaimOrgName = (listing) => {
+  const candidates = [
+    listing?.organisationName,
+    listing?.profile?.display_name,
+    listing?.venue,
+    listing?.title,
+    listing?.name,
+    listing?.listing_title,
+  ];
+
+  for (const value of candidates) {
+    const normalized = `${value || ''}`.trim();
+    if (!normalized) continue;
+    if (GENERIC_ORG_NAMES.has(normalized.toLowerCase())) continue;
+    return normalized;
+  }
+
+  return 'Organisation';
 };
 
 const toneMapColor = (tone) => ({
@@ -398,7 +421,7 @@ const ShareTray = ({ listing, onAction, onClose }) => (
 const RELATIONSHIP_OPTIONS = ['Owner / Director', 'Senior Staff Member', 'Volunteer Lead', 'Partnership Organisation', 'Trustee / Board Member', 'Other'];
 
 const ClaimModal = ({ listing, onClose, onSuccess, onError }) => {
-  const [form, setForm] = React.useState({ fullName: '', orgName: listing?.venue || listing?.title || '', email: '', phone: '', relationship: '', reason: '' });
+  const [form, setForm] = React.useState({ fullName: '', orgName: deriveClaimOrgName(listing), email: '', phone: '', relationship: '', reason: '' });
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState('');
 
@@ -425,6 +448,7 @@ const ClaimModal = ({ listing, onClose, onSuccess, onError }) => {
         listing_title: listing.title,
         full_name: form.fullName.trim(),
         org_name: form.orgName.trim(),
+        role: form.relationship.trim(),
         email,
         phone: form.phone.trim() || null,
         relationship: form.relationship.trim(),
@@ -433,27 +457,17 @@ const ClaimModal = ({ listing, onClose, onSuccess, onError }) => {
       };
 
       const { error: dbError } = await supabase.from('listing_claims').insert(claimPayload);
-      if (dbError) {
-        const message = dbError.message || '';
-        const missingClaimsTable = message.includes('listing_claims') && (message.includes('schema cache') || message.includes('does not exist'));
-        if (!missingClaimsTable) throw dbError;
-
-        const { error: fallbackError } = await supabase.from('resource_update_submissions').insert({
-          resource_id: listing.id,
-          resource_name: listing.title,
-          resource_category: listing.categoryLabel,
-          update_type: 'claim_request',
-          description: claimPayload.reason,
-          submitter_name: claimPayload.full_name,
-          submitter_email: claimPayload.email,
-          status: 'pending',
-          payload: claimPayload,
-        });
-        if (fallbackError) throw fallbackError;
-      }
-      onSuccess();
+      if (dbError) throw dbError;
+      onSuccess({
+        listingName: listing?.title || deriveClaimOrgName(listing),
+        organisationName: claimPayload.org_name,
+      });
     } catch (err) {
-      const message = err.message || 'Failed to submit claim. Please try again.';
+      const rawMessage = err?.message || '';
+      const message =
+        rawMessage.includes('listing_claims') && (rawMessage.includes('schema cache') || rawMessage.includes('does not exist'))
+          ? 'Claim submissions are temporarily unavailable while the claims table is being synced. Please try again shortly.'
+          : (rawMessage || 'Failed to submit claim. Please try again.');
       setError(message);
       onError?.(message);
     } finally {
@@ -492,8 +506,9 @@ const ClaimModal = ({ listing, onClose, onSuccess, onError }) => {
           </div>
 
           <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,39,68,0.55)', display: 'block', marginBottom: 5 }}>Organisation name *</label>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,39,68,0.55)', display: 'block', marginBottom: 5 }}>Organisation or listing name being claimed *</label>
             <input value={form.orgName} onChange={set('orgName')} required placeholder="Organisation name" style={fieldSt} />
+            <div style={{ marginTop: 5, fontSize: 12, color: 'rgba(26,39,68,0.58)' }}>This should match the organisation behind this listing.</div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -1090,7 +1105,13 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
         <ClaimModal
           listing={listing}
           onClose={() => setClaimOpen(false)}
-          onSuccess={() => { setClaimOpen(false); setClaimSuccess(true); onNotify?.('Claim request submitted successfully.'); }}
+          onSuccess={(payload) => {
+            setClaimOpen(false);
+            setClaimSuccess(true);
+            const listingName = payload?.listingName || listing?.title || 'this listing';
+            const organisationName = payload?.organisationName || listingName;
+            onNotify?.(`Claim request submitted for ${listingName} (${organisationName}).`);
+          }}
           onError={(message) => onNotify?.(message)}
         />
       )}
