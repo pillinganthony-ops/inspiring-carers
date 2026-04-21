@@ -187,6 +187,7 @@ const App = () => {
   const parseRoute = (path) => {
     const normalized = path.replace(/\/\/+$/, '').toLowerCase();
     if (normalized === '/login') return 'login';
+    if (normalized.startsWith('/find-help/')) return 'find-help';
     if (normalized === '/find-help') return 'find-help';
     if (normalized === '/benefits') return 'benefits';
     if (normalized === '/walks') return 'walks';
