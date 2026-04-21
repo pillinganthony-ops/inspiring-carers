@@ -20,6 +20,11 @@ const inputStyle = {
 
 const slugify = (value) => `${value || ''}`.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
+const asNumber = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 const getProfileName = (profile, resources = []) => {
   if (!profile) return 'Organisation profile';
   const linkedResource = resources.find((resource) => `${resource.id}` === `${profile.resource_id}`) || null;
@@ -67,7 +72,7 @@ const emptyEvent = {
   organisation_profile_id: '',
   title: '',
   slug: '',
-  event_type: 'community meetup',
+  event_type: 'Support Group',
   description: '',
   starts_at: '',
   ends_at: '',
@@ -77,6 +82,32 @@ const emptyEvent = {
   contact_email: '',
   status: 'scheduled',
 };
+
+const EVENT_TYPE_OPTIONS = [
+  'Support Group',
+  'Coffee Morning',
+  'Peer Meetup',
+  'Carers Drop-In',
+  'Workshop',
+  'Training Session',
+  'Information Session',
+  'Wellbeing Activity',
+  'Walk / Outdoor Activity',
+  'Exercise / Fitness',
+  'Arts / Crafts',
+  'Music / Creative Session',
+  'Social Event',
+  'Family Event',
+  'Fundraiser',
+  'Community Event',
+  'Advice Clinic',
+  'One-to-One Session',
+  'Online Session',
+  'Volunteer Opportunity',
+  'Awareness Event',
+  'Celebration / Awards',
+  'Other',
+];
 
 const QueueCard = ({ title, rows, onUpdateStatus, formatRow }) => (
   <div className="card" style={{ padding: 18, borderRadius: 18 }}>
@@ -118,11 +149,32 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   const [resourceDraft, setResourceDraft] = React.useState(emptyResource);
   const [profileDraft, setProfileDraft] = React.useState(emptyProfile);
   const [eventDraft, setEventDraft] = React.useState(emptyEvent);
+  const [postcodeBusy, setPostcodeBusy] = React.useState(false);
+  const [postcodeError, setPostcodeError] = React.useState('');
+  const [postcodeCandidates, setPostcodeCandidates] = React.useState([]);
+  const [selectedPostcodeCandidateId, setSelectedPostcodeCandidateId] = React.useState('');
 
   const canAccessAdmin = React.useMemo(() => {
     const email = `${session?.user?.email || ''}`.trim().toLowerCase();
     return Boolean(email && ADMIN_EMAIL_ALLOWLIST.includes(email));
   }, [session]);
+
+  const profileOptions = React.useMemo(() => (
+    (profiles || [])
+      .filter((profile) => profile?.id)
+      .map((profile) => ({
+        value: `${profile.id}`,
+        label: getProfileName(profile, resources),
+      }))
+      .sort((left, right) => left.label.localeCompare(right.label, 'en', { sensitivity: 'base' }))
+  ), [profiles, resources]);
+
+  const eventTypeOptions = React.useMemo(() => {
+    const current = `${eventDraft.event_type || ''}`.trim();
+    if (!current) return EVENT_TYPE_OPTIONS;
+    const exists = EVENT_TYPE_OPTIONS.some((option) => option.toLowerCase() === current.toLowerCase());
+    return exists ? EVENT_TYPE_OPTIONS : [current, ...EVENT_TYPE_OPTIONS];
+  }, [eventDraft.event_type]);
 
   const loadData = React.useCallback(async () => {
     if (!session || !canAccessAdmin || !supabase || !isSupabaseConfigured()) {
@@ -306,7 +358,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       organisation_profile_id: eventDraft.organisation_profile_id,
       title: eventDraft.title.trim(),
       slug: slugify(eventDraft.slug || eventDraft.title),
-      event_type: eventDraft.event_type?.trim() || 'community meetup',
+      event_type: eventDraft.event_type?.trim() || 'Support Group',
       description: eventDraft.description?.trim() || null,
       starts_at: eventDraft.starts_at,
       ends_at: eventDraft.ends_at || null,
@@ -325,6 +377,91 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       if (result.error) throw result.error;
       setEventDraft(emptyEvent);
     }, eventDraft.id ? 'Event updated.' : 'Event created.');
+  };
+
+  const applyPostcodeCandidate = React.useCallback((candidate) => {
+    if (!candidate) return;
+    setResourceDraft((draft) => ({
+      ...draft,
+      address: candidate.address || draft.address,
+      town: candidate.town || draft.town,
+      postcode: candidate.postcode || draft.postcode,
+      latitude: Number.isFinite(candidate.latitude) ? String(candidate.latitude) : draft.latitude,
+      longitude: Number.isFinite(candidate.longitude) ? String(candidate.longitude) : draft.longitude,
+    }));
+  }, []);
+
+  const handlePostcodeLookup = async () => {
+    const rawPostcode = `${resourceDraft.postcode || ''}`.trim();
+    if (!rawPostcode) {
+      setPostcodeError('Enter a postcode first.');
+      return;
+    }
+
+    const normalizedPostcode = rawPostcode.replace(/\s+/g, '').toUpperCase();
+    setPostcodeBusy(true);
+    setPostcodeError('');
+    setPostcodeCandidates([]);
+    setSelectedPostcodeCandidateId('');
+
+    try {
+      const postcodeResponse = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(normalizedPostcode)}`);
+      const postcodePayload = postcodeResponse.ok ? await postcodeResponse.json() : null;
+      if (!postcodePayload || postcodePayload.status !== 200 || !postcodePayload.result) {
+        setPostcodeError('Postcode not found. Check the postcode and try again.');
+        return;
+      }
+
+      const postcodeResult = postcodePayload.result;
+      const formattedPostcode = postcodeResult.postcode || rawPostcode;
+      const fallbackTown = postcodeResult.admin_district || postcodeResult.admin_ward || postcodeResult.parish || postcodeResult.region || '';
+
+      const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&countrycodes=gb&limit=8&q=${encodeURIComponent(formattedPostcode)}`;
+      const nominatimResponse = await fetch(nominatimUrl);
+      const nominatimRows = nominatimResponse.ok ? await nominatimResponse.json() : [];
+
+      const candidates = (Array.isArray(nominatimRows) ? nominatimRows : []).map((row, index) => ({
+        id: `${row.place_id || index + 1}`,
+        label: (row.display_name || '').split(',').slice(0, 3).join(', ').trim() || `Address option ${index + 1}`,
+        address: row.display_name || '',
+        town: row.address?.town || row.address?.city || row.address?.village || row.address?.county || fallbackTown,
+        postcode: formattedPostcode,
+        latitude: asNumber(row.lat),
+        longitude: asNumber(row.lon),
+      })).filter((candidate) => Number.isFinite(candidate.latitude) && Number.isFinite(candidate.longitude));
+
+      if (!candidates.length) {
+        const fallbackCandidate = {
+          id: 'postcode-centroid',
+          label: `${formattedPostcode}${fallbackTown ? ` (${fallbackTown})` : ''}`,
+          address: [fallbackTown, formattedPostcode].filter(Boolean).join(', '),
+          town: fallbackTown,
+          postcode: formattedPostcode,
+          latitude: asNumber(postcodeResult.latitude),
+          longitude: asNumber(postcodeResult.longitude),
+        };
+        setPostcodeCandidates([fallbackCandidate]);
+        setSelectedPostcodeCandidateId(fallbackCandidate.id);
+        applyPostcodeCandidate(fallbackCandidate);
+        return;
+      }
+
+      setPostcodeCandidates(candidates);
+      if (candidates.length === 1) {
+        setSelectedPostcodeCandidateId(candidates[0].id);
+        applyPostcodeCandidate(candidates[0]);
+      } else {
+        setResourceDraft((draft) => ({
+          ...draft,
+          postcode: formattedPostcode,
+          town: draft.town || fallbackTown,
+        }));
+      }
+    } catch {
+      setPostcodeError('Postcode lookup failed. Check your internet connection.');
+    } finally {
+      setPostcodeBusy(false);
+    }
   };
 
   const deleteRow = async (table, id, message) => {
@@ -568,35 +705,31 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                     type="button"
                     className="btn btn-ghost btn-sm"
                     style={{ whiteSpace: 'nowrap', alignSelf: 'stretch', padding: '0 10px' }}
-                    disabled={!resourceDraft.postcode?.trim()}
-                    onClick={async () => {
-                      const pc = resourceDraft.postcode.trim().replace(/\s+/g, '');
-                      try {
-                        const res = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(pc)}`);
-                        const json = await res.json();
-                        if (json.status === 200 && json.result) {
-                          const town = json.result.admin_district || json.result.admin_ward || json.result.parish || json.result.nuts || json.result.region || '';
-                          const formattedPostcode = json.result.postcode || resourceDraft.postcode;
-                          const addressFallback = [town, formattedPostcode].filter(Boolean).join(', ');
-                          setResourceDraft((p) => ({
-                            ...p,
-                            postcode: formattedPostcode || p.postcode,
-                            town: town || p.town,
-                            address: `${p.address || ''}`.trim() ? p.address : addressFallback,
-                            latitude: String(json.result.latitude),
-                            longitude: String(json.result.longitude),
-                          }));
-                        } else {
-                          alert('Postcode not found. Check the postcode and try again.');
-                        }
-                      } catch {
-                        alert('Postcode lookup failed. Check your internet connection.');
-                      }
-                    }}
+                    disabled={!resourceDraft.postcode?.trim() || postcodeBusy}
+                    onClick={handlePostcodeLookup}
                   >
-                    Lookup →
+                    {postcodeBusy ? 'Looking up…' : 'Lookup →'}
                   </button>
                 </div>
+                {postcodeError ? <div style={{ gridColumn: '1 / -1', color: '#A03A2D', fontSize: 13 }}>{postcodeError}</div> : null}
+                {postcodeCandidates.length ? (
+                  <div style={{ gridColumn: '1 / -1', display: 'grid', gap: 6 }}>
+                    <select
+                      value={selectedPostcodeCandidateId}
+                      onChange={(event) => {
+                        const nextId = event.target.value;
+                        setSelectedPostcodeCandidateId(nextId);
+                        const selectedCandidate = postcodeCandidates.find((candidate) => candidate.id === nextId) || null;
+                        applyPostcodeCandidate(selectedCandidate);
+                      }}
+                      style={inputStyle}
+                    >
+                      <option value="">Select an address result</option>
+                      {postcodeCandidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.label}</option>)}
+                    </select>
+                    <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.64)' }}>Choose an address result to populate address, town, postcode, and coordinates.</div>
+                  </div>
+                ) : null}
                 <input value={resourceDraft.latitude} onChange={(e) => setResourceDraft((p) => ({ ...p, latitude: e.target.value }))} placeholder="Latitude" style={inputStyle} />
                 <input value={resourceDraft.longitude} onChange={(e) => setResourceDraft((p) => ({ ...p, longitude: e.target.value }))} placeholder="Longitude" style={inputStyle} />
               </div>
@@ -662,19 +795,14 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
             <div className="card" style={{ padding: 18 }}>
               <h2 style={{ fontSize: 22, fontWeight: 700 }}>Event CRUD</h2>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginTop: 10 }}>
-                <select value={eventDraft.organisation_profile_id} onChange={(e) => setEventDraft((p) => ({ ...p, organisation_profile_id: e.target.value }))} style={inputStyle}>
+                <select value={`${eventDraft.organisation_profile_id || ''}`} onChange={(e) => setEventDraft((p) => ({ ...p, organisation_profile_id: e.target.value }))} style={inputStyle}>
                   <option value="">Organisation profile</option>
-                  {profiles.map((row) => <option key={row.id} value={row.id}>{getProfileName(row, resources)}</option>)}
+                  {profileOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
                 <input value={eventDraft.title} onChange={(e) => setEventDraft((p) => ({ ...p, title: e.target.value }))} placeholder="Title" style={inputStyle} />
                 <input value={eventDraft.slug} onChange={(e) => setEventDraft((p) => ({ ...p, slug: e.target.value }))} placeholder="Slug" style={inputStyle} />
                 <select value={eventDraft.event_type} onChange={(e) => setEventDraft((p) => ({ ...p, event_type: e.target.value }))} style={inputStyle}>
-                  <option value="community meetup">Community meetup</option>
-                  <option value="support group">Support group</option>
-                  <option value="workshop">Workshop</option>
-                  <option value="training">Training</option>
-                  <option value="drop-in">Drop-in</option>
-                  <option value="information session">Information session</option>
+                  {eventTypeOptions.map((option) => <option key={option} value={option}>{option}</option>)}
                 </select>
                 <input type="datetime-local" value={eventDraft.starts_at} onChange={(e) => setEventDraft((p) => ({ ...p, starts_at: e.target.value }))} style={inputStyle} />
                 <input type="datetime-local" value={eventDraft.ends_at} onChange={(e) => setEventDraft((p) => ({ ...p, ends_at: e.target.value }))} style={inputStyle} />
@@ -701,7 +829,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                   <div key={row.id} style={{ border: '1px solid #E9EEF5', borderRadius: 10, padding: 10, display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
                     <div>{row.title} <span style={{ color: 'rgba(26,39,68,0.55)' }}>({row.status || 'scheduled'})</span></div>
                     <div style={{ display: 'flex', gap: 6 }}>
-                      <button className="btn btn-ghost btn-sm" onClick={() => setEventDraft({ ...emptyEvent, ...row, starts_at: row.starts_at ? row.starts_at.slice(0, 16) : '', ends_at: row.ends_at ? row.ends_at.slice(0, 16) : '' })}>Edit</button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setEventDraft({ ...emptyEvent, ...row, organisation_profile_id: row.organisation_profile_id ? String(row.organisation_profile_id) : '', starts_at: row.starts_at ? row.starts_at.slice(0, 16) : '', ends_at: row.ends_at ? row.ends_at.slice(0, 16) : '' })}>Edit</button>
                       <button className="btn btn-ghost btn-sm" onClick={() => deleteRow('organisation_events', row.id, 'Event deleted.')}>Delete</button>
                     </div>
                   </div>
