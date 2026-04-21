@@ -3,6 +3,8 @@ import Icons from '../Icons.jsx';
 import Nav from '../Nav.jsx';
 import Footer from '../Footer.jsx';
 import walks from '../../data/walks.json';
+import { RiskAssessmentDisclaimer, WalkRiskSummary, SubmitRiskUpdateModal, downloadRiskAssessmentPDF } from '../WalkRiskAssessment.jsx';
+import supabase, { isSupabaseConfigured } from '../../lib/supabaseClient.js';
 const { IWalks, IArrow, IChevron, IStar, IClose, IconTile } = Icons;
 
 const FEEDBACK_EMAIL = import.meta.env.VITE_WALKS_FEEDBACK_EMAIL || '';
@@ -469,6 +471,7 @@ const MiniStat = ({ label, value }) => (
 const WalkDetailModal = ({ walk, onClose }) => {
   const [showUpdateForm, setShowUpdateForm] = React.useState(false);
   const [showCommentForm, setShowCommentForm] = React.useState(false);
+  const [showRiskSubmission, setShowRiskSubmission] = React.useState(false);
   const [isSubmittingUpdate, setIsSubmittingUpdate] = React.useState(false);
   const [isSubmittingComment, setIsSubmittingComment] = React.useState(false);
   const [updateSuccess, setUpdateSuccess] = React.useState('');
@@ -476,11 +479,42 @@ const WalkDetailModal = ({ walk, onClose }) => {
   const [copySuccess, setCopySuccess] = React.useState('');
   const [updateErrors, setUpdateErrors] = React.useState({});
   const [commentErrors, setCommentErrors] = React.useState({});
+  const [riskAssessment, setRiskAssessment] = React.useState(null);
+  const [riskLoading, setRiskLoading] = React.useState(true);
 
   const mapEmbedUrl = getMapEmbedUrl(walk);
   const [mapPreviewEnabled, setMapPreviewEnabled] = React.useState(Boolean(mapEmbedUrl));
   const itinerarySteps = parseItinerarySteps(walk.itinerary);
   const showNativeShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+
+  // Fetch risk assessment for this walk
+  React.useEffect(() => {
+    const fetchRiskAssessment = async () => {
+      if (!isSupabaseConfigured) {
+        setRiskLoading(false);
+        return;
+      }
+      try {
+        const { data } = await supabase
+          .from('walk_risk_assessments')
+          .select('*')
+          .eq('walk_id', walk.id)
+          .eq('status', 'approved')
+          .order('version', { ascending: false })
+          .limit(1)
+          .single();
+        
+        setRiskAssessment(data || null);
+      } catch (err) {
+        // No assessment found or error - that's ok
+        setRiskAssessment(null);
+      } finally {
+        setRiskLoading(false);
+      }
+    };
+
+    fetchRiskAssessment();
+  }, [walk.id]);
 
   const [updateForm, setUpdateForm] = React.useState({
     walkName: walk.name || '',
@@ -658,6 +692,31 @@ const WalkDetailModal = ({ walk, onClose }) => {
           <DetailSection title="Safety notes" content={walk.safetyNotes} />
           <DetailSection title="Accessibility notes" content={walk.accessibility} />
           <DetailSection title="Bus information" content={walk.busInfo} />
+          
+          {/* Risk Assessment Section */}
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span>🛡️</span> Professional Risk Assessment
+            </div>
+            {riskLoading ? (
+              <div style={{ fontSize: 14, color: 'rgba(26,39,68,0.65)', padding: '16px', background: '#F8FBFF', borderRadius: 12 }}>Loading assessment...</div>
+            ) : (
+              <>
+                <WalkRiskSummary assessment={riskAssessment} walk={walk} />
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 12 }}>
+                  {riskAssessment && (
+                    <button onClick={() => downloadRiskAssessmentPDF(riskAssessment, walk)} className="btn btn-sky btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      📥 Download Assessment
+                    </button>
+                  )}
+                  <button onClick={() => setShowRiskSubmission(true)} className="btn btn-ghost btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    📋 Submit Risk Update
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10 }}>Itinerary journey</div>
             {itinerarySteps.length > 0 ? (
@@ -820,7 +879,24 @@ const WalkDetailModal = ({ walk, onClose }) => {
             </form>
           </div>
         ) : null}
+
+        {/* Risk Assessment Disclaimer */}
+        <div style={{ marginTop: 24, borderTop: '1px solid #EFF1F7', paddingTop: 20 }}>
+          <RiskAssessmentDisclaimer />
+        </div>
       </div>
+
+      {/* Submit Risk Update Modal */}
+      {showRiskSubmission && (
+        <SubmitRiskUpdateModal 
+          walk={walk} 
+          onClose={() => setShowRiskSubmission(false)} 
+          supabase={supabase}
+          onSuccess={() => {
+            // Could refresh risk assessment here
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -505,3 +505,101 @@ left join public.organisation_events events on events.organisation_profile_id = 
 left join public.organisation_event_enquiries enquiries on enquiries.organisation_event_id = events.id
 left join public.organisation_event_feedback feedback on feedback.organisation_event_id = events.id
 group by profiles.id, profiles.display_name;
+
+/* ─── Walk Risk Assessment System ──────────────────────────── */
+
+create table if not exists public.walk_risk_assessments (
+  id uuid primary key default gen_random_uuid(),
+  walk_id integer not null,
+  walk_name text not null,
+  title text not null,
+  version integer not null default 1,
+  summary text not null,
+  hazards_json jsonb not null default '[]'::jsonb,
+  accessibility_notes text,
+  weather_notes text,
+  emergency_notes text,
+  last_verified_date date not null default current_date,
+  status text not null default 'approved' check (status in ('draft', 'pending', 'approved', 'archived')),
+  created_by uuid references auth.users(id) on delete set null,
+  approved_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (walk_id, version)
+);
+
+create table if not exists public.walk_risk_updates (
+  id uuid primary key default gen_random_uuid(),
+  walk_id integer not null,
+  walk_name text not null,
+  submitted_by text not null,
+  submitted_email text not null,
+  submitted_phone text,
+  organisation text,
+  update_type text not null check (update_type in ('hazard_update', 'accessibility_note', 'weather_warning', 'general_update', 'new_assessment')),
+  description text not null,
+  attachment_url text,
+  status text not null default 'pending' check (status in ('pending', 'in_review', 'approved', 'rejected', 'archived')),
+  admin_notes text,
+  reviewed_by uuid references auth.users(id) on delete set null,
+  reviewed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+/* Indexes for walk risk assessments */
+create index if not exists walk_risk_assessments_walk_id_idx on public.walk_risk_assessments(walk_id);
+create index if not exists walk_risk_assessments_status_idx on public.walk_risk_assessments(status);
+create index if not exists walk_risk_assessments_created_idx on public.walk_risk_assessments(created_at desc);
+create index if not exists walk_risk_updates_walk_id_idx on public.walk_risk_updates(walk_id);
+create index if not exists walk_risk_updates_status_idx on public.walk_risk_updates(status);
+create index if not exists walk_risk_updates_created_idx on public.walk_risk_updates(created_at desc);
+
+/* Enable RLS */
+alter table public.walk_risk_assessments enable row level security;
+alter table public.walk_risk_updates enable row level security;
+
+/* RLS Policies for walk risk assessments */
+drop policy if exists "Active admins manage walk risk assessments" on public.walk_risk_assessments;
+create policy "Active admins manage walk risk assessments"
+on public.walk_risk_assessments for all
+to authenticated
+using (public.is_active_admin())
+with check (public.is_active_admin());
+
+drop policy if exists "Public can read approved walk risk assessments" on public.walk_risk_assessments;
+create policy "Public can read approved walk risk assessments"
+on public.walk_risk_assessments for select
+to anon, authenticated
+using (status = 'approved');
+
+/* RLS Policies for walk risk updates */
+drop policy if exists "Active admins manage walk risk updates" on public.walk_risk_updates;
+create policy "Active admins manage walk risk updates"
+on public.walk_risk_updates for all
+to authenticated
+using (public.is_active_admin())
+with check (public.is_active_admin());
+
+drop policy if exists "Anyone can submit walk risk updates" on public.walk_risk_updates;
+create policy "Anyone can submit walk risk updates"
+on public.walk_risk_updates for insert
+to anon, authenticated
+with check (true);
+
+drop policy if exists "Public can read approved walk risk updates" on public.walk_risk_updates;
+create policy "Public can read approved walk risk updates"
+on public.walk_risk_updates for select
+to anon, authenticated
+using (status = 'approved');
+
+/* Triggers for timestamps */
+drop trigger if exists set_walk_risk_assessments_updated_at on public.walk_risk_assessments;
+create trigger set_walk_risk_assessments_updated_at
+before update on public.walk_risk_assessments
+for each row execute procedure public.set_updated_at();
+
+drop trigger if exists set_walk_risk_updates_updated_at on public.walk_risk_updates;
+create trigger set_walk_risk_updates_updated_at
+before update on public.walk_risk_updates
+for each row execute procedure public.set_updated_at();
