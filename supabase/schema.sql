@@ -100,6 +100,26 @@ create table if not exists public.resource_import_jobs (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.listing_claims (
+  id uuid primary key default gen_random_uuid(),
+  listing_id uuid references public.resources(id) on delete set null,
+  listing_slug text,
+  listing_title text,
+  full_name text not null,
+  org_name text,
+  role text not null,
+  email text not null,
+  phone text,
+  relationship text not null,
+  reason text not null,
+  status text not null default 'pending' check (status in ('pending', 'in_review', 'approved', 'rejected')),
+  admin_notes text,
+  reviewed_by uuid references auth.users(id) on delete set null,
+  reviewed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 alter table public.resources add column if not exists needs_review boolean not null default false;
 alter table public.resources add column if not exists subcategory text;
 alter table public.resources add column if not exists raw_folder text;
@@ -115,6 +135,9 @@ create index if not exists resources_updated_idx on public.resources(updated_at 
 create index if not exists submissions_status_idx on public.resource_update_submissions(status);
 create index if not exists submissions_created_idx on public.resource_update_submissions(created_at desc);
 create index if not exists views_resource_idx on public.resource_view_events(resource_id);
+create index if not exists listing_claims_status_idx on public.listing_claims(status);
+create index if not exists listing_claims_created_idx on public.listing_claims(created_at desc);
+create index if not exists listing_claims_listing_id_idx on public.listing_claims(listing_id);
 
 drop trigger if exists set_resource_categories_updated_at on public.resource_categories;
 create trigger set_resource_categories_updated_at
@@ -124,6 +147,11 @@ for each row execute procedure public.set_updated_at();
 drop trigger if exists set_resources_updated_at on public.resources;
 create trigger set_resources_updated_at
 before update on public.resources
+for each row execute procedure public.set_updated_at();
+
+drop trigger if exists set_listing_claims_updated_at on public.listing_claims;
+create trigger set_listing_claims_updated_at
+before update on public.listing_claims
 for each row execute procedure public.set_updated_at();
 
 create or replace function public.is_active_admin()
@@ -145,6 +173,7 @@ alter table public.resources enable row level security;
 alter table public.resource_update_submissions enable row level security;
 alter table public.resource_view_events enable row level security;
 alter table public.resource_import_jobs enable row level security;
+alter table public.listing_claims enable row level security;
 
 drop policy if exists "Admin users can view own profile" on public.admin_users;
 create policy "Admin users can view own profile"
@@ -180,6 +209,13 @@ to authenticated
 using (public.is_active_admin())
 with check (public.is_active_admin());
 
+drop policy if exists "Active admins manage listing claims" on public.listing_claims;
+create policy "Active admins manage listing claims"
+on public.listing_claims for all
+to authenticated
+using (public.is_active_admin())
+with check (public.is_active_admin());
+
 drop policy if exists "Anyone can insert resource updates" on public.resource_update_submissions;
 create policy "Anyone can insert resource updates"
 on public.resource_update_submissions for insert
@@ -189,6 +225,12 @@ with check (true);
 drop policy if exists "Anyone can insert view events" on public.resource_view_events;
 create policy "Anyone can insert view events"
 on public.resource_view_events for insert
+to anon, authenticated
+with check (true);
+
+drop policy if exists "Anyone can insert listing claims" on public.listing_claims;
+create policy "Anyone can insert listing claims"
+on public.listing_claims for insert
 to anon, authenticated
 with check (true);
 

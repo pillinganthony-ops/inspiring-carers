@@ -169,6 +169,7 @@ const AdminPage = () => {
   const [resources, setResources] = React.useState([]);
   const [categories, setCategories] = React.useState([]);
   const [submissions, setSubmissions] = React.useState([]);
+  const [claims, setClaims] = React.useState([]);
   const [categoryViews, setCategoryViews] = React.useState([]);
 
   const [filters, setFilters] = React.useState({
@@ -191,6 +192,8 @@ const AdminPage = () => {
 
   const [submissionNotes, setSubmissionNotes] = React.useState({});
   const [submissionBusyId, setSubmissionBusyId] = React.useState('');
+  const [claimNotes, setClaimNotes] = React.useState({});
+  const [claimBusyId, setClaimBusyId] = React.useState('');
 
   const [importPreview, setImportPreview] = React.useState(null);
   const [importBusy, setImportBusy] = React.useState(false);
@@ -212,7 +215,7 @@ const AdminPage = () => {
     setLoadingData(true);
     setDashboardError('');
     try {
-      const [resourcesResult, categoriesResult, submissionsResult, viewsResult] = await Promise.all([
+      const [resourcesResult, categoriesResult, submissionsResult, claimsResult, viewsResult] = await Promise.all([
         supabase
           .from('resources')
           .select('id,name,slug,town,summary,description,website,phone,email,address,postcode,latitude,longitude,verified,featured,is_archived,source_type,source_ref,metadata,category_id,updated_at,created_at,resource_categories(id,name,slug,color)')
@@ -228,6 +231,11 @@ const AdminPage = () => {
           .order('created_at', { ascending: false })
           .limit(100),
         supabase
+          .from('listing_claims')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(100),
+        supabase
           .from('resource_category_view_stats')
           .select('*')
           .limit(5),
@@ -236,10 +244,12 @@ const AdminPage = () => {
       if (resourcesResult.error) throw resourcesResult.error;
       if (categoriesResult.error) throw categoriesResult.error;
       if (submissionsResult.error) throw submissionsResult.error;
+      if (claimsResult.error) throw claimsResult.error;
 
       setResources(resourcesResult.data ?? []);
       setCategories(categoriesResult.data ?? []);
       setSubmissions(submissionsResult.data ?? []);
+      setClaims(claimsResult.data ?? []);
       setCategoryViews(viewsResult.error ? [] : (viewsResult.data ?? []));
     } catch (error) {
       setDashboardError(error.message || 'Unable to load dashboard data. Check that Supabase schema has been applied.');
@@ -577,6 +587,27 @@ const AdminPage = () => {
     await loadDashboardData();
   };
 
+  const handleClaimReview = async (claim, status) => {
+    if (!supabase || !session) return;
+    setClaimBusyId(claim.id);
+    const { error } = await supabase
+      .from('listing_claims')
+      .update({
+        status,
+        admin_notes: claimNotes[claim.id] || null,
+        reviewed_by: session.user.id,
+        reviewed_at: new Date().toISOString(),
+      })
+      .eq('id', claim.id);
+
+    setClaimBusyId('');
+    if (error) {
+      setDashboardError(error.message || 'Unable to update claim status.');
+      return;
+    }
+    await loadDashboardData();
+  };
+
   const handleImportFile = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -789,6 +820,7 @@ const AdminPage = () => {
           <StatCard label="Total resources" value={stats.total} tone="sky" icon={<IHub s={22} />} />
           <StatCard label="Unverified" value={stats.unverified} tone="gold" icon={<IAdvice s={22} />} />
           <StatCard label="Pending updates" value={stats.pendingUpdates} tone="coral" icon={<IWellbeing s={22} />} />
+          <StatCard label="Claim requests" value={claims.filter((claim) => claim.status === 'pending').length} tone="navy" icon={<IStar s={22} />} />
           <TopViewedCard items={categoryViews} />
         </div>
 
@@ -928,6 +960,65 @@ const AdminPage = () => {
                 </div>
               ))}
               {!submissions.length ? <div style={{ color: 'rgba(26,39,68,0.68)' }}>No submitted changes are waiting in the review queue.</div> : null}
+            </div>
+
+            <div style={{ marginTop: 22, paddingTop: 18, borderTop: '1px solid #EFF1F7' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }}>
+                <div>
+                  <div className="eyebrow" style={{ color: '#7B5CF5' }}>Ownership claims</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, marginTop: 8 }}>Listing claim requests</div>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gap: 14 }}>
+                {claims.map((claim) => (
+                  <div key={claim.id} style={{ borderRadius: 20, border: '1px solid #EFF1F7', padding: 16, background: '#FCFDFF' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
+                      <div>
+                        <div style={{ fontWeight: 700 }}>{claim.listing_title || 'Unlinked listing claim'}</div>
+                        <div style={{ marginTop: 4, color: 'rgba(26,39,68,0.66)', fontSize: 13 }}>{claim.relationship || 'Claim'} · {formatDate(claim.created_at)}</div>
+                      </div>
+                      <StatusPill tone={claim.status === 'approved' ? 'lime' : claim.status === 'rejected' ? 'coral' : claim.status === 'in_review' ? 'gold' : 'navy'} label={claim.status.replace('_', ' ')} />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 10, marginBottom: 10 }}>
+                      <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.82)' }}><strong>Full name:</strong> {claim.full_name || 'Not provided'}</div>
+                      <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.82)' }}><strong>Organisation:</strong> {claim.org_name || 'Not provided'}</div>
+                      <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.82)' }}><strong>Role:</strong> {claim.role || 'Not provided'}</div>
+                      <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.82)' }}><strong>Email:</strong> {claim.email || 'Not provided'}</div>
+                      <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.82)' }}><strong>Phone:</strong> {claim.phone || 'Not provided'}</div>
+                      <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.82)' }}><strong>Listing slug:</strong> {claim.listing_slug || 'Not linked'}</div>
+                    </div>
+
+                    <div style={{ color: 'rgba(26,39,68,0.82)', lineHeight: 1.65, fontSize: 13.5, marginBottom: 10 }}>
+                      <strong>Reason / proof:</strong> {claim.reason || 'No details submitted.'}
+                    </div>
+
+                    <textarea
+                      rows={3}
+                      value={claimNotes[claim.id] ?? claim.admin_notes ?? ''}
+                      onChange={(event) => setClaimNotes((prev) => ({ ...prev, [claim.id]: event.target.value }))}
+                      placeholder="Admin notes for this claim"
+                      style={{ ...fieldStyle, marginTop: 12, resize: 'vertical' }}
+                    />
+
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 10 }}>
+                      {submissionStatuses.map((status) => (
+                        <button
+                          key={status}
+                          type="button"
+                          className={status === 'approved' ? 'btn btn-lime btn-sm' : status === 'rejected' ? 'btn btn-ghost btn-sm' : 'btn btn-sky btn-sm'}
+                          disabled={claimBusyId === claim.id}
+                          onClick={() => handleClaimReview(claim, status)}
+                        >
+                          {claimBusyId === claim.id ? 'Saving...' : status.replace('_', ' ')}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {!claims.length ? <div style={{ color: 'rgba(26,39,68,0.68)' }}>No listing claims are waiting in the queue.</div> : null}
+              </div>
             </div>
           </div>
 

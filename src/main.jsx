@@ -12,12 +12,13 @@ import PersonalStrip from './components/home/PersonalStrip.jsx';
 import IconDiscovery from './components/home/IconDiscovery.jsx';
 import Signposting from './components/home/Signposting.jsx';
 import Businesses from './components/home/Businesses.jsx';
-import FindHelpPage from './components/pages/FindHelp.jsx';
-import BenefitsPage from './components/pages/Benefits.jsx';
-import WalksPage from './components/pages/Walks.jsx';
-import AdminPage from './components/pages/Admin.jsx';
-import LoginPage from './components/pages/Login.jsx';
 import { supabase, isSupabaseConfigured } from './lib/supabaseClient.js';
+
+const FindHelpPage = React.lazy(() => import('./components/pages/FindHelp.jsx'));
+const BenefitsPage = React.lazy(() => import('./components/pages/Benefits.jsx'));
+const WalksPage = React.lazy(() => import('./components/pages/Walks.jsx'));
+const AdminPage = React.lazy(() => import('./components/pages/Admin.jsx'));
+const LoginPage = React.lazy(() => import('./components/pages/Login.jsx'));
 
 // Make icons global for JSX
 window.IDot = Icons.IDot;
@@ -182,6 +183,16 @@ const HomePage = ({ onNavigate, tweaks }) => (
   </>
 );
 
+const RouteLoading = () => (
+  <section style={{ minHeight: '52vh', display: 'grid', placeItems: 'center', background: '#FAFBFF' }}>
+    <div className="card" style={{ padding: 26, borderRadius: 20, display: 'grid', gap: 10, width: 'min(420px, 92vw)' }}>
+      <div style={{ width: 110, height: 10, borderRadius: 999, background: '#EAF0FA' }} />
+      <div style={{ width: '72%', height: 12, borderRadius: 999, background: '#E4ECF8' }} />
+      <div style={{ width: '56%', height: 12, borderRadius: 999, background: '#E4ECF8' }} />
+    </div>
+  </section>
+);
+
 // App component
 const App = () => {
   const parseRoute = (path) => {
@@ -272,11 +283,11 @@ const App = () => {
 
   let content;
   switch (displayPage) {
-    case 'login': content = <LoginPage onNavigate={navigate} />; break;
-    case 'find-help': content = <FindHelpPage onNavigate={navigate} />; break;
-    case 'benefits': content = <BenefitsPage onNavigate={navigate} />; break;
-    case 'walks': content = <WalksPage onNavigate={navigate} />; break;
-    case 'admin': content = <AdminPage />; break;
+    case 'login': content = <React.Suspense fallback={<RouteLoading />}><LoginPage onNavigate={navigate} /></React.Suspense>; break;
+    case 'find-help': content = <React.Suspense fallback={<RouteLoading />}><FindHelpPage onNavigate={navigate} /></React.Suspense>; break;
+    case 'benefits': content = <React.Suspense fallback={<RouteLoading />}><BenefitsPage onNavigate={navigate} /></React.Suspense>; break;
+    case 'walks': content = <React.Suspense fallback={<RouteLoading />}><WalksPage onNavigate={navigate} /></React.Suspense>; break;
+    case 'admin': content = <React.Suspense fallback={<RouteLoading />}><AdminPage /></React.Suspense>; break;
     case 'recognition': content = <Placeholder title="Recognition & awards" onNavigate={navigate} note="Carer of the Month, stories, nominations and community recognition — coming in the next round. Preview lives in the homepage Recognition section." />; break;
     case 'business': content = <Placeholder title="For businesses" onNavigate={navigate} note="Submit offers, see the why-carers-matter statement, badge tiers and featured partner placements — next round." />; break;
     case 'about': content = <Placeholder title="About inspiring carers" onNavigate={navigate} note="Mission, the two-tier model, and the local-first national vision — next round." />; break;
