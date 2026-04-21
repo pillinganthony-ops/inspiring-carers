@@ -3,7 +3,9 @@
 
 import React from 'react';
 import Icons from './Icons.jsx';
-const { IChevron, IClose, IMenu } = Icons;
+import LogoLockup from './Logo.jsx';
+
+const { IChevron, IClose, IMenu, IArrow } = Icons;
 
 const NavItem = ({ label, active, accent, onClick, hasCaret }) => (
   <button
@@ -33,15 +35,32 @@ const NavItem = ({ label, active, accent, onClick, hasCaret }) => (
 
 const Nav = ({ activePage = 'home', onNavigate = () => {} }) => {
   const [scrolled, setScrolled] = React.useState(false);
+  const [mobileOpen, setMobileOpen] = React.useState(false);
+
   React.useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  const navItems = [
+    { key: 'benefits', label: 'For you', accent: '#F5A623' },
+    { key: 'events', label: 'Events', accent: '#2D9CDB' },
+    { key: 'walks', label: 'Walks', accent: '#5BC94A' },
+    { key: 'find-help', label: 'Find help', accent: '#2D9CDB' },
+    { key: 'recognition', label: 'Recognition' },
+    { key: 'business', label: 'For businesses' },
+    { key: 'about', label: 'About' },
+  ];
+
+  const handleNavigate = (key) => {
+    setMobileOpen(false);
+    onNavigate(key);
+  };
+
   return (
     <header style={{
-      position: 'sticky', top: 0, zIndex: 50,
+      position: 'sticky', top: 0, zIndex: 90,
       background: scrolled ? 'rgba(250,251,255,0.88)' : 'rgba(250,251,255,0.0)',
       backdropFilter: scrolled ? 'blur(14px) saturate(140%)' : 'none',
       WebkitBackdropFilter: scrolled ? 'blur(14px) saturate(140%)' : 'none',
@@ -52,27 +71,42 @@ const Nav = ({ activePage = 'home', onNavigate = () => {} }) => {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         gap: 24, height: 76,
       }}>
-        <button onClick={() => onNavigate('home')} style={{ background: 'none' }}>
+        <button onClick={() => handleNavigate('home')} style={{ background: 'none' }}>
           <LogoLockup size={40} />
         </button>
 
-        <nav style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <NavItem label="For you" accent="#F5A623" active={activePage === 'benefits'} onClick={() => onNavigate('benefits')} hasCaret />
-          <NavItem label="Walks" accent="#5BC94A" active={activePage === 'walks'} onClick={() => onNavigate('walks')} />
-          <NavItem label="For the people you support" accent="#2D9CDB" active={activePage === 'find-help'} onClick={() => onNavigate('find-help')} hasCaret />
-          <NavItem label="Recognition" onClick={() => onNavigate('recognition')} />
-          <NavItem label="For businesses" onClick={() => onNavigate('business')} />
-          <NavItem label="About" onClick={() => onNavigate('about')} />
+        <nav className="nav-desktop" style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {navItems.map((item) => (
+            <NavItem key={item.key} label={item.label} accent={item.accent} active={activePage === item.key} onClick={() => handleNavigate(item.key)} />
+          ))}
         </nav>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button className="btn btn-ghost btn-sm" onClick={() => onNavigate('login')}>Admin sign in</button>
-          <button className="btn btn-gold btn-sm">
+        <div className="nav-actions" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button className="btn btn-ghost btn-sm" onClick={() => handleNavigate('profile')}>Profile</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => handleNavigate('login')}>Admin sign in</button>
+          <button className="btn btn-gold btn-sm" onClick={() => handleNavigate('card')}>
             Get your free card
             <IArrow s={16} />
           </button>
+          <button className="nav-mobile-toggle" onClick={() => setMobileOpen((open) => !open)} style={{ width: 42, height: 42, borderRadius: 999, border: '1px solid rgba(26,39,68,0.12)', display: 'none', alignItems: 'center', justifyContent: 'center', background: '#fff' }}>
+            {mobileOpen ? <IClose s={18} /> : <IMenu s={18} />}
+          </button>
         </div>
       </div>
+
+      {mobileOpen ? (
+        <div className="container" style={{ paddingBottom: 18 }}>
+          <div className="card" style={{ padding: 14, borderRadius: 22, display: 'grid', gap: 8 }}>
+            {navItems.map((item) => (
+              <button key={item.key} onClick={() => handleNavigate(item.key)} style={{ textAlign: 'left', padding: '12px 14px', borderRadius: 14, background: activePage === item.key ? 'rgba(26,39,68,0.06)' : '#FAFBFF', color: '#1A2744', fontWeight: 700 }}>{item.label}</button>
+            ))}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 6 }}>
+              <button className="btn btn-ghost btn-sm" onClick={() => handleNavigate('profile')}>Profile</button>
+              <button className="btn btn-gold btn-sm" onClick={() => handleNavigate('card')}>Get card</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* subtle bloom line */}
       <div style={{

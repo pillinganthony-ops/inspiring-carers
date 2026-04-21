@@ -3,6 +3,7 @@ import { GoogleMap, InfoWindowF, MarkerF, useJsApiLoader } from '@react-google-m
 import Icons from '../Icons.jsx';
 import Nav from '../Nav.jsx';
 import Footer from '../Footer.jsx';
+import LogoLockup from '../Logo.jsx';
 import supabase, { isSupabaseConfigured } from '../../lib/supabaseClient.js';
 
 /* ─── Inline share-channel icons ──────────────────────────── */
@@ -228,6 +229,13 @@ const normalizeResource = (row, index) => {
     lat: parseCoordinate(pickField(row, ['lat', 'latitude'])),
     lng: parseCoordinate(pickField(row, ['lng', 'longitude'])),
     tags: toTags(row),
+    featured: Boolean(row?.featured || row?.profile?.featured),
+    logoUrl: pickField(row?.profile || {}, ['logo_url']) || pickField(row?.metadata?.brand || {}, ['logo_url']),
+    coverImageUrl: pickField(row?.profile || {}, ['cover_image_url']),
+    profile: row?.profile || null,
+    events: Array.isArray(row?.events) ? row.events : [],
+    serviceCategories: Array.isArray(row?.profile?.service_categories) ? row.profile.service_categories : [],
+    areasCovered: Array.isArray(row?.profile?.areas_covered) ? row.profile.areas_covered : [],
     locationKey: `${area}`.trim() || 'Cornwall',
     searchText: `${title} ${venue} ${area} ${categoryLabel} ${summary}`.toLowerCase(),
   };
@@ -257,6 +265,16 @@ const getFaviconUrl = (website, sz = 128) => {
   const domain = getDomain(website);
   return domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=${sz}` : null;
 };
+
+const isSafeImageUrl = (value) => /^https?:\/\//i.test(`${value || ''}`.trim());
+
+const DefaultBrandMark = ({ size = 80 }) => (
+  <div style={{ width: size, height: size, borderRadius: Math.round(size * 0.22), background: 'linear-gradient(135deg, rgba(26,39,68,0.06), rgba(45,156,219,0.10))', border: '1px solid rgba(26,39,68,0.08)', display: 'grid', placeItems: 'center', overflow: 'hidden', boxShadow: '0 4px 18px rgba(26,39,68,0.08)' }}>
+    <div style={{ transform: `scale(${Math.max(0.52, Math.min(0.8, size / 120))})` }}>
+      <LogoLockup size={Math.round(size * 0.48)} />
+    </div>
+  </div>
+);
 
 /* ─── useIsMobile hook ────────────────────────────────────── */
 const useIsMobile = () => {
@@ -300,28 +318,22 @@ const Toast = ({ toast, onClose }) => {
 /* ─── OrgAvatar ──────────────────────────────────────────── */
 const OrgAvatar = ({ listing, size = 80 }) => {
   const [imgError, setImgError] = React.useState(false);
-  const faviconUrl = getFaviconUrl(listing.website, 128);
-  const initials = listing.title.split(/\s+/).slice(0, 2).map((w) => w[0] || '').join('').toUpperCase() || '?';
-  const color = toneMapColor(listing.tone).fg;
+  const logoUrl = isSafeImageUrl(listing.logoUrl) ? listing.logoUrl : '';
 
-  if (faviconUrl && !imgError) {
+  if (logoUrl && !imgError) {
     return (
       <div style={{ width: size, height: size, borderRadius: Math.round(size * 0.22), background: 'white', boxShadow: '0 4px 20px rgba(0,0,0,0.14)', border: '3px solid white', display: 'grid', placeItems: 'center', overflow: 'hidden', flexShrink: 0 }}>
         <img
-          src={faviconUrl}
+          src={logoUrl}
           alt={listing.title}
           onError={() => setImgError(true)}
-          style={{ width: size * 0.58, height: size * 0.58, objectFit: 'contain' }}
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
         />
       </div>
     );
   }
 
-  return (
-    <div style={{ width: size, height: size, borderRadius: Math.round(size * 0.22), background: `linear-gradient(135deg, ${color}22 0%, ${color}44 100%)`, border: `3px solid ${color}33`, display: 'grid', placeItems: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.10)', flexShrink: 0 }}>
-      <span style={{ fontFamily: 'Sora, sans-serif', fontWeight: 800, fontSize: Math.round(size * 0.32), color, letterSpacing: '-0.02em' }}>{initials}</span>
-    </div>
-  );
+  return <DefaultBrandMark size={size} />;
 };
 
 /* ─── TrustBadges ────────────────────────────────────────── */
@@ -369,7 +381,7 @@ const ShareTray = ({ listing, onAction, onClose }) => (
 /* ─── ClaimModal ─────────────────────────────────────────── */
 const RELATIONSHIP_OPTIONS = ['Owner / Director', 'Senior Staff Member', 'Volunteer Lead', 'Partnership Organisation', 'Trustee / Board Member', 'Other'];
 
-const ClaimModal = ({ listing, onClose, onSuccess }) => {
+const ClaimModal = ({ listing, onClose, onSuccess, onError }) => {
   const [form, setForm] = React.useState({ fullName: '', orgName: listing?.venue || '', role: '', email: '', phone: '', relationship: '', reason: '' });
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState('');
@@ -378,31 +390,57 @@ const ClaimModal = ({ listing, onClose, onSuccess }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.fullName || !form.email || !form.role || !form.relationship || !form.reason) {
+    const email = form.email.trim();
+    if (!form.fullName.trim() || !email || !form.role.trim() || !form.relationship.trim() || !form.reason.trim() || !form.orgName.trim()) {
       setError('Please fill in all required fields.');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError('Please enter a valid email address.');
       return;
     }
     setBusy(true);
     setError('');
     try {
       if (!supabase) throw new Error('Database not available.');
-      const { error: dbError } = await supabase.from('listing_claims').insert({
+      const claimPayload = {
         listing_id: listing.id,
         listing_slug: listing.slug,
         listing_title: listing.title,
-        full_name: form.fullName,
-        org_name: form.orgName,
-        role: form.role,
-        email: form.email,
-        phone: form.phone || null,
-        relationship: form.relationship,
-        reason: form.reason,
+        full_name: form.fullName.trim(),
+        org_name: form.orgName.trim(),
+        role: form.role.trim(),
+        email,
+        phone: form.phone.trim() || null,
+        relationship: form.relationship.trim(),
+        reason: form.reason.trim(),
         status: 'pending',
-      });
-      if (dbError) throw dbError;
+      };
+
+      const { error: dbError } = await supabase.from('listing_claims').insert(claimPayload);
+      if (dbError) {
+        const message = dbError.message || '';
+        const missingClaimsTable = message.includes('listing_claims') && (message.includes('schema cache') || message.includes('does not exist'));
+        if (!missingClaimsTable) throw dbError;
+
+        const { error: fallbackError } = await supabase.from('resource_update_submissions').insert({
+          resource_id: listing.id,
+          resource_name: listing.title,
+          resource_category: listing.categoryLabel,
+          update_type: 'claim_request',
+          description: claimPayload.reason,
+          submitter_name: claimPayload.full_name,
+          submitter_email: claimPayload.email,
+          status: 'pending',
+          payload: claimPayload,
+        });
+        if (fallbackError) throw fallbackError;
+      }
       onSuccess();
     } catch (err) {
-      setError(err.message || 'Failed to submit claim. Please try again.');
+      const message = err.message || 'Failed to submit claim. Please try again.';
+      setError(message);
+      onError?.(message);
     } finally {
       setBusy(false);
     }
@@ -612,12 +650,84 @@ const ContactItem = ({ icon, label, value, href, external = false }) => {
   return content;
 };
 
+const formatEventDateTime = (value) => {
+  if (!value) return 'Date to be confirmed';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Date to be confirmed';
+  return new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(date);
+};
+
+const EventActionModal = ({ listing, event, onClose, onSuccess, onFailure }) => {
+  const [form, setForm] = React.useState({ fullName: '', email: '', phone: '', message: '', spacesRequested: 1 });
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState('');
+
+  const updateField = (key) => (formEvent) => setForm((prev) => ({ ...prev, [key]: formEvent.target.value }));
+
+  const handleSubmit = async (submitEvent) => {
+    submitEvent.preventDefault();
+    if (!form.fullName.trim() || !form.email.trim()) {
+      setError('Please enter your name and email.');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      if (!supabase) throw new Error('Database not available.');
+      const { error: enquiryError } = await supabase.from('organisation_event_enquiries').insert({
+        organisation_event_id: event.id,
+        organisation_profile_id: event.organisation_profile_id,
+        cta_type: event.cta_type,
+        full_name: form.fullName.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim() || null,
+        message: form.message.trim() || null,
+        spaces_requested: Number(form.spacesRequested) || null,
+      });
+      if (enquiryError) throw enquiryError;
+      onSuccess(event.cta_type === 'book' ? `Booking request sent for ${event.title}.` : `Contact request sent to ${listing.venue}.`);
+    } catch (submitError) {
+      const message = submitError.message || 'Unable to send your request right now.';
+      setError(message);
+      onFailure?.(message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 260, background: 'rgba(15,23,42,0.48)', display: 'grid', placeItems: 'center', padding: 20 }} onClick={(overlayEvent) => { if (overlayEvent.target === overlayEvent.currentTarget) onClose(); }}>
+      <div className="card" style={{ width: '100%', maxWidth: 520, padding: 26, borderRadius: 26, position: 'relative' }}>
+        <button onClick={onClose} style={{ position: 'absolute', right: 18, top: 18, width: 38, height: 38, borderRadius: 999, border: '1px solid #E8EDF8', background: '#FAFBFF', display: 'grid', placeItems: 'center' }}><IClose s={16} /></button>
+        <div className="eyebrow" style={{ color: '#2D9CDB' }}>{event.cta_type === 'book' ? 'Book your place' : 'Contact provider'}</div>
+        <h3 style={{ fontSize: 26, fontWeight: 800, marginTop: 8 }}>{event.title}</h3>
+        <p style={{ marginTop: 8, color: 'rgba(26,39,68,0.68)', lineHeight: 1.65 }}>{formatEventDateTime(event.starts_at)} · {event.location || listing.area}</p>
+        <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 12, marginTop: 18 }}>
+          <input value={form.fullName} onChange={updateField('fullName')} placeholder="Full name" style={{ width: '100%', borderRadius: 14, border: '1px solid #E9EEF5', padding: '12px 14px', fontSize: 14, background: '#FAFBFF' }} />
+          <input value={form.email} onChange={updateField('email')} type="email" placeholder="Email" style={{ width: '100%', borderRadius: 14, border: '1px solid #E9EEF5', padding: '12px 14px', fontSize: 14, background: '#FAFBFF' }} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 12 }}>
+            <input value={form.phone} onChange={updateField('phone')} type="tel" placeholder="Phone" style={{ width: '100%', borderRadius: 14, border: '1px solid #E9EEF5', padding: '12px 14px', fontSize: 14, background: '#FAFBFF' }} />
+            <input value={form.spacesRequested} onChange={updateField('spacesRequested')} type="number" min="1" placeholder="Spaces" style={{ width: '100%', borderRadius: 14, border: '1px solid #E9EEF5', padding: '12px 14px', fontSize: 14, background: '#FAFBFF' }} />
+          </div>
+          <textarea value={form.message} onChange={updateField('message')} rows={4} placeholder="Message" style={{ width: '100%', borderRadius: 14, border: '1px solid #E9EEF5', padding: '12px 14px', fontSize: 14, background: '#FAFBFF', resize: 'vertical' }} />
+          {error ? <div style={{ padding: '10px 12px', borderRadius: 12, background: 'rgba(244,97,58,0.08)', color: '#A03A2D', fontSize: 13, fontWeight: 600 }}>{error}</div> : null}
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button className="btn btn-gold" type="submit" disabled={busy} style={{ flex: 1 }}>{busy ? 'Sending...' : (event.cta_type === 'book' ? 'Book your place' : 'Contact provider')}</button>
+            <button className="btn btn-ghost" type="button" onClick={onClose}>Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 /* ─── ResourceDetail ─────────────────────────────────────── */
-const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds, onToggleSave, onOpenResource }) => {
+const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds, onToggleSave, onOpenResource, onNotify }) => {
   const [shareOpen, setShareOpen] = React.useState(false);
   const [mobileShareOpen, setMobileShareOpen] = React.useState(false);
   const [claimOpen, setClaimOpen] = React.useState(false);
   const [claimSuccess, setClaimSuccess] = React.useState(false);
+  const [activeEvent, setActiveEvent] = React.useState(null);
   const isMobile = useIsMobile();
   const heroBg = toneMapColor(listing?.tone || 'navy').fg;
   const shareTrayRef = React.useRef(null);
@@ -661,6 +771,7 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
   const saved = savedIds?.has(listing.id);
   const websiteUrl = listing.website ? (listing.website.startsWith('http') ? listing.website : `https://${listing.website}`) : null;
   const domain = getDomain(listing.website);
+  const profileBio = listing.profile?.bio || listing.desc;
 
   const handleMobileQuickShare = async () => {
     const resourceUrl = getListingUrl(listing);
@@ -763,7 +874,7 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
             {/* About */}
             <div style={{ background: 'white', borderRadius: 22, padding: 24, border: '1px solid #EFF1F7', boxShadow: 'var(--shadow-sm)' }}>
               <h2 style={{ fontFamily: 'Sora, sans-serif', fontWeight: 700, fontSize: 20, marginBottom: 12 }}>About this service</h2>
-              <p style={{ fontSize: 15.5, color: 'rgba(26,39,68,0.78)', lineHeight: 1.7 }}>{listing.desc}</p>
+              <p style={{ fontSize: 15.5, color: 'rgba(26,39,68,0.78)', lineHeight: 1.7 }}>{profileBio}</p>
 
               {/* Service tags */}
               {listing.tags?.length > 0 && (
@@ -794,6 +905,37 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
                     : `This service is open to people in ${listing.area || 'Cornwall'} who need support related to ${listing.categoryLabel.toLowerCase()}.`}
                 </p>
               </DetailSection>
+
+              {(listing.serviceCategories.length || listing.areasCovered.length) ? (
+                <DetailSection title="Organisation profile" icon={<IHub s={14} />}>
+                  {listing.serviceCategories.length ? <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.65)', marginBottom: 10 }}><strong style={{ color: '#1A2744' }}>Services:</strong> {listing.serviceCategories.join(', ')}</div> : null}
+                  {listing.areasCovered.length ? <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.65)' }}><strong style={{ color: '#1A2744' }}>Areas covered:</strong> {listing.areasCovered.join(', ')}</div> : null}
+                </DetailSection>
+              ) : null}
+
+              {listing.events.length ? (
+                <DetailSection title="Events by this organisation" icon={<IEvent s={14} />}>
+                  <div style={{ display: 'grid', gap: 12 }}>
+                    {listing.events.map((event) => (
+                      <div key={event.id} style={{ borderRadius: 16, border: '1px solid #EFF1F7', padding: 16, background: '#FAFBFF' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'start' }}>
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: 16 }}>{event.title}</div>
+                            <div style={{ marginTop: 4, fontSize: 12.5, color: 'rgba(26,39,68,0.62)' }}>{formatEventDateTime(event.starts_at)} · {event.location || listing.area}</div>
+                          </div>
+                          <div style={{ padding: '5px 10px', borderRadius: 999, background: 'rgba(45,156,219,0.12)', color: '#165a85', fontSize: 11.5, fontWeight: 700 }}>{event.event_type || 'Event'}</div>
+                        </div>
+                        <p style={{ marginTop: 10, color: 'rgba(26,39,68,0.72)', fontSize: 13.5, lineHeight: 1.6 }}>{event.description || 'Local session hosted by this organisation.'}</p>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+                          <button className="btn btn-gold btn-sm" onClick={() => setActiveEvent(event)}>{event.cta_type === 'book' ? 'Book your place' : 'Contact provider'}</button>
+                          {event.capacity ? <span className="chip chip-sky">Capacity {event.capacity}</span> : null}
+                          {event.spaces_note ? <span className="chip">{event.spaces_note}</span> : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </DetailSection>
+              ) : null}
 
               {/* Location */}
               <DetailSection title="Location" icon={<IPin s={14} />}>
@@ -934,9 +1076,11 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
         <ClaimModal
           listing={listing}
           onClose={() => setClaimOpen(false)}
-          onSuccess={() => { setClaimOpen(false); setClaimSuccess(true); }}
+          onSuccess={() => { setClaimOpen(false); setClaimSuccess(true); onNotify?.('Claim request submitted successfully.'); }}
+          onError={(message) => onNotify?.(message)}
         />
       )}
+      {activeEvent ? <EventActionModal listing={listing} event={activeEvent} onClose={() => setActiveEvent(null)} onSuccess={(message) => { setActiveEvent(null); onNotify?.(message); }} onFailure={(message) => onNotify?.(message)} /> : null}
     </section>
   );
 };
@@ -944,7 +1088,7 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
 /* ─── ListingCard ────────────────────────────────────────── */
 const ListingCard = ({ listing, saved, onToggleSave, onOpenResource, onShareAction, shareOpen, setShareOpen, selected, onSelect }) => {
   const color = toneMapColor(listing.tone).fg;
-  const faviconUrl = getFaviconUrl(listing.website, 64);
+  const faviconUrl = isSafeImageUrl(listing.logoUrl) ? listing.logoUrl : '';
   const [faviconErr, setFaviconErr] = React.useState(false);
 
   return (
@@ -957,9 +1101,13 @@ const ListingCard = ({ listing, saved, onToggleSave, onOpenResource, onShareActi
       <div style={{ display: 'flex', gap: 14, alignItems: 'start' }}>
         <div style={{ position: 'relative' }}>
           <IconTile tone={listing.tone} size={54} radius={14}>{listing.icon}</IconTile>
-          {faviconUrl && !faviconErr && (
+          {faviconUrl && !faviconErr ? (
             <img src={faviconUrl} alt="" onError={() => setFaviconErr(true)}
-              style={{ position: 'absolute', right: -6, bottom: -6, width: 22, height: 22, borderRadius: 7, background: 'white', boxShadow: '0 2px 8px rgba(0,0,0,0.14)', border: '2px solid white', objectFit: 'contain' }} />
+              style={{ position: 'absolute', right: -6, bottom: -6, width: 24, height: 24, borderRadius: 7, background: 'white', boxShadow: '0 2px 8px rgba(0,0,0,0.14)', border: '2px solid white', objectFit: 'cover' }} />
+          ) : (
+            <div style={{ position: 'absolute', right: -8, bottom: -8, width: 28, height: 28, borderRadius: 9, background: 'white', boxShadow: '0 2px 8px rgba(0,0,0,0.12)', border: '2px solid white', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
+              <div style={{ transform: 'scale(0.45)' }}><LogoLockup size={24} /></div>
+            </div>
           )}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -1155,9 +1303,11 @@ const FindHelpV2 = ({ onNavigate }) => {
       setLoading(true);
       setError('');
 
-      const [categoriesResult, resourcesResult] = await Promise.all([
+      const [categoriesResult, resourcesResult, profilesResult, eventsResult] = await Promise.all([
         supabase.from('categories').select('name, slug, active, sort_order').eq('active', true).order('sort_order', { ascending: true }).order('name', { ascending: true }),
         supabase.from('resources').select('*').eq('active', true).order('name', { ascending: true }),
+        supabase.from('organisation_profiles').select('*').eq('is_active', true),
+        supabase.from('organisation_events').select('*').eq('status', 'scheduled').order('starts_at', { ascending: true }),
       ]);
 
       if (cancelled) return;
@@ -1170,7 +1320,31 @@ const FindHelpV2 = ({ onNavigate }) => {
         return;
       }
 
-      const loadedResources = (resourcesResult.data || []).map(normalizeResource);
+      const profilesMap = new Map();
+      const eventsByProfile = new Map();
+
+      if (!profilesResult.error) {
+        (profilesResult.data || []).forEach((profile) => {
+          if (profile.resource_id) profilesMap.set(profile.resource_id, profile);
+        });
+      }
+
+      if (!eventsResult.error) {
+        (eventsResult.data || []).forEach((event) => {
+          const current = eventsByProfile.get(event.organisation_profile_id) || [];
+          current.push(event);
+          eventsByProfile.set(event.organisation_profile_id, current);
+        });
+      }
+
+      const loadedResources = (resourcesResult.data || []).map((row, index) => {
+        const profile = profilesMap.get(row.id) || null;
+        return normalizeResource({
+          ...row,
+          profile,
+          events: profile ? (eventsByProfile.get(profile.id) || []) : [],
+        }, index);
+      });
       const discoveredCategoryMap = new Map();
 
       (categoriesResult.data || []).forEach((cat) => {
@@ -1224,6 +1398,7 @@ const FindHelpV2 = ({ onNavigate }) => {
   }, [resources, activeCat, areaFilter, keyword]);
 
   const selectedResource = React.useMemo(() => (detailSlug ? resources.find((item) => item.slug === detailSlug) || null : null), [resources, detailSlug]);
+  const featuredListings = React.useMemo(() => resources.filter((item) => item.featured).slice(0, 3), [resources]);
 
   const categoryOptions = React.useMemo(() => [{ id: 'all', label: 'All', displayLabel: 'All', tone: 'navy', icon: <ISparkle s={16} /> }, ...categories], [categories]);
 
@@ -1379,9 +1554,45 @@ const FindHelpV2 = ({ onNavigate }) => {
           savedIds={savedIds}
           onToggleSave={toggleSave}
           onOpenResource={openResource}
+          onNotify={setToast}
         />
       ) : (
         <>
+          {featuredListings.length ? (
+            <section style={{ paddingTop: 26, paddingBottom: 0, background: '#FAFBFF' }}>
+              <div className="container">
+                <div className="card" style={{ padding: 22, borderRadius: 28, background: 'linear-gradient(135deg, rgba(245,166,35,0.08), rgba(45,156,219,0.08))', border: '1px solid rgba(245,166,35,0.18)', marginBottom: 6 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 18, alignItems: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
+                    <div>
+                      <div className="eyebrow" style={{ color: '#F5A623' }}>Featured listings</div>
+                      <div style={{ fontSize: 24, fontWeight: 800, marginTop: 8 }}>Trusted organisations we recommend highlighting right now</div>
+                    </div>
+                    <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.62)', maxWidth: 320 }}>Featured by the community team for quality, usefulness, and trusted local support.</div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
+                    {featuredListings.map((listing) => (
+                      <div key={listing.id} className="card" style={{ padding: 18, borderRadius: 22, background: 'rgba(255,255,255,0.94)' }}>
+                        <div style={{ display: 'flex', gap: 12, alignItems: 'start' }}>
+                          <OrgAvatar listing={listing} size={58} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 9px', borderRadius: 999, background: 'rgba(245,166,35,0.12)', color: '#8a5a0b', fontSize: 11.5, fontWeight: 700 }}>Featured</div>
+                            <div style={{ fontFamily: 'Sora, sans-serif', fontWeight: 700, fontSize: 16, marginTop: 8, lineHeight: 1.3 }}>{listing.title}</div>
+                            <div style={{ marginTop: 4, fontSize: 12.5, color: 'rgba(26,39,68,0.62)' }}>{listing.venue} · {listing.area}</div>
+                          </div>
+                        </div>
+                        <p style={{ marginTop: 12, color: 'rgba(26,39,68,0.72)', fontSize: 13.5, lineHeight: 1.6 }}>{listing.desc}</p>
+                        <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+                          <button className="btn btn-gold btn-sm" onClick={() => openResource(listing)}>View profile</button>
+                          {listing.website ? <a className="btn btn-ghost btn-sm" href={listing.website.startsWith('http') ? listing.website : `https://${listing.website}`} target="_blank" rel="noreferrer">Visit website</a> : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </section>
+          ) : null}
+
           <section style={{ paddingTop: 24, paddingBottom: 0, background: '#FAFBFF' }}>
             <div className="container">
               <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, padding: 14, background: 'rgba(255,255,255,0.9)', borderRadius: 22, border: '1px solid #EFF1F7', boxShadow: 'var(--shadow-sm)' }}>

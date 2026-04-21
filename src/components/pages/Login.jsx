@@ -7,6 +7,11 @@ import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient.js';
 
 const { IHub, IArrow } = Icons;
 
+const ADMIN_EMAIL_ALLOWLIST = (import.meta.env.VITE_ADMIN_EMAIL_ALLOWLIST || 'pillinganthony@gmail.com')
+  .split(',')
+  .map((item) => item.trim().toLowerCase())
+  .filter(Boolean);
+
 const LoginPage = ({ onNavigate }) => {
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
@@ -37,12 +42,24 @@ const LoginPage = ({ onNavigate }) => {
     }
 
     if (data?.session) {
-      setSuccessMsg('Login successful. Redirecting to admin dashboard...');
-      // Wait for auth state to propagate, then navigate
-      // The auth listener in App.jsx will update session state automatically
+      const signedInEmail = (data.session.user.email || '').toLowerCase();
+      let nextRoute = 'profile';
+
+      if (ADMIN_EMAIL_ALLOWLIST.includes(signedInEmail)) {
+        nextRoute = 'admin';
+      } else {
+        try {
+          const { data: adminUser } = await supabase.from('admin_users').select('id').eq('user_id', data.session.user.id).maybeSingle();
+          if (adminUser?.id) nextRoute = 'admin';
+        } catch {
+          // Keep profile as the default destination when admin table is unavailable.
+        }
+      }
+
+      setSuccessMsg(`Login successful. Redirecting to ${nextRoute === 'admin' ? 'admin dashboard' : 'profile dashboard'}...`);
       setTimeout(() => {
-        onNavigate('admin');
-      }, 1200);
+        onNavigate(nextRoute);
+      }, 900);
     }
   };
 

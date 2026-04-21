@@ -116,8 +116,103 @@ create table if not exists public.listing_claims (
   admin_notes text,
   reviewed_by uuid references auth.users(id) on delete set null,
   reviewed_at timestamptz,
+  duplicate_of_claim_id uuid references public.listing_claims(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
+);
+
+create table if not exists public.organisation_profiles (
+  id uuid primary key default gen_random_uuid(),
+  resource_id uuid unique references public.resources(id) on delete cascade,
+  slug text not null unique,
+  display_name text not null,
+  bio text,
+  logo_url text,
+  cover_image_url text,
+  website text,
+  phone text,
+  email text,
+  socials jsonb not null default '{}'::jsonb,
+  service_categories text[] not null default '{}',
+  areas_covered text[] not null default '{}',
+  verified_status text not null default 'community' check (verified_status in ('community', 'verified', 'claimed')),
+  claim_status text not null default 'unclaimed' check (claim_status in ('unclaimed', 'pending', 'claimed', 'suspended')),
+  featured boolean not null default false,
+  is_active boolean not null default true,
+  created_by uuid references auth.users(id) on delete set null,
+  updated_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.organisation_profile_members (
+  id uuid primary key default gen_random_uuid(),
+  organisation_profile_id uuid not null references public.organisation_profiles(id) on delete cascade,
+  user_id uuid references auth.users(id) on delete set null,
+  owner_email text,
+  full_name text,
+  role_label text not null default 'owner',
+  status text not null default 'pending' check (status in ('pending', 'active', 'suspended')),
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (organisation_profile_id, owner_email)
+);
+
+create table if not exists public.organisation_events (
+  id uuid primary key default gen_random_uuid(),
+  organisation_profile_id uuid not null references public.organisation_profiles(id) on delete cascade,
+  title text not null,
+  slug text not null,
+  event_type text not null default 'community meetup',
+  description text,
+  location text,
+  starts_at timestamptz not null,
+  ends_at timestamptz,
+  capacity integer,
+  spaces_note text,
+  cta_type text not null default 'contact' check (cta_type in ('contact', 'book')),
+  contact_email text,
+  contact_phone text,
+  booking_url text,
+  status text not null default 'scheduled' check (status in ('scheduled', 'cancelled', 'completed')),
+  notes text,
+  created_by uuid references auth.users(id) on delete set null,
+  updated_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (organisation_profile_id, slug)
+);
+
+create table if not exists public.organisation_event_enquiries (
+  id uuid primary key default gen_random_uuid(),
+  organisation_event_id uuid not null references public.organisation_events(id) on delete cascade,
+  organisation_profile_id uuid not null references public.organisation_profiles(id) on delete cascade,
+  cta_type text not null check (cta_type in ('contact', 'book')),
+  full_name text not null,
+  email text not null,
+  phone text,
+  message text,
+  spaces_requested integer,
+  status text not null default 'new' check (status in ('new', 'contacted', 'confirmed', 'cancelled', 'completed')),
+  attendance_status text not null default 'unknown' check (attendance_status in ('unknown', 'attended', 'no_show', 'cancelled')),
+  admin_notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.organisation_event_feedback (
+  id uuid primary key default gen_random_uuid(),
+  organisation_event_id uuid not null references public.organisation_events(id) on delete cascade,
+  enquiry_id uuid references public.organisation_event_enquiries(id) on delete set null,
+  organisation_profile_id uuid not null references public.organisation_profiles(id) on delete cascade,
+  satisfaction_score integer check (satisfaction_score between 1 and 5),
+  usefulness_score integer check (usefulness_score between 1 and 5),
+  would_recommend boolean,
+  repeat_interest boolean,
+  outcomes text,
+  comments text,
+  submitted_at timestamptz not null default now()
 );
 
 alter table public.resources add column if not exists needs_review boolean not null default false;
@@ -138,6 +233,13 @@ create index if not exists views_resource_idx on public.resource_view_events(res
 create index if not exists listing_claims_status_idx on public.listing_claims(status);
 create index if not exists listing_claims_created_idx on public.listing_claims(created_at desc);
 create index if not exists listing_claims_listing_id_idx on public.listing_claims(listing_id);
+create index if not exists organisation_profiles_resource_idx on public.organisation_profiles(resource_id);
+create index if not exists organisation_profiles_featured_idx on public.organisation_profiles(featured);
+create index if not exists organisation_profile_members_owner_idx on public.organisation_profile_members(owner_email);
+create index if not exists organisation_events_profile_idx on public.organisation_events(organisation_profile_id);
+create index if not exists organisation_events_starts_at_idx on public.organisation_events(starts_at);
+create index if not exists organisation_event_enquiries_event_idx on public.organisation_event_enquiries(organisation_event_id);
+create index if not exists organisation_event_feedback_event_idx on public.organisation_event_feedback(organisation_event_id);
 
 drop trigger if exists set_resource_categories_updated_at on public.resource_categories;
 create trigger set_resource_categories_updated_at
@@ -154,6 +256,26 @@ create trigger set_listing_claims_updated_at
 before update on public.listing_claims
 for each row execute procedure public.set_updated_at();
 
+drop trigger if exists set_organisation_profiles_updated_at on public.organisation_profiles;
+create trigger set_organisation_profiles_updated_at
+before update on public.organisation_profiles
+for each row execute procedure public.set_updated_at();
+
+drop trigger if exists set_organisation_profile_members_updated_at on public.organisation_profile_members;
+create trigger set_organisation_profile_members_updated_at
+before update on public.organisation_profile_members
+for each row execute procedure public.set_updated_at();
+
+drop trigger if exists set_organisation_events_updated_at on public.organisation_events;
+create trigger set_organisation_events_updated_at
+before update on public.organisation_events
+for each row execute procedure public.set_updated_at();
+
+drop trigger if exists set_organisation_event_enquiries_updated_at on public.organisation_event_enquiries;
+create trigger set_organisation_event_enquiries_updated_at
+before update on public.organisation_event_enquiries
+for each row execute procedure public.set_updated_at();
+
 create or replace function public.is_active_admin()
 returns boolean
 language sql
@@ -167,6 +289,23 @@ as $$
   );
 $$;
 
+create or replace function public.is_profile_owner(profile_uuid uuid)
+returns boolean
+language sql
+stable
+as $$
+  select exists (
+    select 1
+    from public.organisation_profile_members members
+    where members.organisation_profile_id = profile_uuid
+      and members.status = 'active'
+      and (
+        members.user_id = auth.uid()
+        or lower(coalesce(members.owner_email, '')) = lower(coalesce(auth.jwt()->>'email', ''))
+      )
+  );
+$$;
+
 alter table public.admin_users enable row level security;
 alter table public.resource_categories enable row level security;
 alter table public.resources enable row level security;
@@ -174,6 +313,11 @@ alter table public.resource_update_submissions enable row level security;
 alter table public.resource_view_events enable row level security;
 alter table public.resource_import_jobs enable row level security;
 alter table public.listing_claims enable row level security;
+alter table public.organisation_profiles enable row level security;
+alter table public.organisation_profile_members enable row level security;
+alter table public.organisation_events enable row level security;
+alter table public.organisation_event_enquiries enable row level security;
+alter table public.organisation_event_feedback enable row level security;
 
 drop policy if exists "Admin users can view own profile" on public.admin_users;
 create policy "Admin users can view own profile"
@@ -216,6 +360,98 @@ to authenticated
 using (public.is_active_admin())
 with check (public.is_active_admin());
 
+drop policy if exists "Active admins manage organisation profiles" on public.organisation_profiles;
+create policy "Active admins manage organisation profiles"
+on public.organisation_profiles for all
+to authenticated
+using (public.is_active_admin())
+with check (public.is_active_admin());
+
+drop policy if exists "Owners and admins read organisation profiles" on public.organisation_profiles;
+create policy "Owners and admins read organisation profiles"
+on public.organisation_profiles for select
+to authenticated
+using (public.is_active_admin() or public.is_profile_owner(id));
+
+drop policy if exists "Public can read active organisation profiles" on public.organisation_profiles;
+create policy "Public can read active organisation profiles"
+on public.organisation_profiles for select
+to anon, authenticated
+using (is_active = true);
+
+drop policy if exists "Active admins manage organisation members" on public.organisation_profile_members;
+create policy "Active admins manage organisation members"
+on public.organisation_profile_members for all
+to authenticated
+using (public.is_active_admin())
+with check (public.is_active_admin());
+
+drop policy if exists "Owners and admins read organisation members" on public.organisation_profile_members;
+create policy "Owners and admins read organisation members"
+on public.organisation_profile_members for select
+to authenticated
+using (public.is_active_admin() or public.is_profile_owner(organisation_profile_id));
+
+drop policy if exists "Active admins manage organisation events" on public.organisation_events;
+create policy "Active admins manage organisation events"
+on public.organisation_events for all
+to authenticated
+using (public.is_active_admin())
+with check (public.is_active_admin());
+
+drop policy if exists "Owners manage organisation events" on public.organisation_events;
+create policy "Owners manage organisation events"
+on public.organisation_events for all
+to authenticated
+using (public.is_profile_owner(organisation_profile_id))
+with check (public.is_profile_owner(organisation_profile_id));
+
+drop policy if exists "Public can read scheduled organisation events" on public.organisation_events;
+create policy "Public can read scheduled organisation events"
+on public.organisation_events for select
+to anon, authenticated
+using (status in ('scheduled', 'completed'));
+
+drop policy if exists "Active admins manage event enquiries" on public.organisation_event_enquiries;
+create policy "Active admins manage event enquiries"
+on public.organisation_event_enquiries for all
+to authenticated
+using (public.is_active_admin())
+with check (public.is_active_admin());
+
+drop policy if exists "Owners manage event enquiries" on public.organisation_event_enquiries;
+create policy "Owners manage event enquiries"
+on public.organisation_event_enquiries for all
+to authenticated
+using (public.is_profile_owner(organisation_profile_id))
+with check (public.is_profile_owner(organisation_profile_id));
+
+drop policy if exists "Public can create event enquiries" on public.organisation_event_enquiries;
+create policy "Public can create event enquiries"
+on public.organisation_event_enquiries for insert
+to anon, authenticated
+with check (true);
+
+drop policy if exists "Active admins manage event feedback" on public.organisation_event_feedback;
+create policy "Active admins manage event feedback"
+on public.organisation_event_feedback for all
+to authenticated
+using (public.is_active_admin())
+with check (public.is_active_admin());
+
+drop policy if exists "Owners manage event feedback" on public.organisation_event_feedback;
+create policy "Owners manage event feedback"
+on public.organisation_event_feedback for all
+to authenticated
+using (public.is_profile_owner(organisation_profile_id))
+with check (public.is_profile_owner(organisation_profile_id));
+
+drop policy if exists "Public can create event feedback" on public.organisation_event_feedback;
+create policy "Public can create event feedback"
+on public.organisation_event_feedback for insert
+to anon, authenticated
+with check (true);
+
 drop policy if exists "Anyone can insert resource updates" on public.resource_update_submissions;
 create policy "Anyone can insert resource updates"
 on public.resource_update_submissions for insert
@@ -250,3 +486,21 @@ left join public.resources r on r.category_id = c.id and r.is_archived = false
 left join public.resource_view_events v on v.resource_id = r.id
 group by c.id, c.name
 order by view_count desc, c.name asc;
+
+create or replace view public.organisation_event_kpis as
+select
+  profiles.id as organisation_profile_id,
+  profiles.display_name,
+  count(distinct events.id)::bigint as total_events,
+  count(enquiries.id)::bigint as total_enquiries,
+  count(*) filter (where enquiries.cta_type = 'book')::bigint as total_bookings,
+  count(*) filter (where enquiries.attendance_status = 'attended')::bigint as attended,
+  count(*) filter (where enquiries.attendance_status = 'no_show')::bigint as no_shows,
+  count(distinct enquiries.email) filter (where enquiries.attendance_status = 'attended')::bigint as unique_attendees,
+  coalesce(round(avg(nullif(feedback.satisfaction_score, 0))::numeric, 2), 0) as avg_satisfaction,
+  coalesce(round(avg(nullif(feedback.usefulness_score, 0))::numeric, 2), 0) as avg_usefulness
+from public.organisation_profiles profiles
+left join public.organisation_events events on events.organisation_profile_id = profiles.id
+left join public.organisation_event_enquiries enquiries on enquiries.organisation_event_id = events.id
+left join public.organisation_event_feedback feedback on feedback.organisation_event_id = events.id
+group by profiles.id, profiles.display_name;

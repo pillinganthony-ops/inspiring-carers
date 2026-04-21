@@ -17,8 +17,10 @@ import { supabase, isSupabaseConfigured } from './lib/supabaseClient.js';
 const FindHelpPage = React.lazy(() => import('./components/pages/FindHelp.jsx'));
 const BenefitsPage = React.lazy(() => import('./components/pages/Benefits.jsx'));
 const WalksPage = React.lazy(() => import('./components/pages/Walks.jsx'));
+const EventsPage = React.lazy(() => import('./components/pages/Events.jsx'));
 const AdminPage = React.lazy(() => import('./components/pages/Admin.jsx'));
 const LoginPage = React.lazy(() => import('./components/pages/Login.jsx'));
+const ProfileDashboardPage = React.lazy(() => import('./components/pages/ProfileDashboard.jsx'));
 
 // Make icons global for JSX
 window.IDot = Icons.IDot;
@@ -200,9 +202,11 @@ const App = () => {
     if (normalized === '/login') return 'login';
     if (normalized.startsWith('/find-help/')) return 'find-help';
     if (normalized === '/find-help') return 'find-help';
+    if (normalized === '/events') return 'events';
     if (normalized === '/benefits') return 'benefits';
     if (normalized === '/walks') return 'walks';
     if (normalized === '/admin') return 'admin';
+    if (normalized === '/profile') return 'profile';
     if (normalized === '/recognition') return 'recognition';
     if (normalized === '/business') return 'business';
     if (normalized === '/about') return 'about';
@@ -258,7 +262,7 @@ const App = () => {
 
   React.useEffect(() => {
     // Protect only /admin. Public routes remain open regardless of auth state.
-    if (page === 'admin' && !sessionLoading && !session) {
+    if ((page === 'admin' || page === 'profile') && !sessionLoading && !session) {
       setPage('login');
       window.history.replaceState({ page: 'login' }, '', '/login');
       window.scrollTo({ top: 0, behavior: 'instant' });
@@ -266,7 +270,7 @@ const App = () => {
   }, [page, sessionLoading, session]);
 
   const navigate = (key) => {
-    if (key === 'admin' && !session) {
+    if ((key === 'admin' || key === 'profile') && !session) {
       setPage('login');
       window.history.pushState({ page: 'login' }, '', '/login');
       window.scrollTo({ top: 0, behavior: 'instant' });
@@ -285,9 +289,11 @@ const App = () => {
   switch (displayPage) {
     case 'login': content = <React.Suspense fallback={<RouteLoading />}><LoginPage onNavigate={navigate} /></React.Suspense>; break;
     case 'find-help': content = <React.Suspense fallback={<RouteLoading />}><FindHelpPage onNavigate={navigate} /></React.Suspense>; break;
+    case 'events': content = <React.Suspense fallback={<RouteLoading />}><EventsPage onNavigate={navigate} /></React.Suspense>; break;
     case 'benefits': content = <React.Suspense fallback={<RouteLoading />}><BenefitsPage onNavigate={navigate} /></React.Suspense>; break;
     case 'walks': content = <React.Suspense fallback={<RouteLoading />}><WalksPage onNavigate={navigate} /></React.Suspense>; break;
     case 'admin': content = <React.Suspense fallback={<RouteLoading />}><AdminPage /></React.Suspense>; break;
+    case 'profile': content = <React.Suspense fallback={<RouteLoading />}><ProfileDashboardPage onNavigate={navigate} session={session} /></React.Suspense>; break;
     case 'recognition': content = <Placeholder title="Recognition & awards" onNavigate={navigate} note="Carer of the Month, stories, nominations and community recognition — coming in the next round. Preview lives in the homepage Recognition section." />; break;
     case 'business': content = <Placeholder title="For businesses" onNavigate={navigate} note="Submit offers, see the why-carers-matter statement, badge tiers and featured partner placements — next round." />; break;
     case 'about': content = <Placeholder title="About inspiring carers" onNavigate={navigate} note="Mission, the two-tier model, and the local-first national vision — next round." />; break;

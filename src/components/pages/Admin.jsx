@@ -84,6 +84,12 @@ const formatDate = (value) => {
   return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
 };
 
+const formatMonthLabel = (value) => {
+  const [year, month] = `${value || ''}`.split('-');
+  if (!year || !month) return value || 'Unknown';
+  return new Intl.DateTimeFormat('en-GB', { month: 'short', year: 'numeric' }).format(new Date(Number(year), Number(month) - 1, 1));
+};
+
 const normalizeUkPostcode = (value) => value.toUpperCase().replace(/\s+/g, '').trim();
 
 const formatUkPostcode = (value) => {
@@ -170,6 +176,11 @@ const AdminPage = () => {
   const [categories, setCategories] = React.useState([]);
   const [submissions, setSubmissions] = React.useState([]);
   const [claims, setClaims] = React.useState([]);
+  const [profiles, setProfiles] = React.useState([]);
+  const [events, setEvents] = React.useState([]);
+  const [eventEnquiries, setEventEnquiries] = React.useState([]);
+  const [eventFeedback, setEventFeedback] = React.useState([]);
+  const [eventKpis, setEventKpis] = React.useState([]);
   const [categoryViews, setCategoryViews] = React.useState([]);
 
   const [filters, setFilters] = React.useState({
@@ -215,7 +226,7 @@ const AdminPage = () => {
     setLoadingData(true);
     setDashboardError('');
     try {
-      const [resourcesResult, categoriesResult, submissionsResult, claimsResult, viewsResult] = await Promise.all([
+      const [resourcesResult, categoriesResult, submissionsResult, claimsResult, profilesResult, eventsResult, enquiriesResult, feedbackResult, kpisResult, viewsResult] = await Promise.all([
         supabase
           .from('resources')
           .select('id,name,slug,town,summary,description,website,phone,email,address,postcode,latitude,longitude,verified,featured,is_archived,source_type,source_ref,metadata,category_id,updated_at,created_at,resource_categories(id,name,slug,color)')
@@ -236,6 +247,28 @@ const AdminPage = () => {
           .order('created_at', { ascending: false })
           .limit(100),
         supabase
+          .from('organisation_profiles')
+          .select('*')
+          .order('updated_at', { ascending: false }),
+        supabase
+          .from('organisation_events')
+          .select('*')
+          .order('starts_at', { ascending: true }),
+        supabase
+          .from('organisation_event_enquiries')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(200),
+        supabase
+          .from('organisation_event_feedback')
+          .select('*')
+          .order('submitted_at', { ascending: false })
+          .limit(200),
+        supabase
+          .from('organisation_event_kpis')
+          .select('*')
+          .limit(20),
+        supabase
           .from('resource_category_view_stats')
           .select('*')
           .limit(5),
@@ -244,12 +277,36 @@ const AdminPage = () => {
       if (resourcesResult.error) throw resourcesResult.error;
       if (categoriesResult.error) throw categoriesResult.error;
       if (submissionsResult.error) throw submissionsResult.error;
-      if (claimsResult.error) throw claimsResult.error;
 
       setResources(resourcesResult.data ?? []);
       setCategories(categoriesResult.data ?? []);
       setSubmissions(submissionsResult.data ?? []);
-      setClaims(claimsResult.data ?? []);
+      const fallbackClaims = (submissionsResult.data ?? [])
+        .filter((submission) => submission.update_type === 'claim_request')
+        .map((submission) => ({
+          id: submission.id,
+          listing_id: submission.resource_id,
+          listing_slug: submission.payload?.listing_slug || '',
+          listing_title: submission.resource_name,
+          full_name: submission.submitter_name,
+          org_name: submission.payload?.org_name || '',
+          role: submission.payload?.role || '',
+          email: submission.submitter_email,
+          phone: submission.payload?.phone || '',
+          relationship: submission.payload?.relationship || 'Claim request',
+          reason: submission.description,
+          status: submission.status,
+          admin_notes: submission.admin_notes,
+          created_at: submission.created_at,
+          source: 'fallback_submission',
+        }));
+
+      setClaims(claimsResult.error ? fallbackClaims : (claimsResult.data ?? []));
+      setProfiles(profilesResult.error ? [] : (profilesResult.data ?? []));
+      setEvents(eventsResult.error ? [] : (eventsResult.data ?? []));
+      setEventEnquiries(enquiriesResult.error ? [] : (enquiriesResult.data ?? []));
+      setEventFeedback(feedbackResult.error ? [] : (feedbackResult.data ?? []));
+      setEventKpis(kpisResult.error ? [] : (kpisResult.data ?? []));
       setCategoryViews(viewsResult.error ? [] : (viewsResult.data ?? []));
     } catch (error) {
       setDashboardError(error.message || 'Unable to load dashboard data. Check that Supabase schema has been applied.');
@@ -386,6 +443,12 @@ const AdminPage = () => {
     setResources([]);
     setCategories([]);
     setSubmissions([]);
+    setClaims([]);
+    setProfiles([]);
+    setEvents([]);
+    setEventEnquiries([]);
+    setEventFeedback([]);
+    setEventKpis([]);
   };
 
   const filteredResources = React.useMemo(() => {
@@ -421,6 +484,120 @@ const AdminPage = () => {
       pendingUpdates: submissions.filter((submission) => submission.status === 'pending').length,
     };
   }, [resources, submissions]);
+
+  const adminEventSummary = React.useMemo(() => {
+    const totalEvents = events.length;
+    const totalEnquiries = eventEnquiries.length;
+    const bookings = eventEnquiries.filter((entry) => entry.cta_type === 'book').length;
+    const attended = eventEnquiries.filter((entry) => entry.attendance_status === 'attended').length;
+    const noShows = eventEnquiries.filter((entry) => entry.attendance_status === 'no_show').length;
+    const avgSatisfaction = eventFeedback.length
+      ? (eventFeedback.reduce((sum, item) => sum + (Number(item.satisfaction_score) || 0), 0) / eventFeedback.length).toFixed(1)
+      : '0.0';
+    const enquiryConversion = totalEnquiries ? Math.round((bookings / totalEnquiries) * 100) : 0;
+    return { totalEvents, totalEnquiries, bookings, attended, noShows, avgSatisfaction, enquiryConversion };
+  }, [events, eventEnquiries, eventFeedback]);
+
+  const adminMonthlyTrends = React.useMemo(() => {
+    const buckets = new Map();
+    eventEnquiries.forEach((entry) => {
+      const date = new Date(entry.created_at || Date.now());
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const current = buckets.get(key) || { month: key, enquiries: 0, bookings: 0, attended: 0 };
+      current.enquiries += 1;
+      if (entry.cta_type === 'book') current.bookings += 1;
+      if (entry.attendance_status === 'attended') current.attended += 1;
+      buckets.set(key, current);
+    });
+    return Array.from(buckets.values()).sort((a, b) => a.month.localeCompare(b.month)).slice(-6);
+  }, [eventEnquiries]);
+
+  const adminRecentFeedback = React.useMemo(() => {
+    const profileNames = new Map(profiles.map((profile) => [profile.id, profile.display_name]));
+    return eventFeedback.slice(0, 6).map((item) => ({
+      ...item,
+      profileName: profileNames.get(item.organisation_profile_id) || 'Organisation profile',
+    }));
+  }, [eventFeedback, profiles]);
+
+  const escapeCsv = (value) => `"${`${value ?? ''}`.replace(/"/g, '""')}"`;
+
+  const handleAdminExportCsv = () => {
+    const summaryRows = [
+      ['Events', adminEventSummary.totalEvents],
+      ['Enquiries', adminEventSummary.totalEnquiries],
+      ['Bookings', adminEventSummary.bookings],
+      ['Attendance', adminEventSummary.attended],
+      ['No-shows', adminEventSummary.noShows],
+      ['Enquiry conversion', `${adminEventSummary.enquiryConversion}%`],
+      ['Average satisfaction', adminEventSummary.avgSatisfaction],
+    ].map((row) => row.map(escapeCsv).join(','));
+    const kpiRows = eventKpis.map((item) => [
+      item.display_name, item.total_events, item.total_bookings, item.attended, item.no_shows, item.total_enquiries, item.avg_satisfaction,
+    ].map(escapeCsv).join(','));
+    const trendRows = adminMonthlyTrends.map((item) => [item.month, item.enquiries, item.bookings, item.attended].map(escapeCsv).join(','));
+    const feedbackRows = adminRecentFeedback.map((item) => [
+      item.profileName, formatDate(item.submitted_at), item.satisfaction_score, item.usefulness_score, item.comments || item.outcomes || '',
+    ].map(escapeCsv).join(','));
+    const csv = [
+      'Network metric,Value', ...summaryRows,
+      '', 'Organisation,Events,Bookings,Attended,No-shows,Enquiries,Avg satisfaction', ...kpiRows,
+      '', 'Month,Enquiries,Bookings,Attended', ...trendRows,
+      '', 'Organisation,Submitted,Satisfaction,Usefulness,Comment', ...feedbackRows,
+    ].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `inspiring-carers-network-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleAdminExportPdf = () => {
+    const reportWindow = window.open('', '_blank', 'width=1040,height=760');
+    if (!reportWindow) return;
+    const kpiMarkup = eventKpis.length
+      ? eventKpis.map((item) => `<tr><td>${item.display_name}</td><td>${item.total_events}</td><td>${item.total_bookings}</td><td>${item.attended}</td><td>${item.no_shows}</td><td>${item.avg_satisfaction}</td></tr>`).join('')
+      : '<tr><td colspan="6">No KPI data yet.</td></tr>';
+    const trendMarkup = adminMonthlyTrends.length
+      ? adminMonthlyTrends.map((item) => `<tr><td>${formatMonthLabel(item.month)}</td><td>${item.enquiries}</td><td>${item.bookings}</td><td>${item.attended}</td></tr>`).join('')
+      : '<tr><td colspan="4">No trend data yet.</td></tr>';
+    const feedbackMarkup = adminRecentFeedback.length
+      ? adminRecentFeedback.map((item) => `<tr><td>${item.profileName}</td><td>${formatDate(item.submitted_at)}</td><td>${item.satisfaction_score}/5</td><td>${item.usefulness_score}/5</td><td>${item.comments || item.outcomes || '—'}</td></tr>`).join('')
+      : '<tr><td colspan="5">No feedback yet.</td></tr>';
+    reportWindow.document.write(`<!doctype html><html><head><title>Inspiring Carers network report</title><style>
+      body { font-family: Georgia, serif; padding: 36px; color: #1A2744; }
+      h1 { margin: 0 0 6px; font-size: 28px; }
+      h2 { margin: 24px 0 10px; font-size: 18px; }
+      p { line-height: 1.6; }
+      table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+      th, td { border: 1px solid #D9E2F1; padding: 9px; text-align: left; vertical-align: top; }
+      th { background: #F2F8FF; }
+      .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 18px; }
+      .metric { border: 1px solid #D9E2F1; border-radius: 12px; padding: 12px; }
+      .metric-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: #5A6782; }
+      .metric-value { font-size: 22px; font-weight: 700; margin-top: 6px; }
+    </style></head><body>
+      <h1>Inspiring Carers network report</h1>
+      <p>Generated ${formatDate(new Date().toISOString())}. Summarises network-wide event delivery, conversion, attendance, and satisfaction across all managed organisation profiles.</p>
+      <div class="summary">
+        <div class="metric"><div class="metric-label">Events</div><div class="metric-value">${adminEventSummary.totalEvents}</div></div>
+        <div class="metric"><div class="metric-label">Bookings</div><div class="metric-value">${adminEventSummary.bookings}</div></div>
+        <div class="metric"><div class="metric-label">Attendance</div><div class="metric-value">${adminEventSummary.attended}</div></div>
+        <div class="metric"><div class="metric-label">Avg satisfaction</div><div class="metric-value">${adminEventSummary.avgSatisfaction}</div></div>
+      </div>
+      <h2>Organisation KPIs</h2>
+      <table><thead><tr><th>Organisation</th><th>Events</th><th>Bookings</th><th>Attended</th><th>No-shows</th><th>Avg satisfaction</th></tr></thead><tbody>${kpiMarkup}</tbody></table>
+      <h2>Monthly network trend</h2>
+      <table><thead><tr><th>Month</th><th>Enquiries</th><th>Bookings</th><th>Attended</th></tr></thead><tbody>${trendMarkup}</tbody></table>
+      <h2>Recent feedback</h2>
+      <table><thead><tr><th>Organisation</th><th>Submitted</th><th>Satisfaction</th><th>Usefulness</th><th>Comment</th></tr></thead><tbody>${feedbackMarkup}</tbody></table>
+    </body></html>`);
+    reportWindow.document.close();
+    reportWindow.focus();
+    reportWindow.print();
+  };
 
   const openNewResource = () => {
     setResourceDraft(emptyResourceDraft);
@@ -590,6 +767,26 @@ const AdminPage = () => {
   const handleClaimReview = async (claim, status) => {
     if (!supabase || !session) return;
     setClaimBusyId(claim.id);
+    if (claim.source === 'fallback_submission') {
+      const { error } = await supabase
+        .from('resource_update_submissions')
+        .update({
+          status,
+          admin_notes: claimNotes[claim.id] || null,
+          reviewed_by: session.user.id,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq('id', claim.id);
+
+      setClaimBusyId('');
+      if (error) {
+        setDashboardError(error.message || 'Unable to update claim status.');
+        return;
+      }
+      await loadDashboardData();
+      return;
+    }
+
     const { error } = await supabase
       .from('listing_claims')
       .update({
@@ -603,6 +800,96 @@ const AdminPage = () => {
     setClaimBusyId('');
     if (error) {
       setDashboardError(error.message || 'Unable to update claim status.');
+      return;
+    }
+    await loadDashboardData();
+  };
+
+  const handleMergeDuplicateClaims = async (claim) => {
+    if (!supabase || !session || claim.source === 'fallback_submission') return;
+    setClaimBusyId(claim.id);
+    const { error } = await supabase
+      .from('listing_claims')
+      .update({
+        status: 'rejected',
+        duplicate_of_claim_id: claim.id,
+        admin_notes: `Merged into claim ${claim.id}`,
+        reviewed_by: session.user.id,
+        reviewed_at: new Date().toISOString(),
+      })
+      .eq('listing_slug', claim.listing_slug)
+      .neq('id', claim.id)
+      .in('status', ['pending', 'in_review']);
+
+    setClaimBusyId('');
+    if (error) {
+      setDashboardError(error.message || 'Unable to merge duplicate claims.');
+      return;
+    }
+    await loadDashboardData();
+  };
+
+  const handleConvertClaimToProfile = async (claim) => {
+    if (!supabase || !session) return;
+    setClaimBusyId(claim.id);
+    try {
+      const resource = resources.find((item) => item.id === claim.listing_id || item.slug === claim.listing_slug);
+      if (!resource) throw new Error('Linked listing could not be found.');
+
+      const existingProfile = profiles.find((profile) => profile.resource_id === resource.id);
+      const payload = {
+        resource_id: resource.id,
+        slug: resource.slug,
+        display_name: resource.name,
+        bio: resource.description || resource.summary || null,
+        website: resource.website || null,
+        phone: resource.phone || null,
+        email: resource.email || claim.email || null,
+        service_categories: [resource.resource_categories?.name || resource.subcategory].filter(Boolean),
+        areas_covered: [resource.town].filter(Boolean),
+        verified_status: claim.status === 'approved' ? 'claimed' : 'community',
+        claim_status: 'claimed',
+        featured: Boolean(resource.featured),
+        is_active: true,
+        updated_by: session.user.id,
+      };
+
+      const profileResult = existingProfile
+        ? await supabase.from('organisation_profiles').update(payload).eq('id', existingProfile.id).select('*').single()
+        : await supabase.from('organisation_profiles').insert({ ...payload, created_by: session.user.id }).select('*').single();
+      if (profileResult.error) throw profileResult.error;
+
+      const profile = profileResult.data;
+      const membershipResult = await supabase.from('organisation_profile_members').upsert({
+        organisation_profile_id: profile.id,
+        owner_email: claim.email,
+        full_name: claim.full_name,
+        role_label: claim.role || 'owner',
+        status: 'active',
+        created_by: session.user.id,
+      }, { onConflict: 'organisation_profile_id,owner_email' });
+      if (membershipResult.error) throw membershipResult.error;
+
+      await supabase.from('listing_claims').update({
+        status: 'approved',
+        admin_notes: claimNotes[claim.id] || 'Converted to managed organisation profile.',
+        reviewed_by: session.user.id,
+        reviewed_at: new Date().toISOString(),
+      }).eq('id', claim.id);
+
+      setClaimBusyId('');
+      await loadDashboardData();
+    } catch (conversionError) {
+      setClaimBusyId('');
+      setDashboardError(conversionError.message || 'Unable to convert claim into organisation profile.');
+    }
+  };
+
+  const handleProfileToggle = async (profile, updates) => {
+    if (!supabase || !session) return;
+    const { error } = await supabase.from('organisation_profiles').update({ ...updates, updated_by: session.user.id }).eq('id', profile.id);
+    if (error) {
+      setDashboardError(error.message || 'Unable to update organisation profile.');
       return;
     }
     await loadDashboardData();
@@ -1014,6 +1301,8 @@ const AdminPage = () => {
                           {claimBusyId === claim.id ? 'Saving...' : status.replace('_', ' ')}
                         </button>
                       ))}
+                      {claim.source !== 'fallback_submission' ? <button type="button" className="btn btn-ghost btn-sm" disabled={claimBusyId === claim.id} onClick={() => handleMergeDuplicateClaims(claim)}>Merge duplicates</button> : null}
+                      <button type="button" className="btn btn-gold btn-sm" disabled={claimBusyId === claim.id} onClick={() => handleConvertClaimToProfile(claim)}>Convert to profile</button>
                     </div>
                   </div>
                 ))}
@@ -1095,6 +1384,93 @@ const AdminPage = () => {
                   </div>
                 </div>
               ) : null}
+            </div>
+
+            <div className="card" style={{ padding: 20, borderRadius: 26 }}>
+              <div className="eyebrow" style={{ color: '#7B5CF5' }}>Organisation profiles</div>
+              <div style={{ fontSize: 22, fontWeight: 800, marginTop: 8, marginBottom: 16 }}>Approve, feature, or suspend managed providers</div>
+              <div style={{ display: 'grid', gap: 12 }}>
+                {profiles.map((profile) => (
+                  <div key={profile.id} style={{ borderRadius: 18, border: '1px solid #EFF1F7', padding: 14, background: '#FAFBFF' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'start', flexWrap: 'wrap' }}>
+                      <div>
+                        <div style={{ fontWeight: 700 }}>{profile.display_name}</div>
+                        <div style={{ marginTop: 4, fontSize: 12.5, color: 'rgba(26,39,68,0.62)' }}>{profile.slug} · {profile.claim_status} · {profile.verified_status}</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleProfileToggle(profile, { featured: !profile.featured })}>{profile.featured ? 'Unfeature' : 'Mark featured'}</button>
+                        <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleProfileToggle(profile, { is_active: !profile.is_active, claim_status: profile.is_active ? 'suspended' : 'claimed' })}>{profile.is_active ? 'Suspend' : 'Restore'}</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {!profiles.length ? <div style={{ color: 'rgba(26,39,68,0.68)' }}>No organisation profiles created yet.</div> : null}
+              </div>
+            </div>
+
+            <div className="card" style={{ padding: 20, borderRadius: 26 }}>
+              <div className="eyebrow" style={{ color: '#2D9CDB' }}>Commissioner summary</div>
+              <div style={{ fontSize: 22, fontWeight: 800, marginTop: 8, marginBottom: 12 }}>Network-wide engagement snapshot</div>
+              <div style={{ color: 'rgba(26,39,68,0.74)', lineHeight: 1.7, fontSize: 14 }}>
+                Managed organisations have delivered <strong>{adminEventSummary.totalEvents}</strong> events, generated <strong>{adminEventSummary.bookings}</strong> bookings from <strong>{adminEventSummary.totalEnquiries}</strong> enquiries, recorded <strong>{adminEventSummary.attended}</strong> attendances, and logged an average satisfaction score of <strong>{adminEventSummary.avgSatisfaction}</strong>. Current network enquiry conversion is <strong>{adminEventSummary.enquiryConversion}%</strong>.
+              </div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }}>
+                <button className="btn btn-sky btn-sm" type="button" onClick={handleAdminExportCsv}>Export network CSV</button>
+                <button className="btn btn-ghost btn-sm" type="button" onClick={handleAdminExportPdf}>Export network PDF</button>
+              </div>
+              <div style={{ marginTop: 14, fontSize: 12.5, color: 'rgba(26,39,68,0.58)' }}>Use this as the headline paragraph for stakeholder updates, commissioner decks, and funding summaries.</div>
+            </div>
+
+            <div className="card" style={{ padding: 20, borderRadius: 26 }}>
+              <div className="eyebrow" style={{ color: '#5BC94A' }}>Monthly trend</div>
+              <div style={{ fontSize: 22, fontWeight: 800, marginTop: 8, marginBottom: 16 }}>Recent network engagement</div>
+              <div style={{ display: 'grid', gap: 10 }}>
+                {adminMonthlyTrends.map((item) => (
+                  <div key={item.month} style={{ display: 'grid', gridTemplateColumns: '120px repeat(3, 1fr)', gap: 10, fontSize: 13.5, color: '#1A2744', alignItems: 'center' }}>
+                    <div style={{ fontWeight: 700 }}>{formatMonthLabel(item.month)}</div>
+                    <div>Enquiries {item.enquiries}</div>
+                    <div>Bookings {item.bookings}</div>
+                    <div>Attended {item.attended}</div>
+                  </div>
+                ))}
+                {!adminMonthlyTrends.length ? <div style={{ color: 'rgba(26,39,68,0.68)' }}>Monthly trend data will appear once organisations start receiving enquiries.</div> : null}
+              </div>
+            </div>
+
+            <div className="card" style={{ padding: 20, borderRadius: 26 }}>
+              <div className="eyebrow" style={{ color: '#F5A623' }}>Recent feedback</div>
+              <div style={{ fontSize: 22, fontWeight: 800, marginTop: 8, marginBottom: 16 }}>Latest participant sentiment</div>
+              <div style={{ display: 'grid', gap: 12 }}>
+                {adminRecentFeedback.map((item) => (
+                  <div key={item.id} style={{ borderRadius: 18, border: '1px solid #EFF1F7', padding: 14, background: '#FAFBFF' }}>
+                    <div style={{ fontWeight: 700 }}>{item.profileName}</div>
+                    <div style={{ marginTop: 4, fontSize: 12.5, color: 'rgba(26,39,68,0.62)' }}>{formatDate(item.submitted_at)} · Satisfaction {item.satisfaction_score}/5 · Usefulness {item.usefulness_score}/5</div>
+                    {item.comments ? <div style={{ marginTop: 8, fontSize: 13.5, color: 'rgba(26,39,68,0.74)', lineHeight: 1.6 }}>{item.comments}</div> : null}
+                  </div>
+                ))}
+                {!adminRecentFeedback.length ? <div style={{ color: 'rgba(26,39,68,0.68)' }}>Feedback highlights will appear once organisations record responses.</div> : null}
+              </div>
+            </div>
+
+            <div className="card" style={{ padding: 20, borderRadius: 26 }}>
+              <div className="eyebrow" style={{ color: '#2D9CDB' }}>Event performance</div>
+              <div style={{ fontSize: 22, fontWeight: 800, marginTop: 8, marginBottom: 16 }}>Commissioner-ready KPI snapshot</div>
+              <div style={{ display: 'grid', gap: 12 }}>
+                {eventKpis.map((item) => (
+                  <div key={item.organisation_profile_id} style={{ borderRadius: 18, border: '1px solid #EFF1F7', padding: 14, background: '#FAFBFF' }}>
+                    <div style={{ fontWeight: 700 }}>{item.display_name}</div>
+                    <div style={{ marginTop: 6, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, fontSize: 12.5, color: 'rgba(26,39,68,0.72)' }}>
+                      <div>Events: {item.total_events}</div>
+                      <div>Bookings: {item.total_bookings}</div>
+                      <div>Attendance: {item.attended}</div>
+                      <div>No-shows: {item.no_shows}</div>
+                      <div>Enquiries: {item.total_enquiries}</div>
+                      <div>Feedback: {item.avg_satisfaction}</div>
+                    </div>
+                  </div>
+                ))}
+                {!eventKpis.length ? <div style={{ color: 'rgba(26,39,68,0.68)' }}>KPI reporting will appear once organisation events and responses are recorded.</div> : null}
+              </div>
             </div>
           </div>
         </div>
