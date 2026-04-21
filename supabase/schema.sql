@@ -37,6 +37,7 @@ create table if not exists public.resources (
   slug text not null unique,
   category_id uuid references public.resource_categories(id) on delete set null,
   town text,
+  county text,
   summary text,
   description text,
   website text,

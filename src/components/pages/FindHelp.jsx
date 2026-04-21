@@ -6,6 +6,21 @@ import Footer from '../Footer.jsx';
 import LogoLockup from '../Logo.jsx';
 import supabase, { isSupabaseConfigured } from '../../lib/supabaseClient.js';
 
+const BloomMark = ({ size = 32 }) => (
+  <svg width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden="true">
+    {[0, 60, 120, 180, 240, 300].map((deg, i) => {
+      const colors = ['#F5A623', '#5BC94A', '#2D9CDB', '#F4613A', '#7B5CF5', '#F5A623'];
+      return (
+        <g key={i} transform={`rotate(${deg} 32 32)`}>
+          <ellipse cx="32" cy="17" rx="7" ry="11" fill={colors[i]} opacity="0.92" />
+        </g>
+      );
+    })}
+    <circle cx="32" cy="32" r="6" fill="#1A2744" />
+    <circle cx="32" cy="32" r="2.5" fill="#FAFBFF" />
+  </svg>
+);
+
 /* ─── Inline share-channel icons ──────────────────────────── */
 const g = (size = 24) => ({ width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' });
 const IPhone    = ({ s = 18 }) => <svg {...g(s)}><path d="M6.5 2h11A1.5 1.5 0 0 1 19 3.5v17a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 20.5v-17A1.5 1.5 0 0 1 6.5 2Z"/><path d="M12 18.5h.01"/></svg>;
@@ -205,6 +220,7 @@ const normalizeResource = (row, index) => {
   const title = pickField(row, ['name', 'title']) || `Support listing ${index + 1}`;
   const venue = pickField(row, ['organisation', 'organization', 'provider', 'venue', 'location_name']) || 'Community support';
   const area = pickField(row, ['town', 'area', 'location', 'city']) || pickField(row, ['postcode']) || 'Cornwall';
+  const county = pickField(row, ['county', 'region', 'admin_county']) || '';
   const availability = pickField(row, ['opening_hours', 'availability', 'service_hours', 'contact_hours']) || 'Contact for details';
   const summary = pickField(row, ['summary', 'description', 'short_description']) || 'Local support for carers and the people they support.';
 
@@ -236,8 +252,10 @@ const normalizeResource = (row, index) => {
     events: Array.isArray(row?.events) ? row.events : [],
     serviceCategories: Array.isArray(row?.profile?.service_categories) ? row.profile.service_categories : [],
     areasCovered: Array.isArray(row?.profile?.areas_covered) ? row.profile.areas_covered : [],
+    county,
     locationKey: `${area}`.trim() || 'Cornwall',
-    searchText: `${title} ${venue} ${area} ${categoryLabel} ${summary}`.toLowerCase(),
+    countyKey: `${county}`.trim().toLowerCase() || 'cornwall',
+    searchText: `${title} ${venue} ${area} ${county} ${categoryLabel} ${summary}`.toLowerCase(),
   };
 };
 
@@ -269,10 +287,8 @@ const getFaviconUrl = (website, sz = 128) => {
 const isSafeImageUrl = (value) => /^https?:\/\//i.test(`${value || ''}`.trim());
 
 const DefaultBrandMark = ({ size = 80 }) => (
-  <div style={{ width: size, height: size, borderRadius: Math.round(size * 0.22), background: 'linear-gradient(135deg, rgba(26,39,68,0.06), rgba(45,156,219,0.10))', border: '1px solid rgba(26,39,68,0.08)', display: 'grid', placeItems: 'center', overflow: 'hidden', boxShadow: '0 4px 18px rgba(26,39,68,0.08)' }}>
-    <div style={{ transform: `scale(${Math.max(0.52, Math.min(0.8, size / 120))})` }}>
-      <LogoLockup size={Math.round(size * 0.48)} />
-    </div>
+  <div style={{ width: size, height: size, borderRadius: Math.round(size * 0.22), background: 'linear-gradient(135deg, rgba(26,39,68,0.06), rgba(45,156,219,0.10))', border: '1px solid rgba(26,39,68,0.08)', display: 'grid', placeItems: 'center', overflow: 'hidden', boxShadow: '0 4px 18px rgba(26,39,68,0.08)', flexShrink: 0 }}>
+    <BloomMark size={Math.round(size * 0.62)} />
   </div>
 );
 
@@ -382,7 +398,7 @@ const ShareTray = ({ listing, onAction, onClose }) => (
 const RELATIONSHIP_OPTIONS = ['Owner / Director', 'Senior Staff Member', 'Volunteer Lead', 'Partnership Organisation', 'Trustee / Board Member', 'Other'];
 
 const ClaimModal = ({ listing, onClose, onSuccess, onError }) => {
-  const [form, setForm] = React.useState({ fullName: '', orgName: listing?.venue || '', role: '', email: '', phone: '', relationship: '', reason: '' });
+  const [form, setForm] = React.useState({ fullName: '', orgName: listing?.venue || listing?.title || '', email: '', phone: '', relationship: '', reason: '' });
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState('');
 
@@ -391,7 +407,7 @@ const ClaimModal = ({ listing, onClose, onSuccess, onError }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const email = form.email.trim();
-    if (!form.fullName.trim() || !email || !form.role.trim() || !form.relationship.trim() || !form.reason.trim() || !form.orgName.trim()) {
+    if (!form.fullName.trim() || !email || !form.relationship.trim() || !form.reason.trim() || !form.orgName.trim()) {
       setError('Please fill in all required fields.');
       return;
     }
@@ -409,7 +425,6 @@ const ClaimModal = ({ listing, onClose, onSuccess, onError }) => {
         listing_title: listing.title,
         full_name: form.fullName.trim(),
         org_name: form.orgName.trim(),
-        role: form.role.trim(),
         email,
         phone: form.phone.trim() || null,
         relationship: form.relationship.trim(),
@@ -455,14 +470,15 @@ const ClaimModal = ({ listing, onClose, onSuccess, onError }) => {
           <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#1A2744" strokeWidth={2} strokeLinecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
         </button>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
-          <div style={{ width: 42, height: 42, borderRadius: 14, background: 'rgba(245,166,35,0.12)', color: '#F5A623', display: 'grid', placeItems: 'center' }}>
-            <IBuilding s={20} />
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 6 }}>
+          <DefaultBrandMark size={50} />
           <div>
             <div style={{ fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.5)' }}>Claim this listing</div>
-            <div style={{ fontFamily: 'Sora, sans-serif', fontWeight: 700, fontSize: 18, color: '#1A2744' }}>{listing?.title}</div>
+            <div style={{ fontFamily: 'Sora, sans-serif', fontWeight: 700, fontSize: 18, color: '#1A2744', marginTop: 2 }}>{listing?.title}</div>
           </div>
+        </div>
+        <div style={{ padding: '9px 12px', borderRadius: 10, background: 'rgba(45,156,219,0.07)', border: '1px solid rgba(45,156,219,0.15)', fontSize: 13, color: 'rgba(26,39,68,0.75)', marginBottom: 4 }}>
+          Claiming: <strong style={{ color: '#1A2744' }}>{listing?.title}</strong>
         </div>
 
         <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.66)', lineHeight: 1.65, marginBottom: 22 }}>
@@ -470,15 +486,9 @@ const ClaimModal = ({ listing, onClose, onSuccess, onError }) => {
         </p>
 
         <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 12 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,39,68,0.55)', display: 'block', marginBottom: 5 }}>Full name *</label>
-              <input value={form.fullName} onChange={set('fullName')} required placeholder="Your full name" style={fieldSt} />
-            </div>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,39,68,0.55)', display: 'block', marginBottom: 5 }}>Role *</label>
-              <input value={form.role} onChange={set('role')} required placeholder="Your role" style={fieldSt} />
-            </div>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,39,68,0.55)', display: 'block', marginBottom: 5 }}>Full name *</label>
+            <input value={form.fullName} onChange={set('fullName')} required placeholder="Your full name" style={fieldSt} />
           </div>
 
           <div>
@@ -913,8 +923,12 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
                 </DetailSection>
               ) : null}
 
-              {listing.events.length ? (
-                <DetailSection title="Events by this organisation" icon={<IEvent s={14} />}>
+              <DetailSection title="Events by this organisation" icon={<IEvent s={14} />}>
+                {!listing.events.length ? (
+                  <div style={{ padding: '16px 18px', borderRadius: 14, background: 'rgba(45,156,219,0.06)', border: '1px dashed rgba(45,156,219,0.2)', color: 'rgba(26,39,68,0.6)', fontSize: 14, lineHeight: 1.6 }}>
+                    No upcoming events listed right now. Check back soon, or contact this organisation directly to find out about sessions, groups, and activities they run.
+                  </div>
+                ) : (
                   <div style={{ display: 'grid', gap: 12 }}>
                     {listing.events.map((event) => (
                       <div key={event.id} style={{ borderRadius: 16, border: '1px solid #EFF1F7', padding: 16, background: '#FAFBFF' }}>
@@ -934,8 +948,8 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
                       </div>
                     ))}
                   </div>
-                </DetailSection>
-              ) : null}
+                )}
+              </DetailSection>
 
               {/* Location */}
               <DetailSection title="Location" icon={<IPin s={14} />}>
@@ -1088,8 +1102,6 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
 /* ─── ListingCard ────────────────────────────────────────── */
 const ListingCard = ({ listing, saved, onToggleSave, onOpenResource, onShareAction, shareOpen, setShareOpen, selected, onSelect }) => {
   const color = toneMapColor(listing.tone).fg;
-  const faviconUrl = isSafeImageUrl(listing.logoUrl) ? listing.logoUrl : '';
-  const [faviconErr, setFaviconErr] = React.useState(false);
 
   return (
     <div
@@ -1099,17 +1111,7 @@ const ListingCard = ({ listing, saved, onToggleSave, onOpenResource, onShareActi
     >
       {/* Card header */}
       <div style={{ display: 'flex', gap: 14, alignItems: 'start' }}>
-        <div style={{ position: 'relative' }}>
-          <IconTile tone={listing.tone} size={54} radius={14}>{listing.icon}</IconTile>
-          {faviconUrl && !faviconErr ? (
-            <img src={faviconUrl} alt="" onError={() => setFaviconErr(true)}
-              style={{ position: 'absolute', right: -6, bottom: -6, width: 24, height: 24, borderRadius: 7, background: 'white', boxShadow: '0 2px 8px rgba(0,0,0,0.14)', border: '2px solid white', objectFit: 'cover' }} />
-          ) : (
-            <div style={{ position: 'absolute', right: -8, bottom: -8, width: 28, height: 28, borderRadius: 9, background: 'white', boxShadow: '0 2px 8px rgba(0,0,0,0.12)', border: '2px solid white', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
-              <div style={{ transform: 'scale(0.45)' }}><LogoLockup size={24} /></div>
-            </div>
-          )}
-        </div>
+        <OrgAvatar listing={listing} size={54} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
             <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', color }}>{listing.categoryLabel}</span>
@@ -1271,6 +1273,7 @@ const FindHelpV2 = ({ onNavigate }) => {
   const [savedIds, setSavedIds] = React.useState(new Set());
   const [keyword, setKeyword] = React.useState('');
   const [areaFilter, setAreaFilter] = React.useState('all');
+  const [countyFilter, setCountyFilter] = React.useState('all');
   const [resources, setResources] = React.useState([]);
   const [categories, setCategories] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
@@ -1385,6 +1388,7 @@ const FindHelpV2 = ({ onNavigate }) => {
   }, []);
 
   const areaOptions = React.useMemo(() => Array.from(new Set(resources.map((resource) => resource.locationKey).filter(Boolean))).sort(), [resources]);
+  const countyOptions = React.useMemo(() => Array.from(new Set(resources.map((resource) => resource.county).filter(Boolean))).sort(), [resources]);
 
   const filtered = React.useMemo(() => {
     const searchNeedle = keyword.trim().toLowerCase();
@@ -1392,10 +1396,11 @@ const FindHelpV2 = ({ onNavigate }) => {
     return resources.filter((resource) => {
       if (activeCat !== 'all' && resource.cat !== activeCat) return false;
       if (areaFilter !== 'all' && resource.locationKey !== areaFilter) return false;
+      if (countyFilter !== 'all' && resource.county !== countyFilter) return false;
       if (searchNeedle && !resource.searchText.includes(searchNeedle)) return false;
       return true;
     });
-  }, [resources, activeCat, areaFilter, keyword]);
+  }, [resources, activeCat, areaFilter, countyFilter, keyword]);
 
   const selectedResource = React.useMemo(() => (detailSlug ? resources.find((item) => item.slug === detailSlug) || null : null), [resources, detailSlug]);
   const featuredListings = React.useMemo(() => resources.filter((item) => item.featured).slice(0, 3), [resources]);
@@ -1427,6 +1432,7 @@ const FindHelpV2 = ({ onNavigate }) => {
   const clearFilters = () => {
     setKeyword('');
     setAreaFilter('all');
+    setCountyFilter('all');
     setActiveCat('all');
   };
 
@@ -1528,14 +1534,20 @@ const FindHelpV2 = ({ onNavigate }) => {
                     <input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="Search support, services or keywords" style={{ border: 'none', outline: 'none', background: 'transparent', flex: 1, fontSize: 14, fontWeight: 600, color: '#1A2744', fontFamily: 'Inter, sans-serif' }} />
                   </div>
 
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 12, background: '#FAFBFF', border: '1px solid #EFF1F7' }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <div style={{ flex: '1 1 160px', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 12, background: '#FAFBFF', border: '1px solid #EFF1F7' }}>
                       <IPin s={18} />
                       <select value={areaFilter} onChange={(event) => setAreaFilter(event.target.value)} style={{ border: 'none', outline: 'none', background: 'transparent', flex: 1, fontSize: 14, fontWeight: 600, color: '#1A2744', fontFamily: 'Inter, sans-serif' }}>
                         <option value="all">All towns and areas</option>
                         {areaOptions.map((area) => <option key={area} value={area}>{area}</option>)}
                       </select>
                     </div>
+                    {countyOptions.length > 0 && (
+                      <select value={countyFilter} onChange={(event) => setCountyFilter(event.target.value)} style={{ flex: '1 1 140px', padding: '10px 12px', borderRadius: 12, border: '1px solid #EFF1F7', background: '#FAFBFF', fontSize: 14, fontWeight: 600, color: '#1A2744', fontFamily: 'Inter, sans-serif', outline: 'none' }}>
+                        <option value="all">All counties</option>
+                        {countyOptions.map((county) => <option key={county} value={county}>{county}</option>)}
+                      </select>
+                    )}
                     <button className="btn btn-sky btn-sm" onClick={clearFilters}><IClose s={14} /> Clear</button>
                   </div>
                 </div>
@@ -1558,6 +1570,25 @@ const FindHelpV2 = ({ onNavigate }) => {
         />
       ) : (
         <>
+          {/* Scroll banner */}
+          <div style={{ background: 'linear-gradient(90deg, #1A2744 0%, #2D9CDB 100%)', overflowX: 'hidden', padding: '10px 0', position: 'relative' }}>
+            <div style={{ display: 'flex', gap: 48, animation: 'scrollBanner 28s linear infinite', whiteSpace: 'nowrap', width: 'max-content' }}>
+              {[
+                '🌟 Inspiring Carers — Cornwall\'s free carer support directory',
+                '💙 Free listings for carer-friendly organisations',
+                '📋 Claim your organisation\'s listing today',
+                '🗺️ Services across all of Cornwall and the Isles of Scilly',
+                '✅ Verified listings you can trust',
+                '🌟 Inspiring Carers — Cornwall\'s free carer support directory',
+                '💙 Free listings for carer-friendly organisations',
+                '📋 Claim your organisation\'s listing today',
+              ].map((text, i) => (
+                <span key={i} style={{ color: 'white', fontSize: 13, fontWeight: 600, letterSpacing: 0.2, padding: '0 8px' }}>{text}</span>
+              ))}
+            </div>
+            <style>{`@keyframes scrollBanner { from { transform: translateX(0); } to { transform: translateX(-50%); } }`}</style>
+          </div>
+
           {featuredListings.length ? (
             <section style={{ paddingTop: 26, paddingBottom: 0, background: '#FAFBFF' }}>
               <div className="container">

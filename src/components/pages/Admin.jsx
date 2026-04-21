@@ -50,6 +50,7 @@ const emptyResourceDraft = {
   needs_review: false,
   last_reviewed_at: '',
   metadataText: '{}',
+  county: '',
 };
 
 const emptyCategoryDraft = {
@@ -129,6 +130,7 @@ const normalizeResourceDraft = (resource) => {
     slug: resource?.slug ?? '',
     category_id: resource?.category_id ?? resource?.resource_categories?.id ?? '',
     town: resource?.town ?? '',
+    county: resource?.county ?? '',
     summary: resource?.summary ?? '',
     description: resource?.description ?? '',
     website: resource?.website ?? '',
@@ -631,6 +633,7 @@ const AdminPage = () => {
         slug: (resourceDraft.slug || slugify(resourceDraft.name)).trim(),
         category_id: resourceDraft.category_id || null,
         town: resourceDraft.town.trim() || null,
+        county: resourceDraft.county.trim() || null,
         summary: resourceDraft.summary.trim() || null,
         description: resourceDraft.description.trim() || null,
         website: resourceDraft.website.trim() || null,
@@ -1604,6 +1607,10 @@ const ResourceEditorModal = ({
           {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
         </select>
         <input value={draft.town} onChange={(event) => onChange((prev) => ({ ...prev, town: event.target.value }))} placeholder="Town" style={fieldStyle} />
+        <select value={draft.county} onChange={(event) => onChange((prev) => ({ ...prev, county: event.target.value }))} style={fieldStyle}>
+          <option value="">County (optional)</option>
+          {['Bedfordshire','Berkshire','Bristol','Buckinghamshire','Cambridgeshire','Cheshire','City of London','Cornwall','Cumbria','Derbyshire','Devon','Dorset','Durham','East Riding of Yorkshire','East Sussex','Essex','Gloucestershire','Greater London','Greater Manchester','Hampshire','Herefordshire','Hertfordshire','Isle of Wight','Isles of Scilly','Kent','Lancashire','Leicestershire','Lincolnshire','Merseyside','Norfolk','North Yorkshire','Northamptonshire','Northumberland','Nottinghamshire','Oxfordshire','Rutland','Shropshire','Somerset','South Yorkshire','Staffordshire','Suffolk','Surrey','Tyne and Wear','Warwickshire','West Midlands','West Sussex','West Yorkshire','Wiltshire','Worcestershire','Clwyd','Dyfed','Gwent','Gwynedd','Mid Glamorgan','Powys','South Glamorgan','West Glamorgan','Aberdeen City','Aberdeenshire','Angus','Argyll and Bute','City of Edinburgh','Clackmannanshire','Dumfries and Galloway','Dundee City','East Ayrshire','East Dunbartonshire','East Lothian','East Renfrewshire','Falkirk','Fife','Glasgow City','Highland','Inverclyde','Midlothian','Moray','Na h-Eileanan Siar','North Ayrshire','North Lanarkshire','Orkney Islands','Perth and Kinross','Renfrewshire','Scottish Borders','Shetland Islands','South Ayrshire','South Lanarkshire','Stirling','West Dunbartonshire','West Lothian','Antrim and Newtownabbey','Ards and North Down','Armagh City Banbridge and Craigavon','Belfast','Causeway Coast and Glens','Derry City and Strabane','Fermanagh and Omagh','Lisburn and Castlereagh','Mid and East Antrim','Mid Ulster','Newry Mourne and Down'].map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
       </div>
 
       <div style={{ display: 'grid', gap: 12, marginTop: 14 }}>
