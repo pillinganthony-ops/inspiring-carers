@@ -25,6 +25,32 @@ const asNumber = (value) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const getProfilePlaceholderLabel = (profileId) => {
+  const value = `${profileId || ''}`.trim();
+  if (!value) return 'Organisation profile';
+  return `Selected profile (${value.slice(0, 8)})`;
+};
+
+const buildAddressCandidate = ({ id, label, address, town, postcode, latitude, longitude }) => ({
+  id: `${id}`,
+  label: `${label || address || postcode || 'Address option'}`.trim(),
+  address: `${address || ''}`.trim(),
+  town: `${town || ''}`.trim(),
+  postcode: `${postcode || ''}`.trim(),
+  latitude: asNumber(latitude),
+  longitude: asNumber(longitude),
+});
+
+const dedupeAddressCandidates = (candidates) => {
+  const seen = new Set();
+  return candidates.filter((candidate) => {
+    const key = `${candidate.address}|${candidate.postcode}|${candidate.latitude}|${candidate.longitude}`.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
 const getProfileName = (profile, resources = []) => {
   if (!profile) return 'Organisation profile';
   const linkedResource = resources.find((resource) => `${resource.id}` === `${profile.resource_id}`) || null;
@@ -159,15 +185,26 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     return Boolean(email && ADMIN_EMAIL_ALLOWLIST.includes(email));
   }, [session]);
 
-  const profileOptions = React.useMemo(() => (
-    (profiles || [])
-      .filter((profile) => profile?.id)
-      .map((profile) => ({
+  const profileOptions = React.useMemo(() => {
+    const options = new Map();
+
+    (profiles || []).forEach((profile) => {
+      if (!profile?.id) return;
+      options.set(`${profile.id}`, {
         value: `${profile.id}`,
         label: getProfileName(profile, resources),
-      }))
-      .sort((left, right) => left.label.localeCompare(right.label, 'en', { sensitivity: 'base' }))
-  ), [profiles, resources]);
+      });
+    });
+
+    if (eventDraft.organisation_profile_id && !options.has(`${eventDraft.organisation_profile_id}`)) {
+      options.set(`${eventDraft.organisation_profile_id}`, {
+        value: `${eventDraft.organisation_profile_id}`,
+        label: getProfilePlaceholderLabel(eventDraft.organisation_profile_id),
+      });
+    }
+
+    return Array.from(options.values()).sort((left, right) => left.label.localeCompare(right.label, 'en', { sensitivity: 'base' }));
+  }, [profiles, resources, eventDraft.organisation_profile_id]);
 
   const eventTypeOptions = React.useMemo(() => {
     const current = `${eventDraft.event_type || ''}`.trim();
@@ -420,15 +457,60 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       const nominatimResponse = await fetch(nominatimUrl);
       const nominatimRows = nominatimResponse.ok ? await nominatimResponse.json() : [];
 
-      const candidates = (Array.isArray(nominatimRows) ? nominatimRows : []).map((row, index) => ({
-        id: `${row.place_id || index + 1}`,
+      let candidates = (Array.isArray(nominatimRows) ? nominatimRows : []).map((row, index) => buildAddressCandidate({
+        id: row.place_id || index + 1,
         label: (row.display_name || '').split(',').slice(0, 3).join(', ').trim() || `Address option ${index + 1}`,
         address: row.display_name || '',
         town: row.address?.town || row.address?.city || row.address?.village || row.address?.county || fallbackTown,
         postcode: formattedPostcode,
-        latitude: asNumber(row.lat),
-        longitude: asNumber(row.lon),
+        latitude: row.lat,
+        longitude: row.lon,
       })).filter((candidate) => Number.isFinite(candidate.latitude) && Number.isFinite(candidate.longitude));
+
+      const postcodeOnlyResults = (Array.isArray(nominatimRows) ? nominatimRows : []).every((row) => `${row.type || ''}`.toLowerCase() === 'postcode');
+      if (!candidates.length || postcodeOnlyResults) {
+        const overpassQuery = `[out:json][timeout:12];(
+          node(around:250,${postcodeResult.latitude},${postcodeResult.longitude})["addr:housenumber"];
+          way(around:250,${postcodeResult.latitude},${postcodeResult.longitude})["addr:housenumber"];
+          node(around:250,${postcodeResult.latitude},${postcodeResult.longitude})["building"]["addr:street"];
+          way(around:250,${postcodeResult.latitude},${postcodeResult.longitude})["building"]["addr:street"];
+          node(around:250,${postcodeResult.latitude},${postcodeResult.longitude})["amenity"]["name"];
+          way(around:250,${postcodeResult.latitude},${postcodeResult.longitude})["amenity"]["name"];
+        );out center tags 30;`;
+
+        const overpassResponse = await fetch('https://overpass-api.de/api/interpreter', {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+          body: overpassQuery,
+        });
+        const overpassPayload = overpassResponse.ok ? await overpassResponse.json() : { elements: [] };
+        const overpassCandidates = ((overpassPayload && Array.isArray(overpassPayload.elements)) ? overpassPayload.elements : []).map((element, index) => {
+          const tags = element.tags || {};
+          const latitude = asNumber(element.lat ?? element.center?.lat);
+          const longitude = asNumber(element.lon ?? element.center?.lon);
+          const town = tags['addr:city'] || tags['addr:town'] || tags['addr:village'] || fallbackTown;
+          const road = tags['addr:street'] || tags.street || '';
+          const houseNumber = tags['addr:housenumber'] || '';
+          const name = tags.name || '';
+          const label = name || [houseNumber, road].filter(Boolean).join(' ') || `Location option ${index + 1}`;
+          const address = [name || null, [houseNumber, road].filter(Boolean).join(' ') || null, town || null, formattedPostcode || null].filter(Boolean).join(', ');
+          return buildAddressCandidate({
+            id: element.id || `overpass-${index + 1}`,
+            label,
+            address,
+            town,
+            postcode: formattedPostcode,
+            latitude,
+            longitude,
+          });
+        }).filter((candidate) => candidate.address && Number.isFinite(candidate.latitude) && Number.isFinite(candidate.longitude));
+
+        if (overpassCandidates.length) {
+          candidates = overpassCandidates;
+        }
+      }
+
+      candidates = dedupeAddressCandidates(candidates);
 
       if (!candidates.length) {
         const fallbackCandidate = {
