@@ -31,6 +31,8 @@ const getProfilePlaceholderLabel = (profileId) => {
   return `Selected profile (${value.slice(0, 8)})`;
 };
 
+const normalizeSelectValue = (value) => `${value ?? ''}`.trim();
+
 const buildAddressCandidate = ({ id, label, address, town, postcode, latitude, longitude }) => ({
   id: `${id}`,
   label: `${label || address || postcode || 'Address option'}`.trim(),
@@ -190,16 +192,19 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
 
     (profiles || []).forEach((profile) => {
       if (!profile?.id) return;
-      options.set(`${profile.id}`, {
-        value: `${profile.id}`,
+      const profileId = normalizeSelectValue(profile.id);
+      if (!profileId) return;
+      options.set(profileId, {
+        value: profileId,
         label: getProfileName(profile, resources),
       });
     });
 
-    if (eventDraft.organisation_profile_id && !options.has(`${eventDraft.organisation_profile_id}`)) {
-      options.set(`${eventDraft.organisation_profile_id}`, {
-        value: `${eventDraft.organisation_profile_id}`,
-        label: getProfilePlaceholderLabel(eventDraft.organisation_profile_id),
+    const selectedProfileId = normalizeSelectValue(eventDraft.organisation_profile_id);
+    if (selectedProfileId && !options.has(selectedProfileId)) {
+      options.set(selectedProfileId, {
+        value: selectedProfileId,
+        label: getProfilePlaceholderLabel(selectedProfileId),
       });
     }
 
@@ -386,13 +391,14 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   };
 
   const saveEvent = async () => {
-    if (!eventDraft.organisation_profile_id || !eventDraft.title.trim() || !eventDraft.starts_at) {
+    const selectedProfileId = normalizeSelectValue(eventDraft.organisation_profile_id);
+    if (!selectedProfileId || !eventDraft.title.trim() || !eventDraft.starts_at) {
       setError('Profile, title, and start date are required.');
       return;
     }
 
     const payload = {
-      organisation_profile_id: eventDraft.organisation_profile_id,
+      organisation_profile_id: selectedProfileId,
       title: eventDraft.title.trim(),
       slug: slugify(eventDraft.slug || eventDraft.title),
       event_type: eventDraft.event_type?.trim() || 'Support Group',
@@ -884,7 +890,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
             <div className="card" style={{ padding: 18 }}>
               <h2 style={{ fontSize: 22, fontWeight: 700 }}>Event CRUD</h2>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginTop: 10 }}>
-                <select value={`${eventDraft.organisation_profile_id || ''}`} onChange={(e) => setEventDraft((p) => ({ ...p, organisation_profile_id: e.target.value }))} style={inputStyle}>
+                <select value={normalizeSelectValue(eventDraft.organisation_profile_id)} onChange={(e) => setEventDraft((p) => ({ ...p, organisation_profile_id: normalizeSelectValue(e.target.value) }))} style={inputStyle}>
                   <option value="">Organisation profile</option>
                   {profileOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
@@ -918,7 +924,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                   <div key={row.id} style={{ border: '1px solid #E9EEF5', borderRadius: 10, padding: 10, display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
                     <div>{row.title} <span style={{ color: 'rgba(26,39,68,0.55)' }}>({row.status || 'scheduled'})</span></div>
                     <div style={{ display: 'flex', gap: 6 }}>
-                      <button className="btn btn-ghost btn-sm" onClick={() => setEventDraft({ ...emptyEvent, ...row, organisation_profile_id: row.organisation_profile_id ? String(row.organisation_profile_id) : '', starts_at: row.starts_at ? row.starts_at.slice(0, 16) : '', ends_at: row.ends_at ? row.ends_at.slice(0, 16) : '' })}>Edit</button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setEventDraft({ ...emptyEvent, ...row, organisation_profile_id: normalizeSelectValue(row.organisation_profile_id), starts_at: row.starts_at ? row.starts_at.slice(0, 16) : '', ends_at: row.ends_at ? row.ends_at.slice(0, 16) : '' })}>Edit</button>
                       <button className="btn btn-ghost btn-sm" onClick={() => deleteRow('organisation_events', row.id, 'Event deleted.')}>Delete</button>
                     </div>
                   </div>
