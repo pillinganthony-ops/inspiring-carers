@@ -35,20 +35,58 @@ const EventEnquiryModal = ({ event, onClose, onSuccess }) => {
     setBusy(true);
     setError('');
     try {
-      if (!supabase) throw new Error('Supabase is not configured.');
-      const payload = {
-        organisation_event_id: event.id,
-        organisation_profile_id: event.organisation_profile_id,
-        cta_type: event.cta_type,
-        full_name: form.fullName.trim(),
-        email: form.email.trim(),
-        phone: form.phone.trim() || null,
-        message: form.message.trim() || null,
-        spaces_requested: Number(form.spacesRequested) || null,
-      };
-      const { error: enquiryError } = await supabase.from('organisation_event_enquiries').insert(payload);
-      if (enquiryError) throw enquiryError;
-      onSuccess(event.cta_type === 'book' ? 'Booking request sent.' : 'Contact request sent.');
+      const moderationDescription = [
+        `Event enquiry for: ${event.title}`,
+        `Type: ${event.cta_type === 'book' ? 'booking' : 'contact'}`,
+        `Spaces requested: ${Number(form.spacesRequested) || 1}`,
+        '',
+        form.message.trim() || 'No message provided.',
+      ].join('\n');
+
+      if (isSupabaseConfigured() && supabase) {
+        const { error: queueError } = await supabase.from('resource_update_submissions').insert({
+          resource_id: event.resource?.id || null,
+          resource_name: event.profile?.display_name || event.title || 'Event enquiry',
+          resource_category: 'events',
+          update_type: 'event_enquiry',
+          description: moderationDescription,
+          submitter_name: form.fullName.trim(),
+          submitter_email: form.email.trim(),
+          consent_review: true,
+          status: 'pending',
+          payload: {
+            event_id: event.id,
+            organisation_profile_id: event.organisation_profile_id,
+            cta_type: event.cta_type,
+            phone: form.phone.trim() || null,
+            spaces_requested: Number(form.spacesRequested) || 1,
+            destination_email: event.contact_email || event.profile?.email || null,
+          },
+        });
+        if (queueError) throw queueError;
+      }
+
+      if (event.cta_type === 'book' && event.booking_url) {
+        window.open(event.booking_url, '_blank', 'noopener,noreferrer');
+        onSuccess('Booking opened and request logged for admin.');
+      } else {
+        const destinationEmail = event.contact_email || event.profile?.email;
+        if (!destinationEmail) {
+          onSuccess('Request logged for admin. No direct contact email is available yet.');
+        } else {
+          const subject = encodeURIComponent(`Enquiry: ${event.title}`);
+          const body = encodeURIComponent([
+            `Name: ${form.fullName.trim()}`,
+            `Email: ${form.email.trim()}`,
+            `Phone: ${form.phone.trim() || 'Not provided'}`,
+            `Spaces requested: ${Number(form.spacesRequested) || 1}`,
+            '',
+            form.message.trim() || 'No message provided.',
+          ].join('\n'));
+          window.location.href = `mailto:${destinationEmail}?subject=${subject}&body=${body}`;
+          onSuccess('Contact email prepared and request logged for admin.');
+        }
+      }
     } catch (submissionError) {
       setError(submissionError.message || 'Unable to send your request right now.');
     } finally {
@@ -140,8 +178,8 @@ const EventsPage = ({ onNavigate }) => {
       try {
         const [eventsResult, profilesResult, resourcesResult] = await Promise.all([
           supabase.from('organisation_events').select('*').in('status', ['scheduled', 'completed']).order('starts_at', { ascending: true }),
-          supabase.from('organisation_profiles').select('id,resource_id,slug,display_name,verified_status,featured,is_active').eq('is_active', true),
-          supabase.from('resources').select('id,slug,town').eq('is_archived', false),
+          supabase.from('organisation_profiles').select('id,resource_id,slug,display_name,verified_status,featured,is_active,email').eq('is_active', true),
+          supabase.from('resources').select('id,slug,town,email,website').eq('is_archived', false),
         ]);
         if (cancelled) return;
         if (eventsResult.error) throw eventsResult.error;
@@ -154,6 +192,7 @@ const EventsPage = ({ onNavigate }) => {
             ...event,
             profile,
             resource,
+            contact_email: event.contact_email || profile?.email || resource?.email || null,
             publicSlug: resource?.slug || profile?.slug || '',
           };
         });

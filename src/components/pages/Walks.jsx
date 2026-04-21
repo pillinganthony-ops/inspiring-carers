@@ -7,8 +7,6 @@ import { RiskAssessmentDisclaimer, WalkRiskSummary, SubmitRiskUpdateModal, downl
 import supabase, { isSupabaseConfigured } from '../../lib/supabaseClient.js';
 const { IWalks, IArrow, IChevron, IStar, IClose, IconTile } = Icons;
 
-const FEEDBACK_EMAIL = import.meta.env.VITE_WALKS_FEEDBACK_EMAIL || '';
-
 const parseDistanceMiles = (value) => {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
   if (typeof value !== 'string') return 0;
@@ -46,10 +44,40 @@ const parseDurationMinutes = (value) => {
   return numericOnly ? Math.round(Number(numericOnly[1])) : 0;
 };
 
+const parseBooleanFlag = (value) => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value > 0;
+  if (typeof value !== 'string') return false;
+
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return false;
+  if (['true', 'yes', 'y', '1', 'available'].includes(normalized)) return true;
+  if (['false', 'no', 'n', '0', 'none', 'unavailable'].includes(normalized)) return false;
+
+  return false;
+};
+
+const normalizeText = (value) => `${value || ''}`.toLowerCase().replace(/\s+/g, ' ').trim();
+
+const normalizeDifficultyLabel = (value) => {
+  const normalized = normalizeText(value);
+  if (!normalized) return 'Moderate';
+  if (['easy', 'gentle', 'beginner', 'low'].includes(normalized)) return 'Easy';
+  if (['moderate', 'medium', 'intermediate'].includes(normalized)) return 'Moderate';
+  if (['hard', 'challenging', 'difficult', 'advanced', 'strenuous'].includes(normalized)) return 'Hard';
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+};
+
 const normalizedWalks = walks.map((walk) => ({
   ...walk,
   distanceMiles: parseDistanceMiles(walk.distanceMiles),
   durationMinutes: parseDurationMinutes(walk.durationMinutes),
+  difficulty: normalizeDifficultyLabel(walk.difficulty),
+  toilets: parseBooleanFlag(walk.toilets),
+  refreshments: parseBooleanFlag(walk.refreshments),
+  parking: parseBooleanFlag(walk.parking),
+  publicTransport: parseBooleanFlag(walk.publicTransport),
+  circular: parseBooleanFlag(walk.circular),
 }));
 
 const hasText = (value) => typeof value === 'string' && value.trim().length > 0;
@@ -91,60 +119,16 @@ const getWalkShareText = (walk) => {
   return `Found this Cornwall walk on Inspiring Carers: ${walkName} in ${area}. Could be useful for a gentle local outing.`;
 };
 
-const getFeedbackRecipient = () => FEEDBACK_EMAIL.trim();
-
-const buildUpdateSubmissionMailtoHref = (walk, formData) => {
-  const recipient = getFeedbackRecipient();
-  const mapsLink = hasText(walk.googleMapsLink) ? walk.googleMapsLink.trim() : 'Map link not available';
-  const subject = `Walk Update Submission: ${walk.name} (${walk.area})`;
-  const body = [
-    'A walk update has been submitted for review.',
-    '',
-    `Walk: ${walk.name}`,
-    `Area: ${walk.area}`,
-    `Update type: ${formData.updateType}`,
-    '',
-    'Description:',
-    formData.description,
-    '',
-    `Name: ${formData.name || 'Not provided'}`,
-    `Email: ${formData.email || 'Not provided'}`,
-    '',
-    'Google Maps:',
-    mapsLink,
-    '',
-    'Submitted via Inspiring Carers Walk Finder',
-  ].join('\n');
-
-  return `mailto:${encodeURIComponent(recipient)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-};
-
-const buildCommentSubmissionMailtoHref = (walk, formData) => {
-  const recipient = getFeedbackRecipient();
-  const subject = `Community Note Submission: ${walk.name} (${walk.area})`;
-  const body = [
-    'A community note has been submitted for moderation.',
-    '',
-    `Walk: ${walk.name}`,
-    `Area: ${walk.area}`,
-    `Visited this walk: ${formData.visited ? 'Yes' : 'No'}`,
-    `Would recommend: ${formData.recommend ? 'Yes' : 'No'}`,
-    '',
-    'Comment:',
-    formData.comment,
-    '',
-    `Name: ${formData.name || 'Anonymous'}`,
-    '',
-    'Submitted via Inspiring Carers Walk Finder',
-  ].join('\n');
-
-  return `mailto:${encodeURIComponent(recipient)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-};
-
-const openMailtoHref = (href) => {
-  if (typeof window !== 'undefined') {
-    window.location.href = href;
-  }
+const mapPublicUpdateTypeToDbType = (value) => {
+  const normalized = normalizeText(value);
+  if (normalized === 'accessibility change') return 'accessibility_update';
+  if (normalized === 'safety issue') return 'hazard_update';
+  if (normalized === 'route condition update') return 'route_condition_update';
+  if (normalized === 'transport / parking update') return 'route_condition_update';
+  if (normalized === 'toilet / refreshments update') return 'general_update';
+  if (normalized === 'incorrect information') return 'general_update';
+  if (normalized === 'other') return 'general_update';
+  return 'general_update';
 };
 
 const parseItinerarySteps = (itinerary) => {
@@ -227,17 +211,19 @@ const WalksPage = ({ onNavigate }) => {
   const difficultyOptions = ['Any', 'Easy', 'Moderate', 'Hard'];
 
   const filteredWalks = React.useMemo(() => validWalks.filter((walk) => {
-    const searchText = `${walk.name} ${walk.area} ${walk.startLocation} ${walk.finishLocation}`.toLowerCase();
-    if (query.trim() && !searchText.includes(query.trim().toLowerCase())) return false;
-    if (area.trim() && !searchText.includes(area.trim().toLowerCase())) return false;
-    if (difficulty !== 'Any' && walk.difficulty !== difficulty) return false;
+    const searchText = normalizeText(`${walk.name} ${walk.area} ${walk.startLocation} ${walk.finishLocation}`);
+    const normalizedQuery = normalizeText(query);
+    const normalizedArea = normalizeText(area);
+    if (normalizedQuery && !searchText.includes(normalizedQuery)) return false;
+    if (normalizedArea && !searchText.includes(normalizedArea)) return false;
+    if (difficulty !== 'Any' && normalizeDifficultyLabel(walk.difficulty) !== normalizeDifficultyLabel(difficulty)) return false;
     if (walk.distanceMiles > maxDistance) return false;
     if (walk.durationMinutes > maxDuration) return false;
     if (filters.toilets && !walk.toilets) return false;
     if (filters.refreshments && !walk.refreshments) return false;
     if (filters.parking && !walk.parking) return false;
     if (filters.publicTransport && !walk.publicTransport) return false;
-    if (filters.accessible && !walk.accessibility.toLowerCase().includes('level') && !walk.accessibility.toLowerCase().includes('easy')) return false;
+    if (filters.accessible && !hasAccessibleTerrain(walk)) return false;
     if (filters.circular && !walk.circular) return false;
     return true;
   }), [query, area, difficulty, maxDistance, maxDuration, filters]);
@@ -455,7 +441,7 @@ const WalkCard = ({ walk, onView }) => (
         View details
       </button>
       <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.68)', display: 'flex', alignItems: 'center', gap: 6 }}>
-        <IStar s={16} /> Accessible: {walk.accessibility.includes('Level') || walk.accessibility.includes('easy') ? 'Easier terrain' : 'See notes'}
+        <IStar s={16} /> Accessible: {hasAccessibleTerrain(walk) ? 'Easier terrain' : 'See notes'}
       </div>
     </div>
   </div>
@@ -469,6 +455,7 @@ const MiniStat = ({ label, value }) => (
 );
 
 const WalkDetailModal = ({ walk, onClose }) => {
+  const SUPPORTS_WALK_UPDATES = true;
   const [showUpdateForm, setShowUpdateForm] = React.useState(false);
   const [showCommentForm, setShowCommentForm] = React.useState(false);
   const [showRiskSubmission, setShowRiskSubmission] = React.useState(false);
@@ -483,6 +470,8 @@ const WalkDetailModal = ({ walk, onClose }) => {
   const [riskLoading, setRiskLoading] = React.useState(true);
   const [itineraryUpdates, setItineraryUpdates] = React.useState([]);
   const [itineraryLoading, setItineraryLoading] = React.useState(true);
+  const [existingComments, setExistingComments] = React.useState([]);
+  const [commentsLoading, setCommentsLoading] = React.useState(true);
 
   const mapEmbedUrl = getMapEmbedUrl(walk);
   const [mapPreviewEnabled, setMapPreviewEnabled] = React.useState(Boolean(mapEmbedUrl));
@@ -492,21 +481,38 @@ const WalkDetailModal = ({ walk, onClose }) => {
   // Fetch risk assessment for this walk
   React.useEffect(() => {
     const fetchRiskAssessment = async () => {
-      if (!isSupabaseConfigured) {
+      if (!isSupabaseConfigured() || !supabase) {
         setRiskLoading(false);
         return;
       }
       try {
         const { data } = await supabase
-          .from('walk_risk_assessments')
+          .from('walk_risk_updates')
           .select('*')
           .eq('walk_id', walk.id)
           .eq('status', 'approved')
-          .order('version', { ascending: false })
+          .in('update_type', ['new_assessment', 'hazard_update', 'general_update'])
+          .order('created_at', { ascending: false })
           .limit(1)
           .single();
-        
-        setRiskAssessment(data || null);
+
+        if (!data) {
+          setRiskAssessment(null);
+        } else {
+          const parsedHazards = `${data.description || ''}`
+            .split('\n')
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .slice(0, 6);
+          setRiskAssessment({
+            ...data,
+            hazards_json: parsedHazards,
+            last_verified_date: data.created_at,
+            weather_notes: data.route_notes || null,
+            emergency_notes: data.safety_sensitive_sections || null,
+            accessibility_notes: data.accessibility_notes || null,
+          });
+        }
       } catch (err) {
         // No assessment found or error - that's ok
         setRiskAssessment(null);
@@ -520,7 +526,12 @@ const WalkDetailModal = ({ walk, onClose }) => {
 
   React.useEffect(() => {
     const fetchItineraryUpdates = async () => {
-      if (!isSupabaseConfigured || !supabase) {
+      if (!SUPPORTS_WALK_UPDATES) {
+        setItineraryUpdates([]);
+        setItineraryLoading(false);
+        return;
+      }
+      if (!isSupabaseConfigured() || !supabase) {
         setItineraryLoading(false);
         return;
       }
@@ -544,7 +555,44 @@ const WalkDetailModal = ({ walk, onClose }) => {
     };
 
     fetchItineraryUpdates();
-  }, [walk.id]);
+  }, [walk.id, SUPPORTS_WALK_UPDATES]);
+
+  React.useEffect(() => {
+    const fetchComments = async () => {
+      if (!SUPPORTS_WALK_UPDATES || !isSupabaseConfigured() || !supabase) {
+        setExistingComments([]);
+        setCommentsLoading(false);
+        return;
+      }
+
+      setCommentsLoading(true);
+      try {
+        const { data } = await supabase
+          .from('walk_comments')
+          .select('id, commenter_name, comment_text, visited, recommend, created_at')
+          .eq('walk_id', walk.id)
+          .eq('status', 'approved')
+          .order('created_at', { ascending: false })
+          .limit(20);
+
+        const mapped = (data || []).map((row) => ({
+          id: row.id,
+          name: row.commenter_name,
+          comment: row.comment_text,
+          visited: row.visited,
+          recommend: row.recommend,
+          createdAt: row.created_at,
+        }));
+        setExistingComments(mapped);
+      } catch {
+        setExistingComments([]);
+      } finally {
+        setCommentsLoading(false);
+      }
+    };
+
+    fetchComments();
+  }, [walk.id, SUPPORTS_WALK_UPDATES]);
 
   const [updateForm, setUpdateForm] = React.useState({
     walkName: walk.name || '',
@@ -563,13 +611,8 @@ const WalkDetailModal = ({ walk, onClose }) => {
     recommend: false,
   });
 
-  const existingComments = Array.isArray(walk.comments)
-    ? walk.comments.filter((item) => item && hasText(item.comment))
-    : [];
-
   const shareText = getWalkShareText(walk);
   const shareUrl = getWalkShareUrl(walk);
-  const feedbackConfigured = hasText(getFeedbackRecipient());
 
   const validateUpdateForm = () => {
     const nextErrors = {};
@@ -590,34 +633,78 @@ const WalkDetailModal = ({ walk, onClose }) => {
     return Object.keys(nextErrors).length === 0;
   };
 
-  const handleSubmitUpdate = (event) => {
+  const handleSubmitUpdate = async (event) => {
     event.preventDefault();
+    if (!SUPPORTS_WALK_UPDATES) {
+      setUpdateErrors({ general: 'Walk updates are currently unavailable on the live legacy schema.' });
+      return;
+    }
     if (!validateUpdateForm()) return;
+    if (!isSupabaseConfigured() || !supabase) {
+      setUpdateErrors({ general: 'Walk updates are temporarily unavailable. Please try again later.' });
+      return;
+    }
 
     setIsSubmittingUpdate(true);
     setUpdateSuccess('');
-    const href = buildUpdateSubmissionMailtoHref(walk, updateForm);
-    openMailtoHref(href);
-    setTimeout(() => {
+    setUpdateErrors({});
+    try {
+      const { error } = await supabase.from('walk_risk_updates').insert({
+        walk_id: walk.id,
+        walk_name: walk.name,
+        update_type: mapPublicUpdateTypeToDbType(updateForm.updateType),
+        description: updateForm.description.trim(),
+        submitted_by: updateForm.name.trim() || 'Anonymous',
+        submitted_email: updateForm.email.trim() || 'anonymous@inspiring-carers.local',
+        organisation: null,
+        status: 'pending',
+        route_notes: `Submitted from walk detail update form. Area: ${walk.area || 'Unknown'}. Public type: ${updateForm.updateType}`,
+      });
+      if (error) throw error;
+
       setIsSubmittingUpdate(false);
-      setUpdateSuccess('Email draft opened. Thank you, your update can now be sent for review.');
+      setUpdateSuccess('Update submitted to moderation queue. Thank you.');
       setUpdateForm((prev) => ({ ...prev, description: '', name: '', email: '', consent: false }));
-    }, 350);
+    } catch (submitError) {
+      setIsSubmittingUpdate(false);
+      setUpdateErrors({ general: submitError?.message || 'Failed to submit update. Please try again.' });
+    }
   };
 
-  const handleSubmitComment = (event) => {
+  const handleSubmitComment = async (event) => {
     event.preventDefault();
+    if (!SUPPORTS_WALK_UPDATES) {
+      setCommentErrors({ general: 'Walk comments are currently unavailable on the live legacy schema.' });
+      return;
+    }
     if (!validateCommentForm()) return;
+    if (!isSupabaseConfigured() || !supabase) {
+      setCommentErrors({ general: 'Comments are temporarily unavailable. Please try again later.' });
+      return;
+    }
 
     setIsSubmittingComment(true);
     setCommentSuccess('');
-    const href = buildCommentSubmissionMailtoHref(walk, commentForm);
-    openMailtoHref(href);
-    setTimeout(() => {
+    setCommentErrors({});
+    try {
+      const { error } = await supabase.from('walk_comments').insert({
+        walk_id: walk.id,
+        walk_name: walk.name,
+        commenter_name: commentForm.name.trim() || 'Anonymous',
+        comment_text: commentForm.comment.trim(),
+        visited: commentForm.visited,
+        recommend: commentForm.recommend,
+        status: 'pending',
+      });
+      if (error) throw error;
+
       setIsSubmittingComment(false);
-      setCommentSuccess('Email draft opened. Your comment can now be sent for moderation.');
+      setCommentSuccess('Comment submitted to moderation queue. Thank you.');
       setCommentForm({ name: '', comment: '', visited: false, recommend: false });
-    }, 350);
+    } catch (submitError) {
+      setIsSubmittingComment(false);
+      setCommentErrors({ general: submitError?.message || 'Failed to submit comment. Please try again.' });
+    }
   };
 
   const handleNativeShare = async () => {
@@ -739,9 +826,13 @@ const WalkDetailModal = ({ walk, onClose }) => {
                       📥 Download Assessment
                     </button>
                   )}
-                  <button onClick={() => setShowRiskSubmission(true)} className="btn btn-ghost btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    📋 Submit Risk Update
-                  </button>
+                  {!SUPPORTS_WALK_UPDATES ? (
+                    <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.65)' }}>Risk update submissions are disabled on the current live schema.</div>
+                  ) : (
+                    <button onClick={() => setShowRiskSubmission(true)} className="btn btn-ghost btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      📋 Submit Risk Update
+                    </button>
+                  )}
                 </div>
               </>
             )}
@@ -788,7 +879,11 @@ const WalkDetailModal = ({ walk, onClose }) => {
                   ))}
                 </div>
               ) : (
-                <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.6)', padding: '10px 12px', borderRadius: 12, background: '#F8FBFF', border: '1px solid #E9EEF5' }}>No approved itinerary improvements yet. Use Submit Risk Update to contribute route details for moderation.</div>
+                <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.6)', padding: '10px 12px', borderRadius: 12, background: '#F8FBFF', border: '1px solid #E9EEF5' }}>
+                  {SUPPORTS_WALK_UPDATES
+                    ? 'No approved itinerary improvements yet. Use Submit Risk Update to contribute route details for moderation.'
+                    : 'Itinerary moderation updates are unavailable on the current live schema.'}
+                </div>
               )}
             </div>
           </div>
@@ -803,15 +898,19 @@ const WalkDetailModal = ({ walk, onClose }) => {
             <a href={buildWalkEmailHref(walk)} className="btn btn-sky btn-lg" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
               Email walk details
             </a>
-            <button onClick={() => setShowUpdateForm((open) => !open)} className="btn btn-ghost btn-lg" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-              Submit an update
-            </button>
+            {SUPPORTS_WALK_UPDATES ? (
+              <button onClick={() => setShowUpdateForm((open) => !open)} className="btn btn-ghost btn-lg" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                Submit an update
+              </button>
+            ) : null}
             <button onClick={onClose} className="btn btn-ghost btn-lg" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
               Back to results
             </button>
           </div>
           <div style={{ marginTop: 12, fontSize: 12, color: 'rgba(26,39,68,0.65)' }}>
-            Community-maintained route information. Updates may be reviewed before appearing. Check route conditions before travel.
+            {SUPPORTS_WALK_UPDATES
+              ? 'Community-maintained route information. Updates may be reviewed before appearing. Check route conditions before travel.'
+              : 'Community route submissions are currently disabled on the live legacy schema. Check route conditions before travel.'}
           </div>
         </div>
 
@@ -833,9 +932,11 @@ const WalkDetailModal = ({ walk, onClose }) => {
         <div style={{ marginTop: 24, borderTop: '1px solid #EFF1F7', paddingTop: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ fontSize: 17, fontWeight: 700 }}>Comments / Community Notes</div>
-            <button className="btn btn-sky btn-sm" onClick={() => setShowCommentForm((open) => !open)}>Leave a comment</button>
+            {SUPPORTS_WALK_UPDATES ? <button className="btn btn-sky btn-sm" onClick={() => setShowCommentForm((open) => !open)}>Leave a comment</button> : null}
           </div>
-          <div style={{ marginTop: 8, fontSize: 13, color: 'rgba(26,39,68,0.72)' }}>Comments may be reviewed before appearing.</div>
+          <div style={{ marginTop: 8, fontSize: 13, color: 'rgba(26,39,68,0.72)' }}>
+            {SUPPORTS_WALK_UPDATES ? 'Comments may be reviewed before appearing.' : 'Comment submissions are disabled on the current live schema.'}
+          </div>
 
           {existingComments.length > 0 ? (
             <div style={{ marginTop: 14, display: 'grid', gap: 10 }}>
@@ -847,7 +948,7 @@ const WalkDetailModal = ({ walk, onClose }) => {
               ))}
             </div>
           ) : (
-            <div style={{ marginTop: 14, fontSize: 14, color: 'rgba(26,39,68,0.72)' }}>No public comments yet for this walk.</div>
+            <div style={{ marginTop: 14, fontSize: 14, color: 'rgba(26,39,68,0.72)' }}>{commentsLoading ? 'Loading comments...' : 'No public comments yet for this walk.'}</div>
           )}
 
           {showCommentForm ? (
@@ -875,9 +976,9 @@ const WalkDetailModal = ({ walk, onClose }) => {
                 <input type="checkbox" checked={commentForm.recommend} onChange={(event) => setCommentForm((prev) => ({ ...prev, recommend: event.target.checked }))} />
                 Would recommend
               </label>
-              {!feedbackConfigured ? <div style={{ fontSize: 13, color: '#1A2744' }}>Feedback email is not configured. Set VITE_WALKS_FEEDBACK_EMAIL to route submissions to your team inbox.</div> : null}
+              {commentErrors.general ? <div style={{ color: '#A03A2D', fontSize: 13 }}>{commentErrors.general}</div> : null}
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <button type="submit" className="btn btn-sky btn-sm" disabled={isSubmittingComment}>{isSubmittingComment ? 'Opening draft...' : 'Submit comment'}</button>
+                <button type="submit" className="btn btn-sky btn-sm" disabled={isSubmittingComment}>{isSubmittingComment ? 'Submitting...' : 'Submit comment'}</button>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowCommentForm(false)}>Cancel</button>
               </div>
               {commentSuccess ? <div style={{ fontSize: 13, color: '#1A2744' }}>{commentSuccess}</div> : null}
@@ -885,7 +986,7 @@ const WalkDetailModal = ({ walk, onClose }) => {
           ) : null}
         </div>
 
-        {showUpdateForm ? (
+        {SUPPORTS_WALK_UPDATES && showUpdateForm ? (
           <div style={{ marginTop: 24, borderTop: '1px solid #EFF1F7', paddingTop: 20 }}>
             <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 12 }}>Submit an update</div>
             <form onSubmit={handleSubmitUpdate} style={{ border: '1px solid #E9EEF5', borderRadius: 18, padding: 16, display: 'grid', gap: 12 }}>
@@ -937,9 +1038,9 @@ const WalkDetailModal = ({ walk, onClose }) => {
                 <span>I understand this update may be reviewed before being published.</span>
               </label>
               {updateErrors.consent ? <div style={{ color: '#A03A2D', fontSize: 13 }}>{updateErrors.consent}</div> : null}
-              {!feedbackConfigured ? <div style={{ fontSize: 13, color: '#1A2744' }}>Feedback email is not configured. Set VITE_WALKS_FEEDBACK_EMAIL to route submissions to your team inbox.</div> : null}
+              {updateErrors.general ? <div style={{ color: '#A03A2D', fontSize: 13 }}>{updateErrors.general}</div> : null}
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <button type="submit" className="btn btn-sky btn-sm" disabled={isSubmittingUpdate}>{isSubmittingUpdate ? 'Opening draft...' : 'Submit update'}</button>
+                <button type="submit" className="btn btn-sky btn-sm" disabled={isSubmittingUpdate}>{isSubmittingUpdate ? 'Submitting...' : 'Submit update'}</button>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowUpdateForm(false)}>Cancel</button>
               </div>
               {updateSuccess ? <div style={{ fontSize: 13, color: '#1A2744' }}>{updateSuccess}</div> : null}
@@ -954,7 +1055,7 @@ const WalkDetailModal = ({ walk, onClose }) => {
       </div>
 
       {/* Submit Risk Update Modal */}
-      {showRiskSubmission && (
+      {SUPPORTS_WALK_UPDATES && showRiskSubmission && (
         <SubmitRiskUpdateModal 
           walk={walk} 
           onClose={() => setShowRiskSubmission(false)} 

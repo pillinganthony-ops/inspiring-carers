@@ -72,7 +72,7 @@ const Placeholder = ({ title, onNavigate, note }) => (
 );
 
 // ClosingBand component
-const ClosingBand = () => (
+const ClosingBand = ({ onNavigate }) => (
   <section style={{ paddingTop: 80, paddingBottom: 120 }}>
     <div className="container">
       <div
@@ -137,7 +137,7 @@ const ClosingBand = () => (
               padding: '22px 36px',
               fontWeight: 700,
               boxShadow: '0 16px 40px rgba(245,166,35,0.35)',
-            }}>
+            }} onClick={() => onNavigate('find-help')}>
               Get my free card <IArrow s={20} />
             </button>
 
@@ -150,6 +150,7 @@ const ClosingBand = () => (
                 padding: '22px 36px',
                 fontWeight: 700,
               }}
+              onClick={() => onNavigate('profile')}
             >
               Already a member
             </button>
@@ -180,7 +181,7 @@ const HomePage = ({ onNavigate, tweaks }) => (
     <IconDiscovery onNavigate={onNavigate} />
     <Signposting onNavigate={onNavigate} />
     <Businesses />
-    <ClosingBand />
+    <ClosingBand onNavigate={onNavigate} />
     <Footer onNavigate={onNavigate} />
   </>
 );
@@ -217,6 +218,7 @@ const App = () => {
   const [page, setPage] = React.useState(() => {
     return parseRoute(window.location.pathname);
   });
+  const [authRouteGraceUntil, setAuthRouteGraceUntil] = React.useState(0);
   const [session, setSession] = React.useState(null);
   const [sessionLoading, setSessionLoading] = React.useState(true);
   const [tweaks, setTweaks] = React.useState(() => {
@@ -262,19 +264,24 @@ const App = () => {
 
   React.useEffect(() => {
     // Protect only /admin. Public routes remain open regardless of auth state.
-    if ((page === 'admin' || page === 'profile') && !sessionLoading && !session) {
+    if (page === 'admin' && !sessionLoading && !session && Date.now() > authRouteGraceUntil) {
       setPage('login');
       window.history.replaceState({ page: 'login' }, '', '/login');
       window.scrollTo({ top: 0, behavior: 'instant' });
     }
-  }, [page, sessionLoading, session]);
+  }, [page, sessionLoading, session, authRouteGraceUntil]);
 
   const navigate = (key) => {
-    if ((key === 'admin' || key === 'profile') && !session) {
-      setPage('login');
-      window.history.pushState({ page: 'login' }, '', '/login');
-      window.scrollTo({ top: 0, behavior: 'instant' });
-      return;
+    if (key === 'admin' && !session) {
+      if (page === 'login') {
+        // Allow a longer auth hydration window right after successful sign-in.
+        setAuthRouteGraceUntil(Date.now() + 15000);
+      } else {
+        setPage('login');
+        window.history.pushState({ page: 'login' }, '', '/login');
+        window.scrollTo({ top: 0, behavior: 'instant' });
+        return;
+      }
     }
 
     setPage(key);
@@ -292,7 +299,7 @@ const App = () => {
     case 'events': content = <React.Suspense fallback={<RouteLoading />}><EventsPage onNavigate={navigate} /></React.Suspense>; break;
     case 'benefits': content = <React.Suspense fallback={<RouteLoading />}><BenefitsPage onNavigate={navigate} /></React.Suspense>; break;
     case 'walks': content = <React.Suspense fallback={<RouteLoading />}><WalksPage onNavigate={navigate} /></React.Suspense>; break;
-    case 'admin': content = <React.Suspense fallback={<RouteLoading />}><AdminPage /></React.Suspense>; break;
+    case 'admin': content = <React.Suspense fallback={<RouteLoading />}><AdminPage onNavigate={navigate} session={session} sessionLoading={sessionLoading} /></React.Suspense>; break;
     case 'profile': content = <React.Suspense fallback={<RouteLoading />}><ProfileDashboardPage onNavigate={navigate} session={session} /></React.Suspense>; break;
     case 'recognition': content = <Placeholder title="Recognition & awards" onNavigate={navigate} note="Carer of the Month, stories, nominations and community recognition — coming in the next round. Preview lives in the homepage Recognition section." />; break;
     case 'business': content = <Placeholder title="For businesses" onNavigate={navigate} note="Submit offers, see the why-carers-matter statement, badge tiers and featured partner placements — next round." />; break;

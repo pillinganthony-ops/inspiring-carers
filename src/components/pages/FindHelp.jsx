@@ -65,6 +65,8 @@ const {
 const DEFAULT_CATEGORY_SLUG = 'community-groups-social-connection';
 const FEATURED_CATEGORY_LABELS = ['Mental Health', 'Carers', 'Advice', 'Community', 'Crisis', 'Food'];
 const MAP_LIBRARIES = ['places'];
+const SUPPORTS_ORGANISATION_FEATURES = true;
+const SUPPORTS_CLAIMS = true;
 
 const CATEGORY_META = [
   { tone: 'sky', icon: <IGroups s={16} />, cardIcon: <IGroups s={22} />, matches: ['group', 'social', 'community'] },
@@ -211,22 +213,69 @@ const getMapsDirectionsUrl = (listing) => {
   return `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
 };
 
+const isGenericOrganisationValue = (value) => {
+  const normalized = `${value || ''}`.trim().toLowerCase();
+  if (!normalized) return true;
+  return new Set(['community support', 'support service', 'local support', 'organisation', 'organization']).has(normalized);
+};
+
+const deriveOrganisationNameFromContact = (row) => {
+  const merged = { ...(row || {}), ...(row?.profile || {}) };
+  const email = `${pickField(merged, ['email']) || ''}`.trim().toLowerCase();
+  const website = `${pickField(merged, ['website']) || ''}`.trim().toLowerCase();
+
+  let domain = '';
+  if (website) {
+    try {
+      const normalizedWebsite = website.startsWith('http') ? website : `https://${website}`;
+      domain = new URL(normalizedWebsite).hostname.toLowerCase();
+    } catch {
+      domain = website;
+    }
+  }
+  if (!domain && email.includes('@')) domain = email.split('@')[1];
+  domain = domain.replace(/^www\./, '').split('/')[0];
+  if (!domain) return '';
+
+  let label = domain.split('.')[0] || '';
+  label = label
+    .replace(/[-_]+/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/([a-z])(mind|care|carers|support|trust|foundation|services|centre|center|wellbeing|health|community)$/i, '$1 $2')
+    .trim();
+
+  if (!label) return '';
+  return label.replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
 const normalizeResource = (row, index) => {
-  const rawCategory = pickField(row, ['category', 'category_name', 'category_label', 'resource_type', 'type']) || 'Support';
-  const cat = normalizeCategorySlug(rawCategory);
+  const rawCategory = pickField(row, ['category_name', 'category', 'category_label', 'resource_type', 'type']) || 'Support';
+  // If a resolved category slug was injected (from category_id FK lookup), use it directly
+  const cat = row.category_slug ? normalizeCategorySlug(row.category_slug) : normalizeCategorySlug(rawCategory);
   const categoryLabel = getCategoryLabelFromSlug(cat);
   const categoryMeta = getCategoryMeta(rawCategory);
 
   const title = pickField(row, ['name', 'title']) || `Support listing ${index + 1}`;
-  const organisationName = pickField(row, ['organisation_name', 'organisation', 'organization', 'provider', 'venue', 'location_name']) || '';
+  const orgCandidates = [
+    pickField(row?.profile || {}, ['display_name']),
+    pickField(row?.profile || {}, ['name']),
+    pickField(row, ['organisation_name']),
+    pickField(row, ['provider_name']),
+    title,
+    deriveOrganisationNameFromContact(row),
+  ];
+  const organisationName = orgCandidates.find((candidate) => !isGenericOrganisationValue(candidate)) || '';
   const venue = organisationName || 'Community support';
   const area = pickField(row, ['town', 'area', 'location', 'city']) || pickField(row, ['postcode']) || 'Cornwall';
   const county = pickField(row, ['county', 'region', 'admin_county']) || '';
   const availability = pickField(row, ['opening_hours', 'availability', 'service_hours', 'contact_hours']) || 'Contact for details';
   const summary = pickField(row, ['summary', 'description', 'short_description']) || 'Local support for carers and the people they support.';
+  const resourceOrganisationName = pickField(row, ['organisation_name']);
+  const providerName = pickField(row, ['provider_name']);
 
   return {
     id: row?.id ?? `resource-${index + 1}`,
+    categoryId: row?.category_id ?? null,
     slug: pickField(row, ['slug']) || toSlug(title) || `resource-${index + 1}`,
     cat,
     categoryLabel,
@@ -234,6 +283,8 @@ const normalizeResource = (row, index) => {
     icon: categoryMeta.cardIcon,
     title,
     organisationName,
+    resourceOrganisationName,
+    providerName,
     venue,
     area,
     when: availability,
@@ -698,19 +749,58 @@ const EventActionModal = ({ listing, event, onClose, onSuccess, onFailure }) => 
     setBusy(true);
     setError('');
     try {
-      if (!supabase) throw new Error('Database not available.');
-      const { error: enquiryError } = await supabase.from('organisation_event_enquiries').insert({
-        organisation_event_id: event.id,
-        organisation_profile_id: event.organisation_profile_id,
-        cta_type: event.cta_type,
-        full_name: form.fullName.trim(),
-        email: form.email.trim(),
-        phone: form.phone.trim() || null,
-        message: form.message.trim() || null,
-        spaces_requested: Number(form.spacesRequested) || null,
-      });
-      if (enquiryError) throw enquiryError;
-      onSuccess(event.cta_type === 'book' ? `Booking request sent for ${event.title}.` : `Contact request sent to ${listing.venue}.`);
+      const moderationDescription = [
+        `Event enquiry for: ${event.title}`,
+        `Type: ${event.cta_type === 'book' ? 'booking' : 'contact'}`,
+        `Spaces requested: ${Number(form.spacesRequested) || 1}`,
+        '',
+        form.message.trim() || 'No message provided.',
+      ].join('\n');
+
+      if (isSupabaseConfigured() && supabase) {
+        const { error: queueError } = await supabase.from('resource_update_submissions').insert({
+          resource_id: listing.id || null,
+          resource_name: listing.title || listing.venue || 'Event enquiry',
+          resource_category: 'events',
+          update_type: 'event_enquiry',
+          description: moderationDescription,
+          submitter_name: form.fullName.trim(),
+          submitter_email: form.email.trim(),
+          consent_review: true,
+          status: 'pending',
+          payload: {
+            event_id: event.id,
+            organisation_profile_id: event.organisation_profile_id,
+            cta_type: event.cta_type,
+            phone: form.phone.trim() || null,
+            spaces_requested: Number(form.spacesRequested) || 1,
+            destination_email: event.contact_email || listing.email || null,
+          },
+        });
+        if (queueError) throw queueError;
+      }
+
+      if (event.cta_type === 'book' && event.booking_url) {
+        window.open(event.booking_url, '_blank', 'noopener,noreferrer');
+        onSuccess(`Booking opened for ${event.title}. Request logged for admin.`);
+      } else {
+        const destinationEmail = event.contact_email || listing.email;
+        if (destinationEmail) {
+          const subject = encodeURIComponent(`Enquiry: ${event.title}`);
+          const body = encodeURIComponent([
+            `Name: ${form.fullName.trim()}`,
+            `Email: ${form.email.trim()}`,
+            `Phone: ${form.phone.trim() || 'Not provided'}`,
+            `Spaces requested: ${Number(form.spacesRequested) || 1}`,
+            '',
+            form.message.trim() || 'No message provided.',
+          ].join('\n'));
+          window.location.href = `mailto:${destinationEmail}?subject=${subject}&body=${body}`;
+          onSuccess(`Contact email prepared for ${listing.venue}. Request logged for admin.`);
+        } else {
+          onSuccess('Request logged for admin. No direct contact email is available yet.');
+        }
+      }
     } catch (submitError) {
       const message = submitError.message || 'Unable to send your request right now.';
       setError(message);
@@ -797,6 +887,14 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
   const websiteUrl = listing.website ? (listing.website.startsWith('http') ? listing.website : `https://${listing.website}`) : null;
   const domain = getDomain(listing.website);
   const profileBio = listing.profile?.bio || listing.desc;
+  const organisationDisplayName = [
+    listing.profile?.display_name,
+    listing.profile?.name,
+    listing.resourceOrganisationName,
+    listing.providerName,
+    listing.title,
+    deriveOrganisationNameFromContact({ email: listing.email, website: listing.website }),
+  ].find((value) => !isGenericOrganisationValue(value)) || 'Community support';
 
   const handleMobileQuickShare = async () => {
     const resourceUrl = getListingUrl(listing);
@@ -931,7 +1029,7 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
                 </p>
               </DetailSection>
 
-              {(listing.serviceCategories.length || listing.areasCovered.length) ? (
+              {SUPPORTS_ORGANISATION_FEATURES && (listing.serviceCategories.length || listing.areasCovered.length) ? (
                 <DetailSection title="Organisation profile" icon={<IHub s={14} />}>
                   {listing.serviceCategories.length ? <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.65)', marginBottom: 10 }}><strong style={{ color: '#1A2744' }}>Services:</strong> {listing.serviceCategories.join(', ')}</div> : null}
                   {listing.areasCovered.length ? <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.65)' }}><strong style={{ color: '#1A2744' }}>Areas covered:</strong> {listing.areasCovered.join(', ')}</div> : null}
@@ -939,7 +1037,11 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
               ) : null}
 
               <DetailSection title="Events by this organisation" icon={<IEvent s={14} />}>
-                {!listing.events.length ? (
+                {!SUPPORTS_ORGANISATION_FEATURES ? (
+                  <div style={{ padding: '16px 18px', borderRadius: 14, background: 'rgba(45,156,219,0.06)', border: '1px dashed rgba(45,156,219,0.2)', color: 'rgba(26,39,68,0.6)', fontSize: 14, lineHeight: 1.6 }}>
+                    Organisation events and booking requests are currently unavailable on the live legacy data model.
+                  </div>
+                ) : !listing.events.length ? (
                   <div style={{ padding: '16px 18px', borderRadius: 14, background: 'rgba(45,156,219,0.06)', border: '1px dashed rgba(45,156,219,0.2)', color: 'rgba(26,39,68,0.6)', fontSize: 14, lineHeight: 1.6 }}>
                     No upcoming events listed right now. Check back soon, or contact this organisation directly to find out about sessions, groups, and activities they run.
                   </div>
@@ -994,7 +1096,7 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
             <div style={{ background: 'white', borderRadius: 22, padding: 24, border: '1px solid #EFF1F7', boxShadow: 'var(--shadow-sm)', marginTop: 16 }}>
               <h2 style={{ fontFamily: 'Sora, sans-serif', fontWeight: 700, fontSize: 18, marginBottom: 16 }}>Contact details</h2>
               <div style={{ display: 'grid', gap: 10 }}>
-                <ContactItem icon={<IBuilding s={16} />} label="Organisation" value={listing.venue} />
+                <ContactItem icon={<IBuilding s={16} />} label="Organisation" value={organisationDisplayName} />
                 <ContactItem icon={<IPhone s={16} />} label="Phone" value={listing.phone} href={listing.phone ? `tel:${listing.phone}` : null} />
                 <ContactItem icon={<IMail s={16} />} label="Email" value={listing.email} href={listing.email ? `mailto:${listing.email}` : null} />
                 <ContactItem icon={<IGlobe s={16} />} label="Website" value={domain || listing.website || null} href={websiteUrl} external />
@@ -1060,7 +1162,19 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
             </div>
 
             {/* Claim listing */}
-            {!claimSuccess ? (
+            {!SUPPORTS_CLAIMS ? (
+              <div style={{ background: 'white', borderRadius: 22, padding: 18, border: '1px solid #EFF1F7' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 38, height: 38, borderRadius: 12, background: 'rgba(26,39,68,0.07)', color: '#1A2744', display: 'grid', placeItems: 'center' }}>
+                    <IBuilding s={18} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 13.5 }}>Claim workflow unavailable</div>
+                    <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.55)', marginTop: 1 }}>Listing claims are disabled on the current live schema.</div>
+                  </div>
+                </div>
+              </div>
+            ) : !claimSuccess ? (
               <div style={{ background: 'white', borderRadius: 22, padding: 18, border: '1px solid #EFF1F7' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{ width: 38, height: 38, borderRadius: 12, background: 'rgba(245,166,35,0.1)', color: '#F5A623', display: 'grid', placeItems: 'center' }}>
@@ -1101,7 +1215,7 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
       {mobileShareOpen && <MobileShareSheet listing={listing} onAction={onShareAction} onClose={() => setMobileShareOpen(false)} />}
 
       {/* Claim modal */}
-      {claimOpen && (
+      {SUPPORTS_CLAIMS && claimOpen && (
         <ClaimModal
           listing={listing}
           onClose={() => setClaimOpen(false)}
@@ -1115,7 +1229,7 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
           onError={(message) => onNotify?.(message)}
         />
       )}
-      {activeEvent ? <EventActionModal listing={listing} event={activeEvent} onClose={() => setActiveEvent(null)} onSuccess={(message) => { setActiveEvent(null); onNotify?.(message); }} onFailure={(message) => onNotify?.(message)} /> : null}
+      {SUPPORTS_ORGANISATION_FEATURES && activeEvent ? <EventActionModal listing={listing} event={activeEvent} onClose={() => setActiveEvent(null)} onSuccess={(message) => { setActiveEvent(null); onNotify?.(message); }} onFailure={(message) => onNotify?.(message)} /> : null}
     </section>
   );
 };
@@ -1299,6 +1413,7 @@ const FindHelpV2 = ({ onNavigate }) => {
   const [categories, setCategories] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
+  const [reloadKey, setReloadKey] = React.useState(0);
   const [shareOpenId, setShareOpenId] = React.useState('');
   const [toast, setToast] = React.useState('');
   const [selectedId, setSelectedId] = React.useState('');
@@ -1327,78 +1442,106 @@ const FindHelpV2 = ({ onNavigate }) => {
       setLoading(true);
       setError('');
 
-      const [categoriesResult, resourcesResult, profilesResult, eventsResult] = await Promise.all([
-        supabase.from('categories').select('name, slug, active, sort_order').eq('active', true).order('sort_order', { ascending: true }).order('name', { ascending: true }),
-        supabase.from('resources').select('*').eq('active', true).order('name', { ascending: true }),
-        supabase.from('organisation_profiles').select('*').eq('is_active', true),
-        supabase.from('organisation_events').select('*').eq('status', 'scheduled').order('starts_at', { ascending: true }),
-      ]);
+      try {
+        const [categoriesResult, resourcesResult, profilesResult, eventsResult] = await Promise.all([
+          supabase
+            .from('categories')
+            .select('id, name, slug, active, sort_order')
+            .eq('active', true)
+            .order('sort_order', { ascending: true })
+            .order('name', { ascending: true }),
+          supabase
+            .from('resources')
+            .select('*')
+            .eq('is_archived', false)
+            .order('name', { ascending: true }),
+          supabase
+            .from('organisation_profiles')
+            .select('*'),
+          supabase
+            .from('organisation_events')
+            .select('*')
+            .in('status', ['scheduled', 'completed']),
+        ]);
 
-      if (cancelled) return;
+        if (resourcesResult.error) throw resourcesResult.error;
 
-      if (categoriesResult.error || resourcesResult.error) {
-        setCategories([]);
-        setResources([]);
-        setError('We are having trouble loading local support right now.');
-        setLoading(false);
-        return;
-      }
+        const categoriesData = categoriesResult.error ? [] : (categoriesResult.data || []);
+        const profiles = profilesResult.error ? [] : (profilesResult.data || []);
+        const events = eventsResult.error ? [] : (eventsResult.data || []);
 
-      const profilesMap = new Map();
-      const eventsByProfile = new Map();
+        // Build category lookup so category_id (bigint FK) resolves to a name
+        const categoryById = new Map(categoriesData.map((cat) => [String(cat.id), cat]));
 
-      if (!profilesResult.error) {
-        (profilesResult.data || []).forEach((profile) => {
-          if (profile.resource_id) profilesMap.set(profile.resource_id, profile);
+        const profileByResourceId = new Map(
+          profiles
+            .filter((profile) => profile.resource_id !== null && profile.resource_id !== undefined)
+            .map((profile) => [String(profile.resource_id), profile]),
+        );
+        const profileBySlug = new Map(
+          profiles
+            .filter((profile) => profile.slug)
+            .map((profile) => [`${profile.slug}`.trim().toLowerCase(), profile]),
+        );
+        const eventsByProfileId = new Map();
+        events.forEach((eventRow) => {
+          if (!eventRow.organisation_profile_id) return;
+          const existing = eventsByProfileId.get(String(eventRow.organisation_profile_id)) || [];
+          existing.push(eventRow);
+          eventsByProfileId.set(String(eventRow.organisation_profile_id), existing);
         });
-      }
 
-      if (!eventsResult.error) {
-        (eventsResult.data || []).forEach((event) => {
-          const current = eventsByProfile.get(event.organisation_profile_id) || [];
-          current.push(event);
-          eventsByProfile.set(event.organisation_profile_id, current);
+        if (cancelled) return;
+        const loadedResources = (resourcesResult.data || []).map((row, index) => {
+          const rowIdKey = row?.id !== null && row?.id !== undefined ? String(row.id) : '';
+          const rowSlugKey = `${row?.slug || ''}`.trim().toLowerCase();
+          const profile = profileByResourceId.get(rowIdKey) || profileBySlug.get(rowSlugKey) || null;
+          const profileEvents = profile?.id ? (eventsByProfileId.get(String(profile.id)) || []) : [];
+          // Resolve category_id → category name; inject as category_name so normalizeResource picks it up
+          const resolvedCat = row.category_id ? (categoryById.get(String(row.category_id)) || null) : null;
+          const injectedRow = resolvedCat
+            ? { ...row, category_name: resolvedCat.name, category_slug: resolvedCat.slug, profile, events: profileEvents }
+            : { ...row, profile, events: profileEvents };
+          return normalizeResource(injectedRow, index);
         });
-      }
+        const discoveredCategoryMap = new Map();
 
-      const loadedResources = (resourcesResult.data || []).map((row, index) => {
-        const profile = profilesMap.get(row.id) || null;
-        return normalizeResource({
-          ...row,
-          profile,
-          events: profile ? (eventsByProfile.get(profile.id) || []) : [],
-        }, index);
-      });
-      const discoveredCategoryMap = new Map();
-
-      (categoriesResult.data || []).forEach((cat) => {
-        const normalizedSlug = normalizeCategorySlug(cat.slug || cat.name);
-        const meta = getCategoryMeta(cat.name);
-        discoveredCategoryMap.set(normalizedSlug, {
-          id: normalizedSlug,
-          label: cat.name,
-          displayLabel: getCategoryLabelFromSlug(normalizedSlug),
-          tone: meta.tone,
-          icon: meta.icon,
-        });
-      });
-
-      loadedResources.forEach((resource) => {
-        if (!discoveredCategoryMap.has(resource.cat)) {
-          const meta = getCategoryMeta(resource.categoryLabel);
-          discoveredCategoryMap.set(resource.cat, {
-            id: resource.cat,
-            label: resource.categoryLabel,
-            displayLabel: getCategoryLabelFromSlug(resource.cat),
+        categoriesData.forEach((cat) => {
+          const normalizedSlug = normalizeCategorySlug(cat.slug || cat.name);
+          const meta = getCategoryMeta(cat.name);
+          discoveredCategoryMap.set(normalizedSlug, {
+            id: normalizedSlug,
+            label: cat.name,
+            displayLabel: getCategoryLabelFromSlug(normalizedSlug),
             tone: meta.tone,
             icon: meta.icon,
           });
-        }
-      });
+        });
 
-      setCategories(Array.from(discoveredCategoryMap.values()).sort((a, b) => a.displayLabel.localeCompare(b.displayLabel)));
-      setResources(loadedResources);
-      setLoading(false);
+        loadedResources.forEach((resource) => {
+          if (!discoveredCategoryMap.has(resource.cat)) {
+            const meta = getCategoryMeta(resource.categoryLabel);
+            discoveredCategoryMap.set(resource.cat, {
+              id: resource.cat,
+              label: resource.categoryLabel,
+              displayLabel: getCategoryLabelFromSlug(resource.cat),
+              tone: meta.tone,
+              icon: meta.icon,
+            });
+          }
+        });
+
+        setCategories(Array.from(discoveredCategoryMap.values()).sort((a, b) => a.displayLabel.localeCompare(b.displayLabel)));
+        setResources(loadedResources);
+        setLoading(false);
+      } catch (loadError) {
+        if (!cancelled) {
+          setCategories([]);
+          setResources([]);
+          setError('We are having trouble loading local support right now.');
+          setLoading(false);
+        }
+      }
     };
 
     loadData();
@@ -1406,7 +1549,7 @@ const FindHelpV2 = ({ onNavigate }) => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
   const areaOptions = React.useMemo(() => Array.from(new Set(resources.map((resource) => resource.locationKey).filter(Boolean))).sort(), [resources]);
   const countyOptions = React.useMemo(() => Array.from(new Set(resources.map((resource) => resource.county).filter(Boolean))).sort(), [resources]);
@@ -1703,7 +1846,12 @@ const FindHelpV2 = ({ onNavigate }) => {
               {loading ? (
                 <LoadingGrid />
               ) : error ? (
-                <StateCard title="We are having trouble loading local support right now." />
+                <div style={{ display: 'grid', gap: 12 }}>
+                  <StateCard title="We are having trouble loading local support right now." subtitle="Please retry. If this persists, check your Supabase environment and listings schema." />
+                  <div style={{ display: 'flex', justifyContent: 'center' }}>
+                    <button className="btn btn-sky btn-sm" onClick={() => setReloadKey((prev) => prev + 1)}>Retry loading listings</button>
+                  </div>
+                </div>
               ) : !filtered.length ? (
                 <StateCard title="No support listings found yet." />
               ) : view === 'list' ? (

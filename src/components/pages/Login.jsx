@@ -19,6 +19,15 @@ const LoginPage = ({ onNavigate }) => {
   const [error, setError] = React.useState('');
   const [successMsg, setSuccessMsg] = React.useState('');
 
+  const waitForSession = async () => {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const { data } = await supabase.auth.getSession();
+      if (data?.session) return data.session;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    return null;
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (!isSupabaseConfigured() || !supabase) {
@@ -30,36 +39,32 @@ const LoginPage = ({ onNavigate }) => {
     setError('');
     setSuccessMsg('');
 
-    const { data, error: authError } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
+    try {
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
 
-    if (authError) {
-      setError(authError.message || 'Login failed. Please check your credentials.');
-      setLoading(false);
-      return;
-    }
-
-    if (data?.session) {
-      const signedInEmail = (data.session.user.email || '').toLowerCase();
-      let nextRoute = 'profile';
-
-      if (ADMIN_EMAIL_ALLOWLIST.includes(signedInEmail)) {
-        nextRoute = 'admin';
-      } else {
-        try {
-          const { data: adminUser } = await supabase.from('admin_users').select('id').eq('user_id', data.session.user.id).maybeSingle();
-          if (adminUser?.id) nextRoute = 'admin';
-        } catch {
-          // Keep profile as the default destination when admin table is unavailable.
-        }
+      if (authError) {
+        setError(authError.message || 'Login failed. Please check your credentials.');
+        return;
       }
 
-      setSuccessMsg(`Login successful. Redirecting to ${nextRoute === 'admin' ? 'admin dashboard' : 'profile dashboard'}...`);
-      setTimeout(() => {
+      if (data?.session) {
+        const hydratedSession = await waitForSession();
+        const sessionToUse = hydratedSession || data.session;
+        const signedInEmail = (sessionToUse.user.email || '').toLowerCase();
+        let nextRoute = 'profile';
+
+        if (ADMIN_EMAIL_ALLOWLIST.includes(signedInEmail)) nextRoute = 'admin';
+
+        setSuccessMsg(`Login successful. Redirecting to ${nextRoute === 'admin' ? 'admin dashboard' : 'profile dashboard'}...`);
         onNavigate(nextRoute);
-      }, 900);
+      }
+    } catch (signInError) {
+      setError(signInError?.message || 'Login failed due to a network or server error.');
+    } finally {
+      setLoading(false);
     }
   };
 

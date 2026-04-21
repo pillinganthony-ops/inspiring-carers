@@ -4,6 +4,7 @@
 import React from 'react';
 import Icons from './Icons.jsx';
 import LogoLockup from './Logo.jsx';
+import { supabase, isSupabaseConfigured } from '../lib/supabaseClient.js';
 
 const { IChevron, IClose, IMenu, IArrow } = Icons;
 
@@ -40,11 +41,30 @@ const Nav = ({ activePage = 'home', onNavigate = () => {} }) => {
   const [accountOpen, setAccountOpen] = React.useState(false);
   const moreRef = React.useRef(null);
   const accountRef = React.useRef(null);
+  const [session, setSession] = React.useState(null);
 
   React.useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  React.useEffect(() => {
+    if (!isSupabaseConfigured() || !supabase) return undefined;
+    let mounted = true;
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (mounted) setSession(data.session ?? null);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (mounted) setSession(nextSession ?? null);
+    });
+
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
   }, []);
 
   React.useEffect(() => {
@@ -87,6 +107,11 @@ const Nav = ({ activePage = 'home', onNavigate = () => {} }) => {
     onNavigate(key);
   };
 
+  const handleLogout = async () => {
+    if (supabase) await supabase.auth.signOut();
+    handleNavigate('home');
+  };
+
   return (
     <header style={{
       position: 'sticky', top: 0, zIndex: 90,
@@ -98,14 +123,14 @@ const Nav = ({ activePage = 'home', onNavigate = () => {} }) => {
     }}>
       <div className="container" style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        gap: 24, height: 76,
+        gap: 30, height: 78,
         position: 'relative',
       }}>
         <button onClick={() => handleNavigate('home')} style={{ background: 'none' }}>
           <LogoLockup size={40} />
         </button>
 
-        <nav className="nav-desktop" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <nav className="nav-desktop" style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto', marginRight: 'auto' }}>
           {primaryNavItems.map((item) => (
             <NavItem key={item.key} label={item.label} accent={item.accent} active={activePage === item.key} onClick={() => handleNavigate(item.key)} />
           ))}
@@ -123,15 +148,16 @@ const Nav = ({ activePage = 'home', onNavigate = () => {} }) => {
           </div>
         </nav>
 
-        <div className="nav-actions" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div className="nav-actions" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div ref={accountRef} style={{ position: 'relative' }}>
             <button className="btn btn-ghost btn-sm" onClick={() => setAccountOpen((open) => !open)} style={{ gap: 6 }}>
-              Account <IChevron s={14} dir="down" />
+              Profile <IChevron s={14} dir="down" />
             </button>
             {accountOpen ? (
               <div className="card" style={{ position: 'absolute', top: 'calc(100% + 10px)', right: 0, minWidth: 200, borderRadius: 16, padding: 8, display: 'grid', gap: 4, zIndex: 120 }}>
                 <button onClick={() => handleNavigate('profile')} style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 12, fontSize: 14, fontWeight: 700, background: activePage === 'profile' ? 'rgba(26,39,68,0.06)' : 'transparent', color: '#1A2744' }}>Profile</button>
-                <button onClick={() => handleNavigate('login')} style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 12, fontSize: 14, fontWeight: 700, background: activePage === 'login' ? 'rgba(26,39,68,0.06)' : 'transparent', color: '#1A2744' }}>Admin sign in</button>
+                <button onClick={() => handleNavigate('login')} style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 12, fontSize: 14, fontWeight: 700, background: activePage === 'login' ? 'rgba(26,39,68,0.06)' : 'transparent', color: '#1A2744' }}>Admin Login</button>
+                {session ? <button onClick={handleLogout} style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 12, fontSize: 14, fontWeight: 700, background: 'transparent', color: '#A03A2D' }}>Logout</button> : null}
               </div>
             ) : null}
           </div>
@@ -158,10 +184,11 @@ const Nav = ({ activePage = 'home', onNavigate = () => {} }) => {
               <button key={item.key} onClick={() => handleNavigate(item.key)} style={{ textAlign: 'left', padding: '12px 14px', borderRadius: 14, background: activePage === item.key ? 'rgba(26,39,68,0.06)' : '#FAFBFF', color: '#1A2744', fontWeight: 700 }}>{item.label}</button>
             ))}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: session ? '1fr 1fr 1fr 1fr' : '1fr 1fr 1fr', gap: 8, marginTop: 8 }}>
               <button className="btn btn-ghost btn-sm" onClick={() => handleNavigate('profile')}>Profile</button>
-              <button className="btn btn-ghost btn-sm" onClick={() => handleNavigate('login')}>Admin</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => handleNavigate('login')}>Admin Login</button>
               <button className="btn btn-gold btn-sm" onClick={() => handleNavigate('card')}>Get card</button>
+              {session ? <button className="btn btn-ghost btn-sm" onClick={handleLogout}>Logout</button> : null}
             </div>
           </div>
         </div>
