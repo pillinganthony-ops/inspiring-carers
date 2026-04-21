@@ -536,8 +536,23 @@ create table if not exists public.walk_risk_updates (
   submitted_email text not null,
   submitted_phone text,
   organisation text,
-  update_type text not null check (update_type in ('hazard_update', 'accessibility_note', 'weather_warning', 'general_update', 'new_assessment')),
+  update_type text not null check (update_type in ('hazard_update', 'accessibility_note', 'accessibility_update', 'weather_warning', 'seasonal_weather_update', 'route_condition_update', 'itinerary_journey_update', 'general_update', 'new_assessment')),
   description text not null,
+  itinerary_step_title text,
+  itinerary_step_detail text,
+  revised_walk_sequence text,
+  route_notes text,
+  wayfinding_notes text,
+  landmarks text,
+  start_point_notes text,
+  finish_point_notes text,
+  circular_route_clarification text,
+  rest_points text,
+  points_of_interest text,
+  transport_notes text,
+  parking_notes text,
+  safety_sensitive_sections text,
+  accessibility_notes text,
   attachment_url text,
   status text not null default 'pending' check (status in ('pending', 'in_review', 'approved', 'rejected', 'archived')),
   admin_notes text,
@@ -546,6 +561,22 @@ create table if not exists public.walk_risk_updates (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.walk_risk_updates add column if not exists itinerary_step_title text;
+alter table public.walk_risk_updates add column if not exists itinerary_step_detail text;
+alter table public.walk_risk_updates add column if not exists revised_walk_sequence text;
+alter table public.walk_risk_updates add column if not exists route_notes text;
+alter table public.walk_risk_updates add column if not exists wayfinding_notes text;
+alter table public.walk_risk_updates add column if not exists landmarks text;
+alter table public.walk_risk_updates add column if not exists start_point_notes text;
+alter table public.walk_risk_updates add column if not exists finish_point_notes text;
+alter table public.walk_risk_updates add column if not exists circular_route_clarification text;
+alter table public.walk_risk_updates add column if not exists rest_points text;
+alter table public.walk_risk_updates add column if not exists points_of_interest text;
+alter table public.walk_risk_updates add column if not exists transport_notes text;
+alter table public.walk_risk_updates add column if not exists parking_notes text;
+alter table public.walk_risk_updates add column if not exists safety_sensitive_sections text;
+alter table public.walk_risk_updates add column if not exists accessibility_notes text;
 
 /* Indexes for walk risk assessments */
 create index if not exists walk_risk_assessments_walk_id_idx on public.walk_risk_assessments(walk_id);

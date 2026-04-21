@@ -3,6 +3,11 @@ import Icons from './Icons.jsx';
 
 const { IShield, ICheck, IClose } = Icons;
 
+const toNullable = (value) => {
+  const text = `${value || ''}`.trim();
+  return text ? text : null;
+};
+
 /**
  * Mandatory Disclaimer Component
  * Displayed whenever risk assessments are viewed or downloaded
@@ -169,13 +174,29 @@ export const SubmitRiskUpdateModal = ({ walk, onClose, supabase, onSuccess }) =>
     updateType: 'hazard_update',
     description: '',
     submittedBy: '',
-    email: '', 
+    email: '',
     phone: '',
     organisation: '',
+    itineraryStepTitle: '',
+    itineraryStepDetail: '',
+    revisedWalkSequence: '',
+    routeNotes: '',
+    wayfindingNotes: '',
+    landmarks: '',
+    startPointNotes: '',
+    finishPointNotes: '',
+    circularClarification: '',
+    restPoints: '',
+    pointsOfInterest: '',
+    transportNotes: '',
+    parkingNotes: '',
+    safetySensitiveSections: '',
+    accessibilityObservations: '',
   });
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState('');
   const [success, setSuccess] = React.useState('');
+  const isItineraryUpdate = form.updateType === 'itinerary_journey_update';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -200,13 +221,50 @@ export const SubmitRiskUpdateModal = ({ walk, onClose, supabase, onSuccess }) =>
         submitted_email: form.email,
         submitted_phone: form.phone || null,
         organisation: form.organisation || null,
+        itinerary_step_title: toNullable(form.itineraryStepTitle),
+        itinerary_step_detail: toNullable(form.itineraryStepDetail),
+        revised_walk_sequence: toNullable(form.revisedWalkSequence),
+        route_notes: toNullable(form.routeNotes),
+        wayfinding_notes: toNullable(form.wayfindingNotes),
+        landmarks: toNullable(form.landmarks),
+        start_point_notes: toNullable(form.startPointNotes),
+        finish_point_notes: toNullable(form.finishPointNotes),
+        circular_route_clarification: toNullable(form.circularClarification),
+        rest_points: toNullable(form.restPoints),
+        points_of_interest: toNullable(form.pointsOfInterest),
+        transport_notes: toNullable(form.transportNotes),
+        parking_notes: toNullable(form.parkingNotes),
+        safety_sensitive_sections: toNullable(form.safetySensitiveSections),
+        accessibility_notes: toNullable(form.accessibilityObservations),
         status: 'pending',
       });
 
       if (dbError) throw dbError;
 
       setSuccess('Thank you! Your update has been submitted for review.');
-      setForm({ updateType: 'hazard_update', description: '', submittedBy: '', email: '', phone: '', organisation: '' });
+      setForm({
+        updateType: 'hazard_update',
+        description: '',
+        submittedBy: '',
+        email: '',
+        phone: '',
+        organisation: '',
+        itineraryStepTitle: '',
+        itineraryStepDetail: '',
+        revisedWalkSequence: '',
+        routeNotes: '',
+        wayfindingNotes: '',
+        landmarks: '',
+        startPointNotes: '',
+        finishPointNotes: '',
+        circularClarification: '',
+        restPoints: '',
+        pointsOfInterest: '',
+        transportNotes: '',
+        parkingNotes: '',
+        safetySensitiveSections: '',
+        accessibilityObservations: '',
+      });
       setTimeout(() => {
         onSuccess?.();
         onClose();
@@ -236,20 +294,53 @@ export const SubmitRiskUpdateModal = ({ walk, onClose, supabase, onSuccess }) =>
         </div>
 
         <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.7)', lineHeight: 1.65, marginBottom: 20 }}>
-          Help improve safety for this walk by submitting new hazard information, accessibility updates, or other risk-related changes.
+          Help improve this walk by submitting risk, accessibility, route condition, seasonal, and itinerary journey updates.
         </p>
 
         <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 12 }}>
           <div>
             <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,39,68,0.55)', display: 'block', marginBottom: 5 }}>Update Type *</label>
             <select value={form.updateType} onChange={(e) => setForm(p => ({ ...p, updateType: e.target.value }))} style={{ width: '100%', borderRadius: 12, border: '1px solid #E9EEF5', padding: '12px 14px', fontSize: 14, background: '#FAFBFF' }}>
-              <option value="hazard_update">New Hazard Identified</option>
-              <option value="accessibility_note">Accessibility Information</option>
-              <option value="weather_warning">Weather/Seasonal Info</option>
-              <option value="general_update">General Update</option>
-              <option value="new_assessment">Complete Assessment</option>
+              <option value="hazard_update">General risk update</option>
+              <option value="accessibility_update">Accessibility update</option>
+              <option value="seasonal_weather_update">Seasonal / weather update</option>
+              <option value="route_condition_update">Route condition update</option>
+              <option value="itinerary_journey_update">Itinerary / route journey update</option>
+              <option value="general_update">General update</option>
+              <option value="new_assessment">Upload complete assessment notes</option>
             </select>
           </div>
+
+          {isItineraryUpdate && (
+            <div style={{ border: '1px solid #E9EEF5', borderRadius: 14, background: '#FAFBFF', padding: 12, display: 'grid', gap: 10 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: '#1A2744' }}>Itinerary journey contribution</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <input type="text" value={form.itineraryStepTitle} onChange={(e) => setForm(p => ({ ...p, itineraryStepTitle: e.target.value }))} placeholder="Suggested route step / stage" style={{ width: '100%', borderRadius: 10, border: '1px solid #E9EEF5', padding: '10px 12px', fontSize: 13.5, background: 'white' }} />
+                <input type="text" value={form.revisedWalkSequence} onChange={(e) => setForm(p => ({ ...p, revisedWalkSequence: e.target.value }))} placeholder="Revised walk sequence (e.g. 1,2,3)" style={{ width: '100%', borderRadius: 10, border: '1px solid #E9EEF5', padding: '10px 12px', fontSize: 13.5, background: 'white' }} />
+              </div>
+              <textarea value={form.itineraryStepDetail} onChange={(e) => setForm(p => ({ ...p, itineraryStepDetail: e.target.value }))} rows={3} placeholder="Step detail / journey instruction" style={{ width: '100%', borderRadius: 10, border: '1px solid #E9EEF5', padding: '10px 12px', fontSize: 13.5, background: 'white', fontFamily: 'Inter, sans-serif', resize: 'vertical' }} />
+              <textarea value={form.wayfindingNotes} onChange={(e) => setForm(p => ({ ...p, wayfindingNotes: e.target.value }))} rows={2} placeholder="Navigation hints / turn points" style={{ width: '100%', borderRadius: 10, border: '1px solid #E9EEF5', padding: '10px 12px', fontSize: 13.5, background: 'white', fontFamily: 'Inter, sans-serif', resize: 'vertical' }} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <textarea value={form.startPointNotes} onChange={(e) => setForm(p => ({ ...p, startPointNotes: e.target.value }))} rows={2} placeholder="Clearer start point notes" style={{ width: '100%', borderRadius: 10, border: '1px solid #E9EEF5', padding: '10px 12px', fontSize: 13.5, background: 'white', fontFamily: 'Inter, sans-serif', resize: 'vertical' }} />
+                <textarea value={form.finishPointNotes} onChange={(e) => setForm(p => ({ ...p, finishPointNotes: e.target.value }))} rows={2} placeholder="Clearer finish point notes" style={{ width: '100%', borderRadius: 10, border: '1px solid #E9EEF5', padding: '10px 12px', fontSize: 13.5, background: 'white', fontFamily: 'Inter, sans-serif', resize: 'vertical' }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <input type="text" value={form.landmarks} onChange={(e) => setForm(p => ({ ...p, landmarks: e.target.value }))} placeholder="Landmarks / turn points" style={{ width: '100%', borderRadius: 10, border: '1px solid #E9EEF5', padding: '10px 12px', fontSize: 13.5, background: 'white' }} />
+                <input type="text" value={form.circularClarification} onChange={(e) => setForm(p => ({ ...p, circularClarification: e.target.value }))} placeholder="Circular route clarification" style={{ width: '100%', borderRadius: 10, border: '1px solid #E9EEF5', padding: '10px 12px', fontSize: 13.5, background: 'white' }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <input type="text" value={form.restPoints} onChange={(e) => setForm(p => ({ ...p, restPoints: e.target.value }))} placeholder="Recommended rest points" style={{ width: '100%', borderRadius: 10, border: '1px solid #E9EEF5', padding: '10px 12px', fontSize: 13.5, background: 'white' }} />
+                <input type="text" value={form.pointsOfInterest} onChange={(e) => setForm(p => ({ ...p, pointsOfInterest: e.target.value }))} placeholder="Points of interest" style={{ width: '100%', borderRadius: 10, border: '1px solid #E9EEF5', padding: '10px 12px', fontSize: 13.5, background: 'white' }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <input type="text" value={form.transportNotes} onChange={(e) => setForm(p => ({ ...p, transportNotes: e.target.value }))} placeholder="Public transport notes" style={{ width: '100%', borderRadius: 10, border: '1px solid #E9EEF5', padding: '10px 12px', fontSize: 13.5, background: 'white' }} />
+                <input type="text" value={form.parkingNotes} onChange={(e) => setForm(p => ({ ...p, parkingNotes: e.target.value }))} placeholder="Parking notes" style={{ width: '100%', borderRadius: 10, border: '1px solid #E9EEF5', padding: '10px 12px', fontSize: 13.5, background: 'white' }} />
+              </div>
+              <textarea value={form.routeNotes} onChange={(e) => setForm(p => ({ ...p, routeNotes: e.target.value }))} rows={2} placeholder="Route notes / sequence clarifications" style={{ width: '100%', borderRadius: 10, border: '1px solid #E9EEF5', padding: '10px 12px', fontSize: 13.5, background: 'white', fontFamily: 'Inter, sans-serif', resize: 'vertical' }} />
+              <textarea value={form.safetySensitiveSections} onChange={(e) => setForm(p => ({ ...p, safetySensitiveSections: e.target.value }))} rows={2} placeholder="Safety-sensitive sections" style={{ width: '100%', borderRadius: 10, border: '1px solid #E9EEF5', padding: '10px 12px', fontSize: 13.5, background: 'white', fontFamily: 'Inter, sans-serif', resize: 'vertical' }} />
+              <textarea value={form.accessibilityObservations} onChange={(e) => setForm(p => ({ ...p, accessibilityObservations: e.target.value }))} rows={2} placeholder="Accessibility observations" style={{ width: '100%', borderRadius: 10, border: '1px solid #E9EEF5', padding: '10px 12px', fontSize: 13.5, background: 'white', fontFamily: 'Inter, sans-serif', resize: 'vertical' }} />
+            </div>
+          )}
 
           <div>
             <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,39,68,0.55)', display: 'block', marginBottom: 5 }}>Description *</label>

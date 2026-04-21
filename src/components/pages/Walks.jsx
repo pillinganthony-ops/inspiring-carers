@@ -481,6 +481,8 @@ const WalkDetailModal = ({ walk, onClose }) => {
   const [commentErrors, setCommentErrors] = React.useState({});
   const [riskAssessment, setRiskAssessment] = React.useState(null);
   const [riskLoading, setRiskLoading] = React.useState(true);
+  const [itineraryUpdates, setItineraryUpdates] = React.useState([]);
+  const [itineraryLoading, setItineraryLoading] = React.useState(true);
 
   const mapEmbedUrl = getMapEmbedUrl(walk);
   const [mapPreviewEnabled, setMapPreviewEnabled] = React.useState(Boolean(mapEmbedUrl));
@@ -514,6 +516,34 @@ const WalkDetailModal = ({ walk, onClose }) => {
     };
 
     fetchRiskAssessment();
+  }, [walk.id]);
+
+  React.useEffect(() => {
+    const fetchItineraryUpdates = async () => {
+      if (!isSupabaseConfigured || !supabase) {
+        setItineraryLoading(false);
+        return;
+      }
+
+      try {
+        const { data } = await supabase
+          .from('walk_risk_updates')
+          .select('id, update_type, description, itinerary_step_title, itinerary_step_detail, revised_walk_sequence, route_notes, wayfinding_notes, landmarks, start_point_notes, finish_point_notes, circular_route_clarification, rest_points, points_of_interest, transport_notes, parking_notes, safety_sensitive_sections, accessibility_notes, created_at')
+          .eq('walk_id', walk.id)
+          .eq('status', 'approved')
+          .in('update_type', ['itinerary_journey_update', 'route_condition_update'])
+          .order('created_at', { ascending: false })
+          .limit(8);
+
+        setItineraryUpdates(Array.isArray(data) ? data : []);
+      } catch {
+        setItineraryUpdates([]);
+      } finally {
+        setItineraryLoading(false);
+      }
+    };
+
+    fetchItineraryUpdates();
   }, [walk.id]);
 
   const [updateForm, setUpdateForm] = React.useState({
@@ -724,6 +754,43 @@ const WalkDetailModal = ({ walk, onClose }) => {
             ) : (
               <div style={{ color: 'rgba(26,39,68,0.72)', fontSize: 14 }}>Detailed itinerary not available for this route yet.</div>
             )}
+
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#1A2744', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 8 }}>Approved journey improvements</div>
+              {itineraryLoading ? (
+                <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.6)', padding: '10px 12px', borderRadius: 12, background: '#F8FBFF', border: '1px solid #E9EEF5' }}>Loading itinerary improvements...</div>
+              ) : itineraryUpdates.length ? (
+                <div style={{ display: 'grid', gap: 10 }}>
+                  {itineraryUpdates.map((update, index) => (
+                    <div key={update.id || `${walk.id}-update-${index}`} style={{ borderRadius: 14, border: '1px solid #E9EEF5', background: '#FCFDFF', padding: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
+                        <div style={{ fontWeight: 700, color: '#1A2744', fontSize: 13.5 }}>{update.itinerary_step_title || update.update_type?.replaceAll('_', ' ') || 'Route update'}</div>
+                        <div style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.58)' }}>{update.created_at ? new Date(update.created_at).toLocaleDateString('en-GB') : ''}</div>
+                      </div>
+                      <div style={{ display: 'grid', gap: 6, fontSize: 13, color: 'rgba(26,39,68,0.75)', lineHeight: 1.6 }}>
+                        {update.itinerary_step_detail ? <div><strong style={{ color: '#1A2744' }}>Step detail:</strong> {update.itinerary_step_detail}</div> : null}
+                        {update.revised_walk_sequence ? <div><strong style={{ color: '#1A2744' }}>Sequence:</strong> {update.revised_walk_sequence}</div> : null}
+                        {update.wayfinding_notes ? <div><strong style={{ color: '#1A2744' }}>Wayfinding:</strong> {update.wayfinding_notes}</div> : null}
+                        {update.landmarks ? <div><strong style={{ color: '#1A2744' }}>Landmarks:</strong> {update.landmarks}</div> : null}
+                        {update.route_notes ? <div><strong style={{ color: '#1A2744' }}>Route notes:</strong> {update.route_notes}</div> : null}
+                        {update.start_point_notes ? <div><strong style={{ color: '#1A2744' }}>Start point:</strong> {update.start_point_notes}</div> : null}
+                        {update.finish_point_notes ? <div><strong style={{ color: '#1A2744' }}>Finish point:</strong> {update.finish_point_notes}</div> : null}
+                        {update.circular_route_clarification ? <div><strong style={{ color: '#1A2744' }}>Circular route:</strong> {update.circular_route_clarification}</div> : null}
+                        {update.rest_points ? <div><strong style={{ color: '#1A2744' }}>Rest points:</strong> {update.rest_points}</div> : null}
+                        {update.points_of_interest ? <div><strong style={{ color: '#1A2744' }}>Points of interest:</strong> {update.points_of_interest}</div> : null}
+                        {update.transport_notes ? <div><strong style={{ color: '#1A2744' }}>Transport:</strong> {update.transport_notes}</div> : null}
+                        {update.parking_notes ? <div><strong style={{ color: '#1A2744' }}>Parking:</strong> {update.parking_notes}</div> : null}
+                        {update.safety_sensitive_sections ? <div><strong style={{ color: '#1A2744' }}>Safety-sensitive sections:</strong> {update.safety_sensitive_sections}</div> : null}
+                        {update.accessibility_notes ? <div><strong style={{ color: '#1A2744' }}>Accessibility:</strong> {update.accessibility_notes}</div> : null}
+                        {update.description ? <div><strong style={{ color: '#1A2744' }}>Contributor notes:</strong> {update.description}</div> : null}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.6)', padding: '10px 12px', borderRadius: 12, background: '#F8FBFF', border: '1px solid #E9EEF5' }}>No approved itinerary improvements yet. Use Submit Risk Update to contribute route details for moderation.</div>
+              )}
+            </div>
           </div>
         </div>
 

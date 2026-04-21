@@ -36,6 +36,10 @@ const NavItem = ({ label, active, accent, onClick, hasCaret }) => (
 const Nav = ({ activePage = 'home', onNavigate = () => {} }) => {
   const [scrolled, setScrolled] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [moreOpen, setMoreOpen] = React.useState(false);
+  const [accountOpen, setAccountOpen] = React.useState(false);
+  const moreRef = React.useRef(null);
+  const accountRef = React.useRef(null);
 
   React.useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -43,11 +47,34 @@ const Nav = ({ activePage = 'home', onNavigate = () => {} }) => {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const navItems = [
+  React.useEffect(() => {
+    const onPointerDown = (event) => {
+      if (moreRef.current && !moreRef.current.contains(event.target)) setMoreOpen(false);
+      if (accountRef.current && !accountRef.current.contains(event.target)) setAccountOpen(false);
+    };
+    const onEscape = (event) => {
+      if (event.key === 'Escape') {
+        setMoreOpen(false);
+        setAccountOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onEscape);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onEscape);
+    };
+  }, []);
+
+  const primaryNavItems = [
     { key: 'benefits', label: 'For you', accent: '#F5A623' },
-    { key: 'events', label: 'Events', accent: '#2D9CDB' },
-    { key: 'walks', label: 'Walks', accent: '#5BC94A' },
     { key: 'find-help', label: 'Find help', accent: '#2D9CDB' },
+    { key: 'walks', label: 'Walks', accent: '#5BC94A' },
+    { key: 'events', label: 'Events', accent: '#2D9CDB' },
+  ];
+
+  const secondaryNavItems = [
     { key: 'recognition', label: 'Recognition' },
     { key: 'business', label: 'For businesses' },
     { key: 'about', label: 'About' },
@@ -55,6 +82,8 @@ const Nav = ({ activePage = 'home', onNavigate = () => {} }) => {
 
   const handleNavigate = (key) => {
     setMobileOpen(false);
+    setMoreOpen(false);
+    setAccountOpen(false);
     onNavigate(key);
   };
 
@@ -70,20 +99,42 @@ const Nav = ({ activePage = 'home', onNavigate = () => {} }) => {
       <div className="container" style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         gap: 24, height: 76,
+        position: 'relative',
       }}>
         <button onClick={() => handleNavigate('home')} style={{ background: 'none' }}>
           <LogoLockup size={40} />
         </button>
 
-        <nav className="nav-desktop" style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          {navItems.map((item) => (
+        <nav className="nav-desktop" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          {primaryNavItems.map((item) => (
             <NavItem key={item.key} label={item.label} accent={item.accent} active={activePage === item.key} onClick={() => handleNavigate(item.key)} />
           ))}
+          <div ref={moreRef} style={{ position: 'relative' }}>
+            <NavItem label="More" hasCaret active={secondaryNavItems.some((item) => item.key === activePage)} onClick={() => setMoreOpen((open) => !open)} />
+            {moreOpen ? (
+              <div className="card" style={{ position: 'absolute', top: 'calc(100% + 10px)', right: 0, minWidth: 220, borderRadius: 18, padding: 8, display: 'grid', gap: 4, zIndex: 120 }}>
+                {secondaryNavItems.map((item) => (
+                  <button key={item.key} onClick={() => handleNavigate(item.key)} style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 12, fontSize: 14, fontWeight: 700, background: activePage === item.key ? 'rgba(26,39,68,0.06)' : 'transparent', color: '#1A2744' }}>
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
         </nav>
 
-        <div className="nav-actions" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button className="btn btn-ghost btn-sm" onClick={() => handleNavigate('profile')}>Profile</button>
-          <button className="btn btn-ghost btn-sm" onClick={() => handleNavigate('login')}>Admin sign in</button>
+        <div className="nav-actions" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div ref={accountRef} style={{ position: 'relative' }}>
+            <button className="btn btn-ghost btn-sm" onClick={() => setAccountOpen((open) => !open)} style={{ gap: 6 }}>
+              Account <IChevron s={14} dir="down" />
+            </button>
+            {accountOpen ? (
+              <div className="card" style={{ position: 'absolute', top: 'calc(100% + 10px)', right: 0, minWidth: 200, borderRadius: 16, padding: 8, display: 'grid', gap: 4, zIndex: 120 }}>
+                <button onClick={() => handleNavigate('profile')} style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 12, fontSize: 14, fontWeight: 700, background: activePage === 'profile' ? 'rgba(26,39,68,0.06)' : 'transparent', color: '#1A2744' }}>Profile</button>
+                <button onClick={() => handleNavigate('login')} style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 12, fontSize: 14, fontWeight: 700, background: activePage === 'login' ? 'rgba(26,39,68,0.06)' : 'transparent', color: '#1A2744' }}>Admin sign in</button>
+              </div>
+            ) : null}
+          </div>
           <button className="btn btn-gold btn-sm" onClick={() => handleNavigate('card')}>
             Get your free card
             <IArrow s={16} />
@@ -97,11 +148,19 @@ const Nav = ({ activePage = 'home', onNavigate = () => {} }) => {
       {mobileOpen ? (
         <div className="container" style={{ paddingBottom: 18 }}>
           <div className="card" style={{ padding: 14, borderRadius: 22, display: 'grid', gap: 8 }}>
-            {navItems.map((item) => (
+            <div style={{ fontSize: 11.5, fontWeight: 800, color: 'rgba(26,39,68,0.55)', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '2px 4px' }}>Main sections</div>
+            {primaryNavItems.map((item) => (
               <button key={item.key} onClick={() => handleNavigate(item.key)} style={{ textAlign: 'left', padding: '12px 14px', borderRadius: 14, background: activePage === item.key ? 'rgba(26,39,68,0.06)' : '#FAFBFF', color: '#1A2744', fontWeight: 700 }}>{item.label}</button>
             ))}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 6 }}>
+
+            <div style={{ fontSize: 11.5, fontWeight: 800, color: 'rgba(26,39,68,0.55)', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '10px 4px 2px' }}>More</div>
+            {secondaryNavItems.map((item) => (
+              <button key={item.key} onClick={() => handleNavigate(item.key)} style={{ textAlign: 'left', padding: '12px 14px', borderRadius: 14, background: activePage === item.key ? 'rgba(26,39,68,0.06)' : '#FAFBFF', color: '#1A2744', fontWeight: 700 }}>{item.label}</button>
+            ))}
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 8 }}>
               <button className="btn btn-ghost btn-sm" onClick={() => handleNavigate('profile')}>Profile</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => handleNavigate('login')}>Admin</button>
               <button className="btn btn-gold btn-sm" onClick={() => handleNavigate('card')}>Get card</button>
             </div>
           </div>

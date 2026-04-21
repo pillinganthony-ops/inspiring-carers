@@ -1591,24 +1591,40 @@ const FindHelpV2 = ({ onNavigate }) => {
         />
       ) : (
         <>
-          {/* Scroll banner */}
-          <div style={{ background: 'linear-gradient(90deg, #1A2744 0%, #2D9CDB 100%)', overflowX: 'hidden', padding: '10px 0', position: 'relative' }}>
-            <div style={{ display: 'flex', gap: 48, animation: 'scrollBanner 28s linear infinite', whiteSpace: 'nowrap', width: 'max-content' }}>
-              {[
-                '🌟 Inspiring Carers — Cornwall\'s free carer support directory',
-                '💙 Free listings for carer-friendly organisations',
-                '📋 Claim your organisation\'s listing today',
-                '🗺️ Services across all of Cornwall and the Isles of Scilly',
-                '✅ Verified listings you can trust',
-                '🌟 Inspiring Carers — Cornwall\'s free carer support directory',
-                '💙 Free listings for carer-friendly organisations',
-                '📋 Claim your organisation\'s listing today',
-              ].map((text, i) => (
-                <span key={i} style={{ color: 'white', fontSize: 13, fontWeight: 600, letterSpacing: 0.2, padding: '0 8px' }}>{text}</span>
-              ))}
+          <section style={{ paddingTop: 22, paddingBottom: 0, background: '#FAFBFF' }}>
+            <div className="container">
+              <div className="card" style={{ borderRadius: 30, padding: '24px 24px 20px', background: 'linear-gradient(140deg, rgba(26,39,68,0.98) 0%, rgba(31,58,94,0.96) 38%, rgba(45,156,219,0.92) 100%)', color: 'white', border: '1px solid rgba(255,255,255,0.14)', boxShadow: '0 28px 60px rgba(26,39,68,0.22)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: 18 }}>
+                  <div style={{ maxWidth: 660 }}>
+                    <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.74)' }}>Featured support spotlight</div>
+                    <div style={{ marginTop: 8, fontFamily: 'Sora, sans-serif', fontSize: 'clamp(22px, 3.2vw, 32px)', fontWeight: 700, lineHeight: 1.22 }}>Trusted, verified and carer-friendly organisations across Cornwall</div>
+                    <div style={{ marginTop: 10, fontSize: 14.5, lineHeight: 1.65, color: 'rgba(255,255,255,0.82)' }}>Discover featured local support, claim your organisation listing, and browse new services added by the community team.</div>
+                  </div>
+                  <div style={{ display: 'grid', gap: 8, minWidth: 180 }}>
+                    <div style={{ borderRadius: 14, padding: '10px 12px', background: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.24)' }}>
+                      <div style={{ fontSize: 11, opacity: 0.82 }}>Verified listings</div>
+                      <div style={{ fontSize: 20, fontWeight: 800, marginTop: 2 }}>{resources.filter((r) => r.tags.includes('Verified')).length}</div>
+                    </div>
+                    <div style={{ borderRadius: 14, padding: '10px 12px', background: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.24)' }}>
+                      <div style={{ fontSize: 11, opacity: 0.82 }}>Featured this week</div>
+                      <div style={{ fontSize: 20, fontWeight: 800, marginTop: 2 }}>{featuredListings.length}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 10 }}>
+                  {[
+                    'Claim your organisation listing',
+                    'New services added this month',
+                    'Community support spotlight',
+                    'Upcoming events and seasonal help',
+                  ].map((item) => (
+                    <div key={item} style={{ borderRadius: 12, padding: '10px 12px', background: 'rgba(255,255,255,0.13)', border: '1px solid rgba(255,255,255,0.22)', fontSize: 13.5, fontWeight: 600, color: 'rgba(255,255,255,0.94)' }}>{item}</div>
+                  ))}
+                </div>
+              </div>
             </div>
-            <style>{`@keyframes scrollBanner { from { transform: translateX(0); } to { transform: translateX(-50%); } }`}</style>
-          </div>
+          </section>
 
           {featuredListings.length ? (
             <section style={{ paddingTop: 26, paddingBottom: 0, background: '#FAFBFF' }}>
