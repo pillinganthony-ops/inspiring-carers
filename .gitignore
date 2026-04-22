@@ -35,3 +35,11 @@ Thumbs.db
 
 # Editor temp files
 *.tmp
+
+# Local tool artifacts / one-off data drops (not part of the web app)
+.claude/
+import/
+
+# QA screenshots and probes
+findhelp_probe.png
+qa_*.png
