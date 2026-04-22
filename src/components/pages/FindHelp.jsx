@@ -184,7 +184,7 @@ const pickField = (row, keys) => {
 const normalizeForSearch = (text) =>
   `${text || ''}`.toLowerCase().replace(/[''`']/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 
-const DEFAULT_COUNTY_LABEL = 'Cornwall';
+const DEFAULT_COUNTY_LABEL = 'Unknown';
 
 const cleanPlaceLabel = (value) => `${value || ''}`
   .replace(/\s+/g, ' ')
@@ -323,6 +323,15 @@ const parseCoordinate = (value) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const isCoordinatePairSane = (lat, lng) => {
+  if (typeof lat !== 'number' || !Number.isFinite(lat)) return false;
+  if (typeof lng !== 'number' || !Number.isFinite(lng)) return false;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return false;
+  // UK-focused sanity bounds for this directory product.
+  if (lat < 49.5 || lat > 61.5 || lng < -8.8 || lng > 2.2) return false;
+  return true;
+};
+
 const getDetailSlugFromPath = () => {
   const match = window.location.pathname.match(/^\/find-help\/([^/?#]+)/i);
   return match ? decodeURIComponent(match[1]) : '';
@@ -444,8 +453,10 @@ const normalizeResource = (row, index, options = {}) => {
 
   const explicitTown = cleanPlaceLabel(pickField(row, ['town', 'area', 'location', 'city']));
   // rawLat/rawLng must be computed before derivedTown so detectIosTown can use them
-  const rawLat = parseCoordinate(pickField(row, ['lat', 'latitude']));
-  const rawLng = parseCoordinate(pickField(row, ['lng', 'longitude']));
+  const rawLatValue = pickField(row, ['lat', 'latitude']);
+  const rawLngValue = pickField(row, ['lng', 'longitude']);
+  const rawLat = parseCoordinate(rawLatValue);
+  const rawLng = parseCoordinate(rawLngValue);
   const postcode = cleanPlaceLabel(pickField(row, ['postcode']));
   const county = normalizeCountyLabel(pickField(row, ['county', 'region', 'admin_county']));
 
@@ -474,8 +485,10 @@ const normalizeResource = (row, index, options = {}) => {
   // county_wide and multi_location: suppress pin (null out coords)
   // hq_only: keep coords (optional HQ pin)
   const suppressPin = isCountyWide || isMultiLocation;
-  const lat = suppressPin ? null : rawLat;
-  const lng = suppressPin ? null : rawLng;
+  const hasCoordinateInput = `${rawLatValue || ''}`.trim() !== '' || `${rawLngValue || ''}`.trim() !== '';
+  const hasInvalidCoordinates = hasCoordinateInput && !isCoordinatePairSane(rawLat, rawLng);
+  const lat = (suppressPin || hasInvalidCoordinates) ? null : rawLat;
+  const lng = (suppressPin || hasInvalidCoordinates) ? null : rawLng;
 
   const footprintBadge = isCountyWide
     ? { label: 'County-wide', color: '#2D9CDB', bg: 'rgba(45,156,219,0.1)' }
@@ -489,6 +502,31 @@ const normalizeResource = (row, index, options = {}) => {
   const summary = pickField(row, ['summary', 'description', 'short_description']) || 'Local support for carers and the people they support.';
   const resourceOrganisationName = pickField(row, ['organisation_name']);
   const providerName = pickField(row, ['provider_name']);
+  const profileDisplayName = pickField(row?.profile || {}, ['display_name', 'name']);
+  const profileBio = pickField(row?.profile || {}, ['bio']);
+  const profileServiceCategories = Array.isArray(row?.profile?.service_categories) ? row.profile.service_categories.join(' ') : '';
+  const profileAreasCovered = Array.isArray(row?.profile?.areas_covered) ? row.profile.areas_covered.join(' ') : '';
+  const searchText = normalizeForSearch([
+    title,
+    organisationName,
+    resourceOrganisationName,
+    providerName,
+    venue,
+    categoryLabel,
+    summary,
+    pickField(row, ['description', 'short_description']),
+    derivedTown,
+    area,
+    locationLabel,
+    county,
+    rawCoverageAreaLabel || '',
+    pickField(row, ['address', 'address_line_1', 'address_line1']),
+    postcode,
+    profileDisplayName,
+    profileBio,
+    profileServiceCategories,
+    profileAreasCovered,
+  ].filter(Boolean).join(' '));
 
   return {
     id: row?.id ?? `resource-${index + 1}`,
@@ -528,10 +566,13 @@ const normalizeResource = (row, index, options = {}) => {
     serviceFootprintModel,
     coverageAreaLabel: rawCoverageAreaLabel,
     footprintBadge,
+    isTownInferred: Boolean(!explicitTown && derivedTown),
+    isCountyMissing: county === DEFAULT_COUNTY_LABEL,
+    hasInvalidCoordinates,
     townKey: normalizeForSearch(derivedTown),
     locationKey: normalizeForSearch(locationLabel),
-    countyKey: normalizeForSearch(county) || 'cornwall',
-    searchText: normalizeForSearch(`${title} ${venue} ${derivedTown} ${locationLabel} ${county} ${rawCoverageAreaLabel || ''} ${categoryLabel} ${summary}`),
+    countyKey: normalizeForSearch(county) || 'unknown',
+    searchText,
   };
 };
 
@@ -1707,13 +1748,14 @@ const _makeClusterSvg = (count, s) => {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 ${s} ${s}"><circle cx="${half}" cy="${half}" r="${half}" fill="#1A2744" opacity="0.18"/><circle cx="${half}" cy="${half}" r="${half - 4}" fill="#1A2744"/><circle cx="${half}" cy="${half}" r="${half - 8}" fill="#2D9CDB"/><text x="${half}" y="${half + 4.5}" text-anchor="middle" fill="white" font-size="${fs}" font-weight="800" font-family="Inter,sans-serif">${text}</text></svg>`;
 };
 
-const DirectoryMap = ({ listings, panelListings, selectedId, onSelect, onOpenResource, isMobile }) => {
+const DirectoryMap = ({ listings, selectedId, onSelect, onOpenResource, isMobile }) => {
   const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
   const { isLoaded } = useJsApiLoader({ id: 'ic-google-map', googleMapsApiKey: googleMapsApiKey || '', libraries: MAP_LIBRARIES });
 
   const [mapCat, setMapCat] = React.useState('all');
   const [mapPremiumOnly, setMapPremiumOnly] = React.useState(false);
   const [mapHasEvents, setMapHasEvents] = React.useState(false);
+  const [mapArea, setMapArea] = React.useState('all');
 
   const mapRef = React.useRef(null);
   const clusterRef = React.useRef(null);
@@ -1728,7 +1770,10 @@ const DirectoryMap = ({ listings, panelListings, selectedId, onSelect, onOpenRes
     if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [selectedId]);
 
-  const allPoints = React.useMemo(() => listings.filter((item) => item.lat !== null && item.lng !== null), [listings]);
+  const allPoints = React.useMemo(
+    () => listings.filter((item) => item.lat !== null && item.lng !== null && isCoordinatePairSane(item.lat, item.lng)),
+    [listings],
+  );
 
   const mapCatOptions = React.useMemo(() => {
     const seen = new Set();
@@ -1739,12 +1784,30 @@ const DirectoryMap = ({ listings, panelListings, selectedId, onSelect, onOpenRes
     return [result[0], ...result.slice(1).sort((a, b) => a.label.localeCompare(b.label))];
   }, [allPoints]);
 
+  const getMapAreaLabel = React.useCallback((item) => {
+    const town = cleanPlaceLabel(item?.town);
+    if (town) return town;
+    const area = cleanPlaceLabel(item?.area);
+    if (area) return area;
+    return cleanPlaceLabel(item?.locationLabel);
+  }, []);
+
+  const mapAreaOptions = React.useMemo(() => {
+    const set = new Set();
+    allPoints.forEach((item) => {
+      const label = getMapAreaLabel(item);
+      if (label) set.add(label);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [allPoints, getMapAreaLabel]);
+
   const points = React.useMemo(() => allPoints.filter((item) => {
     if (mapCat !== 'all' && item.cat !== mapCat) return false;
     if (mapPremiumOnly && !item.profile) return false;
     if (mapHasEvents && (!item.events || !item.events.length)) return false;
+    if (mapArea !== 'all' && getMapAreaLabel(item) !== mapArea) return false;
     return true;
-  }), [allPoints, mapCat, mapPremiumOnly, mapHasEvents]);
+  }), [allPoints, mapCat, mapPremiumOnly, mapHasEvents, mapArea, getMapAreaLabel]);
 
   const selected = selectedId ? (allPoints.find((item) => item.id === selectedId) || null) : null;
 
@@ -1839,8 +1902,19 @@ const DirectoryMap = ({ listings, panelListings, selectedId, onSelect, onOpenRes
     });
   }, [isLoaded, selectedId, points]);
 
-  const hasMapFilter = mapCat !== 'all' || mapPremiumOnly || mapHasEvents;
-  const resetMapFilter = () => { setMapCat('all'); setMapPremiumOnly(false); setMapHasEvents(false); };
+  React.useEffect(() => {
+    if (mapArea !== 'all' && mapAreaOptions.length > 0 && !mapAreaOptions.includes(mapArea)) {
+      setMapArea('all');
+    }
+  }, [mapArea, mapAreaOptions]);
+
+  const hasMapFilter = mapCat !== 'all' || mapPremiumOnly || mapHasEvents || mapArea !== 'all';
+  const resetMapFilter = () => {
+    setMapCat('all');
+    setMapPremiumOnly(false);
+    setMapHasEvents(false);
+    setMapArea('all');
+  };
 
   const chipActive = { background: '#1A2744', color: 'white', border: '1px solid #1A2744' };
   const chipBase = { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', border: '1px solid #E0E8F5', background: 'white', color: '#1A2744', whiteSpace: 'nowrap' };
@@ -1855,30 +1929,44 @@ const DirectoryMap = ({ listings, panelListings, selectedId, onSelect, onOpenRes
 
   return (
     <div>
-      {/* Filter bar */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, padding: '4px 0 14px' }}>
-        <select
-          value={mapCat}
-          onChange={(e) => setMapCat(e.target.value)}
-          style={{ padding: '6px 10px', borderRadius: 999, border: '1px solid #E0E8F5', background: mapCat !== 'all' ? '#1A2744' : 'white', color: mapCat !== 'all' ? 'white' : '#1A2744', fontSize: 12.5, fontWeight: 600, fontFamily: 'Inter, sans-serif', outline: 'none', cursor: 'pointer' }}
-        >
-          {mapCatOptions.map((opt) => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
-        </select>
-        <button style={{ ...chipBase, ...(mapPremiumOnly ? chipActive : {}) }} onClick={() => setMapPremiumOnly((v) => !v)}>
-          <span style={{ color: mapPremiumOnly ? '#F5A623' : '#F5A623' }}>★</span> Premium
-        </button>
-        <button style={{ ...chipBase, ...(mapHasEvents ? chipActive : {}) }} onClick={() => setMapHasEvents((v) => !v)}>
-          <IEvent s={13} /> Has events
-        </button>
-        {hasMapFilter && (
-          <button style={{ ...chipBase, background: 'rgba(244,97,58,0.08)', color: '#F4613A', border: '1px solid rgba(244,97,58,0.2)' }} onClick={resetMapFilter}>
-            <IClose s={12} /> Reset
-          </button>
-        )}
-        <div style={{ marginLeft: 'auto', fontSize: 12.5, color: 'rgba(26,39,68,0.55)', display: 'flex', alignItems: 'center', gap: 6 }}>
-          <strong style={{ color: '#1A2744' }}>{points.length}</strong> on map
-          {points.length !== allPoints.length && <span>· {allPoints.length} total</span>}
-          <button className="btn btn-ghost btn-sm" style={{ marginLeft: 4 }} onClick={fitToPoints}><IPin s={13} /> Fit</button>
+      {/* Dedicated map filter toolbar */}
+      <div style={{ position: 'sticky', top: 10, zIndex: 6, marginBottom: 14 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 18, border: '1px solid #E6EDF9', background: 'rgba(255,255,255,0.95)', boxShadow: '0 10px 24px rgba(26,39,68,0.08)', backdropFilter: 'blur(8px)' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, flex: '1 1 520px', minWidth: 0 }}>
+            <select
+              value={mapCat}
+              onChange={(e) => setMapCat(e.target.value)}
+              style={{ minHeight: 36, padding: '0 12px', borderRadius: 999, border: '1px solid #E0E8F5', background: mapCat !== 'all' ? '#1A2744' : 'white', color: mapCat !== 'all' ? 'white' : '#1A2744', fontSize: 12.5, fontWeight: 600, fontFamily: 'Inter, sans-serif', outline: 'none', cursor: 'pointer' }}
+            >
+              {mapCatOptions.map((opt) => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
+            </select>
+            <button style={{ ...chipBase, minHeight: 36, transition: 'all 0.18s ease', ...(mapPremiumOnly ? chipActive : {}) }} onClick={() => setMapPremiumOnly((v) => !v)}>
+              <span style={{ color: '#F5A623' }}>★</span> Premium
+            </button>
+            <button style={{ ...chipBase, minHeight: 36, transition: 'all 0.18s ease', ...(mapHasEvents ? chipActive : {}) }} onClick={() => setMapHasEvents((v) => !v)}>
+              <IEvent s={13} /> Has events
+            </button>
+            <select
+              value={mapArea}
+              onChange={(e) => setMapArea(e.target.value)}
+              style={{ minHeight: 36, padding: '0 12px', borderRadius: 999, border: '1px solid #E0E8F5', background: mapArea !== 'all' ? '#1A2744' : 'white', color: mapArea !== 'all' ? 'white' : '#1A2744', fontSize: 12.5, fontWeight: 600, fontFamily: 'Inter, sans-serif', outline: 'none', cursor: 'pointer', maxWidth: isMobile ? '100%' : 220 }}
+            >
+              <option value="all">All towns / areas</option>
+              {mapAreaOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+            </select>
+          </div>
+          <div style={{ marginLeft: 'auto', fontSize: 12.5, color: 'rgba(26,39,68,0.55)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: isMobile ? 'flex-start' : 'flex-end' }}>
+            <strong style={{ color: '#1A2744' }}>{points.length}</strong> on map
+            {points.length !== allPoints.length && <span>· {allPoints.length} total</span>}
+            <button className="btn btn-ghost btn-sm" style={{ marginLeft: 4 }} onClick={fitToPoints}><IPin s={13} /> Fit map</button>
+            <button
+              style={{ ...chipBase, minHeight: 36, background: hasMapFilter ? 'rgba(244,97,58,0.08)' : 'white', color: hasMapFilter ? '#F4613A' : 'rgba(26,39,68,0.5)', border: hasMapFilter ? '1px solid rgba(244,97,58,0.2)' : '1px solid #E0E8F5', transition: 'all 0.18s ease' }}
+              onClick={resetMapFilter}
+              disabled={!hasMapFilter}
+            >
+              <IClose s={12} /> Reset filters
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1887,10 +1975,10 @@ const DirectoryMap = ({ listings, panelListings, selectedId, onSelect, onOpenRes
 
         {/* Side panel */}
         <div ref={panelRef} style={{ display: 'flex', flexDirection: 'column', gap: 9, maxHeight: isMobile ? 'none' : 640, overflowY: 'auto', paddingRight: isMobile ? 0 : 4, order: isMobile ? 2 : 1 }}>
-          {panelListings.length === 0 && (
+          {points.length === 0 && (
             <div style={{ padding: 20, textAlign: 'center', color: 'rgba(26,39,68,0.55)', fontSize: 13 }}>No listings match the current map filter.</div>
           )}
-          {panelListings.map((listing) => {
+          {points.map((listing) => {
             const active = listing.id === selectedId;
             const isPremium = Boolean(listing.profile);
             const accentColor = toneMapColor(listing.tone).fg;
@@ -2129,6 +2217,22 @@ const FindHelpV2 = ({ onNavigate }) => {
             : { ...row, profile, events: profileEvents };
           return normalizeResource(injectedRow, index, { knownTowns });
         });
+        if (import.meta.env.DEV) {
+          const inferredTownsCount = loadedResources.filter((resource) => resource.isTownInferred).length;
+          const missingCountiesCount = loadedResources.filter((resource) => resource.isCountyMissing).length;
+          const invalidCoordinatesCount = loadedResources.filter((resource) => resource.hasInvalidCoordinates).length;
+          const nonMappableCount = loadedResources.filter((resource) => resource.lat === null || resource.lng === null).length;
+          console.info(
+            '[FindHelp][Location diagnostics]',
+            {
+              inferredTownsCount,
+              missingCountiesCount,
+              invalidCoordinatesCount,
+              nonMappableCount,
+              totalListings: loadedResources.length,
+            },
+          );
+        }
         const discoveredCategoryMap = new Map();
 
         categoriesData.forEach((cat) => {
@@ -2632,7 +2736,7 @@ const FindHelpV2 = ({ onNavigate }) => {
                   )}
                 </>
               ) : (
-                <DirectoryMap listings={sortedFiltered} panelListings={sortedFiltered} selectedId={selectedId} onSelect={setSelectedId} onOpenResource={openResource} isMobile={isMobile} />
+                <DirectoryMap listings={sortedFiltered} selectedId={selectedId} onSelect={setSelectedId} onOpenResource={openResource} isMobile={isMobile} />
               )}
             </div>
           </section>
