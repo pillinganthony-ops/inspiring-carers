@@ -1695,14 +1695,32 @@ const ListingCard = ({ listing, saved, onToggleSave, onOpenResource, onShareActi
   );
 };
 
+/* ─── Premium map SVG marker templates ──────────────────── */
+const _SVG_PIN_STANDARD = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40"><path d="M16 2C9 2 3 8 3 15c0 8.5 13 23 13 23s13-14.5 13-23C29 8 23 2 16 2z" fill="#2D9CDB"/><circle cx="16" cy="14" r="6" fill="white"/></svg>`;
+const _SVG_PIN_PREMIUM = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40"><path d="M16 2C9 2 3 8 3 15c0 8.5 13 23 13 23s13-14.5 13-23C29 8 23 2 16 2z" fill="#F5A623"/><circle cx="16" cy="14" r="6" fill="white"/><text x="16" y="18" text-anchor="middle" fill="#F5A623" font-size="8" font-weight="bold" font-family="sans-serif">&#9733;</text></svg>`;
+const _SVG_PIN_SELECTED = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="50" viewBox="0 0 40 50"><path d="M20 2C11 2 3.5 9.5 3.5 19c0 10.5 16.5 29 16.5 29s16.5-18.5 16.5-29C36.5 9.5 29 2 20 2z" fill="#1A2744"/><circle cx="20" cy="19" r="8" fill="white"/></svg>`;
+
+const _makeClusterSvg = (count, s) => {
+  const half = s / 2;
+  const text = count > 99 ? '99+' : String(count);
+  const fs = count > 9 ? 13 : 15;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 ${s} ${s}"><circle cx="${half}" cy="${half}" r="${half}" fill="#1A2744" opacity="0.18"/><circle cx="${half}" cy="${half}" r="${half - 4}" fill="#1A2744"/><circle cx="${half}" cy="${half}" r="${half - 8}" fill="#2D9CDB"/><text x="${half}" y="${half + 4.5}" text-anchor="middle" fill="white" font-size="${fs}" font-weight="800" font-family="Inter,sans-serif">${text}</text></svg>`;
+};
+
 const DirectoryMap = ({ listings, panelListings, selectedId, onSelect, onOpenResource, isMobile }) => {
   const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
   const { isLoaded } = useJsApiLoader({ id: 'ic-google-map', googleMapsApiKey: googleMapsApiKey || '', libraries: MAP_LIBRARIES });
+
+  const [mapCat, setMapCat] = React.useState('all');
+  const [mapPremiumOnly, setMapPremiumOnly] = React.useState(false);
+  const [mapHasEvents, setMapHasEvents] = React.useState(false);
+
   const mapRef = React.useRef(null);
   const clusterRef = React.useRef(null);
-  const markersRef = React.useRef([]);
+  const markerMapRef = React.useRef(new Map());
   const shouldAutoFitRef = React.useRef(true);
   const panelRef = React.useRef(null);
+  const iconsRef = React.useRef(null);
 
   React.useEffect(() => {
     if (!selectedId || !panelRef.current) return;
@@ -1710,132 +1728,241 @@ const DirectoryMap = ({ listings, panelListings, selectedId, onSelect, onOpenRes
     if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [selectedId]);
 
-  const points = React.useMemo(() => listings.filter((item) => item.lat !== null && item.lng !== null), [listings]);
-  const selected = selectedId ? (points.find((item) => item.id === selectedId) || null) : null;
+  const allPoints = React.useMemo(() => listings.filter((item) => item.lat !== null && item.lng !== null), [listings]);
+
+  const mapCatOptions = React.useMemo(() => {
+    const seen = new Set();
+    const result = [{ id: 'all', label: 'All categories' }];
+    allPoints.forEach((item) => {
+      if (!seen.has(item.cat)) { seen.add(item.cat); result.push({ id: item.cat, label: item.categoryLabel }); }
+    });
+    return [result[0], ...result.slice(1).sort((a, b) => a.label.localeCompare(b.label))];
+  }, [allPoints]);
+
+  const points = React.useMemo(() => allPoints.filter((item) => {
+    if (mapCat !== 'all' && item.cat !== mapCat) return false;
+    if (mapPremiumOnly && !item.profile) return false;
+    if (mapHasEvents && (!item.events || !item.events.length)) return false;
+    return true;
+  }), [allPoints, mapCat, mapPremiumOnly, mapHasEvents]);
+
+  const selected = selectedId ? (allPoints.find((item) => item.id === selectedId) || null) : null;
 
   const fitToPoints = React.useCallback(() => {
     if (!mapRef.current || !points.length || !window.google?.maps) return;
-
-    if (points.length === 1) {
-      mapRef.current.panTo({ lat: points[0].lat, lng: points[0].lng });
-      mapRef.current.setZoom(13);
-      return;
-    }
-
+    if (points.length === 1) { mapRef.current.panTo({ lat: points[0].lat, lng: points[0].lng }); mapRef.current.setZoom(13); return; }
     const bounds = new window.google.maps.LatLngBounds();
-    points.forEach((point) => bounds.extend({ lat: point.lat, lng: point.lng }));
+    points.forEach((pt) => bounds.extend({ lat: pt.lat, lng: pt.lng }));
     mapRef.current.fitBounds(bounds, isMobile ? 48 : 72);
   }, [isMobile, points]);
 
-  React.useEffect(() => {
-    shouldAutoFitRef.current = true;
-  }, [listings]);
+  React.useEffect(() => { shouldAutoFitRef.current = true; }, [listings]);
 
   React.useEffect(() => {
-    if (!isLoaded || !mapRef.current || !window.google?.maps) return undefined;
+    if (!isLoaded || !window.google?.maps || iconsRef.current) return;
+    const { Size, Point } = window.google.maps;
+    const mkI = (svg, w, h, ax, ay) => ({ url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`, scaledSize: new Size(w, h), anchor: new Point(ax, ay) });
+    iconsRef.current = {
+      standard: mkI(_SVG_PIN_STANDARD, 32, 40, 16, 40),
+      premium:  mkI(_SVG_PIN_PREMIUM,  32, 40, 16, 40),
+      selected: mkI(_SVG_PIN_SELECTED, 40, 50, 20, 50),
+    };
+  }, [isLoaded]);
 
-    markersRef.current.forEach((marker) => marker.setMap(null));
-    markersRef.current = [];
-    if (clusterRef.current) {
-      clusterRef.current.clearMarkers();
-      clusterRef.current = null;
-    }
+  React.useEffect(() => {
+    if (!isLoaded || !mapRef.current || !window.google?.maps || !iconsRef.current) return undefined;
+    const icons = iconsRef.current;
+    const { Size, Point, Marker } = window.google.maps;
 
-    const markers = points.map((listing) => {
-      const marker = new window.google.maps.Marker({
-        position: { lat: listing.lat, lng: listing.lng },
-        title: listing.title,
-      });
+    markerMapRef.current.forEach((m) => m.setMap(null));
+    markerMapRef.current.clear();
+    if (clusterRef.current) { clusterRef.current.clearMarkers(); clusterRef.current = null; }
+
+    const clusterRenderer = {
+      render({ count, position }) {
+        const s = count < 10 ? 40 : count < 50 ? 46 : 54;
+        const half = s / 2;
+        return new Marker({
+          position,
+          icon: { url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(_makeClusterSvg(count, s))}`, scaledSize: new Size(s, s), anchor: new Point(half, half) },
+          zIndex: Number(Marker.MAX_ZINDEX) + count,
+        });
+      },
+    };
+
+    const newMarkers = points.map((listing) => {
+      const isPremium = Boolean(listing.profile);
+      const marker = new Marker({ position: { lat: listing.lat, lng: listing.lng }, title: listing.title, icon: isPremium ? icons.premium : icons.standard, zIndex: isPremium ? 2 : 1 });
       marker.addListener('click', () => onSelect(listing.id));
+      markerMapRef.current.set(listing.id, marker);
       return marker;
     });
 
-    markersRef.current = markers;
-    clusterRef.current = new MarkerClusterer({
-      map: mapRef.current,
-      markers,
-    });
-
-    if (shouldAutoFitRef.current) {
-      fitToPoints();
-      shouldAutoFitRef.current = false;
-    }
+    clusterRef.current = new MarkerClusterer({ map: mapRef.current, markers: newMarkers, renderer: clusterRenderer });
+    if (shouldAutoFitRef.current) { fitToPoints(); shouldAutoFitRef.current = false; }
 
     return () => {
-      markers.forEach((marker) => marker.setMap(null));
-      if (clusterRef.current) {
-        clusterRef.current.clearMarkers();
-        clusterRef.current = null;
-      }
+      newMarkers.forEach((m) => m.setMap(null));
+      markerMapRef.current.clear();
+      if (clusterRef.current) { clusterRef.current.clearMarkers(); clusterRef.current = null; }
     };
   }, [fitToPoints, isLoaded, onSelect, points]);
+
+  React.useEffect(() => {
+    if (!isLoaded || !window.google?.maps || !iconsRef.current) return;
+    const icons = iconsRef.current;
+    const MAX_Z = Number(window.google.maps.Marker.MAX_ZINDEX);
+    markerMapRef.current.forEach((marker, id) => {
+      const listing = points.find((p) => p.id === id);
+      if (!listing) return;
+      const isPremium = Boolean(listing.profile);
+      if (id === selectedId) { marker.setIcon(icons.selected); marker.setZIndex(MAX_Z); }
+      else { marker.setIcon(isPremium ? icons.premium : icons.standard); marker.setZIndex(isPremium ? 2 : 1); }
+    });
+  }, [isLoaded, selectedId, points]);
+
+  const hasMapFilter = mapCat !== 'all' || mapPremiumOnly || mapHasEvents;
+  const resetMapFilter = () => { setMapCat('all'); setMapPremiumOnly(false); setMapHasEvents(false); };
+
+  const chipActive = { background: '#1A2744', color: 'white', border: '1px solid #1A2744' };
+  const chipBase = { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', border: '1px solid #E0E8F5', background: 'white', color: '#1A2744', whiteSpace: 'nowrap' };
 
   if (!googleMapsApiKey) {
     return <StateCard title="Google Maps key is missing" subtitle="Add VITE_GOOGLE_MAPS_API_KEY to enable full interactive map pins and routing." />;
   }
 
-  if (!points.length) {
+  if (!allPoints.length) {
     return <StateCard title="No mappable coordinates in this result set" subtitle="Switch category or list view to explore all resources." />;
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1.3fr', gap: 16, minHeight: isMobile ? 'auto' : 640 }}>
-      <div ref={panelRef} style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: isMobile ? 'none' : 640, overflowY: 'auto', paddingRight: isMobile ? 0 : 6, order: isMobile ? 2 : 1 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
-          <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.62)' }}>
-            <strong style={{ color: '#1A2744' }}>{points.length}</strong> mapped · <strong style={{ color: '#1A2744' }}>{panelListings.length}</strong> in list
-          </div>
-          <button className="btn btn-ghost btn-sm" onClick={fitToPoints}>
-            <IPin s={14} /> Fit results
+    <div>
+      {/* Filter bar */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, padding: '4px 0 14px' }}>
+        <select
+          value={mapCat}
+          onChange={(e) => setMapCat(e.target.value)}
+          style={{ padding: '6px 10px', borderRadius: 999, border: '1px solid #E0E8F5', background: mapCat !== 'all' ? '#1A2744' : 'white', color: mapCat !== 'all' ? 'white' : '#1A2744', fontSize: 12.5, fontWeight: 600, fontFamily: 'Inter, sans-serif', outline: 'none', cursor: 'pointer' }}
+        >
+          {mapCatOptions.map((opt) => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
+        </select>
+        <button style={{ ...chipBase, ...(mapPremiumOnly ? chipActive : {}) }} onClick={() => setMapPremiumOnly((v) => !v)}>
+          <span style={{ color: mapPremiumOnly ? '#F5A623' : '#F5A623' }}>★</span> Premium
+        </button>
+        <button style={{ ...chipBase, ...(mapHasEvents ? chipActive : {}) }} onClick={() => setMapHasEvents((v) => !v)}>
+          <IEvent s={13} /> Has events
+        </button>
+        {hasMapFilter && (
+          <button style={{ ...chipBase, background: 'rgba(244,97,58,0.08)', color: '#F4613A', border: '1px solid rgba(244,97,58,0.2)' }} onClick={resetMapFilter}>
+            <IClose s={12} /> Reset
           </button>
+        )}
+        <div style={{ marginLeft: 'auto', fontSize: 12.5, color: 'rgba(26,39,68,0.55)', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <strong style={{ color: '#1A2744' }}>{points.length}</strong> on map
+          {points.length !== allPoints.length && <span>· {allPoints.length} total</span>}
+          <button className="btn btn-ghost btn-sm" style={{ marginLeft: 4 }} onClick={fitToPoints}><IPin s={13} /> Fit</button>
         </div>
-        {panelListings.map((listing) => {
-          const active = listing.id === selectedId;
-          return (
-            <div key={listing.id} data-lid={listing.id} className="card" onClick={() => onSelect(listing.id)} style={{ padding: 14, display: 'flex', gap: 10, alignItems: 'start', border: active ? `1px solid ${toneMapColor(listing.tone).fg}` : '1px solid #EFF1F7', boxShadow: active ? `0 10px 22px ${toneMapColor(listing.tone).fg}24` : 'var(--shadow-sm)', cursor: 'pointer' }}>
-              <IconTile tone={listing.tone} size={42} radius={10}>{listing.icon}</IconTile>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: 14.5 }}>{listing.title}</div>
-                <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.6)', marginTop: 2 }}>{listing.locationLabel} · {listing.categoryLabel}</div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                  <button className="btn btn-ghost btn-sm" onClick={(event) => { event.stopPropagation(); onOpenResource(listing); }}>Open</button>
-                  <a className="btn btn-ghost btn-sm" href={getMapsDirectionsUrl(listing)} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>Directions</a>
-                </div>
-              </div>
-            </div>
-          );
-        })}
       </div>
 
-      <div className="card" style={{ padding: 0, overflow: 'hidden', borderRadius: 20, minHeight: isMobile ? 420 : 640, order: isMobile ? 1 : 2 }}>
-        {isLoaded ? (
-          <GoogleMap
-            mapContainerStyle={{ width: '100%', height: isMobile ? '420px' : '640px' }}
-            center={selected ? { lat: selected.lat, lng: selected.lng } : { lat: 50.266, lng: -5.05 }}
-            zoom={11}
-            onLoad={(map) => {
-              mapRef.current = map;
-            }}
-            onDragStart={() => { shouldAutoFitRef.current = false; }}
-            onZoomChanged={() => { shouldAutoFitRef.current = false; }}
-            options={{ mapTypeControl: false, streetViewControl: false, fullscreenControl: false, gestureHandling: 'greedy' }}
-          >
-            {selected && (
-              <InfoWindowF position={{ lat: selected.lat, lng: selected.lng }} onCloseClick={() => onSelect('')}>
-                <div style={{ maxWidth: 230 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>{selected.title}</div>
-                  <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.72)', marginTop: 3 }}>{selected.locationLabel} · {selected.categoryLabel}</div>
-                  <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                    <button className="btn btn-ghost btn-sm" onClick={() => onOpenResource(selected)}>Open</button>
-                    <a className="btn btn-ghost btn-sm" href={getMapsDirectionsUrl(selected)} target="_blank" rel="noreferrer">Directions</a>
+      {/* Map + panel grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '340px 1fr', gap: 16, minHeight: isMobile ? 'auto' : 640 }}>
+
+        {/* Side panel */}
+        <div ref={panelRef} style={{ display: 'flex', flexDirection: 'column', gap: 9, maxHeight: isMobile ? 'none' : 640, overflowY: 'auto', paddingRight: isMobile ? 0 : 4, order: isMobile ? 2 : 1 }}>
+          {panelListings.length === 0 && (
+            <div style={{ padding: 20, textAlign: 'center', color: 'rgba(26,39,68,0.55)', fontSize: 13 }}>No listings match the current map filter.</div>
+          )}
+          {panelListings.map((listing) => {
+            const active = listing.id === selectedId;
+            const isPremium = Boolean(listing.profile);
+            const accentColor = toneMapColor(listing.tone).fg;
+            return (
+              <div
+                key={listing.id}
+                data-lid={listing.id}
+                className="card"
+                onClick={() => onSelect(listing.id)}
+                style={{ padding: '12px 14px', display: 'flex', gap: 11, alignItems: 'flex-start', border: active ? `1.5px solid ${accentColor}` : '1px solid #EFF1F7', boxShadow: active ? `0 8px 20px ${accentColor}22` : 'var(--shadow-sm)', cursor: 'pointer', borderRadius: 16, transition: 'box-shadow 0.15s, border-color 0.15s' }}
+              >
+                <div style={{ flexShrink: 0 }}>
+                  {isPremium
+                    ? <OrgAvatar listing={listing} size={44} />
+                    : <IconTile tone={listing.tone} size={42} radius={10}>{listing.icon}</IconTile>}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {isPremium && (
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 999, background: 'rgba(245,166,35,0.12)', color: '#8a5a0b', fontSize: 10, fontWeight: 700, marginBottom: 4 }}>
+                      ★ Premium
+                    </div>
+                  )}
+                  <div style={{ fontWeight: 700, fontSize: 13.5, lineHeight: 1.3, color: '#1A2744' }}>{listing.title}</div>
+                  <div style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.55)', marginTop: 2 }}>{listing.locationLabel}</div>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', marginTop: 5, padding: '2px 7px', borderRadius: 999, background: `${accentColor}12`, color: accentColor, fontSize: 10.5, fontWeight: 600 }}>{listing.categoryLabel}</div>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                    <button className="btn btn-ghost btn-sm" style={{ fontSize: 11.5 }} onClick={(e) => { e.stopPropagation(); onOpenResource(listing); }}>View profile</button>
+                    {listing.lat !== null && listing.lng !== null && (
+                      <a className="btn btn-ghost btn-sm" style={{ fontSize: 11.5 }} href={getMapsDirectionsUrl(listing)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>Directions</a>
+                    )}
                   </div>
                 </div>
-              </InfoWindowF>
-            )}
-          </GoogleMap>
-        ) : (
-          <div style={{ display: 'grid', placeItems: 'center', minHeight: isMobile ? 420 : 640, color: 'rgba(26,39,68,0.65)' }}>Loading interactive map...</div>
-        )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Map pane */}
+        <div style={{ padding: 0, overflow: 'hidden', borderRadius: 22, minHeight: isMobile ? 420 : 640, order: isMobile ? 1 : 2, boxShadow: '0 8px 32px rgba(26,39,68,0.13)', border: '1px solid #E8EEF8' }}>
+          {isLoaded ? (
+            <GoogleMap
+              mapContainerStyle={{ width: '100%', height: isMobile ? '420px' : '640px', borderRadius: 22 }}
+              center={selected ? { lat: selected.lat, lng: selected.lng } : { lat: 50.266, lng: -5.05 }}
+              zoom={11}
+              onLoad={(map) => { mapRef.current = map; }}
+              onDragStart={() => { shouldAutoFitRef.current = false; }}
+              onZoomChanged={() => { shouldAutoFitRef.current = false; }}
+              options={{ mapTypeControl: false, streetViewControl: false, fullscreenControl: false, gestureHandling: 'greedy', styles: [{ featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }, { featureType: 'transit', stylers: [{ visibility: 'off' }] }] }}
+            >
+              {selected && (
+                <InfoWindowF position={{ lat: selected.lat, lng: selected.lng }} onCloseClick={() => onSelect('')}>
+                  <div style={{ fontFamily: 'Inter, sans-serif', width: 252, padding: '2px 0 0' }}>
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 10 }}>
+                      <div style={{ flexShrink: 0 }}>
+                        {Boolean(selected.profile) ? <OrgAvatar listing={selected} size={46} /> : <IconTile tone={selected.tone} size={44} radius={11}>{selected.icon}</IconTile>}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        {Boolean(selected.profile) && (
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 6px', borderRadius: 999, background: 'rgba(245,166,35,0.13)', color: '#8a5a0b', fontSize: 9.5, fontWeight: 700, marginBottom: 4 }}>★ Premium</div>
+                        )}
+                        <div style={{ fontWeight: 800, fontSize: 13.5, lineHeight: 1.3, color: '#1A2744' }}>{selected.title}</div>
+                        <div style={{ fontSize: 11, color: '#2D9CDB', marginTop: 2, fontWeight: 600 }}>{selected.categoryLabel}</div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: 'rgba(26,39,68,0.6)', marginBottom: selected.desc ? 8 : 12 }}>
+                      <IPin s={11} />
+                      <span>{selected.locationLabel}</span>
+                      {selected.footprintBadge && (
+                        <span style={{ marginLeft: 3, padding: '1px 5px', borderRadius: 999, background: selected.footprintBadge.bg, color: selected.footprintBadge.color, fontSize: 9.5, fontWeight: 700 }}>{selected.footprintBadge.label}</span>
+                      )}
+                    </div>
+                    {selected.desc && (
+                      <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.7)', lineHeight: 1.55, marginBottom: 12 }}>
+                        {selected.desc.length > 110 ? `${selected.desc.slice(0, 107)}…` : selected.desc}
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button className="btn btn-sky btn-sm" style={{ flex: 1, justifyContent: 'center', fontSize: 12 }} onClick={() => onOpenResource(selected)}>View profile</button>
+                      {(!selected.serviceFootprintModel || selected.serviceFootprintModel === 'physical_venue' || selected.serviceFootprintModel === 'hq_only') && selected.lat !== null && (
+                        <a className="btn btn-ghost btn-sm" style={{ fontSize: 12 }} href={getMapsDirectionsUrl(selected)} target="_blank" rel="noreferrer"><IDirections s={13} /></a>
+                      )}
+                    </div>
+                  </div>
+                </InfoWindowF>
+              )}
+            </GoogleMap>
+          ) : (
+            <div style={{ display: 'grid', placeItems: 'center', minHeight: isMobile ? 420 : 640, color: 'rgba(26,39,68,0.65)', fontSize: 14 }}>Loading interactive map…</div>
+          )}
+        </div>
       </div>
     </div>
   );
