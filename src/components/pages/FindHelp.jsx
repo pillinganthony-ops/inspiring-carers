@@ -184,6 +184,62 @@ const pickField = (row, keys) => {
 const normalizeForSearch = (text) =>
   `${text || ''}`.toLowerCase().replace(/[''`']/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 
+const DEFAULT_COUNTY_LABEL = 'Cornwall';
+
+const cleanPlaceLabel = (value) => `${value || ''}`
+  .replace(/\s+/g, ' ')
+  .replace(/^,+|,+$/g, '')
+  .trim();
+
+const escapeRegExp = (value) => `${value || ''}`.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const normalizeCountyLabel = (value) => {
+  const cleaned = cleanPlaceLabel(value);
+  if (!cleaned) return DEFAULT_COUNTY_LABEL;
+  return /^cornwall$/i.test(cleaned) ? DEFAULT_COUNTY_LABEL : cleaned;
+};
+
+const buildKnownTownIndex = (rows) => {
+  const explicitTowns = new Map();
+
+  (rows || []).forEach((row) => {
+    const rawTown = pickField(row, ['town', 'area', 'location', 'city']);
+    const cleanedTown = cleanPlaceLabel(rawTown);
+    if (!cleanedTown) return;
+    if (/^cornwall$/i.test(cleanedTown)) return;
+    if (/^[A-Z]{1,2}\d/i.test(cleanedTown)) return;
+
+    const key = normalizeForSearch(cleanedTown);
+    if (!key) return;
+    if (!explicitTowns.has(key) || cleanedTown.length > explicitTowns.get(key).length) {
+      explicitTowns.set(key, cleanedTown);
+    }
+  });
+
+  return Array.from(explicitTowns.entries())
+    .map(([key, label]) => ({ key, label }))
+    .sort((a, b) => b.label.length - a.label.length);
+};
+
+const deriveTownFromRow = (row, knownTowns) => {
+  const haystack = normalizeForSearch([
+    pickField(row, ['name', 'title']),
+    pickField(row, ['organisation_name']),
+    pickField(row, ['provider_name']),
+    pickField(row, ['address', 'address_line_1', 'address_line1']),
+    pickField(row, ['summary', 'description', 'short_description']),
+  ].filter(Boolean).join(' '));
+
+  if (!haystack) return '';
+
+  for (const town of knownTowns || []) {
+    const pattern = new RegExp(`(^| )${escapeRegExp(town.key)}( |$)`);
+    if (pattern.test(haystack)) return town.label;
+  }
+
+  return '';
+};
+
 const toSlug = (value) =>
   `${value || ''}`
     .toLowerCase()
@@ -325,7 +381,8 @@ const deriveOrganisationNameFromContact = (row) => {
   return label.replace(/\b\w/g, (char) => char.toUpperCase());
 };
 
-const normalizeResource = (row, index) => {
+const normalizeResource = (row, index, options = {}) => {
+  const knownTowns = Array.isArray(options.knownTowns) ? options.knownTowns : [];
   const rawCategory = pickField(row, ['category_name', 'category', 'category_label', 'resource_type', 'type']) || 'Support';
   // If a resolved category slug was injected (from category_id FK lookup), use it directly
   const cat = row.category_slug ? normalizeCategorySlug(row.category_slug) : normalizeCategorySlug(rawCategory);
@@ -343,8 +400,48 @@ const normalizeResource = (row, index) => {
   ];
   const organisationName = orgCandidates.find((candidate) => !isGenericOrganisationValue(candidate)) || '';
   const venue = organisationName || 'Community support';
-  const area = pickField(row, ['town', 'area', 'location', 'city']) || pickField(row, ['postcode']) || 'Cornwall';
-  const county = pickField(row, ['county', 'region', 'admin_county']) || '';
+  const serviceFootprintModel = `${row?.service_footprint_model || ''}`.trim().toLowerCase() || null;
+  const rawCoverageAreaLabel = `${row?.coverage_area_label || ''}`.trim() || null;
+
+  const explicitTown = cleanPlaceLabel(pickField(row, ['town', 'area', 'location', 'city']));
+  const derivedTown = explicitTown || deriveTownFromRow(row, knownTowns);
+  const postcode = cleanPlaceLabel(pickField(row, ['postcode']));
+  const county = normalizeCountyLabel(pickField(row, ['county', 'region', 'admin_county']));
+
+  const hasCoverageModel = serviceFootprintModel !== null;
+  const isPhysicalVenue = serviceFootprintModel === 'physical_venue';
+  const isCountyWide = serviceFootprintModel === 'county_wide';
+  const isMultiLocation = serviceFootprintModel === 'multi_location';
+  const isHqOnly = serviceFootprintModel === 'hq_only';
+
+  // Location display: use coverage_area_label for non-physical services
+  let area, locationLabel;
+  if (!hasCoverageModel || isPhysicalVenue) {
+    area = derivedTown || county;
+    locationLabel = derivedTown ? `${derivedTown}, ${county}` : county;
+  } else {
+    const displayLabel = rawCoverageAreaLabel || county;
+    area = displayLabel;
+    locationLabel = displayLabel;
+  }
+
+  // Precise map pin: physical_venue and legacy null keep coords as-is
+  // county_wide and multi_location: suppress pin (null out coords)
+  // hq_only: keep coords (optional HQ pin)
+  const rawLat = parseCoordinate(pickField(row, ['lat', 'latitude']));
+  const rawLng = parseCoordinate(pickField(row, ['lng', 'longitude']));
+  const suppressPin = isCountyWide || isMultiLocation;
+  const lat = suppressPin ? null : rawLat;
+  const lng = suppressPin ? null : rawLng;
+
+  const footprintBadge = isCountyWide
+    ? { label: 'County-wide', color: '#2D9CDB', bg: 'rgba(45,156,219,0.1)' }
+    : isMultiLocation
+    ? { label: 'Multiple locations', color: '#7B5CF5', bg: 'rgba(123,92,245,0.1)' }
+    : isHqOnly
+    ? { label: 'HQ', color: '#F5A623', bg: 'rgba(245,166,35,0.1)' }
+    : null;
+
   const availability = pickField(row, ['opening_hours', 'availability', 'service_hours', 'contact_hours']) || 'Contact for details';
   const summary = pickField(row, ['summary', 'description', 'short_description']) || 'Local support for carers and the people they support.';
   const resourceOrganisationName = pickField(row, ['organisation_name']);
@@ -363,17 +460,19 @@ const normalizeResource = (row, index) => {
     resourceOrganisationName,
     providerName,
     venue,
+    town: derivedTown,
     area,
+    locationLabel,
     when: availability,
-    distance: pickField(row, ['postcode']) || area,
+    distance: postcode || locationLabel,
     desc: summary,
     website: pickField(row, ['website', 'url', 'link']),
     phone: pickField(row, ['phone', 'telephone']),
     email: pickField(row, ['email']),
     address: pickField(row, ['address', 'address_line_1', 'address_line1']),
-    postcode: pickField(row, ['postcode']),
-    lat: parseCoordinate(pickField(row, ['lat', 'latitude'])),
-    lng: parseCoordinate(pickField(row, ['lng', 'longitude'])),
+    postcode,
+    lat,
+    lng,
     tags: toTags(row),
     featured: Boolean(row?.featured || row?.profile?.featured),
     logoUrl: pickField(row?.profile || {}, ['logo_url']) || pickField(row?.metadata?.brand || {}, ['logo_url']),
@@ -383,9 +482,13 @@ const normalizeResource = (row, index) => {
     serviceCategories: Array.isArray(row?.profile?.service_categories) ? row.profile.service_categories : [],
     areasCovered: Array.isArray(row?.profile?.areas_covered) ? row.profile.areas_covered : [],
     county,
-    locationKey: `${area}`.trim() || 'Cornwall',
-    countyKey: `${county}`.trim().toLowerCase() || 'cornwall',
-    searchText: normalizeForSearch(`${title} ${venue} ${area} ${county} ${categoryLabel} ${summary}`),
+    serviceFootprintModel,
+    coverageAreaLabel: rawCoverageAreaLabel,
+    footprintBadge,
+    townKey: normalizeForSearch(derivedTown),
+    locationKey: normalizeForSearch(locationLabel),
+    countyKey: normalizeForSearch(county) || 'cornwall',
+    searchText: normalizeForSearch(`${title} ${venue} ${derivedTown} ${locationLabel} ${county} ${rawCoverageAreaLabel || ''} ${categoryLabel} ${summary}`),
   };
 };
 
@@ -896,7 +999,7 @@ const RelatedListings = ({ current, allResources, onOpen }) => {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color }}>{r.categoryLabel}</div>
                   <div style={{ fontFamily: 'Sora', fontWeight: 700, fontSize: 15.5, marginTop: 3, color: '#1A2744', lineHeight: 1.3 }}>{r.title}</div>
-                  <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.6)', marginTop: 3 }}>{r.venue} · {r.area}</div>
+                  <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.6)', marginTop: 3 }}>{r.venue} · {r.locationLabel}</div>
                 </div>
               </div>
               <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #EFF1F7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1011,7 +1114,7 @@ const EventActionModal = ({ listing, event, onClose, onSuccess, onFailure }) => 
         <button onClick={onClose} style={{ position: 'absolute', right: 18, top: 18, width: 38, height: 38, borderRadius: 999, border: '1px solid #E8EDF8', background: '#FAFBFF', display: 'grid', placeItems: 'center' }}><IClose s={16} /></button>
         <div className="eyebrow" style={{ color: '#2D9CDB' }}>{event.cta_type === 'book' ? 'Book your place' : 'Contact provider'}</div>
         <h3 style={{ fontSize: 26, fontWeight: 800, marginTop: 8 }}>{event.title}</h3>
-        <p style={{ marginTop: 8, color: 'rgba(26,39,68,0.68)', lineHeight: 1.65 }}>{formatEventDateTime(event.starts_at)} · {event.location || listing.area}</p>
+        <p style={{ marginTop: 8, color: 'rgba(26,39,68,0.68)', lineHeight: 1.65 }}>{formatEventDateTime(event.starts_at)} · {event.location || listing.locationLabel}</p>
         <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 12, marginTop: 18 }}>
           <input value={form.fullName} onChange={updateField('fullName')} placeholder="Full name" style={{ width: '100%', borderRadius: 14, border: '1px solid #E9EEF5', padding: '12px 14px', fontSize: 14, background: '#FAFBFF' }} />
           <input value={form.email} onChange={updateField('email')} type="email" placeholder="Email" style={{ width: '100%', borderRadius: 14, border: '1px solid #E9EEF5', padding: '12px 14px', fontSize: 14, background: '#FAFBFF' }} />
@@ -1128,8 +1231,9 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
               <div style={{ fontSize: 14.5, color: 'rgba(26,39,68,0.65)', display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
                 <IBuilding s={14} />
                 <span style={{ fontWeight: 600 }}>{listing.venue}</span>
-                {listing.area && <><span style={{ opacity: 0.4 }}>·</span><span>{listing.area}</span></>}
+                {listing.locationLabel && <><span style={{ opacity: 0.4 }}>·</span><span>{listing.locationLabel}</span></>}
                 {listing.postcode && <><span style={{ opacity: 0.4 }}>·</span><span style={{ fontFamily: 'monospace', fontSize: 13 }}>{listing.postcode}</span></>}
+                {listing.footprintBadge && <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 9px', borderRadius: 999, fontSize: 11.5, fontWeight: 700, color: listing.footprintBadge.color, background: listing.footprintBadge.bg }}>{listing.footprintBadge.label}</span>}
               </div>
             </div>
           </div>
@@ -1220,7 +1324,7 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
                     ? 'This service supports people experiencing mental health challenges, stress, anxiety, or low wellbeing.'
                     : ['crisis-safety-support'].includes(listing.cat)
                     ? 'This service is for people in crisis or those who need emergency emotional support.'
-                    : `This service is open to people in ${listing.area || 'Cornwall'} who need support related to ${listing.categoryLabel.toLowerCase()}.`}
+                    : `This service is open to people in ${listing.locationLabel || DEFAULT_COUNTY_LABEL} who need support related to ${listing.categoryLabel.toLowerCase()}.`}
                 </p>
               </DetailSection>
 
@@ -1247,7 +1351,7 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
                         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'start' }}>
                           <div>
                             <div style={{ fontWeight: 700, fontSize: 16 }}>{event.title}</div>
-                            <div style={{ marginTop: 4, fontSize: 12.5, color: 'rgba(26,39,68,0.62)' }}>{formatEventDateTime(event.starts_at)} · {event.location || listing.area}</div>
+                            <div style={{ marginTop: 4, fontSize: 12.5, color: 'rgba(26,39,68,0.62)' }}>{formatEventDateTime(event.starts_at)} · {event.location || listing.locationLabel}</div>
                           </div>
                           <div style={{ padding: '5px 10px', borderRadius: 999, background: 'rgba(45,156,219,0.12)', color: '#165a85', fontSize: 11.5, fontWeight: 700 }}>{event.event_type || 'Event'}</div>
                         </div>
@@ -1266,23 +1370,35 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
               {/* Location */}
               <DetailSection title="Location" icon={<IPin s={14} />}>
                 <div style={{ display: 'grid', gap: 8 }}>
+                  {listing.footprintBadge && (
+                    <div style={{ padding: '8px 12px', borderRadius: 10, background: listing.footprintBadge.bg, border: `1px solid ${listing.footprintBadge.color}28`, fontSize: 13, color: '#1A2744', fontWeight: 500 }}>
+                      <span style={{ fontWeight: 700, color: listing.footprintBadge.color }}>{listing.footprintBadge.label}:</span>{' '}
+                      {listing.serviceFootprintModel === 'county_wide'
+                        ? 'This service operates county-wide rather than from a single fixed venue.'
+                        : listing.serviceFootprintModel === 'multi_location'
+                        ? 'This service operates from multiple locations across the area.'
+                        : 'Organisation headquarters — contact for local service details.'}
+                    </div>
+                  )}
                   {listing.address && (
                     <div style={{ fontSize: 14.5, color: '#1A2744', fontWeight: 500 }}>{listing.address}</div>
                   )}
                   {listing.postcode && (
                     <div style={{ fontSize: 14, color: 'rgba(26,39,68,0.6)', fontFamily: 'monospace' }}>{listing.postcode}</div>
                   )}
-                  {listing.area && (
-                    <div style={{ fontSize: 14, color: 'rgba(26,39,68,0.6)' }}>{listing.area}, Cornwall</div>
+                  {listing.locationLabel && (
+                    <div style={{ fontSize: 14, color: 'rgba(26,39,68,0.6)' }}>{listing.locationLabel}</div>
                   )}
-                  <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
-                    <a href={getMapsOpenUrl(listing)} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm" style={{ gap: 6 }}>
-                      <IPin s={14} /> View on map
-                    </a>
-                    <a href={getMapsDirectionsUrl(listing)} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm" style={{ gap: 6 }}>
-                      <IDirections s={14} /> Get directions
-                    </a>
-                  </div>
+                  {(!listing.serviceFootprintModel || listing.serviceFootprintModel === 'physical_venue' || listing.serviceFootprintModel === 'hq_only') && (
+                    <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                      <a href={getMapsOpenUrl(listing)} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm" style={{ gap: 6 }}>
+                        <IPin s={14} /> View on map
+                      </a>
+                      <a href={getMapsDirectionsUrl(listing)} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm" style={{ gap: 6 }}>
+                        <IDirections s={14} /> Get directions
+                      </a>
+                    </div>
+                  )}
                 </div>
               </DetailSection>
             </div>
@@ -1494,9 +1610,10 @@ const ListingCard = ({ listing, saved, onToggleSave, onOpenResource, onShareActi
           >
             {listing.title}
           </button>
-          <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.6)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+          <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.6)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
             <IBuilding s={12} />
-            {listing.venue} · {listing.area}
+            <span>{listing.venue} · {listing.locationLabel}</span>
+            {listing.footprintBadge && <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 7px', borderRadius: 999, fontSize: 10.5, fontWeight: 700, color: listing.footprintBadge.color, background: listing.footprintBadge.bg }}>{listing.footprintBadge.label}</span>}
           </div>
         </div>
       </div>
@@ -1636,7 +1753,7 @@ const DirectoryMap = ({ listings, panelListings, selectedId, onSelect, onOpenRes
               <IconTile tone={listing.tone} size={42} radius={10}>{listing.icon}</IconTile>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 14.5 }}>{listing.title}</div>
-                <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.6)', marginTop: 2 }}>{listing.area} · {listing.categoryLabel}</div>
+                <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.6)', marginTop: 2 }}>{listing.locationLabel} · {listing.categoryLabel}</div>
                 <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                   <button className="btn btn-ghost btn-sm" onClick={(event) => { event.stopPropagation(); onOpenResource(listing); }}>Open</button>
                   <a className="btn btn-ghost btn-sm" href={getMapsDirectionsUrl(listing)} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>Directions</a>
@@ -1664,7 +1781,7 @@ const DirectoryMap = ({ listings, panelListings, selectedId, onSelect, onOpenRes
               <InfoWindowF position={{ lat: selected.lat, lng: selected.lng }} onCloseClick={() => onSelect('')}>
                 <div style={{ maxWidth: 230 }}>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{selected.title}</div>
-                  <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.72)', marginTop: 3 }}>{selected.area} · {selected.categoryLabel}</div>
+                  <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.72)', marginTop: 3 }}>{selected.locationLabel} · {selected.categoryLabel}</div>
                   <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                     <button className="btn btn-ghost btn-sm" onClick={() => onOpenResource(selected)}>Open</button>
                     <a className="btn btn-ghost btn-sm" href={getMapsDirectionsUrl(selected)} target="_blank" rel="noreferrer">Directions</a>
@@ -1788,6 +1905,8 @@ const FindHelpV2 = ({ onNavigate }) => {
         const profiles = profilesResult.error ? [] : (profilesResult.data || []);
         const events = eventsResult.error ? [] : (eventsResult.data || []);
 
+        const knownTowns = buildKnownTownIndex(resourcesResult.data || []);
+
         // Build category lookup so category_id (bigint FK) resolves to a name
         const categoryById = new Map(categoriesData.map((cat) => [String(cat.id), cat]));
 
@@ -1820,7 +1939,7 @@ const FindHelpV2 = ({ onNavigate }) => {
           const injectedRow = resolvedCat
             ? { ...row, category_name: resolvedCat.name, category_slug: resolvedCat.slug, profile, events: profileEvents }
             : { ...row, profile, events: profileEvents };
-          return normalizeResource(injectedRow, index);
+          return normalizeResource(injectedRow, index, { knownTowns });
         });
         const discoveredCategoryMap = new Map();
 
@@ -1870,8 +1989,14 @@ const FindHelpV2 = ({ onNavigate }) => {
     };
   }, [reloadKey]);
 
-  const areaOptions = React.useMemo(() => Array.from(new Set(resources.map((resource) => resource.locationKey).filter(Boolean))).sort(), [resources]);
+  const townOptions = React.useMemo(() => Array.from(new Set(resources.map((resource) => resource.town).filter(Boolean))).sort(), [resources]);
   const countyOptions = React.useMemo(() => Array.from(new Set(resources.map((resource) => resource.county).filter(Boolean))).sort(), [resources]);
+
+  React.useEffect(() => {
+    if (areaFilter !== 'all' && townOptions.length > 0 && !townOptions.includes(areaFilter)) {
+      setAreaFilter('all');
+    }
+  }, [townOptions, areaFilter]);
 
   React.useEffect(() => {
     if (countyFilter !== 'all' && countyOptions.length > 0 && !countyOptions.includes(countyFilter)) {
@@ -1891,7 +2016,7 @@ const FindHelpV2 = ({ onNavigate }) => {
 
     return resources.filter((resource) => {
       if (activeCat !== 'all' && resource.cat !== activeCat) return false;
-      if (areaFilter !== 'all' && resource.locationKey !== areaFilter) return false;
+      if (areaFilter !== 'all' && resource.town !== areaFilter) return false;
       if (countyFilter !== 'all' && resource.county !== countyFilter) return false;
       if (showMappableOnly && (resource.lat === null || resource.lng === null)) return false;
       if (searchWords.length > 0 && !searchWords.every((word) => resource.searchText.includes(word))) return false;
@@ -1979,7 +2104,7 @@ const FindHelpV2 = ({ onNavigate }) => {
 
   const handleShareAction = async (action, listing) => {
     const resourceUrl = getListingUrl(listing);
-    const line = `${listing.title} | ${listing.categoryLabel} | ${listing.area}`;
+    const line = `${listing.title} | ${listing.categoryLabel} | ${listing.locationLabel}`;
 
     if (action === 'copy') {
       try {
@@ -2123,16 +2248,14 @@ const FindHelpV2 = ({ onNavigate }) => {
                       <div style={{ flex: '1 1 160px', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 12, background: '#FAFBFF', border: '1px solid #EFF1F7' }}>
                         <IPin s={18} />
                         <select value={areaFilter} onChange={(event) => setAreaFilter(event.target.value)} style={{ border: 'none', outline: 'none', background: 'transparent', flex: 1, fontSize: 14, fontWeight: 600, color: '#1A2744', fontFamily: 'Inter, sans-serif' }}>
-                          <option value="all">All towns and areas</option>
-                          {areaOptions.map((area) => <option key={area} value={area}>{area}</option>)}
+                          <option value="all">All towns</option>
+                          {townOptions.map((town) => <option key={town} value={town}>{town}</option>)}
                         </select>
                       </div>
-                      {countyOptions.length > 1 && (
-                        <select value={countyFilter} onChange={(event) => setCountyFilter(event.target.value)} style={{ flex: '1 1 140px', padding: '10px 12px', borderRadius: 12, border: '1px solid #EFF1F7', background: '#FAFBFF', fontSize: 14, fontWeight: 600, color: '#1A2744', fontFamily: 'Inter, sans-serif', outline: 'none' }}>
-                          <option value="all">All counties</option>
-                          {countyOptions.map((county) => <option key={county} value={county}>{county}</option>)}
-                        </select>
-                      )}
+                      <select value={countyFilter} onChange={(event) => setCountyFilter(event.target.value)} style={{ flex: '1 1 140px', padding: '10px 12px', borderRadius: 12, border: '1px solid #EFF1F7', background: '#FAFBFF', fontSize: 14, fontWeight: 600, color: '#1A2744', fontFamily: 'Inter, sans-serif', outline: 'none' }}>
+                        <option value="all">All counties</option>
+                        {countyOptions.map((county) => <option key={county} value={county}>{county}</option>)}
+                      </select>
                       <button className="btn btn-sky btn-sm" onClick={clearFilters}><IClose s={14} /> Clear</button>
                     </div>
                   </div>
@@ -2174,7 +2297,7 @@ const FindHelpV2 = ({ onNavigate }) => {
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 9px', borderRadius: 999, background: 'rgba(245,166,35,0.12)', color: '#8a5a0b', fontSize: 11.5, fontWeight: 700 }}>Featured</div>
                             <div style={{ fontFamily: 'Sora, sans-serif', fontWeight: 700, fontSize: 16, marginTop: 8, lineHeight: 1.3 }}>{listing.title}</div>
-                            <div style={{ marginTop: 4, fontSize: 12.5, color: 'rgba(26,39,68,0.62)' }}>{listing.venue} · {listing.area}</div>
+                            <div style={{ marginTop: 4, fontSize: 12.5, color: 'rgba(26,39,68,0.62)' }}>{listing.venue} · {listing.locationLabel}</div>
                           </div>
                         </div>
                         <p style={{ marginTop: 12, color: 'rgba(26,39,68,0.72)', fontSize: 13.5, lineHeight: 1.6 }}>{listing.desc}</p>

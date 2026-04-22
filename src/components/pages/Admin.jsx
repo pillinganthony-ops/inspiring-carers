@@ -106,6 +106,76 @@ const isPendingStatus = (value) => {
 const isExactPendingStatus = (value) => `${value || ''}`.trim().toLowerCase() === 'pending';
 const isApprovedStatus = (value) => `${value || ''}`.trim().toLowerCase() === 'approved';
 const isInReviewStatus = (value) => `${value || ''}`.trim().toLowerCase() === 'in_review';
+const isRejectedStatus = (value) => `${value || ''}`.trim().toLowerCase() === 'rejected';
+const isCreatedStatus = (value) => ['created', 'published'].includes(`${value || ''}`.trim().toLowerCase());
+
+const formatAdminDate = (value) => {
+  if (!value) return 'Unknown date';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'Unknown date';
+  return parsed.toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+const getModerationStatusMeta = (value) => {
+  const status = `${value || 'pending'}`.trim().toLowerCase();
+  if (status === 'approved') return { label: 'Approved', color: '#1E5E3D', background: 'rgba(46, 164, 79, 0.10)', border: 'rgba(46, 164, 79, 0.18)' };
+  if (status === 'in_review') return { label: 'In review', color: '#8A5A00', background: 'rgba(245, 166, 35, 0.12)', border: 'rgba(245, 166, 35, 0.22)' };
+  if (status === 'rejected') return { label: 'Rejected', color: '#A03A2D', background: 'rgba(212, 80, 80, 0.10)', border: 'rgba(212, 80, 80, 0.18)' };
+  if (isCreatedStatus(status)) return { label: status === 'published' ? 'Published' : 'Created', color: '#0B5CAD', background: 'rgba(18, 99, 214, 0.10)', border: 'rgba(18, 99, 214, 0.16)' };
+  return { label: 'Pending', color: '#5B4B00', background: 'rgba(255, 210, 63, 0.16)', border: 'rgba(255, 210, 63, 0.26)' };
+};
+
+const normalizeAdminCategoryRows = (rows) => (
+  (rows || [])
+    .map((row) => ({
+      id: row.id,
+      name: `${row.name || ''}`.trim(),
+      slug: `${row.slug || row.name || ''}`.trim() ? slugify(row.slug || row.name) : '',
+      active: row.active !== false,
+      sort_order: Number(row.sort_order) || 0,
+    }))
+    .filter((row) => row.id !== null && row.id !== undefined && row.name)
+    .sort((left, right) => left.sort_order - right.sort_order || left.name.localeCompare(right.name, 'en', { sensitivity: 'base' }))
+);
+
+const deriveAdminCategoryFallback = (resourcesRows) => {
+  const byKey = new Map();
+  (resourcesRows || []).forEach((row) => {
+    const id = row?.category_id ?? null;
+    const rawName = `${row?.category_name || row?.category || ''}`.trim();
+    const key = id !== null && id !== undefined ? `id:${id}` : '';
+    if (!key || byKey.has(key)) return;
+    byKey.set(key, {
+      id,
+      name: rawName || `Category ${id}`,
+      slug: slugify(rawName || `category-${id}`),
+      active: true,
+      sort_order: 999,
+      _derived: true,
+    });
+  });
+  return Array.from(byKey.values()).sort((left, right) => left.name.localeCompare(right.name, 'en', { sensitivity: 'base' }));
+};
+
+const extractSubmissionResourceId = (row) => {
+  if (row?.resource_id) return row.resource_id;
+  const notes = `${row?.admin_notes || ''}`;
+  const match = notes.match(/resource id:\s*([a-z0-9-]+)/i);
+  return match ? match[1] : null;
+};
+
+const hasCreationConfirmation = (row) => {
+  const notes = `${row?.admin_notes || ''}`.toLowerCase();
+  return notes.includes('listing created') || notes.includes('live listing created') || notes.includes('resource id:');
+};
+
+const isCreatedSubmission = (row) => Boolean(extractSubmissionResourceId(row) || hasCreationConfirmation(row) || isCreatedStatus(row?.status));
 
 const normalizeNameForMatch = (value) => `${value || ''}`.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, ' ');
 
@@ -259,27 +329,27 @@ const CreateListingModal = ({ submission, draft, categories, duplicateMatches, a
         <p style={{ marginTop: 8, color: 'rgba(26,39,68,0.68)', lineHeight: 1.6 }}>This creates a live `resources` listing only. It does not auto-create an organisation profile or claim ownership record.</p>
 
         {duplicateMatches.length ? (
-          <div style={{ marginTop: 16, padding: 14, borderRadius: 16, border: '1px solid rgba(245,166,35,0.25)', background: 'rgba(245,166,35,0.08)' }}>
-            <div style={{ fontWeight: 700, color: '#7A5400' }}>Possible duplicate found</div>
-            <div style={{ marginTop: 6, fontSize: 13.5, color: 'rgba(26,39,68,0.72)' }}>Review these matches before creating a new live listing.</div>
+          <div style={{ marginTop: 16, padding: 16, borderRadius: 18, border: '1px solid rgba(245,166,35,0.28)', background: 'linear-gradient(180deg, rgba(255,248,230,0.96) 0%, rgba(255,252,244,1) 100%)', boxShadow: '0 18px 34px rgba(122,84,0,0.08)' }}>
+            <div style={{ fontWeight: 800, color: '#7A5400' }}>Warning: similar listing already exists</div>
+            <div style={{ marginTop: 6, fontSize: 13.5, color: 'rgba(26,39,68,0.72)' }}>Review these matches before creating a second live listing.</div>
             <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
               {duplicateMatches.map((match) => (
-                <div key={match.key} style={{ border: '1px solid rgba(26,39,68,0.08)', borderRadius: 12, padding: 10, background: 'white', display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
+                <div key={match.key} style={{ border: '1px solid rgba(26,39,68,0.08)', borderRadius: 14, padding: 12, background: 'white', display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: '#1A2744' }}>{match.label}</div>
                     <div style={{ marginTop: 4, fontSize: 12.5, color: 'rgba(26,39,68,0.6)' }}>{match.secondary}</div>
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                    {match.slug ? <button className="btn btn-ghost btn-sm" onClick={() => window.open(`/find-help/${match.slug}`, '_blank', 'noopener,noreferrer')}>Open listing</button> : null}
-                    <button className="btn btn-ghost btn-sm" onClick={() => onOpenExisting(match)}>Review in admin</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => onOpenExisting(match)}>Open existing</button>
+                    {match.slug ? <button className="btn btn-ghost btn-sm" onClick={() => window.open(`/find-help/${match.slug}`, '_blank', 'noopener,noreferrer')}>View listing</button> : null}
                   </div>
                 </div>
               ))}
             </div>
-            <label style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: '#1A2744' }}>
-              <input type="checkbox" checked={allowDuplicateCreate} onChange={(event) => onToggleDuplicateCreate(event.target.checked)} />
-              I reviewed the duplicate warning and want to continue anyway.
-            </label>
+            <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
+              <button className="btn btn-gold btn-sm" onClick={() => onToggleDuplicateCreate(true)}>Continue anyway</button>
+            </div>
           </div>
         ) : null}
 
@@ -305,7 +375,7 @@ const CreateListingModal = ({ submission, draft, categories, duplicateMatches, a
           <label><input type="checkbox" checked={Boolean(draft.featured)} onChange={(event) => onChangeDraft('featured', event.target.checked)} /> Featured</label>
           <label><input type="checkbox" checked={Boolean(draft.is_archived)} onChange={(event) => onChangeDraft('is_archived', event.target.checked)} /> Archived</label>
         </div>
-        <div style={{ marginTop: 16, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <div style={{ marginTop: 16, display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
           <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
           <button className="btn btn-gold" disabled={busy || (duplicateMatches.length > 0 && !allowDuplicateCreate)} onClick={onCreate}>{busy ? 'Creating...' : 'Create live listing'}</button>
         </div>
@@ -402,25 +472,66 @@ const EVENT_TYPE_OPTIONS = [
   'Other',
 ];
 
-const QueueCard = ({ title, rows, onUpdateStatus, formatRow, renderMeta, approveLabel = 'Approve', rejectLabel = 'Reject', reviewLabel = 'In review' }) => (
-  <div className="card" style={{ padding: 18, borderRadius: 18 }}>
-    <h3 style={{ fontSize: 18, fontWeight: 700 }}>{title}</h3>
-    <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
-      {rows.length ? rows.map((row) => (
-        <div key={row.id} style={{ border: '1px solid #E9EEF5', borderRadius: 12, padding: 10, background: '#FFF' }}>
-          <div style={{ fontSize: 14 }}>{formatRow(row)}</div>
-          <div style={{ marginTop: 6, fontSize: 12, color: 'rgba(26,39,68,0.65)' }}>Status: {row.status || 'pending'}</div>
-          {renderMeta ? <div style={{ marginTop: 8 }}>{renderMeta(row)}</div> : null}
-          <div style={{ marginTop: 8, display: 'flex', gap: 6 }}>
-            <button className="btn btn-gold btn-sm" onClick={() => onUpdateStatus(row.id, 'approved')}>{approveLabel}</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => onUpdateStatus(row.id, 'rejected')}>{rejectLabel}</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => onUpdateStatus(row.id, 'in_review')}>{reviewLabel}</button>
+const QueueCard = ({ title, rows, onUpdateStatus, formatRow, renderMeta, approveLabel = 'Approve', rejectLabel = 'Reject', reviewLabel = 'In review', emptyMessage = 'No items in this queue.', renderActions }) => (
+  <div className="card" style={{ padding: 20, borderRadius: 22, background: 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(250,251,255,1) 100%)', boxShadow: '0 22px 42px rgba(26,39,68,0.08)' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      <h3 style={{ fontSize: 19, fontWeight: 800 }}>{title}</h3>
+      <div style={{ minWidth: 34, height: 34, borderRadius: 999, padding: '0 12px', display: 'grid', placeItems: 'center', background: '#EEF4FF', color: '#1A2744', fontSize: 13, fontWeight: 800 }}>{rows.length}</div>
+    </div>
+    <div style={{ marginTop: 12, display: 'grid', gap: 10 }}>
+      {rows.length ? rows.map((row) => {
+        const statusMeta = getModerationStatusMeta(row.status);
+        return (
+          <div key={row.id} style={{ border: '1px solid rgba(233,238,245,0.95)', borderRadius: 16, padding: 14, background: '#FFF', boxShadow: '0 14px 28px rgba(26,39,68,0.05)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 220px' }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: '#1A2744' }}>{formatRow(row)}</div>
+                <div style={{ marginTop: 6, fontSize: 12.5, color: 'rgba(26,39,68,0.62)' }}>Submitted {formatAdminDate(row.created_at)}</div>
+              </div>
+              <div style={{ borderRadius: 999, border: `1px solid ${statusMeta.border}`, background: statusMeta.background, color: statusMeta.color, padding: '6px 10px', fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap' }}>{statusMeta.label}</div>
+            </div>
+            {renderMeta ? <div style={{ marginTop: 10 }}>{renderMeta(row)}</div> : null}
+            <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              {renderActions
+                ? renderActions(row)
+                : (
+                  <>
+                    <button className="btn btn-gold btn-sm" onClick={() => onUpdateStatus(row.id, 'approved')}>{approveLabel}</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => onUpdateStatus(row.id, 'rejected')}>{rejectLabel}</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => onUpdateStatus(row.id, 'in_review')}>{reviewLabel}</button>
+                  </>
+                )}
+            </div>
           </div>
-        </div>
-      )) : <div style={{ color: 'rgba(26,39,68,0.65)' }}>No pending items.</div>}
+        );
+      }) : <div style={{ color: 'rgba(26,39,68,0.65)' }}>{emptyMessage}</div>}
     </div>
   </div>
 );
+
+const OwnerHandoffModal = ({ submission, resource, onClose, onCopyEmail, onMarkFollowUp, busy }) => {
+  if (!submission || !resource) return null;
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 330, background: 'rgba(15,23,42,0.48)', display: 'grid', placeItems: 'center', padding: 20 }} onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <div style={{ position: 'relative', width: '100%', maxWidth: 560, borderRadius: 24, background: 'white', padding: '28px 26px', boxShadow: '0 40px 80px rgba(15,23,42,0.24)' }}>
+        <button onClick={onClose} style={{ position: 'absolute', right: 18, top: 18, width: 34, height: 34, borderRadius: 999, border: '1px solid #EFF1F7', background: '#FAFBFF', display: 'grid', placeItems: 'center' }}>×</button>
+        <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.56)' }}>Owner profile handoff</div>
+        <h2 style={{ marginTop: 8, fontSize: 24, fontWeight: 800, color: '#1A2744' }}>{resource.name || submission.organisation_name || 'Live listing'}</h2>
+        <p style={{ marginTop: 10, color: 'rgba(26,39,68,0.72)', lineHeight: 1.7 }}>This listing is now live. Owner invitation, claim handoff, and profile creation are not fully wired yet. Use this handoff step to capture follow-up cleanly without dropping into an unrelated admin screen.</p>
+        <div style={{ marginTop: 16, display: 'grid', gap: 8, border: '1px solid #E9EEF5', borderRadius: 16, padding: 14, background: '#FAFBFF' }}>
+          <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.62)' }}>Owner contact email</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#1A2744' }}>{submission.submitter_email || resource.email || 'No email provided'}</div>
+          <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.62)' }}>Linked resource id: {resource.id}</div>
+        </div>
+        <div style={{ marginTop: 18, display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <button className="btn btn-ghost" onClick={onClose}>Close</button>
+          <button className="btn btn-ghost" disabled={!submission.submitter_email && !resource.email} onClick={onCopyEmail}>Copy owner contact email</button>
+          <button className="btn btn-gold" disabled={busy} onClick={onMarkFollowUp}>{busy ? 'Saving…' : 'Mark for owner follow-up'}</button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   const [loading, setLoading] = React.useState(true);
@@ -444,6 +555,8 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   const [listingCreationDraft, setListingCreationDraft] = React.useState(null);
   const [listingDuplicateMatches, setListingDuplicateMatches] = React.useState([]);
   const [allowDuplicateCreate, setAllowDuplicateCreate] = React.useState(false);
+  const [liveListingSuccess, setLiveListingSuccess] = React.useState(null);
+  const [ownerHandoffContext, setOwnerHandoffContext] = React.useState(null);
   const [walkUpdates, setWalkUpdates] = React.useState([]);
   const [walkComments, setWalkComments] = React.useState([]);
 
@@ -514,17 +627,16 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         walkUpdatesResult,
         walkCommentsResult,
       ] = await Promise.all([
-        supabase.from('categories').select('*').order('sort_order', { ascending: true }).order('name', { ascending: true }),
+        supabase.from('categories').select('id, name, slug, active, sort_order').order('sort_order', { ascending: true }).order('name', { ascending: true }),
         supabase.from('resources').select('*').order('name', { ascending: true }),
         supabase.from('organisation_profiles').select('*'),
         supabase.from('organisation_events').select('*'),
         supabase.from('listing_claims').select('*').order('created_at', { ascending: false }),
-        supabase.from('resource_update_submissions').select('*').in('status', ['pending', 'in_review', 'approved']).order('created_at', { ascending: false }),
+        supabase.from('resource_update_submissions').select('*').order('created_at', { ascending: false }),
         supabase.from('walk_risk_updates').select('*').order('created_at', { ascending: false }),
         supabase.from('walk_comments').select('*').order('created_at', { ascending: false }),
       ]);
 
-      if (categoriesResult.error) throw categoriesResult.error;
       if (resourcesResult.error) throw resourcesResult.error;
       if (profilesResult.error) throw profilesResult.error;
       if (eventsResult.error) throw eventsResult.error;
@@ -533,7 +645,17 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         setResourceUpdatesNotice(`New organisation submissions unavailable (${resourceUpdatesResult.error.message}).`);
       }
 
-      setCategories(categoriesResult.data || []);
+      const normalizedCategories = categoriesResult.error ? [] : normalizeAdminCategoryRows(categoriesResult.data || []);
+      const fallbackCategories = deriveAdminCategoryFallback(resourcesResult.data || []);
+      const resolvedCategories = normalizedCategories.length ? normalizedCategories : fallbackCategories;
+
+      if (categoriesResult.error) {
+        setResourceUpdatesNotice(`Categories table read failed (${categoriesResult.error.message}). Using category hints from live resources where possible.`);
+      } else if (!normalizedCategories.length && fallbackCategories.length) {
+        setResourceUpdatesNotice('Standalone categories returned no rows, but live resources contain category assignments. Admin is using derived category hints until the categories table is populated consistently.');
+      }
+
+      setCategories(resolvedCategories);
       setResources(resourcesResult.data || []);
       setProfiles((profilesResult.data || []).slice().sort((left, right) => getProfileName(left, resourcesResult.data || []).localeCompare(getProfileName(right, resourcesResult.data || []), 'en', { sensitivity: 'base' })));
       setEvents((eventsResult.data || []).slice().sort((left, right) => `${left.starts_at || ''}`.localeCompare(`${right.starts_at || ''}`)));
@@ -695,6 +817,65 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     }
   };
 
+  const openResourceInAdmin = (resourceId) => {
+    const resource = resources.find((row) => `${row.id}` === `${resourceId}`) || null;
+    if (!resource) {
+      setError('Linked resource could not be found in the current admin data set.');
+      return;
+    }
+    setTab('resources');
+    setResourceDraft({ ...emptyResource, ...resource, category_id: resource.category_id || '' });
+  };
+
+  const openLiveListing = (resourceId, fallbackSlug = '') => {
+    const resource = resources.find((row) => `${row.id}` === `${resourceId}`) || null;
+    const slug = resource?.slug || fallbackSlug;
+    if (!slug) {
+      setError('Live listing URL is not available for this record yet.');
+      return;
+    }
+    window.open(`/find-help/${slug}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const prepareOwnerProfilePlaceholder = (resourceId) => {
+    const resource = resources.find((row) => `${row.id}` === `${resourceId}`) || null;
+    const submission = resourceUpdates.find((row) => `${extractSubmissionResourceId(row)}` === `${resourceId}`) || null;
+    if (!resource || !submission) {
+      setError('Owner handoff context could not be prepared for this listing.');
+      return;
+    }
+    setOwnerHandoffContext({ submission, resource });
+  };
+
+  const copyOwnerContactEmail = async () => {
+    if (!ownerHandoffContext) return;
+    const email = ownerHandoffContext.submission.submitter_email || ownerHandoffContext.resource.email || '';
+    if (!email) {
+      setError('No owner contact email is available for this handoff.');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(email);
+      setToast('Owner contact email copied.');
+    } catch {
+      setError('Unable to copy email from this browser session.');
+    }
+  };
+
+  const markOwnerFollowUp = async () => {
+    if (!ownerHandoffContext) return;
+    const { submission, resource } = ownerHandoffContext;
+    const nextNotes = `${submission.admin_notes || ''}${submission.admin_notes ? ' | ' : ''}Owner follow-up marked ${new Date().toISOString()} for resource ${resource.id}`;
+    await withBusy(async () => {
+      const result = await supabase
+        .from('resource_update_submissions')
+        .update({ admin_notes: nextNotes })
+        .eq('id', submission.id);
+      if (result.error) throw result.error;
+      setOwnerHandoffContext(null);
+    }, 'Owner follow-up marked.');
+  };
+
   const createListingFromSubmission = async () => {
     if (!listingCreationSubmission || !listingCreationDraft) return;
     if (!listingCreationDraft.name.trim()) {
@@ -739,13 +920,19 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         .from('resource_update_submissions')
         .update({
           resource_id: insertResult.data.id,
+          status: 'created',
           admin_notes: noteParts.join(' | '),
         })
         .eq('id', listingCreationSubmission.id);
 
       closeCreateListingModal();
-      setTab('resources');
-      setResourceDraft(emptyResource);
+      setTab('moderation');
+      setLiveListingSuccess({
+        submissionId: listingCreationSubmission.id,
+        resourceId: insertResult.data.id,
+        resourceName: insertResult.data.name,
+        resourceSlug: insertResult.data.slug,
+      });
 
       if (updateResult.error) {
         setResourceUpdatesNotice(`Live listing created, but submission link-back failed (${updateResult.error.message}). Resource ${insertResult.data.name} was kept.`);
@@ -1144,11 +1331,22 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   }
 
   const pendingClaims = claims.filter((row) => isPendingStatus(row.status));
-  const pendingResourceUpdates = resourceUpdates.filter((row) => isExactPendingStatus(row.status));
-  const inReviewResourceUpdates = resourceUpdates.filter((row) => isInReviewStatus(row.status) && !row.resource_id);
-  const approvedResourceUpdatesReady = resourceUpdates.filter((row) => isApprovedStatus(row.status) && !row.resource_id);
+  const createdResourceUpdates = resourceUpdates.filter((row) => isCreatedSubmission(row));
+  const pendingResourceUpdates = resourceUpdates.filter((row) => isExactPendingStatus(row.status) && !isCreatedSubmission(row));
+  const inReviewResourceUpdates = resourceUpdates.filter((row) => isInReviewStatus(row.status) && !isCreatedSubmission(row));
+  const approvedResourceUpdatesReady = resourceUpdates.filter((row) => isApprovedStatus(row.status) && !isCreatedSubmission(row));
+  const rejectedResourceUpdates = resourceUpdates.filter((row) => isRejectedStatus(row.status) && !isCreatedSubmission(row));
   const pendingWalkUpdates = walkUpdates.filter((row) => isPendingStatus(row.status));
   const pendingWalkComments = walkComments.filter((row) => isPendingStatus(row.status));
+  const moderationWorkloadCount = pendingClaims.length + pendingResourceUpdates.length + inReviewResourceUpdates.length + approvedResourceUpdatesReady.length + pendingWalkUpdates.length + pendingWalkComments.length;
+  const tabCounts = {
+    overview: 0,
+    moderation: moderationWorkloadCount,
+    categories: categories.length,
+    resources: resources.length,
+    profiles: profiles.length,
+    events: events.length,
+  };
   const ownerPerformanceRows = profiles.map((profile) => {
     const profileEvents = events.filter((event) => `${event.organisation_profile_id}` === `${profile.id}`);
     const profileEnquiries = eventEnquiries.filter((enquiry) => `${enquiry.organisation_profile_id}` === `${profile.id}` && isWithinPastWindow(enquiry.created_at, analyticsWindow));
@@ -1194,9 +1392,35 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
             {toast ? <div style={{ marginTop: 10, color: '#2D6B1F', fontWeight: 700 }}>{toast}</div> : null}
           </div>
 
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {['overview', 'moderation', 'categories', 'resources', 'profiles', 'events'].map((key) => (
-              <button key={key} className="btn btn-ghost btn-sm" onClick={() => setTab(key)} style={{ borderColor: tab === key ? '#1A2744' : undefined, fontWeight: tab === key ? 700 : 600 }}>{key}</button>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {[
+              ['overview', 'Overview'],
+              ['moderation', 'Moderation'],
+              ['categories', 'Categories'],
+              ['resources', 'Resources'],
+              ['profiles', 'Profiles'],
+              ['events', 'Events'],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                className="btn btn-ghost btn-sm"
+                onClick={() => setTab(key)}
+                style={{
+                  borderColor: tab === key ? '#1A2744' : 'rgba(26,39,68,0.12)',
+                  background: tab === key ? '#1A2744' : 'rgba(255,255,255,0.76)',
+                  color: tab === key ? 'white' : '#1A2744',
+                  fontWeight: 700,
+                  boxShadow: tab === key ? '0 16px 28px rgba(26,39,68,0.18)' : '0 8px 16px rgba(26,39,68,0.06)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  borderRadius: 999,
+                  padding: '10px 14px',
+                }}
+              >
+                <span>{label}</span>
+                <span style={{ minWidth: 24, height: 24, borderRadius: 999, display: 'grid', placeItems: 'center', background: tab === key ? 'rgba(255,255,255,0.16)' : '#EEF4FF', color: tab === key ? 'white' : '#1A2744', fontSize: 12, fontWeight: 800 }}>{tabCounts[key]}</span>
+              </button>
             ))}
             <button className="btn btn-ghost btn-sm" disabled={busy || loading} onClick={loadData}>Refresh</button>
           </div>
@@ -1266,25 +1490,43 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
           ) : null}
 
           {!loading && tab === 'moderation' ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
-              <QueueCard
-                title="Pending claims"
-                rows={pendingClaims}
-                onUpdateStatus={(id, status) => updateQueueStatus('listing_claims', id, status)}
-                formatRow={(row) => `${row.listing_title || row.org_name || 'Claim'} · ${row.full_name || row.email || 'Unknown'}`}
-                renderMeta={(row) => (
-                  <div style={{ display: 'grid', gap: 4, fontSize: 12, color: 'rgba(26,39,68,0.72)' }}>
-                    <div>Email: {row.email || 'Unknown'}</div>
-                    <div>Role: {row.relationship || row.role || 'Not provided'}</div>
-                    <div>Reason: {row.reason || 'No reason supplied'}</div>
+            <div style={{ display: 'grid', gap: 16 }}>
+              <div className="card" style={{ padding: 20, borderRadius: 22, background: 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,255,1) 100%)', boxShadow: '0 24px 44px rgba(26,39,68,0.08)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.56)' }}>Moderation operations board</div>
+                    <h2 style={{ marginTop: 8, fontSize: 28, fontWeight: 800, color: '#1A2744' }}>Queue-driven review and publishing</h2>
+                    <p style={{ marginTop: 8, color: 'rgba(26,39,68,0.72)', lineHeight: 1.7 }}>Pending, in-review, ready-to-publish, processed, and rejected submissions are grouped here so moderation reads like a deliberate back-office system.</p>
                   </div>
-                )}
-                approveLabel="Approve and grant access"
-                rejectLabel="Reject claim"
-                reviewLabel="Hold for review"
-              />
+                  <div style={{ minWidth: 80, borderRadius: 18, padding: '14px 16px', background: '#EEF4FF', color: '#1A2744' }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', color: 'rgba(26,39,68,0.56)' }}>Workload</div>
+                    <div style={{ marginTop: 6, fontSize: 28, fontWeight: 800 }}>{moderationWorkloadCount}</div>
+                  </div>
+                </div>
+              </div>
+
+              {liveListingSuccess ? (
+                <div className="card" style={{ padding: 18, borderRadius: 20, border: '1px solid rgba(46, 164, 79, 0.18)', background: 'linear-gradient(180deg, rgba(236,255,244,0.98) 0%, rgba(247,255,250,1) 100%)', boxShadow: '0 18px 34px rgba(46, 164, 79, 0.10)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#2D6B1F' }}>Live listing created</div>
+                      <div style={{ marginTop: 8, fontSize: 24, fontWeight: 800, color: '#14361D' }}>{liveListingSuccess.resourceName}</div>
+                      <div style={{ marginTop: 8, color: 'rgba(20,54,29,0.78)', lineHeight: 1.6 }}>The item has moved into Live listings created. Stay in moderation to continue processing the board.</div>
+                    </div>
+                    <div style={{ borderRadius: 999, background: 'rgba(46, 164, 79, 0.12)', color: '#2D6B1F', padding: '8px 12px', fontWeight: 800, fontSize: 12 }}>Success</div>
+                  </div>
+                  <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button className="btn btn-gold btn-sm" onClick={() => openLiveListing(liveListingSuccess.resourceId, liveListingSuccess.resourceSlug)}>View listing</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => openResourceInAdmin(liveListingSuccess.resourceId)}>Open in Resources</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => prepareOwnerProfilePlaceholder(liveListingSuccess.resourceId)}>Owner profile handoff</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setLiveListingSuccess(null)}>Dismiss</button>
+                  </div>
+                </div>
+              ) : null}
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14 }}>
               <QueueCard
-                title="New organisation submissions"
+                title="Pending submissions"
                 rows={pendingResourceUpdates}
                 onUpdateStatus={(id, status) => updateQueueStatus('resource_update_submissions', id, status)}
                 formatRow={(row) => `${row._queueTitle || 'Submission'} · ${row._queueSubmitter || 'Unknown'}`}
@@ -1301,6 +1543,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                     {!row.organisation_name && row._usesFallbackShape ? <div>Raw row id: {row.id}</div> : null}
                   </div>
                 )}
+                emptyMessage="No pending submissions."
               />
               <QueueCard
                 title="In review submissions"
@@ -1321,15 +1564,25 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                 approveLabel="Approve"
                 rejectLabel="Reject"
                 reviewLabel="Keep in review"
+                emptyMessage="No submissions currently in review."
               />
-              <div className="card" style={{ padding: 18, borderRadius: 18 }}>
-                <h3 style={{ fontSize: 18, fontWeight: 700 }}>Approved submissions ready to create</h3>
-                <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
+              <div className="card" style={{ padding: 20, borderRadius: 22, background: 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(250,251,255,1) 100%)', boxShadow: '0 22px 42px rgba(26,39,68,0.08)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                  <h3 style={{ fontSize: 19, fontWeight: 800 }}>Approved ready to create</h3>
+                  <div style={{ minWidth: 34, height: 34, borderRadius: 999, padding: '0 12px', display: 'grid', placeItems: 'center', background: '#EEF4FF', color: '#1A2744', fontSize: 13, fontWeight: 800 }}>{approvedResourceUpdatesReady.length}</div>
+                </div>
+                <div style={{ marginTop: 12, display: 'grid', gap: 10 }}>
                   {approvedResourceUpdatesReady.length ? approvedResourceUpdatesReady.map((row) => {
                     const duplicateMatches = findSubmissionDuplicateMatches({ submission: row, resources, profiles });
                     return (
-                      <div key={row.id} style={{ border: '1px solid #E9EEF5', borderRadius: 12, padding: 10, background: '#FFF' }}>
-                        <div style={{ fontSize: 14, fontWeight: 700 }}>{row.organisation_name || row._queueTitle || 'Approved submission'}</div>
+                      <div key={row.id} style={{ border: '1px solid rgba(233,238,245,0.95)', borderRadius: 16, padding: 14, background: '#FFF', boxShadow: '0 14px 28px rgba(26,39,68,0.05)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                          <div>
+                            <div style={{ fontSize: 15, fontWeight: 800 }}>{row.organisation_name || row._queueTitle || 'Approved submission'}</div>
+                            <div style={{ marginTop: 6, fontSize: 12.5, color: 'rgba(26,39,68,0.62)' }}>Approved submission • {formatAdminDate(row.created_at)}</div>
+                          </div>
+                          <div style={{ borderRadius: 999, border: '1px solid rgba(46, 164, 79, 0.18)', background: 'rgba(46, 164, 79, 0.10)', color: '#1E5E3D', padding: '6px 10px', fontSize: 12, fontWeight: 800 }}>Approved</div>
+                        </div>
                         <div style={{ marginTop: 6, display: 'grid', gap: 4, fontSize: 12, color: 'rgba(26,39,68,0.72)' }}>
                           <div>Submitter: {row.submitter_name || row._queueSubmitter || 'Unknown'}</div>
                           <div>Email: {row.submitter_email || 'Unknown'}</div>
@@ -1339,7 +1592,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                           {duplicateMatches.length ? <div style={{ color: '#9A6700', fontWeight: 700 }}>Possible duplicate match found. Review before creating.</div> : null}
                           {row._usesFallbackShape ? <div>Legacy live row detected. Using minimal safe mapping.</div> : null}
                         </div>
-                        <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                           <button className="btn btn-gold btn-sm" onClick={() => openCreateListingModal(row)}>Create live listing</button>
                           <button className="btn btn-ghost btn-sm" onClick={() => updateQueueStatus('resource_update_submissions', row.id, 'in_review')}>Return to review</button>
                         </div>
@@ -1349,23 +1602,100 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                 </div>
               </div>
               <QueueCard
-                title="Walk risk updates"
-                rows={pendingWalkUpdates}
-                onUpdateStatus={(id, status) => updateQueueStatus('walk_risk_updates', id, status)}
-                formatRow={(row) => `${row.walk_name || row.walk_id || 'Walk'} · ${row.update_type || 'update'}`}
+                title="Live listings created"
+                rows={createdResourceUpdates}
+                onUpdateStatus={(id, status) => updateQueueStatus('resource_update_submissions', id, status)}
+                formatRow={(row) => `${row.organisation_name || row._queueTitle || 'Created listing'} · ${row.submitter_name || row._queueSubmitter || 'Unknown'}`}
+                renderMeta={(row) => {
+                  const linkedResourceId = extractSubmissionResourceId(row);
+                  const linkedResource = resources.find((resource) => `${resource.id}` === `${linkedResourceId}`) || null;
+                  return (
+                    <div style={{ display: 'grid', gap: 4, fontSize: 12, color: 'rgba(26,39,68,0.72)' }}>
+                      <div>Organisation: {row.organisation_name || row._queueTitle || 'Submission'}</div>
+                      <div>Submitter: {row.submitter_name || row._queueSubmitter || 'Unknown'}</div>
+                      <div>Created date: {formatAdminDate(row.created_at)}</div>
+                      <div>Linked resource id: {linkedResourceId || 'Not linked in submission row'}</div>
+                      {row.admin_notes ? <div>Admin notes: {row.admin_notes}</div> : null}
+                      {!linkedResourceId ? <div>Listing was marked created but the resource id could not be resolved from the submission row.</div> : null}
+                    </div>
+                  );
+                }}
+                renderActions={(row) => {
+                  const linkedResourceId = extractSubmissionResourceId(row);
+                  const linkedResource = resources.find((resource) => `${resource.id}` === `${linkedResourceId}`) || null;
+                  return (
+                    <>
+                      <button className="btn btn-gold btn-sm" disabled={!linkedResourceId && !linkedResource?.slug} onClick={() => openLiveListing(linkedResourceId, linkedResource?.slug || '')}>View live listing</button>
+                      <button className="btn btn-ghost btn-sm" disabled={!linkedResourceId} onClick={() => openResourceInAdmin(linkedResourceId)}>Open resource in admin</button>
+                    </>
+                  );
+                }}
+                emptyMessage="No processed submissions yet."
               />
               <QueueCard
-                title="Walk comments"
-                rows={pendingWalkComments}
-                onUpdateStatus={(id, status) => updateQueueStatus('walk_comments', id, status)}
-                formatRow={(row) => `${row.walk_name || row.walk_id || 'Walk'} · ${row.commenter_name || 'Anonymous'}`}
+                title="Rejected"
+                rows={rejectedResourceUpdates}
+                onUpdateStatus={(id, status) => updateQueueStatus('resource_update_submissions', id, status)}
+                formatRow={(row) => `${row.organisation_name || row._queueTitle || 'Rejected submission'} · ${row.submitter_name || row._queueSubmitter || 'Unknown'}`}
+                renderMeta={(row) => (
+                  <div style={{ display: 'grid', gap: 4, fontSize: 12, color: 'rgba(26,39,68,0.72)' }}>
+                    <div>Organisation: {row.organisation_name || row._queueTitle || 'Submission'}</div>
+                    <div>Submitter: {row.submitter_name || row._queueSubmitter || 'Unknown'}</div>
+                    <div>Email: {row.submitter_email || row.email || 'Unknown'}</div>
+                    <div>Reason: {`${row.reason || row._queueSummary || 'No description provided.'}`.split('\n')[0]}</div>
+                  </div>
+                )}
+                renderActions={(row) => (
+                  <>
+                    <button className="btn btn-ghost btn-sm" onClick={() => updateQueueStatus('resource_update_submissions', row.id, 'in_review')}>Return to review</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => updateQueueStatus('resource_update_submissions', row.id, 'approved')}>Approve later</button>
+                  </>
+                )}
+                emptyMessage="No rejected submissions."
               />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14 }}>
+                <QueueCard
+                  title="Pending claims"
+                  rows={pendingClaims}
+                  onUpdateStatus={(id, status) => updateQueueStatus('listing_claims', id, status)}
+                  formatRow={(row) => `${row.listing_title || row.org_name || 'Claim'} · ${row.full_name || row.email || 'Unknown'}`}
+                  renderMeta={(row) => (
+                    <div style={{ display: 'grid', gap: 4, fontSize: 12, color: 'rgba(26,39,68,0.72)' }}>
+                      <div>Email: {row.email || 'Unknown'}</div>
+                      <div>Role: {row.relationship || row.role || 'Not provided'}</div>
+                      <div>Reason: {row.reason || 'No reason supplied'}</div>
+                    </div>
+                  )}
+                  approveLabel="Approve and grant access"
+                  rejectLabel="Reject claim"
+                  reviewLabel="Hold for review"
+                />
+                <QueueCard
+                  title="Walk risk updates"
+                  rows={pendingWalkUpdates}
+                  onUpdateStatus={(id, status) => updateQueueStatus('walk_risk_updates', id, status)}
+                  formatRow={(row) => `${row.walk_name || row.walk_id || 'Walk'} · ${row.update_type || 'update'}`}
+                />
+                <QueueCard
+                  title="Walk comments"
+                  rows={pendingWalkComments}
+                  onUpdateStatus={(id, status) => updateQueueStatus('walk_comments', id, status)}
+                  formatRow={(row) => `${row.walk_name || row.walk_id || 'Walk'} · ${row.commenter_name || 'Anonymous'}`}
+                />
+              </div>
             </div>
           ) : null}
 
           {!loading && tab === 'categories' ? (
             <div className="card" style={{ padding: 18 }}>
               <h2 style={{ fontSize: 22, fontWeight: 700 }}>Category CRUD</h2>
+              <div style={{ marginTop: 8, fontSize: 13, color: 'rgba(26,39,68,0.66)' }}>
+                {categories.length
+                  ? 'Live categories are loaded into admin and reused by the create-listing flow.'
+                  : 'No live categories are currently visible. If this is unexpected, inspect categories table access or population.'}
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 8, marginTop: 10 }}>
                 <input value={categoryDraft.name} onChange={(e) => setCategoryDraft((p) => ({ ...p, name: e.target.value }))} placeholder="Name" style={inputStyle} />
                 <input value={categoryDraft.slug} onChange={(e) => setCategoryDraft((p) => ({ ...p, slug: e.target.value }))} placeholder="Slug" style={inputStyle} />
@@ -1379,7 +1709,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
               <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
                 {categories.map((row) => (
                   <div key={row.id} style={{ border: '1px solid #E9EEF5', borderRadius: 10, padding: 10, display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
-                    <div>{row.name} <span style={{ color: 'rgba(26,39,68,0.55)' }}>({row.slug})</span></div>
+                    <div>{row.name} <span style={{ color: 'rgba(26,39,68,0.55)' }}>({row.slug})</span>{row._derived ? <span style={{ marginLeft: 8, fontSize: 12, color: '#9A6700' }}>derived</span> : null}</div>
                     <div style={{ display: 'flex', gap: 6 }}>
                       <button className="btn btn-ghost btn-sm" onClick={() => setCategoryDraft(row)}>Edit</button>
                       <button className="btn btn-ghost btn-sm" onClick={() => deleteRow('categories', row.id, 'Category deleted.')}>Delete</button>
@@ -1603,6 +1933,14 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         onClose={closeCreateListingModal}
         onOpenExisting={openExistingMatch}
         onCreate={createListingFromSubmission}
+        busy={busy}
+      />
+      <OwnerHandoffModal
+        submission={ownerHandoffContext?.submission || null}
+        resource={ownerHandoffContext?.resource || null}
+        onClose={() => setOwnerHandoffContext(null)}
+        onCopyEmail={copyOwnerContactEmail}
+        onMarkFollowUp={markOwnerFollowUp}
         busy={busy}
       />
       <Footer onNavigate={onNavigate} />
