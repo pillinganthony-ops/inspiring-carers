@@ -95,6 +95,14 @@ create table if not exists public.organisation_profiles (
   verified_status text not null default 'community' check (verified_status in ('community', 'verified', 'claimed')),
   claim_status text not null default 'unclaimed' check (claim_status in ('unclaimed', 'pending', 'claimed', 'suspended')),
   featured boolean not null default false,
+  package_name text,
+  entitlement_status text not null default 'inactive' check (entitlement_status in ('inactive', 'trial', 'active', 'paused', 'expired')),
+  start_date date,
+  end_date date,
+  featured_enabled boolean not null default false,
+  event_quota integer not null default 0 check (event_quota >= 0),
+  enquiry_tools_enabled boolean not null default false,
+  analytics_enabled boolean not null default false,
   is_active boolean not null default true,
   created_by uuid references auth.users(id) on delete set null,
   updated_by uuid references auth.users(id) on delete set null,
@@ -106,6 +114,7 @@ create index if not exists organisation_profiles_resource_idx on public.organisa
 create index if not exists organisation_profiles_active_idx on public.organisation_profiles(is_active);
 create index if not exists organisation_profiles_featured_idx on public.organisation_profiles(featured);
 create index if not exists organisation_profiles_claim_status_idx on public.organisation_profiles(claim_status);
+create index if not exists organisation_profiles_entitlement_status_idx on public.organisation_profiles(entitlement_status);
 
 drop trigger if exists set_organisation_profiles_updated_at on public.organisation_profiles;
 create trigger set_organisation_profiles_updated_at

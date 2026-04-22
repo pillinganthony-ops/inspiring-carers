@@ -8,6 +8,7 @@ const emptyProfile = {
   display_name: '',
   slug: '',
   bio: '',
+  logo_url: '',
   email: '',
   phone: '',
   website: '',
@@ -44,6 +45,58 @@ const inputStyle = {
 
 const slugify = (value) => `${value || ''}`.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
+const ANALYTICS_WINDOWS = [
+  { key: '7d', label: '7 days', days: 7 },
+  { key: '30d', label: '30 days', days: 30 },
+  { key: '90d', label: '90 days', days: 90 },
+  { key: 'all', label: 'All time', days: null },
+];
+
+const getAnalyticsWindowDays = (windowKey) => ANALYTICS_WINDOWS.find((windowOption) => windowOption.key === windowKey)?.days ?? null;
+
+const isWithinPastWindow = (value, windowKey) => {
+  if (windowKey === 'all') return true;
+  if (!value) return false;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return false;
+  const now = new Date();
+  const start = new Date(now);
+  start.setDate(start.getDate() - (getAnalyticsWindowDays(windowKey) || 0));
+  return parsed >= start && parsed <= now;
+};
+
+const isWithinUpcomingWindow = (value, windowKey) => {
+  if (windowKey === 'all') return true;
+  if (!value) return false;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return false;
+  const now = new Date();
+  const end = new Date(now);
+  end.setDate(end.getDate() + (getAnalyticsWindowDays(windowKey) || 0));
+  return parsed >= now && parsed <= end;
+};
+
+const titleCase = (value) => `${value || ''}`
+  .split(/[_\s-]+/)
+  .filter(Boolean)
+  .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+  .join(' ');
+
+const getProfileDisplayName = (profile) => `${profile?.display_name || profile?.name || ''}`.trim();
+
+const toSimpleEnquiryState = (value) => {
+  const normalized = `${value || ''}`.trim().toLowerCase();
+  if (normalized === 'contacted') return 'contacted';
+  if (['confirmed', 'completed', 'cancelled', 'resolved'].includes(normalized)) return 'resolved';
+  return 'new';
+};
+
+const fromSimpleEnquiryState = (value) => {
+  if (value === 'resolved') return 'completed';
+  if (value === 'contacted') return 'contacted';
+  return 'new';
+};
+
 const ProfileDashboard = ({ onNavigate, session }) => {
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
@@ -53,10 +106,14 @@ const ProfileDashboard = ({ onNavigate, session }) => {
   const [profiles, setProfiles] = React.useState([]);
   const [events, setEvents] = React.useState([]);
   const [claims, setClaims] = React.useState([]);
+  const [viewEvents, setViewEvents] = React.useState([]);
+  const [eventEnquiries, setEventEnquiries] = React.useState([]);
+  const [analyticsNotice, setAnalyticsNotice] = React.useState('');
 
   const [activeProfileId, setActiveProfileId] = React.useState('');
   const [profileDraft, setProfileDraft] = React.useState(emptyProfile);
   const [eventDraft, setEventDraft] = React.useState(emptyEvent);
+  const [analyticsWindow, setAnalyticsWindow] = React.useState('30d');
 
   const userEmail = `${session?.user?.email || ''}`.trim().toLowerCase();
 
@@ -68,6 +125,7 @@ const ProfileDashboard = ({ onNavigate, session }) => {
 
     setLoading(true);
     setError('');
+    setAnalyticsNotice('');
 
     try {
       const [byOwnerEmail, byCreatedBy, claimsResult] = await Promise.all([
@@ -81,26 +139,50 @@ const ProfileDashboard = ({ onNavigate, session }) => {
       const initialProfileId = uniqueProfiles[0]?.id || '';
 
       let eventRows = [];
+      let viewRows = [];
+      let enquiryRows = [];
       if (uniqueProfiles.length) {
         const profileIds = uniqueProfiles.map((profile) => profile.id);
-        const eventsResult = await supabase
-          .from('organisation_events')
-          .select('*')
-          .in('organisation_profile_id', profileIds)
-          .order('starts_at', { ascending: true });
+        const resourceIds = uniqueProfiles.map((profile) => profile.resource_id).filter(Boolean);
+        const [eventsResult, enquiriesResult] = await Promise.all([
+          supabase
+            .from('organisation_events')
+            .select('*')
+            .in('organisation_profile_id', profileIds)
+            .order('starts_at', { ascending: true }),
+          supabase
+            .from('organisation_event_enquiries')
+            .select('*')
+            .in('organisation_profile_id', profileIds)
+            .order('created_at', { ascending: false }),
+        ]);
         if (eventsResult.error) throw eventsResult.error;
+        if (enquiriesResult.error) throw enquiriesResult.error;
         eventRows = eventsResult.data || [];
+        enquiryRows = enquiriesResult.data || [];
+
+        if (resourceIds.length) {
+          const viewEventsResult = await supabase.from('resource_view_events').select('*').in('resource_id', resourceIds);
+          if (viewEventsResult.error) {
+            setAnalyticsNotice(`Analytics limited: profile views unavailable (${viewEventsResult.error.message}).`);
+          } else {
+            viewRows = viewEventsResult.data || [];
+          }
+        }
       }
 
       setProfiles(uniqueProfiles);
       setEvents(eventRows);
       setClaims(claimsResult.data || []);
+      setEventEnquiries(enquiryRows);
+      setViewEvents(viewRows);
       setActiveProfileId((current) => current || initialProfileId);
 
       const seedProfile = uniqueProfiles.find((profile) => profile.id === (activeProfileId || initialProfileId)) || uniqueProfiles[0] || null;
       if (seedProfile) {
         setProfileDraft({
           ...seedProfile,
+          display_name: getProfileDisplayName(seedProfile),
           service_categories_text: (seedProfile.service_categories || []).join(', '),
           areas_covered_text: (seedProfile.areas_covered || []).join(', '),
         });
@@ -129,18 +211,29 @@ const ProfileDashboard = ({ onNavigate, session }) => {
     if (!selected) return;
     setProfileDraft({
       ...selected,
+      display_name: getProfileDisplayName(selected),
       service_categories_text: (selected.service_categories || []).join(', '),
       areas_covered_text: (selected.areas_covered || []).join(', '),
     });
   }, [activeProfileId, profiles]);
 
   const activeEvents = React.useMemo(() => events.filter((event) => event.organisation_profile_id === activeProfileId), [events, activeProfileId]);
+  const activeProfile = React.useMemo(() => profiles.find((profile) => profile.id === activeProfileId) || profiles[0] || null, [profiles, activeProfileId]);
+  const latestClaim = claims[0] || null;
+  const activeProfileViewEvents = React.useMemo(() => viewEvents.filter((entry) => `${entry.resource_id}` === `${activeProfile?.resource_id || ''}`), [viewEvents, activeProfile]);
+  const activeProfileEnquiries = React.useMemo(() => eventEnquiries.filter((entry) => `${entry.organisation_profile_id}` === `${activeProfileId || activeProfile?.id || ''}`), [eventEnquiries, activeProfileId, activeProfile]);
+  const filteredProfileViewEvents = React.useMemo(() => activeProfileViewEvents.filter((entry) => isWithinPastWindow(entry.created_at, analyticsWindow)), [activeProfileViewEvents, analyticsWindow]);
+  const filteredProfileEnquiries = React.useMemo(() => activeProfileEnquiries.filter((entry) => isWithinPastWindow(entry.created_at, analyticsWindow)), [activeProfileEnquiries, analyticsWindow]);
+  const filteredActiveEvents = React.useMemo(() => activeEvents.filter((event) => (event.status || 'scheduled') === 'scheduled' && isWithinUpcomingWindow(event.starts_at, analyticsWindow)), [activeEvents, analyticsWindow]);
   const dashboardKpis = React.useMemo(() => {
     const nowIso = new Date().toISOString();
     const upcoming = events.filter((event) => event.starts_at && event.starts_at >= nowIso && (event.status || 'scheduled') === 'scheduled').length;
     const completed = events.filter((event) => (event.status || '') === 'completed').length;
     const pendingClaims = claims.filter((claim) => (claim.status || 'pending') === 'pending').length;
     const approvedClaims = claims.filter((claim) => (claim.status || '') === 'approved').length;
+    const activeEventsCount = events.filter((event) => (event.status || 'scheduled') === 'scheduled').length;
+    const profileViews = viewEvents.length;
+    const enquiryCount = eventEnquiries.length;
     return {
       profiles: profiles.length,
       events: events.length,
@@ -148,8 +241,121 @@ const ProfileDashboard = ({ onNavigate, session }) => {
       completed,
       pendingClaims,
       approvedClaims,
+      activeEvents: activeEventsCount,
+      profileViews,
+      enquiryCount,
     };
-  }, [profiles, events, claims]);
+  }, [profiles, events, claims, viewEvents, eventEnquiries]);
+
+  const onboardingChecklist = React.useMemo(() => {
+    const profile = activeProfile;
+    const serviceCategories = profile?.service_categories || [];
+    const checks = [
+      {
+        id: 'logo',
+        label: 'Upload a recognisable logo',
+        done: Boolean(profile?.logo_url?.trim()),
+      },
+      {
+        id: 'description',
+        label: 'Write a strong organisation description',
+        done: Boolean((profile?.bio || '').trim().length >= 60),
+      },
+      {
+        id: 'categories',
+        label: 'Set support categories',
+        done: serviceCategories.length > 0,
+      },
+      {
+        id: 'contact',
+        label: 'Add contact email and phone',
+        done: Boolean(profile?.email?.trim() && profile?.phone?.trim()),
+      },
+      {
+        id: 'website',
+        label: 'Add a website link',
+        done: Boolean(profile?.website?.trim()),
+      },
+      {
+        id: 'event',
+        label: 'Publish your first event',
+        done: activeEvents.length > 0,
+      },
+    ];
+    const completed = checks.filter((item) => item.done).length;
+    return {
+      checks,
+      completed,
+      total: checks.length,
+      score: Math.round((completed / checks.length) * 100),
+    };
+  }, [activeProfile, activeEvents]);
+
+  const profileStatus = React.useMemo(() => {
+    const claimStatus = activeProfile?.claim_status || (latestClaim?.status === 'approved' ? 'claimed' : latestClaim?.status === 'pending' ? 'pending' : 'unclaimed');
+    const verificationStatus = activeProfile?.verified_status || (claimStatus === 'claimed' ? 'claimed' : 'community');
+    return {
+      claimStatus,
+      verificationStatus,
+      featured: Boolean(activeProfile?.featured),
+    };
+  }, [activeProfile, latestClaim]);
+
+  const entitlementState = React.useMemo(() => {
+    return {
+      packageName: activeProfile?.package_name || 'No package assigned',
+      status: activeProfile?.entitlement_status || 'inactive',
+      startDate: activeProfile?.start_date || null,
+      endDate: activeProfile?.end_date || null,
+      featuredEnabled: Boolean(activeProfile?.featured_enabled),
+      eventQuota: Number.isFinite(Number(activeProfile?.event_quota)) ? Number(activeProfile.event_quota) : 0,
+      enquiryToolsEnabled: Boolean(activeProfile?.enquiry_tools_enabled),
+      analyticsEnabled: Boolean(activeProfile?.analytics_enabled),
+    };
+  }, [activeProfile]);
+
+  const eventQuotaUsed = activeEvents.filter((event) => (event.status || 'scheduled') === 'scheduled').length;
+  const remainingEventQuota = Math.max(0, entitlementState.eventQuota - eventQuotaUsed);
+  const hasAnalyticsAccess = entitlementState.analyticsEnabled;
+  const hasEnquiryToolsAccess = entitlementState.enquiryToolsEnabled;
+  const hasFeaturedAccess = entitlementState.featuredEnabled;
+  const eventQuotaReached = !eventDraft.id && entitlementState.eventQuota >= 0 && remainingEventQuota <= 0;
+
+  const analyticsCards = React.useMemo(() => {
+    return [
+      ['Profile views', filteredProfileViewEvents.length],
+      ['Event enquiries', filteredProfileEnquiries.length],
+      ['Active events', filteredActiveEvents.length],
+      ['Profile completion %', onboardingChecklist.score],
+    ];
+  }, [filteredProfileViewEvents, filteredProfileEnquiries, filteredActiveEvents, onboardingChecklist.score]);
+
+  const enquiryPipeline = React.useMemo(() => {
+    return {
+      new: activeProfileEnquiries.filter((entry) => toSimpleEnquiryState(entry.status) === 'new'),
+      contacted: activeProfileEnquiries.filter((entry) => toSimpleEnquiryState(entry.status) === 'contacted'),
+      resolved: activeProfileEnquiries.filter((entry) => toSimpleEnquiryState(entry.status) === 'resolved'),
+    };
+  }, [activeProfileEnquiries]);
+
+  const updateEnquiryStatus = async (enquiryId, nextState) => {
+    if (!supabase || !session || !enquiryId) return;
+    setSaving(true);
+    setError('');
+    try {
+      const { error: updateError } = await supabase
+        .from('organisation_event_enquiries')
+        .update({ status: fromSimpleEnquiryState(nextState) })
+        .eq('id', enquiryId);
+      if (updateError) throw updateError;
+      setToast(`Enquiry moved to ${titleCase(nextState)}.`);
+      await loadData();
+    } catch (updateErr) {
+      setError(updateErr?.message || 'Unable to update enquiry status.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const saveProfile = async () => {
     if (!supabase || !session) return;
@@ -165,6 +371,7 @@ const ProfileDashboard = ({ onNavigate, session }) => {
         display_name: profileDraft.display_name.trim(),
         slug: slugify(profileDraft.slug || profileDraft.display_name),
         bio: profileDraft.bio?.trim() || null,
+        logo_url: profileDraft.logo_url?.trim() || null,
         email: profileDraft.email?.trim() || userEmail,
         phone: profileDraft.phone?.trim() || null,
         website: profileDraft.website?.trim() || null,
@@ -176,9 +383,20 @@ const ProfileDashboard = ({ onNavigate, session }) => {
         updated_by: session.user.id,
       };
 
-      const result = profileDraft.id
+      let result = profileDraft.id
         ? await supabase.from('organisation_profiles').update(payload).eq('id', profileDraft.id)
         : await supabase.from('organisation_profiles').insert({ ...payload, created_by: session.user.id }).select('*').single();
+
+      if (result.error?.message?.includes('display_name')) {
+        const legacyPayload = {
+          ...payload,
+          name: payload.display_name,
+        };
+        delete legacyPayload.display_name;
+        result = profileDraft.id
+          ? await supabase.from('organisation_profiles').update(legacyPayload).eq('id', profileDraft.id)
+          : await supabase.from('organisation_profiles').insert({ ...legacyPayload, created_by: session.user.id }).select('*').single();
+      }
 
       if (result.error) throw result.error;
       setToast(profileDraft.id ? 'Profile updated.' : 'Profile created.');
@@ -312,6 +530,221 @@ const ProfileDashboard = ({ onNavigate, session }) => {
             ))}
           </div>
 
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+            <div className="card" style={{ gridColumn: '1 / -1', padding: 16, borderRadius: 16, background: '#FFFFFF' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.6)', textTransform: 'uppercase' }}>Analytics window</div>
+                  <div style={{ marginTop: 6, fontSize: 13.5, color: 'rgba(26,39,68,0.68)' }}>Views and enquiries use historical activity. Active events use the matching forward-looking window.</div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {ANALYTICS_WINDOWS.map((windowOption) => (
+                    <button
+                      key={windowOption.key}
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setAnalyticsWindow(windowOption.key)}
+                      style={{ borderColor: analyticsWindow === windowOption.key ? '#1A2744' : undefined, fontWeight: analyticsWindow === windowOption.key ? 700 : 600 }}
+                    >
+                      {windowOption.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            {hasAnalyticsAccess ? analyticsCards.map(([label, value]) => (
+              <div key={label} className="card" style={{ padding: 16, borderRadius: 16, background: '#FFFFFF' }}>
+                <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.6)', textTransform: 'uppercase' }}>{label}</div>
+                <div style={{ marginTop: 8, fontSize: 28, fontWeight: 800, color: '#1A2744' }}>{value}{label.includes('%') ? '%' : ''}</div>
+                <div style={{ marginTop: 6, fontSize: 12.5, color: 'rgba(26,39,68,0.58)' }}>
+                  {label === 'Profile views' ? 'Directory interest recorded from resource view events.' : null}
+                  {label === 'Event enquiries' ? 'Live demand captured from organiser enquiry records.' : null}
+                  {label === 'Active events' ? 'Scheduled events currently available to book or contact.' : null}
+                  {label === 'Profile completion %' ? 'Readiness score for conversion and premium upgrades.' : null}
+                </div>
+              </div>
+            )) : (
+              <div className="card" style={{ gridColumn: '1 / -1', padding: 18, borderRadius: 16, background: '#FFFFFF' }}>
+                <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.6)', textTransform: 'uppercase' }}>Analytics locked</div>
+                <div style={{ marginTop: 8, fontSize: 22, fontWeight: 800, color: '#1A2744' }}>Analytics are disabled for this entitlement</div>
+                <div style={{ marginTop: 8, fontSize: 13.5, color: 'rgba(26,39,68,0.62)', lineHeight: 1.65 }}>Profile views, enquiry totals and time-window reporting become visible when `analytics_enabled` is switched on by admin.</div>
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.6fr) minmax(280px, 1fr)', gap: 14 }}>
+            <div className="card" style={{ padding: 22, borderRadius: 20, background: 'linear-gradient(145deg, rgba(26,39,68,0.98) 0%, rgba(34,70,110,0.96) 100%)', color: '#FFFFFF' }}>
+              <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(255,255,255,0.7)' }}>Owner onboarding</div>
+              <h2 style={{ marginTop: 10, fontSize: 28, fontWeight: 800 }}>Dashboard access is live while your claim is reviewed</h2>
+              <p style={{ marginTop: 10, color: 'rgba(255,255,255,0.82)', lineHeight: 1.7 }}>
+                {dashboardKpis.pendingClaims
+                  ? 'You can complete onboarding now so your listing is ready to convert as soon as the admin team approves it.'
+                  : dashboardKpis.approvedClaims
+                    ? 'Your claim has been approved. Finish onboarding and prepare featured upgrades to turn directory traffic into enquiries.'
+                    : 'Create an organisation profile now, then connect it to a claim or new listing as your commercial onboarding base.'}
+              </p>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }}>
+                <div style={{ padding: '10px 12px', borderRadius: 14, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.16)' }}>
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.72)' }}>Claim status</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4 }}>{titleCase(profileStatus.claimStatus)}</div>
+                </div>
+                <div style={{ padding: '10px 12px', borderRadius: 14, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.16)' }}>
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.72)' }}>Verification</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4 }}>{titleCase(profileStatus.verificationStatus)}</div>
+                </div>
+                <div style={{ padding: '10px 12px', borderRadius: 14, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.16)' }}>
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.72)' }}>Completion score</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4 }}>{onboardingChecklist.score}%</div>
+                </div>
+                <div style={{ padding: '10px 12px', borderRadius: 14, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.16)' }}>
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.72)' }}>Featured access</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4 }}>{hasFeaturedAccess ? 'Enabled' : 'Locked'}</div>
+                </div>
+              </div>
+              {latestClaim ? (
+                <div style={{ marginTop: 14, padding: '12px 14px', borderRadius: 16, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.12)' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.78)' }}>Latest claim</div>
+                  <div style={{ marginTop: 4, fontSize: 16, fontWeight: 700 }}>{latestClaim.listing_title || latestClaim.org_name || 'Claim request'}</div>
+                  <div style={{ marginTop: 4, fontSize: 12.5, color: 'rgba(255,255,255,0.74)' }}>Current review state: {titleCase(latestClaim.status || 'pending')}.</div>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="card" style={{ padding: 22, borderRadius: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.46)' }}>Onboarding checklist</div>
+                  <h2 style={{ marginTop: 8, fontSize: 24, fontWeight: 800 }}>Complete your profile to unlock enquiries</h2>
+                </div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: '#1A2744' }}>{onboardingChecklist.score}%</div>
+              </div>
+              <div style={{ marginTop: 14, height: 10, borderRadius: 999, background: '#E9EEF5', overflow: 'hidden' }}>
+                <div style={{ width: `${onboardingChecklist.score}%`, height: '100%', background: 'linear-gradient(90deg, #2D9CDB 0%, #10B981 100%)' }} />
+              </div>
+              <div style={{ marginTop: 14, display: 'grid', gap: 9 }}>
+                {onboardingChecklist.checks.map((item) => (
+                  <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14, background: item.done ? 'rgba(16,185,129,0.08)' : '#FAFBFF', border: `1px solid ${item.done ? 'rgba(16,185,129,0.18)' : '#E9EEF5'}` }}>
+                    <div style={{ fontSize: 13.5, color: '#1A2744', fontWeight: 600 }}>{item.label}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: item.done ? '#0D7A55' : 'rgba(26,39,68,0.52)' }}>{item.done ? 'Done' : 'Next'}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="card" style={{ padding: 22, borderRadius: 20, border: '1px solid #E7D8B9', background: 'linear-gradient(180deg, #FFF9ED 0%, #FFFFFF 100%)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.46)' }}>Premium placeholders</div>
+                <h2 style={{ marginTop: 8, fontSize: 24, fontWeight: 800 }}>Commercial upgrades ready for activation</h2>
+                <p style={{ marginTop: 8, color: 'rgba(26,39,68,0.68)', lineHeight: 1.65, maxWidth: 760 }}>These are intentionally placeholder offers for monetisation design. They keep the commercial path visible without changing billing or fulfilment logic yet.</p>
+              </div>
+              <div style={{ padding: '8px 10px', borderRadius: 999, background: hasFeaturedAccess ? 'rgba(16,185,129,0.12)' : 'rgba(245,166,35,0.14)', color: hasFeaturedAccess ? '#0D7A55' : '#9A5A00', fontSize: 12, fontWeight: 700 }}>{hasFeaturedAccess ? 'Featured enabled' : `${titleCase(entitlementState.status)} entitlement`}</div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 10, marginTop: 14 }}>
+              {[
+                ['Featured listing boost', `You have ${filteredProfileViewEvents.length} profile views in the selected window to benchmark uplift against.`],
+                ['Enquiry capture pack', `You have ${filteredProfileEnquiries.length} event enquiries in the selected window moving through the live pipeline.`],
+                ['Event promotion add-on', `You currently have ${filteredActiveEvents.length} active events in the selected window to amplify.`],
+                ['Conversion proof pack', `Your profile completion score is ${onboardingChecklist.score}% before any paid upsell.`],
+              ].map(([title, description]) => (
+                <div key={title} style={{ border: '1px solid #F0E3C5', borderRadius: 16, padding: 14, background: '#FFFFFF' }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#1A2744' }}>{title}</div>
+                  <div style={{ marginTop: 6, fontSize: 13, color: 'rgba(26,39,68,0.64)', lineHeight: 1.6 }}>{description}</div>
+                  <div style={{ marginTop: 8, fontSize: 11.5, fontWeight: 700, color: hasFeaturedAccess || title !== 'Featured listing boost' ? '#9A5A00' : '#A03A2D' }}>
+                    {title === 'Featured listing boost' ? (hasFeaturedAccess ? 'Ready to use' : 'Locked until featured_enabled = true') : 'Placeholder only'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="card" style={{ padding: 22, borderRadius: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.46)' }}>Premium entitlement</div>
+                <h2 style={{ marginTop: 8, fontSize: 24, fontWeight: 800 }}>Current package state</h2>
+              </div>
+              <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.56)' }}>Manual provisioning ready before checkout</div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10, marginTop: 14 }}>
+              {[
+                ['Package', entitlementState.packageName],
+                ['Status', titleCase(entitlementState.status)],
+                ['Start date', entitlementState.startDate || 'Not set'],
+                ['End date', entitlementState.endDate || 'Not set'],
+              ].map(([label, value]) => (
+                <div key={label} style={{ border: '1px solid #E9EEF5', borderRadius: 14, padding: 14, background: '#FAFBFF' }}>
+                  <div style={{ fontSize: 12, textTransform: 'uppercase', color: 'rgba(26,39,68,0.52)', fontWeight: 800 }}>{label}</div>
+                  <div style={{ marginTop: 6, fontSize: 16, fontWeight: 700, color: '#1A2744' }}>{value}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10, marginTop: 12 }}>
+              {[
+                ['Featured enabled', entitlementState.featuredEnabled ? 'Yes' : 'No'],
+                ['Event quota', `${entitlementState.eventQuota}`],
+                ['Enquiry tools', entitlementState.enquiryToolsEnabled ? 'Enabled' : 'Disabled'],
+                ['Analytics', entitlementState.analyticsEnabled ? 'Enabled' : 'Disabled'],
+              ].map(([label, value]) => (
+                <div key={label} style={{ border: '1px solid #E9EEF5', borderRadius: 14, padding: 14, background: '#FFFFFF' }}>
+                  <div style={{ fontSize: 12, textTransform: 'uppercase', color: 'rgba(26,39,68,0.52)', fontWeight: 800 }}>{label}</div>
+                  <div style={{ marginTop: 6, fontSize: 16, fontWeight: 700, color: '#1A2744' }}>{value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="card" style={{ padding: 22, borderRadius: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.46)' }}>Enquiry pipeline</div>
+                <h2 style={{ marginTop: 8, fontSize: 24, fontWeight: 800 }}>Track response value before monetisation</h2>
+              </div>
+              <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.56)' }}>{activeProfileEnquiries.length} enquiries on this profile</div>
+            </div>
+            {hasEnquiryToolsAccess ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginTop: 14 }}>
+                {[
+                  ['new', enquiryPipeline.new],
+                  ['contacted', enquiryPipeline.contacted],
+                  ['resolved', enquiryPipeline.resolved],
+                ].map(([state, rows]) => (
+                  <div key={state} style={{ border: '1px solid #E9EEF5', borderRadius: 16, padding: 14, background: '#FAFBFF' }}>
+                    <div style={{ fontSize: 12, textTransform: 'uppercase', color: 'rgba(26,39,68,0.52)', fontWeight: 800 }}>{state}</div>
+                    <div style={{ marginTop: 6, fontSize: 28, fontWeight: 800, color: '#1A2744' }}>{rows.length}</div>
+                    <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
+                      {rows.length ? rows.slice(0, 4).map((entry) => (
+                        <div key={entry.id} style={{ padding: '10px 12px', borderRadius: 12, border: '1px solid #E3EAF4', background: '#FFFFFF' }}>
+                          <div style={{ fontWeight: 700, fontSize: 13.5, color: '#1A2744' }}>{entry.full_name}</div>
+                          <div style={{ marginTop: 4, fontSize: 12, color: 'rgba(26,39,68,0.6)' }}>{entry.email}</div>
+                          <div style={{ marginTop: 4, fontSize: 12, color: 'rgba(26,39,68,0.56)' }}>{entry.spaces_requested ? `${entry.spaces_requested} spaces requested` : 'No space count supplied'}</div>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                            {['new', 'contacted', 'resolved'].map((nextState) => (
+                              <button
+                                key={nextState}
+                                className="btn btn-ghost btn-sm"
+                                disabled={saving || nextState === state}
+                                onClick={() => updateEnquiryStatus(entry.id, nextState)}
+                              >
+                                Mark {nextState}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )) : <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.56)' }}>No enquiries in this state.</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ marginTop: 14, border: '1px solid #E9EEF5', borderRadius: 16, padding: 18, background: '#FAFBFF' }}>
+                <div style={{ fontSize: 12, textTransform: 'uppercase', color: 'rgba(26,39,68,0.52)', fontWeight: 800 }}>Enquiry tools locked</div>
+                <div style={{ marginTop: 8, fontSize: 18, fontWeight: 800, color: '#1A2744' }}>This organisation cannot manage enquiry pipeline states yet</div>
+                <div style={{ marginTop: 8, fontSize: 13.5, color: 'rgba(26,39,68,0.62)', lineHeight: 1.65 }}>Switch `enquiry_tools_enabled` on in admin to unlock pipeline management and response tracking.</div>
+              </div>
+            )}
+          </div>
+
           {loading ? (
             <div className="card" style={{ padding: 20 }}>Loading profile data...</div>
           ) : (
@@ -322,7 +755,7 @@ const ProfileDashboard = ({ onNavigate, session }) => {
                   <div style={{ display: 'flex', gap: 8 }}>
                     <select value={activeProfileId} onChange={(event) => setActiveProfileId(event.target.value)} style={inputStyle}>
                       <option value="">Select profile</option>
-                      {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.display_name}</option>)}
+                      {profiles.map((profile) => <option key={profile.id} value={profile.id}>{getProfileDisplayName(profile) || 'Organisation profile'}</option>)}
                     </select>
                     <button className="btn btn-ghost" onClick={() => { setActiveProfileId(''); setProfileDraft({ ...emptyProfile, email: userEmail }); }}>New profile</button>
                   </div>
@@ -331,6 +764,7 @@ const ProfileDashboard = ({ onNavigate, session }) => {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 14 }}>
                   <input value={profileDraft.display_name || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, display_name: event.target.value }))} placeholder="Organisation name" style={inputStyle} />
                   <input value={profileDraft.slug || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, slug: event.target.value }))} placeholder="Slug" style={inputStyle} />
+                  <input value={profileDraft.logo_url || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, logo_url: event.target.value }))} placeholder="Logo URL" style={inputStyle} />
                   <input value={profileDraft.email || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, email: event.target.value }))} placeholder="Contact email" style={inputStyle} />
                   <input value={profileDraft.phone || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, phone: event.target.value }))} placeholder="Phone" style={inputStyle} />
                   <input value={profileDraft.website || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, website: event.target.value }))} placeholder="Website" style={inputStyle} />
@@ -355,6 +789,10 @@ const ProfileDashboard = ({ onNavigate, session }) => {
                 {!activeProfileId ? <div style={{ marginTop: 8, color: 'rgba(26,39,68,0.65)' }}>Select or create a profile to manage events.</div> : null}
                 {activeProfileId ? (
                   <>
+                    <div style={{ marginTop: 12, padding: '12px 14px', borderRadius: 14, border: '1px solid #E9EEF5', background: '#FAFBFF', display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                      <div style={{ fontSize: 13.5, color: '#1A2744', fontWeight: 700 }}>Event quota used: {eventQuotaUsed} / {entitlementState.eventQuota}</div>
+                      <div style={{ fontSize: 12.5, color: remainingEventQuota > 0 ? '#0D7A55' : '#A03A2D' }}>{remainingEventQuota > 0 ? `${remainingEventQuota} remaining` : 'Quota reached'}</div>
+                    </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 12 }}>
                       <input value={eventDraft.title} onChange={(event) => setEventDraft((prev) => ({ ...prev, title: event.target.value }))} placeholder="Event title" style={inputStyle} />
                       <input value={eventDraft.slug} onChange={(event) => setEventDraft((prev) => ({ ...prev, slug: event.target.value }))} placeholder="Event slug" style={inputStyle} />
@@ -376,9 +814,10 @@ const ProfileDashboard = ({ onNavigate, session }) => {
                     </div>
                     <textarea value={eventDraft.description} onChange={(event) => setEventDraft((prev) => ({ ...prev, description: event.target.value }))} placeholder="Description" rows={3} style={{ ...inputStyle, marginTop: 10, resize: 'vertical' }} />
                     <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
-                      <button className="btn btn-gold" disabled={saving} onClick={saveEvent}>{saving ? 'Saving...' : (eventDraft.id ? 'Update event' : 'Create event')}</button>
+                      <button className="btn btn-gold" disabled={saving || eventQuotaReached} onClick={saveEvent}>{saving ? 'Saving...' : (eventDraft.id ? 'Update event' : 'Create event')}</button>
                       {eventDraft.id ? <button className="btn btn-ghost" onClick={() => setEventDraft(emptyEvent)}>Cancel edit</button> : null}
                     </div>
+                    {eventQuotaReached ? <div style={{ marginTop: 8, fontSize: 12.5, color: '#A03A2D' }}>Event creation is disabled because this entitlement has reached its quota.</div> : null}
 
                     <div style={{ marginTop: 14, display: 'grid', gap: 8 }}>
                       {activeEvents.length ? activeEvents.map((eventRow) => (
@@ -402,7 +841,8 @@ const ProfileDashboard = ({ onNavigate, session }) => {
                   {claims.length ? claims.map((claim) => (
                     <div key={claim.id} style={{ border: '1px solid #E9EEF5', borderRadius: 12, padding: 12 }}>
                       <div style={{ fontWeight: 700 }}>{claim.listing_title || claim.org_name || 'Claim request'}</div>
-                      <div style={{ marginTop: 4, fontSize: 13, color: 'rgba(26,39,68,0.65)' }}>Status: {claim.status || 'pending'}</div>
+                      <div style={{ marginTop: 4, fontSize: 13, color: 'rgba(26,39,68,0.65)' }}>Status: {titleCase(claim.status || 'pending')}</div>
+                      <div style={{ marginTop: 4, fontSize: 13, color: 'rgba(26,39,68,0.65)' }}>Next step: {(claim.status || 'pending') === 'approved' ? 'Finish onboarding and switch on premium placements.' : 'Complete onboarding so approval can convert faster.'}</div>
                     </div>
                   )) : <div style={{ color: 'rgba(26,39,68,0.65)' }}>No listing claims found for your email yet.</div>}
                 </div>

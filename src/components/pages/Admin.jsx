@@ -33,6 +33,44 @@ const getProfilePlaceholderLabel = (profileId) => {
 
 const normalizeSelectValue = (value) => `${value ?? ''}`.trim();
 
+const ANALYTICS_WINDOWS = [
+  { key: '7d', label: '7 days', days: 7 },
+  { key: '30d', label: '30 days', days: 30 },
+  { key: '90d', label: '90 days', days: 90 },
+  { key: 'all', label: 'All time', days: null },
+];
+
+const getAnalyticsWindowDays = (windowKey) => ANALYTICS_WINDOWS.find((windowOption) => windowOption.key === windowKey)?.days ?? null;
+
+const isWithinPastWindow = (value, windowKey) => {
+  if (windowKey === 'all') return true;
+  if (!value) return false;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return false;
+  const now = new Date();
+  const start = new Date(now);
+  start.setDate(start.getDate() - (getAnalyticsWindowDays(windowKey) || 0));
+  return parsed >= start && parsed <= now;
+};
+
+const isWithinUpcomingWindow = (value, windowKey) => {
+  if (windowKey === 'all') return true;
+  if (!value) return false;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return false;
+  const now = new Date();
+  const end = new Date(now);
+  end.setDate(end.getDate() + (getAnalyticsWindowDays(windowKey) || 0));
+  return parsed >= now && parsed <= end;
+};
+
+const toSimpleEnquiryState = (value) => {
+  const normalized = `${value || ''}`.trim().toLowerCase();
+  if (normalized === 'contacted') return 'contacted';
+  if (['confirmed', 'completed', 'cancelled', 'resolved'].includes(normalized)) return 'resolved';
+  return 'new';
+};
+
 const buildAddressCandidate = ({ id, label, address, town, postcode, latitude, longitude }) => ({
   id: `${id}`,
   label: `${label || address || postcode || 'Address option'}`.trim(),
@@ -56,7 +94,7 @@ const dedupeAddressCandidates = (candidates) => {
 const getProfileName = (profile, resources = []) => {
   if (!profile) return 'Organisation profile';
   const linkedResource = resources.find((resource) => `${resource.id}` === `${profile.resource_id}`) || null;
-  return `${profile.name || linkedResource?.name || profile.slug || profile.owner_email || 'Organisation profile'}`.trim();
+  return `${profile.display_name || profile.name || linkedResource?.name || profile.slug || profile.owner_email || 'Organisation profile'}`.trim();
 };
 
 const isPendingStatus = (value) => {
@@ -64,6 +102,225 @@ const isPendingStatus = (value) => {
   if (!status) return true;
   return ['pending', 'in_review', 'new', 'submitted'].includes(status);
 };
+
+const isExactPendingStatus = (value) => `${value || ''}`.trim().toLowerCase() === 'pending';
+const isApprovedStatus = (value) => `${value || ''}`.trim().toLowerCase() === 'approved';
+const isInReviewStatus = (value) => `${value || ''}`.trim().toLowerCase() === 'in_review';
+
+const normalizeNameForMatch = (value) => `${value || ''}`.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, ' ');
+
+const parseSubmissionReason = (reasonText) => {
+  const details = { summary: '', category: '', town: '', website: '' };
+  `${reasonText || ''}`.split(/\r?\n/).forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) return;
+    if (trimmed.startsWith('Summary:')) details.summary = trimmed.slice('Summary:'.length).trim();
+    if (trimmed.startsWith('Category:')) details.category = trimmed.slice('Category:'.length).trim();
+    if (trimmed.startsWith('Town:')) details.town = trimmed.slice('Town:'.length).trim();
+    if (trimmed.startsWith('Website:')) details.website = trimmed.slice('Website:'.length).trim();
+  });
+  return details;
+};
+
+const findCategoryIdByLabel = (categories, label) => {
+  const normalizedLabel = normalizeNameForMatch(label);
+  if (!normalizedLabel) return '';
+  return categories.find((category) => normalizeNameForMatch(category.name) === normalizedLabel)?.id || '';
+};
+
+const buildResourcePayloadFromDraft = (draft, userId) => ({
+  name: draft.name.trim(),
+  slug: slugify(draft.slug || draft.name),
+  category_id: draft.category_id || null,
+  town: draft.town?.trim() || null,
+  summary: draft.summary?.trim() || null,
+  description: draft.description?.trim() || null,
+  website: draft.website?.trim() || null,
+  phone: draft.phone?.trim() || null,
+  email: draft.email?.trim() || null,
+  address: draft.address?.trim() || null,
+  postcode: draft.postcode?.trim() || null,
+  latitude: draft.latitude === '' ? null : Number(draft.latitude),
+  longitude: draft.longitude === '' ? null : Number(draft.longitude),
+  verified: Boolean(draft.verified),
+  featured: Boolean(draft.featured),
+  is_archived: Boolean(draft.is_archived),
+  updated_by: userId || null,
+});
+
+const buildLiveListingInsertPayload = (draft) => {
+  const payload = {
+    name: draft.name.trim(),
+    slug: slugify(draft.slug || draft.name),
+    is_archived: false,
+  };
+
+  const optionalFields = {
+    email: draft.email?.trim() || null,
+    phone: draft.phone?.trim() || null,
+    website: draft.website?.trim() || null,
+    summary: draft.summary?.trim() || null,
+    description: draft.description?.trim() || null,
+    town: draft.town?.trim() || null,
+    address: draft.address?.trim() || null,
+    postcode: draft.postcode?.trim() || null,
+  };
+
+  Object.entries(optionalFields).forEach(([key, value]) => {
+    if (value) payload[key] = value;
+  });
+
+  if (draft.category_id) payload.category_id = draft.category_id;
+
+  return payload;
+};
+
+const normalizeResourceUpdateRow = (row) => {
+  const title = `${row.organisation_name || row.listing_name || row.listing_title || row.resource_name || row.resource_id || ''}`.trim();
+  const submitter = `${row.submitter_name || row.submitted_by || row.submitter_email || row.email || ''}`.trim();
+  const type = `${row.update_type || row.relationship_to_organisation || 'submission'}`.trim();
+  const summary = `${row.description || row.reason || ''}`.trim();
+
+  return {
+    ...row,
+    _queueTitle: title || 'Submission',
+    _queueSubmitter: submitter || 'Unknown',
+    _queueType: type || 'submission',
+    _queueSummary: summary || 'Limited legacy row shape: no description available.',
+    _usesFallbackShape: !row.update_type && !row.description,
+  };
+};
+
+const findSubmissionDuplicateMatches = ({ submission, resources, profiles }) => {
+  const organizationName = `${submission?.organisation_name || submission?._queueTitle || ''}`.trim();
+  const normalizedTarget = normalizeNameForMatch(organizationName);
+  const targetSlug = slugify(organizationName);
+  if (!normalizedTarget) return [];
+
+  const resourceMatches = resources
+    .filter((resource) => {
+      const resourceName = normalizeNameForMatch(resource.name);
+      const resourceSlug = slugify(resource.slug || resource.name);
+      return resourceName === normalizedTarget || resourceSlug === targetSlug || resourceName.includes(normalizedTarget) || normalizedTarget.includes(resourceName);
+    })
+    .map((resource) => ({
+      key: `resource-${resource.id}`,
+      type: 'resource',
+      id: resource.id,
+      label: resource.name || 'Existing resource',
+      slug: resource.slug || '',
+      secondary: resource.town || resource.email || 'Existing live listing',
+    }));
+
+  const profileMatches = profiles
+    .filter((profile) => {
+      const profileName = normalizeNameForMatch(getProfileName(profile, resources));
+      return profileName && (profileName === normalizedTarget || profileName.includes(normalizedTarget) || normalizedTarget.includes(profileName));
+    })
+    .map((profile) => ({
+      key: `profile-${profile.id}`,
+      type: 'profile',
+      id: profile.id,
+      label: getProfileName(profile, resources),
+      slug: profile.slug || '',
+      resourceId: profile.resource_id || null,
+      secondary: 'Existing organisation profile',
+    }));
+
+  return [...resourceMatches, ...profileMatches].filter((match, index, allMatches) => allMatches.findIndex((entry) => entry.key === match.key) === index);
+};
+
+const buildResourceDraftFromSubmission = ({ submission, categories }) => {
+  const details = parseSubmissionReason(submission.reason || submission._queueSummary || '');
+  const organizationName = `${submission.organisation_name || submission._queueTitle || ''}`.trim();
+  return {
+    ...emptyResource,
+    name: organizationName,
+    slug: slugify(organizationName),
+    category_id: findCategoryIdByLabel(categories, details.category),
+    town: details.town || '',
+    summary: details.summary || (organizationName ? `Local support from ${organizationName}.` : ''),
+    description: submission.reason || '',
+    website: details.website || '',
+    phone: submission.submitter_phone || '',
+    email: submission.submitter_email || '',
+  };
+};
+
+const CreateListingModal = ({ submission, draft, categories, duplicateMatches, allowDuplicateCreate, onToggleDuplicateCreate, onChangeDraft, onClose, onOpenExisting, onCreate, busy }) => {
+  if (!submission || !draft) return null;
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 320, background: 'rgba(15,23,42,0.50)', display: 'grid', placeItems: 'center', padding: 20 }} onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <div style={{ background: 'white', borderRadius: 24, padding: '28px 26px', width: '100%', maxWidth: 760, maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 40px 80px rgba(15,23,42,0.25)', position: 'relative' }}>
+        <button onClick={onClose} style={{ position: 'absolute', right: 18, top: 18, width: 34, height: 34, borderRadius: 999, border: '1px solid #EFF1F7', background: '#FAFBFF', display: 'grid', placeItems: 'center' }}>×</button>
+        <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.55)' }}>Create live listing</div>
+        <h2 style={{ marginTop: 8, fontSize: 24, fontWeight: 800, color: '#1A2744' }}>{submission.organisation_name || submission._queueTitle || 'New submission'}</h2>
+        <p style={{ marginTop: 8, color: 'rgba(26,39,68,0.68)', lineHeight: 1.6 }}>This creates a live `resources` listing only. It does not auto-create an organisation profile or claim ownership record.</p>
+
+        {duplicateMatches.length ? (
+          <div style={{ marginTop: 16, padding: 14, borderRadius: 16, border: '1px solid rgba(245,166,35,0.25)', background: 'rgba(245,166,35,0.08)' }}>
+            <div style={{ fontWeight: 700, color: '#7A5400' }}>Possible duplicate found</div>
+            <div style={{ marginTop: 6, fontSize: 13.5, color: 'rgba(26,39,68,0.72)' }}>Review these matches before creating a new live listing.</div>
+            <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
+              {duplicateMatches.map((match) => (
+                <div key={match.key} style={{ border: '1px solid rgba(26,39,68,0.08)', borderRadius: 12, padding: 10, background: 'white', display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#1A2744' }}>{match.label}</div>
+                    <div style={{ marginTop: 4, fontSize: 12.5, color: 'rgba(26,39,68,0.6)' }}>{match.secondary}</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    {match.slug ? <button className="btn btn-ghost btn-sm" onClick={() => window.open(`/find-help/${match.slug}`, '_blank', 'noopener,noreferrer')}>Open listing</button> : null}
+                    <button className="btn btn-ghost btn-sm" onClick={() => onOpenExisting(match)}>Review in admin</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <label style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: '#1A2744' }}>
+              <input type="checkbox" checked={allowDuplicateCreate} onChange={(event) => onToggleDuplicateCreate(event.target.checked)} />
+              I reviewed the duplicate warning and want to continue anyway.
+            </label>
+          </div>
+        ) : null}
+
+        <div style={{ marginTop: 18, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+          <input value={draft.name} onChange={(event) => onChangeDraft('name', event.target.value)} placeholder="Name" style={inputStyle} />
+          <input value={draft.slug} onChange={(event) => onChangeDraft('slug', event.target.value)} placeholder="Slug" style={inputStyle} />
+          <select value={draft.category_id} onChange={(event) => onChangeDraft('category_id', event.target.value)} style={inputStyle}>
+            <option value="">{categories.length ? 'Category (optional)' : 'No categories available'}</option>
+            {categories.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
+          </select>
+          <input value={draft.town} onChange={(event) => onChangeDraft('town', event.target.value)} placeholder="Town" style={inputStyle} />
+          <input value={draft.website} onChange={(event) => onChangeDraft('website', event.target.value)} placeholder="Website" style={inputStyle} />
+          <input value={draft.phone} onChange={(event) => onChangeDraft('phone', event.target.value)} placeholder="Phone" style={inputStyle} />
+          <input value={draft.email} onChange={(event) => onChangeDraft('email', event.target.value)} placeholder="Email" style={inputStyle} />
+          <input value={draft.address} onChange={(event) => onChangeDraft('address', event.target.value)} placeholder="Address" style={inputStyle} />
+          <input value={draft.postcode} onChange={(event) => onChangeDraft('postcode', event.target.value)} placeholder="Postcode" style={inputStyle} />
+        </div>
+        <textarea value={draft.summary} onChange={(event) => onChangeDraft('summary', event.target.value)} placeholder="Summary" rows={2} style={{ ...inputStyle, marginTop: 8, resize: 'vertical' }} />
+        <textarea value={draft.description} onChange={(event) => onChangeDraft('description', event.target.value)} placeholder="Description" rows={4} style={{ ...inputStyle, marginTop: 8, resize: 'vertical' }} />
+        {!categories.length ? <div style={{ marginTop: 8, fontSize: 12.5, color: 'rgba(26,39,68,0.62)' }}>No categories are available from the live table right now. You can still create the listing without one.</div> : null}
+        <div style={{ marginTop: 8, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <label><input type="checkbox" checked={Boolean(draft.verified)} onChange={(event) => onChangeDraft('verified', event.target.checked)} /> Verified</label>
+          <label><input type="checkbox" checked={Boolean(draft.featured)} onChange={(event) => onChangeDraft('featured', event.target.checked)} /> Featured</label>
+          <label><input type="checkbox" checked={Boolean(draft.is_archived)} onChange={(event) => onChangeDraft('is_archived', event.target.checked)} /> Archived</label>
+        </div>
+        <div style={{ marginTop: 16, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn btn-gold" disabled={busy || (duplicateMatches.length > 0 && !allowDuplicateCreate)} onClick={onCreate}>{busy ? 'Creating...' : 'Create live listing'}</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const buildCompatibleProfilePayload = (payload) => ({
+  primary: payload,
+  legacy: {
+    ...payload,
+    name: payload.display_name,
+  },
+});
 
 const emptyCategory = { id: null, name: '', slug: '', sort_order: 0, active: true };
 const emptyResource = {
@@ -87,12 +344,20 @@ const emptyResource = {
 };
 const emptyProfile = {
   id: null,
-  name: '',
+  display_name: '',
   slug: '',
   resource_id: '',
   owner_email: '',
   email: '',
   website: '',
+  package_name: '',
+  entitlement_status: 'inactive',
+  start_date: '',
+  end_date: '',
+  featured_enabled: false,
+  event_quota: 0,
+  enquiry_tools_enabled: false,
+  analytics_enabled: false,
   is_active: true,
 };
 const emptyEvent = {
@@ -137,7 +402,7 @@ const EVENT_TYPE_OPTIONS = [
   'Other',
 ];
 
-const QueueCard = ({ title, rows, onUpdateStatus, formatRow }) => (
+const QueueCard = ({ title, rows, onUpdateStatus, formatRow, renderMeta, approveLabel = 'Approve', rejectLabel = 'Reject', reviewLabel = 'In review' }) => (
   <div className="card" style={{ padding: 18, borderRadius: 18 }}>
     <h3 style={{ fontSize: 18, fontWeight: 700 }}>{title}</h3>
     <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
@@ -145,10 +410,11 @@ const QueueCard = ({ title, rows, onUpdateStatus, formatRow }) => (
         <div key={row.id} style={{ border: '1px solid #E9EEF5', borderRadius: 12, padding: 10, background: '#FFF' }}>
           <div style={{ fontSize: 14 }}>{formatRow(row)}</div>
           <div style={{ marginTop: 6, fontSize: 12, color: 'rgba(26,39,68,0.65)' }}>Status: {row.status || 'pending'}</div>
+          {renderMeta ? <div style={{ marginTop: 8 }}>{renderMeta(row)}</div> : null}
           <div style={{ marginTop: 8, display: 'flex', gap: 6 }}>
-            <button className="btn btn-ghost btn-sm" onClick={() => onUpdateStatus(row.id, 'approved')}>Approve</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => onUpdateStatus(row.id, 'rejected')}>Reject</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => onUpdateStatus(row.id, 'in_review')}>In review</button>
+            <button className="btn btn-gold btn-sm" onClick={() => onUpdateStatus(row.id, 'approved')}>{approveLabel}</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => onUpdateStatus(row.id, 'rejected')}>{rejectLabel}</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => onUpdateStatus(row.id, 'in_review')}>{reviewLabel}</button>
           </div>
         </div>
       )) : <div style={{ color: 'rgba(26,39,68,0.65)' }}>No pending items.</div>}
@@ -169,7 +435,15 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   const [profiles, setProfiles] = React.useState([]);
   const [events, setEvents] = React.useState([]);
   const [claims, setClaims] = React.useState([]);
+  const [resourceViewEvents, setResourceViewEvents] = React.useState([]);
+  const [eventEnquiries, setEventEnquiries] = React.useState([]);
+  const [analyticsNotice, setAnalyticsNotice] = React.useState('');
+  const [resourceUpdatesNotice, setResourceUpdatesNotice] = React.useState('');
   const [resourceUpdates, setResourceUpdates] = React.useState([]);
+  const [listingCreationSubmission, setListingCreationSubmission] = React.useState(null);
+  const [listingCreationDraft, setListingCreationDraft] = React.useState(null);
+  const [listingDuplicateMatches, setListingDuplicateMatches] = React.useState([]);
+  const [allowDuplicateCreate, setAllowDuplicateCreate] = React.useState(false);
   const [walkUpdates, setWalkUpdates] = React.useState([]);
   const [walkComments, setWalkComments] = React.useState([]);
 
@@ -181,6 +455,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   const [postcodeError, setPostcodeError] = React.useState('');
   const [postcodeCandidates, setPostcodeCandidates] = React.useState([]);
   const [selectedPostcodeCandidateId, setSelectedPostcodeCandidateId] = React.useState('');
+  const [analyticsWindow, setAnalyticsWindow] = React.useState('30d');
 
   const canAccessAdmin = React.useMemo(() => {
     const email = `${session?.user?.email || ''}`.trim().toLowerCase();
@@ -226,6 +501,8 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
 
     setLoading(true);
     setError('');
+    setAnalyticsNotice('');
+    setResourceUpdatesNotice('');
     try {
       const [
         categoriesResult,
@@ -242,7 +519,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         supabase.from('organisation_profiles').select('*'),
         supabase.from('organisation_events').select('*'),
         supabase.from('listing_claims').select('*').order('created_at', { ascending: false }),
-        supabase.from('resource_update_submissions').select('*').order('created_at', { ascending: false }),
+        supabase.from('resource_update_submissions').select('*').in('status', ['pending', 'in_review', 'approved']).order('created_at', { ascending: false }),
         supabase.from('walk_risk_updates').select('*').order('created_at', { ascending: false }),
         supabase.from('walk_comments').select('*').order('created_at', { ascending: false }),
       ]);
@@ -251,10 +528,14 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       if (resourcesResult.error) throw resourcesResult.error;
       if (profilesResult.error) throw profilesResult.error;
       if (eventsResult.error) throw eventsResult.error;
+      if (resourceUpdatesResult.error) {
+        setResourceUpdates([]);
+        setResourceUpdatesNotice(`New organisation submissions unavailable (${resourceUpdatesResult.error.message}).`);
+      }
 
       setCategories(categoriesResult.data || []);
       setResources(resourcesResult.data || []);
-  setProfiles((profilesResult.data || []).slice().sort((left, right) => getProfileName(left, resourcesResult.data || []).localeCompare(getProfileName(right, resourcesResult.data || []), 'en', { sensitivity: 'base' })));
+      setProfiles((profilesResult.data || []).slice().sort((left, right) => getProfileName(left, resourcesResult.data || []).localeCompare(getProfileName(right, resourcesResult.data || []), 'en', { sensitivity: 'base' })));
       setEvents((eventsResult.data || []).slice().sort((left, right) => `${left.starts_at || ''}`.localeCompare(`${right.starts_at || ''}`)));
       const claimRows = claimsResult.error
         ? (resourceUpdatesResult.data || [])
@@ -273,9 +554,37 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         : (claimsResult.data || []);
 
       setClaims(claimRows);
-      setResourceUpdates((resourceUpdatesResult.data || []).filter((row) => `${row.update_type || ''}`.toLowerCase() !== 'claim_request'));
+      setResourceUpdates(
+        ((resourceUpdatesResult.error ? [] : (resourceUpdatesResult.data || [])))
+          .filter((row) => `${row.update_type || ''}`.toLowerCase() !== 'claim_request')
+          .map(normalizeResourceUpdateRow),
+      );
       setWalkUpdates(walkUpdatesResult.data || []);
       setWalkComments(walkCommentsResult.data || []);
+
+      const optionalIssues = [];
+      const [viewEventsResult, eventEnquiriesResult] = await Promise.all([
+        supabase.from('resource_view_events').select('*'),
+        supabase.from('organisation_event_enquiries').select('*').order('created_at', { ascending: false }),
+      ]);
+
+      if (viewEventsResult.error) {
+        setResourceViewEvents([]);
+        optionalIssues.push(`profile views unavailable (${viewEventsResult.error.message})`);
+      } else {
+        setResourceViewEvents(viewEventsResult.data || []);
+      }
+
+      if (eventEnquiriesResult.error) {
+        setEventEnquiries([]);
+        optionalIssues.push(`event enquiries unavailable (${eventEnquiriesResult.error.message})`);
+      } else {
+        setEventEnquiries(eventEnquiriesResult.data || []);
+      }
+
+      if (optionalIssues.length) {
+        setAnalyticsNotice(`Analytics limited: ${optionalIssues.join('; ')}.`);
+      }
     } catch (loadError) {
       setError(loadError?.message || 'Unable to load admin dashboard.');
     } finally {
@@ -335,25 +644,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       return;
     }
 
-    const payload = {
-      name: resourceDraft.name.trim(),
-      slug: slugify(resourceDraft.slug || resourceDraft.name),
-      category_id: resourceDraft.category_id || null,
-      town: resourceDraft.town?.trim() || null,
-      summary: resourceDraft.summary?.trim() || null,
-      description: resourceDraft.description?.trim() || null,
-      website: resourceDraft.website?.trim() || null,
-      phone: resourceDraft.phone?.trim() || null,
-      email: resourceDraft.email?.trim() || null,
-      address: resourceDraft.address?.trim() || null,
-      postcode: resourceDraft.postcode?.trim() || null,
-      latitude: resourceDraft.latitude === '' ? null : Number(resourceDraft.latitude),
-      longitude: resourceDraft.longitude === '' ? null : Number(resourceDraft.longitude),
-      verified: Boolean(resourceDraft.verified),
-      featured: Boolean(resourceDraft.featured),
-      is_archived: Boolean(resourceDraft.is_archived),
-      updated_by: session?.user?.id || null,
-    };
+    const payload = buildResourcePayloadFromDraft(resourceDraft, session?.user?.id || null);
 
     await withBusy(async () => {
       const result = resourceDraft.id
@@ -364,27 +655,150 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     }, resourceDraft.id ? 'Resource updated.' : 'Resource created.');
   };
 
+  const openCreateListingModal = (submission) => {
+    const nextDraft = buildResourceDraftFromSubmission({ submission, categories });
+    setListingCreationSubmission(submission);
+    setListingCreationDraft(nextDraft);
+    setListingDuplicateMatches(findSubmissionDuplicateMatches({ submission, resources, profiles }));
+    setAllowDuplicateCreate(false);
+  };
+
+  const closeCreateListingModal = () => {
+    setListingCreationSubmission(null);
+    setListingCreationDraft(null);
+    setListingDuplicateMatches([]);
+    setAllowDuplicateCreate(false);
+  };
+
+  const updateListingCreationDraft = (key, value) => {
+    setListingCreationDraft((current) => ({ ...current, [key]: value }));
+  };
+
+  const openExistingMatch = (match) => {
+    if (match.type === 'resource') {
+      const resource = resources.find((row) => `${row.id}` === `${match.id}`) || null;
+      if (resource) {
+        setTab('resources');
+        setResourceDraft({ ...emptyResource, ...resource, category_id: resource.category_id || '' });
+      }
+      closeCreateListingModal();
+      return;
+    }
+
+    if (match.type === 'profile') {
+      const profile = profiles.find((row) => `${row.id}` === `${match.id}`) || null;
+      if (profile) {
+        setTab('profiles');
+        setProfileDraft({ ...emptyProfile, ...profile, display_name: profile.display_name || profile.name || '', resource_id: profile.resource_id || '', start_date: profile.start_date || '', end_date: profile.end_date || '' });
+      }
+      closeCreateListingModal();
+    }
+  };
+
+  const createListingFromSubmission = async () => {
+    if (!listingCreationSubmission || !listingCreationDraft) return;
+    if (!listingCreationDraft.name.trim()) {
+      setError('Listing name is required.');
+      return;
+    }
+    if (listingDuplicateMatches.length && !allowDuplicateCreate) {
+      setError('Review the duplicate warning before creating a live listing.');
+      return;
+    }
+
+    setBusy(true);
+    setError('');
+    try {
+      const payload = buildLiveListingInsertPayload(listingCreationDraft);
+
+      let insertResult = await supabase
+        .from('resources')
+        .insert(payload)
+        .select('id, name, slug')
+        .single();
+
+      if (insertResult.error && (`${insertResult.error.code || ''}` === '23505' || `${insertResult.error.message || ''}`.toLowerCase().includes('duplicate'))) {
+        insertResult = await supabase
+          .from('resources')
+          .insert({ ...payload, slug: `${payload.slug}-${Date.now().toString().slice(-6)}` })
+          .select('id, name, slug')
+          .single();
+      }
+
+      if (insertResult.error) {
+        throw new Error(`Live listing create failed at resources insert: ${insertResult.error.message}`);
+      }
+
+      const noteParts = [
+        `Listing created ${new Date().toISOString()}`,
+        `Resource id: ${insertResult.data.id}`,
+      ];
+      if (listingDuplicateMatches.length) noteParts.push('Duplicate warning reviewed before creation.');
+
+      const updateResult = await supabase
+        .from('resource_update_submissions')
+        .update({
+          resource_id: insertResult.data.id,
+          admin_notes: noteParts.join(' | '),
+        })
+        .eq('id', listingCreationSubmission.id);
+
+      closeCreateListingModal();
+      setTab('resources');
+      setResourceDraft(emptyResource);
+
+      if (updateResult.error) {
+        setResourceUpdatesNotice(`Live listing created, but submission link-back failed (${updateResult.error.message}). Resource ${insertResult.data.name} was kept.`);
+        setToast(`Live listing created: ${insertResult.data.name}.`);
+        await loadData();
+        return;
+      }
+
+      setToast('Live listing created from approved submission.');
+      await loadData();
+    } catch (actionError) {
+      setError(actionError?.message || 'Live listing creation failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const saveProfile = async () => {
-    if (!profileDraft.name.trim()) {
+    if (!profileDraft.display_name.trim()) {
       setError('Profile name is required.');
       return;
     }
 
     const payload = {
-      name: profileDraft.name.trim(),
-      slug: slugify(profileDraft.slug || profileDraft.name),
+      display_name: profileDraft.display_name.trim(),
+      slug: slugify(profileDraft.slug || profileDraft.display_name),
       resource_id: profileDraft.resource_id || null,
       owner_email: profileDraft.owner_email?.trim() || null,
       email: profileDraft.email?.trim() || null,
       website: profileDraft.website?.trim() || null,
+      package_name: profileDraft.package_name?.trim() || null,
+      entitlement_status: profileDraft.entitlement_status || 'inactive',
+      start_date: profileDraft.start_date || null,
+      end_date: profileDraft.end_date || null,
+      featured_enabled: Boolean(profileDraft.featured_enabled),
+      event_quota: Math.max(0, Number(profileDraft.event_quota) || 0),
+      enquiry_tools_enabled: Boolean(profileDraft.enquiry_tools_enabled),
+      analytics_enabled: Boolean(profileDraft.analytics_enabled),
       is_active: Boolean(profileDraft.is_active),
       updated_by: session?.user?.id || null,
     };
+    const compatiblePayload = buildCompatibleProfilePayload(payload);
+    delete compatiblePayload.legacy.display_name;
 
     await withBusy(async () => {
-      const result = profileDraft.id
-        ? await supabase.from('organisation_profiles').update(payload).eq('id', profileDraft.id)
-        : await supabase.from('organisation_profiles').insert({ ...payload, created_by: session?.user?.id || null });
+      let result = profileDraft.id
+        ? await supabase.from('organisation_profiles').update(compatiblePayload.primary).eq('id', profileDraft.id)
+        : await supabase.from('organisation_profiles').insert({ ...compatiblePayload.primary, created_by: session?.user?.id || null });
+      if (result.error?.message?.includes('display_name')) {
+        result = profileDraft.id
+          ? await supabase.from('organisation_profiles').update(compatiblePayload.legacy).eq('id', profileDraft.id)
+          : await supabase.from('organisation_profiles').insert({ ...compatiblePayload.legacy, created_by: session?.user?.id || null });
+      }
       if (result.error) throw result.error;
       setProfileDraft(emptyProfile);
     }, profileDraft.id ? 'Profile updated.' : 'Profile created.');
@@ -587,37 +1001,87 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         const { error: updateError } = await supabase
           .from('organisation_profiles')
           .update({
+            display_name: displayName,
             owner_email: ownerEmail,
             email: ownerEmail,
+            claim_status: 'claimed',
+            verified_status: 'claimed',
             is_active: true,
             updated_by: session?.user?.id || null,
           })
           .eq('id', existingProfile.id);
+        if (updateError?.message?.includes('display_name')) {
+          const { error: legacyUpdateError } = await supabase
+            .from('organisation_profiles')
+            .update({
+              name: displayName,
+              owner_email: ownerEmail,
+              email: ownerEmail,
+              claim_status: 'claimed',
+              verified_status: 'claimed',
+              is_active: true,
+              updated_by: session?.user?.id || null,
+            })
+            .eq('id', existingProfile.id);
+          if (legacyUpdateError) throw legacyUpdateError;
+          return;
+        }
         if (updateError) throw updateError;
         return;
       }
 
-      const { error: insertError } = await supabase.from('organisation_profiles').insert({
+      let { error: insertError } = await supabase.from('organisation_profiles').insert({
         resource_id: claim.listing_id,
-        name: displayName,
+        display_name: displayName,
         slug: `${slugBase}-${`${claim.listing_id}`.slice(-6)}`,
         owner_email: ownerEmail,
         email: ownerEmail,
+        claim_status: 'claimed',
+        verified_status: 'claimed',
         is_active: true,
         created_by: session?.user?.id || null,
       });
+      if (insertError?.message?.includes('display_name')) {
+        const legacyInsert = await supabase.from('organisation_profiles').insert({
+          resource_id: claim.listing_id,
+          name: displayName,
+          slug: `${slugBase}-${`${claim.listing_id}`.slice(-6)}`,
+          owner_email: ownerEmail,
+          email: ownerEmail,
+          claim_status: 'claimed',
+          verified_status: 'claimed',
+          is_active: true,
+          created_by: session?.user?.id || null,
+        });
+        insertError = legacyInsert.error;
+      }
       if (insertError) throw insertError;
       return;
     }
 
-    const { error: fallbackInsertError } = await supabase.from('organisation_profiles').insert({
-      name: displayName,
+    let { error: fallbackInsertError } = await supabase.from('organisation_profiles').insert({
+      display_name: displayName,
       slug: `${slugBase}-${Date.now()}`,
       owner_email: ownerEmail,
       email: ownerEmail,
+      claim_status: 'claimed',
+      verified_status: 'claimed',
       is_active: true,
       created_by: session?.user?.id || null,
     });
+    if (fallbackInsertError?.message?.includes('display_name')) {
+      const legacyFallbackInsert = await supabase.from('organisation_profiles').insert({
+        name: displayName,
+        slug: `${slugBase}-${Date.now()}`,
+        owner_email: ownerEmail,
+        email: ownerEmail,
+        claim_status: 'claimed',
+        verified_status: 'claimed',
+        is_active: true,
+        created_by: session?.user?.id || null,
+      });
+      fallbackInsertError = legacyFallbackInsert.error;
+    }
     if (fallbackInsertError) throw fallbackInsertError;
   };
 
@@ -630,7 +1094,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         const claim = claims.find((row) => `${row.id}` === `${id}`) || null;
         await applyApprovedClaimOwnership(claim);
       }
-    }, 'Status updated.');
+    }, table === 'listing_claims' && status === 'approved' ? 'Claim approved and owner access provisioned.' : 'Status updated.');
   };
 
   if (!session) {
@@ -680,9 +1144,41 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   }
 
   const pendingClaims = claims.filter((row) => isPendingStatus(row.status));
-  const pendingResourceUpdates = resourceUpdates.filter((row) => isPendingStatus(row.status));
+  const pendingResourceUpdates = resourceUpdates.filter((row) => isExactPendingStatus(row.status));
+  const inReviewResourceUpdates = resourceUpdates.filter((row) => isInReviewStatus(row.status) && !row.resource_id);
+  const approvedResourceUpdatesReady = resourceUpdates.filter((row) => isApprovedStatus(row.status) && !row.resource_id);
   const pendingWalkUpdates = walkUpdates.filter((row) => isPendingStatus(row.status));
   const pendingWalkComments = walkComments.filter((row) => isPendingStatus(row.status));
+  const ownerPerformanceRows = profiles.map((profile) => {
+    const profileEvents = events.filter((event) => `${event.organisation_profile_id}` === `${profile.id}`);
+    const profileEnquiries = eventEnquiries.filter((enquiry) => `${enquiry.organisation_profile_id}` === `${profile.id}` && isWithinPastWindow(enquiry.created_at, analyticsWindow));
+    const profileViews = resourceViewEvents.filter((entry) => `${entry.resource_id}` === `${profile.resource_id || ''}` && isWithinPastWindow(entry.created_at, analyticsWindow));
+    return {
+      id: profile.id,
+      profile,
+      views: profileViews.length,
+      enquiries: profileEnquiries.length,
+      activeEvents: profileEvents.filter((event) => (event.status || 'scheduled') === 'scheduled' && isWithinUpcomingWindow(event.starts_at, analyticsWindow)).length,
+      totalScheduledEvents: profileEvents.filter((event) => (event.status || 'scheduled') === 'scheduled').length,
+      newEnquiries: profileEnquiries.filter((entry) => toSimpleEnquiryState(entry.status) === 'new').length,
+      contactedEnquiries: profileEnquiries.filter((entry) => toSimpleEnquiryState(entry.status) === 'contacted').length,
+      resolvedEnquiries: profileEnquiries.filter((entry) => toSimpleEnquiryState(entry.status) === 'resolved').length,
+      claimStatus: profile.claim_status || 'unclaimed',
+      featured: Boolean(profile.featured),
+      entitlementStatus: profile.entitlement_status || 'inactive',
+      packageName: profile.package_name || 'none',
+      featuredEnabled: Boolean(profile.featured_enabled),
+      enquiryToolsEnabled: Boolean(profile.enquiry_tools_enabled),
+      analyticsEnabled: Boolean(profile.analytics_enabled),
+      eventQuota: Math.max(0, Number(profile.event_quota) || 0),
+    };
+  }).sort((left, right) => right.enquiries - left.enquiries || right.views - left.views);
+  const ownerPerformanceSummary = {
+    totalViews: ownerPerformanceRows.reduce((sum, row) => sum + row.views, 0),
+    totalEnquiries: ownerPerformanceRows.reduce((sum, row) => sum + row.enquiries, 0),
+    totalActiveEvents: ownerPerformanceRows.reduce((sum, row) => sum + row.activeEvents, 0),
+    profilesWithDemand: ownerPerformanceRows.filter((row) => row.views > 0 || row.enquiries > 0).length,
+  };
 
   return (
     <>
@@ -693,6 +1189,8 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
             <h1 style={{ fontSize: 36, fontWeight: 800 }}>Admin Dashboard</h1>
             <p style={{ marginTop: 8, color: 'rgba(26,39,68,0.7)' }}>Live schema mode: categories, resources, organisation_profiles, organisation_events, listing_claims, resource_update_submissions, walk_risk_updates, walk_comments.</p>
             {error ? <div style={{ marginTop: 10, color: '#A03A2D', fontWeight: 700 }}>{error}</div> : null}
+            {analyticsNotice ? <div style={{ marginTop: 10, color: '#9A6700', fontWeight: 700 }}>{analyticsNotice}</div> : null}
+            {resourceUpdatesNotice ? <div style={{ marginTop: 10, color: '#9A6700', fontWeight: 700 }}>{resourceUpdatesNotice}</div> : null}
             {toast ? <div style={{ marginTop: 10, color: '#2D6B1F', fontWeight: 700 }}>{toast}</div> : null}
           </div>
 
@@ -702,6 +1200,29 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
             ))}
             <button className="btn btn-ghost btn-sm" disabled={busy || loading} onClick={loadData}>Refresh</button>
           </div>
+
+          {!loading && (tab === 'overview' || tab === 'profiles') ? (
+            <div className="card" style={{ padding: 16, borderRadius: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.6)', textTransform: 'uppercase' }}>Analytics window</div>
+                  <div style={{ marginTop: 6, fontSize: 13.5, color: 'rgba(26,39,68,0.68)' }}>Views and enquiries use historical activity. Active events use the matching forward-looking window.</div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {ANALYTICS_WINDOWS.map((windowOption) => (
+                    <button
+                      key={windowOption.key}
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setAnalyticsWindow(windowOption.key)}
+                      style={{ borderColor: analyticsWindow === windowOption.key ? '#1A2744' : undefined, fontWeight: analyticsWindow === windowOption.key ? 700 : 600 }}
+                    >
+                      {windowOption.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           {loading ? <div className="card" style={{ padding: 20 }}>Loading dashboard...</div> : null}
 
@@ -713,7 +1234,9 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                 ['Profiles', profiles.length],
                 ['Events', events.length],
                 ['Pending claims', pendingClaims.length],
-                ['Pending updates', pendingResourceUpdates.length + pendingWalkUpdates.length + pendingWalkComments.length],
+                ['Pending submissions', pendingResourceUpdates.length],
+                ['Profile views', ownerPerformanceSummary.totalViews],
+                ['Event enquiries', ownerPerformanceSummary.totalEnquiries],
               ].map(([label, value]) => (
                 <div key={label} className="card" style={{ padding: 16, borderRadius: 16 }}>
                   <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.6)', textTransform: 'uppercase' }}>{label}</div>
@@ -723,20 +1246,108 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
             </div>
           ) : null}
 
+          {!loading && tab === 'overview' ? (
+            <div className="card" style={{ padding: 18, borderRadius: 18 }}>
+              <h2 style={{ fontSize: 22, fontWeight: 700 }}>Owner performance visibility</h2>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, marginTop: 12 }}>
+                {[
+                  ['Profiles with demand', ownerPerformanceSummary.profilesWithDemand],
+                  ['Active owner events', ownerPerformanceSummary.totalActiveEvents],
+                  ['Open owner enquiries', ownerPerformanceRows.reduce((sum, row) => sum + row.newEnquiries + row.contactedEnquiries, 0)],
+                  ['Resolved enquiries', ownerPerformanceRows.reduce((sum, row) => sum + row.resolvedEnquiries, 0)],
+                ].map(([label, value]) => (
+                  <div key={label} style={{ border: '1px solid #E9EEF5', borderRadius: 14, padding: 14, background: '#FAFBFF' }}>
+                    <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.6)', textTransform: 'uppercase' }}>{label}</div>
+                    <div style={{ marginTop: 6, fontSize: 28, fontWeight: 800 }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           {!loading && tab === 'moderation' ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
               <QueueCard
-                title="Listing claims"
+                title="Pending claims"
                 rows={pendingClaims}
                 onUpdateStatus={(id, status) => updateQueueStatus('listing_claims', id, status)}
                 formatRow={(row) => `${row.listing_title || row.org_name || 'Claim'} · ${row.full_name || row.email || 'Unknown'}`}
+                renderMeta={(row) => (
+                  <div style={{ display: 'grid', gap: 4, fontSize: 12, color: 'rgba(26,39,68,0.72)' }}>
+                    <div>Email: {row.email || 'Unknown'}</div>
+                    <div>Role: {row.relationship || row.role || 'Not provided'}</div>
+                    <div>Reason: {row.reason || 'No reason supplied'}</div>
+                  </div>
+                )}
+                approveLabel="Approve and grant access"
+                rejectLabel="Reject claim"
+                reviewLabel="Hold for review"
               />
               <QueueCard
-                title="Resource updates"
+                title="New organisation submissions"
                 rows={pendingResourceUpdates}
                 onUpdateStatus={(id, status) => updateQueueStatus('resource_update_submissions', id, status)}
-                formatRow={(row) => `${row.listing_title || row.resource_name || row.resource_id || 'Submission'} · ${row.submitter_name || row.submitted_by || row.submitter_email || row.email || 'Unknown'}`}
+                formatRow={(row) => `${row._queueTitle || 'Submission'} · ${row._queueSubmitter || 'Unknown'}`}
+                renderMeta={(row) => (
+                  <div style={{ display: 'grid', gap: 4, fontSize: 12, color: 'rgba(26,39,68,0.72)' }}>
+                    <div>Organisation: {row.organisation_name || row._queueTitle || 'Submission'}</div>
+                    <div>Submitter: {row.submitter_name || row._queueSubmitter || 'Unknown'}</div>
+                    <div>Email: {row.submitter_email || row.email || 'Unknown'}</div>
+                    <div>Phone: {row.submitter_phone || row.phone || 'Not provided'}</div>
+                    <div>Relationship: {row.relationship_to_organisation || row._queueType || 'Not provided'}</div>
+                    <div>Reason: {`${row.reason || row._queueSummary || 'No description provided.'}`.split('\n')[0]}</div>
+                    <div>Status: {row.status || 'pending'}</div>
+                    {row._usesFallbackShape ? <div>Legacy live row detected. Rendering minimal moderation card.</div> : null}
+                    {!row.organisation_name && row._usesFallbackShape ? <div>Raw row id: {row.id}</div> : null}
+                  </div>
+                )}
               />
+              <QueueCard
+                title="In review submissions"
+                rows={inReviewResourceUpdates}
+                onUpdateStatus={(id, status) => updateQueueStatus('resource_update_submissions', id, status)}
+                formatRow={(row) => `${row._queueTitle || 'Submission'} · ${row._queueSubmitter || 'Unknown'}`}
+                renderMeta={(row) => (
+                  <div style={{ display: 'grid', gap: 4, fontSize: 12, color: 'rgba(26,39,68,0.72)' }}>
+                    <div>Organisation: {row.organisation_name || row._queueTitle || 'Submission'}</div>
+                    <div>Submitter: {row.submitter_name || row._queueSubmitter || 'Unknown'}</div>
+                    <div>Email: {row.submitter_email || row.email || 'Unknown'}</div>
+                    <div>Phone: {row.submitter_phone || row.phone || 'Not provided'}</div>
+                    <div>Relationship: {row.relationship_to_organisation || row._queueType || 'Not provided'}</div>
+                    <div>Reason: {`${row.reason || row._queueSummary || 'No description provided.'}`.split('\n')[0]}</div>
+                    {row._usesFallbackShape ? <div>Legacy live row detected. Rendering minimal moderation card.</div> : null}
+                  </div>
+                )}
+                approveLabel="Approve"
+                rejectLabel="Reject"
+                reviewLabel="Keep in review"
+              />
+              <div className="card" style={{ padding: 18, borderRadius: 18 }}>
+                <h3 style={{ fontSize: 18, fontWeight: 700 }}>Approved submissions ready to create</h3>
+                <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
+                  {approvedResourceUpdatesReady.length ? approvedResourceUpdatesReady.map((row) => {
+                    const duplicateMatches = findSubmissionDuplicateMatches({ submission: row, resources, profiles });
+                    return (
+                      <div key={row.id} style={{ border: '1px solid #E9EEF5', borderRadius: 12, padding: 10, background: '#FFF' }}>
+                        <div style={{ fontSize: 14, fontWeight: 700 }}>{row.organisation_name || row._queueTitle || 'Approved submission'}</div>
+                        <div style={{ marginTop: 6, display: 'grid', gap: 4, fontSize: 12, color: 'rgba(26,39,68,0.72)' }}>
+                          <div>Submitter: {row.submitter_name || row._queueSubmitter || 'Unknown'}</div>
+                          <div>Email: {row.submitter_email || 'Unknown'}</div>
+                          <div>Phone: {row.submitter_phone || 'Not provided'}</div>
+                          <div>Relationship: {row.relationship_to_organisation || 'Not provided'}</div>
+                          <div>Reason: {`${row.reason || row._queueSummary || 'No description provided.'}`.split('\n')[0]}</div>
+                          {duplicateMatches.length ? <div style={{ color: '#9A6700', fontWeight: 700 }}>Possible duplicate match found. Review before creating.</div> : null}
+                          {row._usesFallbackShape ? <div>Legacy live row detected. Using minimal safe mapping.</div> : null}
+                        </div>
+                        <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          <button className="btn btn-gold btn-sm" onClick={() => openCreateListingModal(row)}>Create live listing</button>
+                          <button className="btn btn-ghost btn-sm" onClick={() => updateQueueStatus('resource_update_submissions', row.id, 'in_review')}>Return to review</button>
+                        </div>
+                      </div>
+                    );
+                  }) : <div style={{ color: 'rgba(26,39,68,0.65)' }}>No approved submissions waiting for listing creation.</div>}
+                </div>
+              </div>
               <QueueCard
                 title="Walk risk updates"
                 rows={pendingWalkUpdates}
@@ -857,7 +1468,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
             <div className="card" style={{ padding: 18 }}>
               <h2 style={{ fontSize: 22, fontWeight: 700 }}>Organisation profile CRUD</h2>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginTop: 10 }}>
-                <input value={profileDraft.name} onChange={(e) => setProfileDraft((p) => ({ ...p, name: e.target.value }))} placeholder="Profile name" style={inputStyle} />
+                <input value={profileDraft.display_name} onChange={(e) => setProfileDraft((p) => ({ ...p, display_name: e.target.value }))} placeholder="Profile name" style={inputStyle} />
                 <input value={profileDraft.slug} onChange={(e) => setProfileDraft((p) => ({ ...p, slug: e.target.value }))} placeholder="Slug" style={inputStyle} />
                 <select value={profileDraft.resource_id} onChange={(e) => setProfileDraft((p) => ({ ...p, resource_id: e.target.value }))} style={inputStyle}>
                   <option value="">Linked resource</option>
@@ -866,8 +1477,24 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                 <input value={profileDraft.owner_email} onChange={(e) => setProfileDraft((p) => ({ ...p, owner_email: e.target.value }))} placeholder="Owner email" style={inputStyle} />
                 <input value={profileDraft.email} onChange={(e) => setProfileDraft((p) => ({ ...p, email: e.target.value }))} placeholder="Profile email" style={inputStyle} />
                 <input value={profileDraft.website} onChange={(e) => setProfileDraft((p) => ({ ...p, website: e.target.value }))} placeholder="Website" style={inputStyle} />
+                <input value={profileDraft.package_name || ''} onChange={(e) => setProfileDraft((p) => ({ ...p, package_name: e.target.value }))} placeholder="Package name" style={inputStyle} />
+                <select value={profileDraft.entitlement_status || 'inactive'} onChange={(e) => setProfileDraft((p) => ({ ...p, entitlement_status: e.target.value }))} style={inputStyle}>
+                  <option value="inactive">Inactive</option>
+                  <option value="trial">Trial</option>
+                  <option value="active">Active</option>
+                  <option value="paused">Paused</option>
+                  <option value="expired">Expired</option>
+                </select>
+                <input type="date" value={profileDraft.start_date || ''} onChange={(e) => setProfileDraft((p) => ({ ...p, start_date: e.target.value }))} style={inputStyle} />
+                <input type="date" value={profileDraft.end_date || ''} onChange={(e) => setProfileDraft((p) => ({ ...p, end_date: e.target.value }))} style={inputStyle} />
+                <input type="number" min="0" value={profileDraft.event_quota ?? 0} onChange={(e) => setProfileDraft((p) => ({ ...p, event_quota: e.target.value }))} placeholder="Event quota" style={inputStyle} />
               </div>
-              <label style={{ marginTop: 10, display: 'inline-flex', gap: 8 }}><input type="checkbox" checked={Boolean(profileDraft.is_active)} onChange={(e) => setProfileDraft((p) => ({ ...p, is_active: e.target.checked }))} /> Active</label>
+              <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                <label><input type="checkbox" checked={Boolean(profileDraft.is_active)} onChange={(e) => setProfileDraft((p) => ({ ...p, is_active: e.target.checked }))} /> Active</label>
+                <label><input type="checkbox" checked={Boolean(profileDraft.featured_enabled)} onChange={(e) => setProfileDraft((p) => ({ ...p, featured_enabled: e.target.checked }))} /> Featured enabled</label>
+                <label><input type="checkbox" checked={Boolean(profileDraft.enquiry_tools_enabled)} onChange={(e) => setProfileDraft((p) => ({ ...p, enquiry_tools_enabled: e.target.checked }))} /> Enquiry tools enabled</label>
+                <label><input type="checkbox" checked={Boolean(profileDraft.analytics_enabled)} onChange={(e) => setProfileDraft((p) => ({ ...p, analytics_enabled: e.target.checked }))} /> Analytics enabled</label>
+              </div>
               <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
                 <button className="btn btn-gold" disabled={busy} onClick={saveProfile}>{profileDraft.id ? 'Update' : 'Create'} profile</button>
                 {profileDraft.id ? <button className="btn btn-ghost" onClick={() => setProfileDraft(emptyProfile)}>Cancel</button> : null}
@@ -877,11 +1504,42 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                   <div key={row.id} style={{ border: '1px solid #E9EEF5', borderRadius: 10, padding: 10, display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
                     <div>{getProfileName(row, resources)} <span style={{ color: 'rgba(26,39,68,0.55)' }}>({row.owner_email || 'No owner email'})</span></div>
                     <div style={{ display: 'flex', gap: 6 }}>
-                      <button className="btn btn-ghost btn-sm" onClick={() => setProfileDraft({ ...emptyProfile, ...row, name: row.name || '', resource_id: row.resource_id || '' })}>Edit</button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setProfileDraft({ ...emptyProfile, ...row, display_name: row.display_name || row.name || '', resource_id: row.resource_id || '', start_date: row.start_date || '', end_date: row.end_date || '' })}>Edit</button>
                       <button className="btn btn-ghost btn-sm" onClick={() => deleteRow('organisation_profiles', row.id, 'Profile deleted.')}>Delete</button>
                     </div>
                   </div>
                 ))}
+              </div>
+
+              <div style={{ marginTop: 18, borderTop: '1px solid #E9EEF5', paddingTop: 18 }}>
+                <h3 style={{ fontSize: 18, fontWeight: 700 }}>Owner performance</h3>
+                <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
+                  {ownerPerformanceRows.map((row) => (
+                    <div key={row.id} style={{ border: '1px solid #E9EEF5', borderRadius: 12, padding: 12, background: '#FFF' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: 14.5 }}>{getProfileName(row.profile, resources)}</div>
+                          <div style={{ marginTop: 4, fontSize: 12.5, color: 'rgba(26,39,68,0.6)' }}>Claim status: {row.claimStatus} · Featured: {row.featured ? 'yes' : 'no'} · Entitlement: {row.entitlementStatus}</div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <div style={{ padding: '8px 10px', borderRadius: 12, background: '#FAFBFF', border: '1px solid #E9EEF5', fontSize: 12.5 }}>Views: <strong>{row.views}</strong></div>
+                          <div style={{ padding: '8px 10px', borderRadius: 12, background: '#FAFBFF', border: '1px solid #E9EEF5', fontSize: 12.5 }}>Enquiries: <strong>{row.enquiries}</strong></div>
+                          <div style={{ padding: '8px 10px', borderRadius: 12, background: '#FAFBFF', border: '1px solid #E9EEF5', fontSize: 12.5 }}>Active events: <strong>{row.activeEvents}</strong></div>
+                          <div style={{ padding: '8px 10px', borderRadius: 12, background: '#FAFBFF', border: '1px solid #E9EEF5', fontSize: 12.5 }}>Package: <strong>{row.packageName}</strong></div>
+                        </div>
+                      </div>
+                      <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 12.5, color: 'rgba(26,39,68,0.68)' }}>
+                        <span>New: {row.newEnquiries}</span>
+                        <span>Contacted: {row.contactedEnquiries}</span>
+                        <span>Resolved: {row.resolvedEnquiries}</span>
+                        <span>Featured access: {row.featuredEnabled ? 'on' : 'off'}</span>
+                        <span>Enquiry tools: {row.enquiryToolsEnabled ? 'on' : 'off'}</span>
+                        <span>Analytics: {row.analyticsEnabled ? 'on' : 'off'}</span>
+                        <span>Quota: {row.totalScheduledEvents} / {row.eventQuota}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           ) : null}
@@ -934,6 +1592,19 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
           ) : null}
         </div>
       </section>
+      <CreateListingModal
+        submission={listingCreationSubmission}
+        draft={listingCreationDraft}
+        categories={categories}
+        duplicateMatches={listingDuplicateMatches}
+        allowDuplicateCreate={allowDuplicateCreate}
+        onToggleDuplicateCreate={setAllowDuplicateCreate}
+        onChangeDraft={updateListingCreationDraft}
+        onClose={closeCreateListingModal}
+        onOpenExisting={openExistingMatch}
+        onCreate={createListingFromSubmission}
+        busy={busy}
+      />
       <Footer onNavigate={onNavigate} />
     </>
   );

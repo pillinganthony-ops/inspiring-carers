@@ -1,5 +1,6 @@
 import React from 'react';
 import { GoogleMap, InfoWindowF, MarkerF, useJsApiLoader } from '@react-google-maps/api';
+import { MarkerClusterer } from '@googlemaps/markerclusterer';
 import Icons from '../Icons.jsx';
 import Nav from '../Nav.jsx';
 import Footer from '../Footer.jsx';
@@ -68,6 +69,56 @@ const MAP_LIBRARIES = ['places'];
 const SUPPORTS_ORGANISATION_FEATURES = true;
 const SUPPORTS_CLAIMS = true;
 
+const insertEventEnquiry = async ({ listing, event, fullName, email, phone, message, spacesRequested }) => {
+  if (!isSupabaseConfigured() || !supabase) return;
+
+  const enquiryPayload = {
+    organisation_event_id: event.id,
+    organisation_profile_id: event.organisation_profile_id,
+    cta_type: event.cta_type || 'contact',
+    full_name: fullName.trim(),
+    email: email.trim(),
+    phone: phone.trim() || null,
+    message: message.trim() || null,
+    spaces_requested: Number(spacesRequested) || 1,
+    status: 'new',
+  };
+
+  if (event.id && event.organisation_profile_id) {
+    const { error } = await supabase.from('organisation_event_enquiries').insert(enquiryPayload);
+    if (!error) return;
+  }
+
+  const moderationDescription = [
+    `Event enquiry for: ${event.title}`,
+    `Type: ${event.cta_type === 'book' ? 'booking' : 'contact'}`,
+    `Spaces requested: ${Number(spacesRequested) || 1}`,
+    '',
+    message.trim() || 'No message provided.',
+  ].join('\n');
+
+  const { error: queueError } = await supabase.from('resource_update_submissions').insert({
+    resource_id: listing.id || null,
+    resource_name: listing.title || listing.venue || 'Event enquiry',
+    resource_category: 'events',
+    update_type: 'event_enquiry',
+    description: moderationDescription,
+    submitter_name: fullName.trim(),
+    submitter_email: email.trim(),
+    consent_review: true,
+    status: 'pending',
+    payload: {
+      event_id: event.id,
+      organisation_profile_id: event.organisation_profile_id,
+      cta_type: event.cta_type,
+      phone: phone.trim() || null,
+      spaces_requested: Number(spacesRequested) || 1,
+      destination_email: event.contact_email || listing.email || null,
+    },
+  });
+  if (queueError) throw queueError;
+};
+
 const CATEGORY_META = [
   { tone: 'sky', icon: <IGroups s={16} />, cardIcon: <IGroups s={22} />, matches: ['group', 'social', 'community'] },
   { tone: 'lime', icon: <IWalks s={16} />, cardIcon: <IWalks s={22} />, matches: ['walk', 'outdoor'] },
@@ -130,6 +181,9 @@ const pickField = (row, keys) => {
   return '';
 };
 
+const normalizeForSearch = (text) =>
+  `${text || ''}`.toLowerCase().replace(/[''`']/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+
 const toSlug = (value) =>
   `${value || ''}`
     .toLowerCase()
@@ -167,6 +221,29 @@ const getCategoryMeta = (value) => {
   const matched = CATEGORY_META.find((category) => category.matches.some((match) => raw.includes(match)));
   if (matched) return matched;
   return { tone: 'navy', icon: <ISparkle s={16} />, cardIcon: <ICoffee s={22} /> };
+};
+
+const getSearchScore = (resource, needle) => {
+  if (!needle) return resource.featured ? 5 : 0;
+
+  const title = normalizeForSearch(resource.title);
+  const venue = normalizeForSearch(resource.venue);
+  const category = normalizeForSearch(resource.categoryLabel);
+  const desc = normalizeForSearch(resource.desc);
+  const words = needle.split(/\s+/).filter(Boolean);
+  const isMulti = words.length > 1;
+
+  let score = 0;
+  if (title.startsWith(needle)) score += 120;
+  else if (title.includes(needle)) score += 90;
+  else if (isMulti && words.every((w) => title.includes(w))) score += 70;
+  if (venue.includes(needle)) score += 45;
+  else if (isMulti && words.every((w) => venue.includes(w))) score += 30;
+  if (category.includes(needle)) score += 35;
+  if (desc.includes(needle)) score += 20;
+  else if (isMulti && words.every((w) => desc.includes(w))) score += 12;
+  if (resource.featured) score += 5;
+  return score;
 };
 
 const toTags = (row) => {
@@ -308,7 +385,7 @@ const normalizeResource = (row, index) => {
     county,
     locationKey: `${area}`.trim() || 'Cornwall',
     countyKey: `${county}`.trim().toLowerCase() || 'cornwall',
-    searchText: `${title} ${venue} ${area} ${county} ${categoryLabel} ${summary}`.toLowerCase(),
+    searchText: normalizeForSearch(`${title} ${venue} ${area} ${county} ${categoryLabel} ${summary}`),
   };
 };
 
@@ -600,6 +677,145 @@ const ClaimModal = ({ listing, onClose, onSuccess, onError }) => {
   );
 };
 
+const NewOrganisationModal = ({ onClose, onSuccess, onError }) => {
+  const [form, setForm] = React.useState({
+    organisationName: '',
+    contactName: '',
+    email: '',
+    phone: '',
+    website: '',
+    town: '',
+    category: '',
+    summary: '',
+    reason: '',
+  });
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState('');
+
+  const set = (key) => (event) => setForm((prev) => ({ ...prev, [key]: event.target.value }));
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    const email = form.email.trim();
+    if (!form.organisationName.trim() || !form.contactName.trim() || !email || !form.summary.trim() || !form.reason.trim()) {
+      setError('Please complete all required fields.');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+
+    setBusy(true);
+    setError('');
+    try {
+      if (!supabase) throw new Error('Database not available.');
+
+      const reason = [
+        'Find Help new organisation submission',
+        `Summary: ${form.summary.trim()}`,
+        `Why this should be listed: ${form.reason.trim()}`,
+        `Category: ${form.category.trim() || 'Not provided'}`,
+        `Town: ${form.town.trim() || 'Not provided'}`,
+        `Website: ${form.website.trim() || 'Not provided'}`,
+      ].join('\n');
+
+      const payload = {
+        organisation_name: form.organisationName.trim(),
+        submitter_name: form.contactName.trim(),
+        submitter_email: email,
+        submitter_phone: form.phone.trim() || null,
+        relationship_to_organisation: `New organisation submission${form.category.trim() ? ` · ${form.category.trim()}` : ''}`,
+        reason,
+        status: 'pending',
+      };
+
+      const { error: dbError } = await supabase.from('resource_update_submissions').insert(payload);
+      if (dbError) throw dbError;
+      onSuccess?.(form.organisationName.trim());
+    } catch (submitError) {
+      const message = submitError?.message || 'Unable to submit organisation right now.';
+      setError(message);
+      onError?.(message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const fieldSt = { width: '100%', borderRadius: 12, border: '1px solid #E9EEF5', padding: '12px 14px', fontSize: 14, color: '#1A2744', background: '#FAFBFF', fontFamily: 'Inter, sans-serif', boxSizing: 'border-box' };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(15,23,42,0.50)', display: 'grid', placeItems: 'center', padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: 'white', borderRadius: 28, padding: '32px 30px', width: '100%', maxWidth: 560, maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 40px 80px rgba(15,23,42,0.25)', position: 'relative' }}>
+        <button onClick={onClose} style={{ position: 'absolute', right: 20, top: 20, width: 36, height: 36, borderRadius: 999, border: '1px solid #EFF1F7', background: '#FAFBFF', display: 'grid', placeItems: 'center' }}>
+          <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#1A2744" strokeWidth={2} strokeLinecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 6 }}>
+          <DefaultBrandMark size={50} />
+          <div>
+            <div style={{ fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.5)' }}>Submit a new organisation</div>
+            <div style={{ fontFamily: 'Sora, sans-serif', fontWeight: 700, fontSize: 18, color: '#1A2744', marginTop: 2 }}>Send a listing for admin review</div>
+          </div>
+        </div>
+        <div style={{ padding: '9px 12px', borderRadius: 10, background: 'rgba(245,166,35,0.09)', border: '1px solid rgba(245,166,35,0.18)', fontSize: 13, color: 'rgba(26,39,68,0.75)', marginBottom: 10 }}>
+          New organisations are never published directly. Every submission goes into admin moderation first.
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 12 }}>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,39,68,0.55)', display: 'block', marginBottom: 5 }}>Organisation name *</label>
+            <input value={form.organisationName} onChange={set('organisationName')} required placeholder="Organisation name" style={fieldSt} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,39,68,0.55)', display: 'block', marginBottom: 5 }}>Your name *</label>
+              <input value={form.contactName} onChange={set('contactName')} required placeholder="Contact name" style={fieldSt} />
+            </div>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,39,68,0.55)', display: 'block', marginBottom: 5 }}>Email *</label>
+              <input value={form.email} onChange={set('email')} required type="email" placeholder="you@example.org" style={fieldSt} />
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,39,68,0.55)', display: 'block', marginBottom: 5 }}>Phone</label>
+              <input value={form.phone} onChange={set('phone')} placeholder="Phone number" style={fieldSt} />
+            </div>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,39,68,0.55)', display: 'block', marginBottom: 5 }}>Website</label>
+              <input value={form.website} onChange={set('website')} placeholder="https://..." style={fieldSt} />
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,39,68,0.55)', display: 'block', marginBottom: 5 }}>Town or area</label>
+              <input value={form.town} onChange={set('town')} placeholder="Town or area" style={fieldSt} />
+            </div>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,39,68,0.55)', display: 'block', marginBottom: 5 }}>Category</label>
+              <input value={form.category} onChange={set('category')} placeholder="e.g. Carers, Mental Health" style={fieldSt} />
+            </div>
+          </div>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,39,68,0.55)', display: 'block', marginBottom: 5 }}>Short summary *</label>
+            <textarea value={form.summary} onChange={set('summary')} required rows={3} placeholder="What support does this organisation offer?" style={{ ...fieldSt, resize: 'vertical' }} />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,39,68,0.55)', display: 'block', marginBottom: 5 }}>Why should it be added? *</label>
+            <textarea value={form.reason} onChange={set('reason')} required rows={4} placeholder="Tell the admin team why this is useful and should be reviewed for listing." style={{ ...fieldSt, resize: 'vertical' }} />
+          </div>
+          {error ? <div style={{ padding: '10px 12px', borderRadius: 12, background: 'rgba(244,97,58,0.08)', color: '#A03A2D', fontSize: 13, fontWeight: 600 }}>{error}</div> : null}
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button className="btn btn-gold" type="submit" disabled={busy} style={{ flex: 1 }}>{busy ? 'Submitting...' : 'Submit for admin review'}</button>
+            <button className="btn btn-ghost" type="button" onClick={onClose}>Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 /* ─── StickyMobileBar ────────────────────────────────────── */
 const StickyMobileBar = ({ listing, onShareQuick, onOpenShareMenu, onOpenDirections }) => (
   <div className="sticky-mobile-bar">
@@ -749,40 +965,19 @@ const EventActionModal = ({ listing, event, onClose, onSuccess, onFailure }) => 
     setBusy(true);
     setError('');
     try {
-      const moderationDescription = [
-        `Event enquiry for: ${event.title}`,
-        `Type: ${event.cta_type === 'book' ? 'booking' : 'contact'}`,
-        `Spaces requested: ${Number(form.spacesRequested) || 1}`,
-        '',
-        form.message.trim() || 'No message provided.',
-      ].join('\n');
-
-      if (isSupabaseConfigured() && supabase) {
-        const { error: queueError } = await supabase.from('resource_update_submissions').insert({
-          resource_id: listing.id || null,
-          resource_name: listing.title || listing.venue || 'Event enquiry',
-          resource_category: 'events',
-          update_type: 'event_enquiry',
-          description: moderationDescription,
-          submitter_name: form.fullName.trim(),
-          submitter_email: form.email.trim(),
-          consent_review: true,
-          status: 'pending',
-          payload: {
-            event_id: event.id,
-            organisation_profile_id: event.organisation_profile_id,
-            cta_type: event.cta_type,
-            phone: form.phone.trim() || null,
-            spaces_requested: Number(form.spacesRequested) || 1,
-            destination_email: event.contact_email || listing.email || null,
-          },
-        });
-        if (queueError) throw queueError;
-      }
+      await insertEventEnquiry({
+        listing,
+        event,
+        fullName: form.fullName,
+        email: form.email,
+        phone: form.phone,
+        message: form.message,
+        spacesRequested: form.spacesRequested,
+      });
 
       if (event.cta_type === 'book' && event.booking_url) {
         window.open(event.booking_url, '_blank', 'noopener,noreferrer');
-        onSuccess(`Booking opened for ${event.title}. Request logged for admin.`);
+        onSuccess(`Booking opened for ${event.title}. Enquiry added to the organiser pipeline.`);
       } else {
         const destinationEmail = event.contact_email || listing.email;
         if (destinationEmail) {
@@ -796,9 +991,9 @@ const EventActionModal = ({ listing, event, onClose, onSuccess, onFailure }) => 
             form.message.trim() || 'No message provided.',
           ].join('\n'));
           window.location.href = `mailto:${destinationEmail}?subject=${subject}&body=${body}`;
-          onSuccess(`Contact email prepared for ${listing.venue}. Request logged for admin.`);
+          onSuccess(`Contact email prepared for ${listing.venue}. Enquiry added to the organiser pipeline.`);
         } else {
-          onSuccess('Request logged for admin. No direct contact email is available yet.');
+          onSuccess('Enquiry added to the organiser pipeline. No direct contact email is available yet.');
         }
       }
     } catch (submitError) {
@@ -837,11 +1032,11 @@ const EventActionModal = ({ listing, event, onClose, onSuccess, onFailure }) => 
 };
 
 /* ─── ResourceDetail ─────────────────────────────────────── */
-const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds, onToggleSave, onOpenResource, onNotify }) => {
+const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds, onToggleSave, onOpenResource, onNotify, onNavigate }) => {
   const [shareOpen, setShareOpen] = React.useState(false);
   const [mobileShareOpen, setMobileShareOpen] = React.useState(false);
   const [claimOpen, setClaimOpen] = React.useState(false);
-  const [claimSuccess, setClaimSuccess] = React.useState(false);
+  const [claimSuccess, setClaimSuccess] = React.useState(null);
   const [activeEvent, setActiveEvent] = React.useState(null);
   const isMobile = useIsMobile();
   const heroBg = toneMapColor(listing?.tone || 'navy').fg;
@@ -1181,18 +1376,53 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
                     <IBuilding s={18} />
                   </div>
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: 13.5 }}>Is this your organisation?</div>
-                    <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.55)', marginTop: 1 }}>Manage and update this listing</div>
+                    <div style={{ fontWeight: 700, fontSize: 13.5 }}>Own this listing and unlock your dashboard</div>
+                    <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.55)', marginTop: 1 }}>Claim it to manage details, publish events and prepare premium upgrades</div>
                   </div>
                 </div>
+                <div style={{ marginTop: 14, display: 'grid', gap: 7 }}>
+                  {[
+                    'Update your logo, description and support categories',
+                    'Add your first live event before approval completes',
+                    'Preview featured placement and enquiry capture upgrades',
+                  ].map((item) => (
+                    <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'rgba(26,39,68,0.72)' }}>
+                      <ICheck s={14} style={{ color: '#10B981' }} />
+                      {item}
+                    </div>
+                  ))}
+                </div>
                 <button onClick={() => setClaimOpen(true)} className="btn btn-ghost btn-sm" style={{ width: '100%', marginTop: 14, justifyContent: 'center', gap: 8 }}>
-                  <IFlag s={14} /> Claim this listing
+                  <IFlag s={14} /> Claim listing and start onboarding
                 </button>
+                <div style={{ marginTop: 10, fontSize: 11.5, color: 'rgba(26,39,68,0.48)' }}>Featured listings, enquiry tracking and paid upgrades can be added after approval.</div>
               </div>
             ) : (
-              <div style={{ background: 'rgba(16,185,129,0.08)', borderRadius: 22, padding: 18, border: '1px solid rgba(16,185,129,0.2)', display: 'flex', alignItems: 'center', gap: 12 }}>
-                <ICheck s={18} style={{ color: '#10B981' }} />
-                <div style={{ fontSize: 13.5, fontWeight: 600, color: '#1A2744' }}>Claim submitted — our team will review and be in touch.</div>
+              <div style={{ background: 'rgba(16,185,129,0.08)', borderRadius: 22, padding: 18, border: '1px solid rgba(16,185,129,0.2)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <ICheck s={18} style={{ color: '#10B981' }} />
+                  <div>
+                    <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1A2744' }}>Claim submitted for review</div>
+                    <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.66)', marginTop: 3 }}>We have received {claimSuccess.organisationName || claimSuccess.listingName || 'your organisation'} and opened your onboarding path.</div>
+                  </div>
+                </div>
+                <div style={{ marginTop: 14, display: 'grid', gap: 8 }}>
+                  {[
+                    'Step 1: sign in to your organisation dashboard',
+                    'Step 2: add your logo, description and categories',
+                    'Step 3: publish your first event to improve visibility',
+                  ].map((item) => (
+                    <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'rgba(26,39,68,0.72)' }}>
+                      <IBadge s={13} style={{ color: '#10B981' }} />
+                      {item}
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
+                  <button className="btn btn-gold btn-sm" onClick={() => onNavigate?.('profile')}>Open owner dashboard</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setClaimSuccess(null)}>Close success state</button>
+                </div>
+                <div style={{ marginTop: 10, fontSize: 11.5, color: 'rgba(26,39,68,0.48)' }}>Your claim stays pending until an admin approves it, but you can complete onboarding now.</div>
               </div>
             )}
           </div>
@@ -1221,7 +1451,7 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
           onClose={() => setClaimOpen(false)}
           onSuccess={(payload) => {
             setClaimOpen(false);
-            setClaimSuccess(true);
+            setClaimSuccess(payload || { listingName: listing?.title || 'this listing' });
             const listingName = payload?.listingName || listing?.title || 'this listing';
             const organisationName = payload?.organisationName || listingName;
             onNotify?.(`Claim request submitted for ${listingName} (${organisationName}).`);
@@ -1260,7 +1490,7 @@ const ListingCard = ({ listing, saved, onToggleSave, onOpenResource, onShareActi
           </div>
           <button
             onClick={(e) => { e.stopPropagation(); onOpenResource(listing); }}
-            style={{ fontFamily: 'Sora, sans-serif', fontWeight: 700, fontSize: 17, marginTop: 3, letterSpacing: '-0.01em', color: '#1A2744', textAlign: 'left', lineHeight: 1.25 }}
+            style={{ fontFamily: 'Sora, sans-serif', fontWeight: 700, fontSize: 17, marginTop: 3, letterSpacing: '-0.01em', color: '#1A2744', textAlign: 'left', lineHeight: 1.25, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
           >
             {listing.title}
           </button>
@@ -1305,12 +1535,80 @@ const ListingCard = ({ listing, saved, onToggleSave, onOpenResource, onShareActi
   );
 };
 
-const DirectoryMap = ({ listings, selectedId, onSelect, onOpenResource }) => {
+const DirectoryMap = ({ listings, panelListings, selectedId, onSelect, onOpenResource, isMobile }) => {
   const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
   const { isLoaded } = useJsApiLoader({ id: 'ic-google-map', googleMapsApiKey: googleMapsApiKey || '', libraries: MAP_LIBRARIES });
+  const mapRef = React.useRef(null);
+  const clusterRef = React.useRef(null);
+  const markersRef = React.useRef([]);
+  const shouldAutoFitRef = React.useRef(true);
+  const panelRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (!selectedId || !panelRef.current) return;
+    const el = panelRef.current.querySelector(`[data-lid="${selectedId}"]`);
+    if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [selectedId]);
 
   const points = React.useMemo(() => listings.filter((item) => item.lat !== null && item.lng !== null), [listings]);
-  const selected = points.find((item) => item.id === selectedId) || points[0] || null;
+  const selected = selectedId ? (points.find((item) => item.id === selectedId) || null) : null;
+
+  const fitToPoints = React.useCallback(() => {
+    if (!mapRef.current || !points.length || !window.google?.maps) return;
+
+    if (points.length === 1) {
+      mapRef.current.panTo({ lat: points[0].lat, lng: points[0].lng });
+      mapRef.current.setZoom(13);
+      return;
+    }
+
+    const bounds = new window.google.maps.LatLngBounds();
+    points.forEach((point) => bounds.extend({ lat: point.lat, lng: point.lng }));
+    mapRef.current.fitBounds(bounds, isMobile ? 48 : 72);
+  }, [isMobile, points]);
+
+  React.useEffect(() => {
+    shouldAutoFitRef.current = true;
+  }, [listings]);
+
+  React.useEffect(() => {
+    if (!isLoaded || !mapRef.current || !window.google?.maps) return undefined;
+
+    markersRef.current.forEach((marker) => marker.setMap(null));
+    markersRef.current = [];
+    if (clusterRef.current) {
+      clusterRef.current.clearMarkers();
+      clusterRef.current = null;
+    }
+
+    const markers = points.map((listing) => {
+      const marker = new window.google.maps.Marker({
+        position: { lat: listing.lat, lng: listing.lng },
+        title: listing.title,
+      });
+      marker.addListener('click', () => onSelect(listing.id));
+      return marker;
+    });
+
+    markersRef.current = markers;
+    clusterRef.current = new MarkerClusterer({
+      map: mapRef.current,
+      markers,
+    });
+
+    if (shouldAutoFitRef.current) {
+      fitToPoints();
+      shouldAutoFitRef.current = false;
+    }
+
+    return () => {
+      markers.forEach((marker) => marker.setMap(null));
+      if (clusterRef.current) {
+        clusterRef.current.clearMarkers();
+        clusterRef.current = null;
+      }
+    };
+  }, [fitToPoints, isLoaded, onSelect, points]);
 
   if (!googleMapsApiKey) {
     return <StateCard title="Google Maps key is missing" subtitle="Add VITE_GOOGLE_MAPS_API_KEY to enable full interactive map pins and routing." />;
@@ -1321,12 +1619,20 @@ const DirectoryMap = ({ listings, selectedId, onSelect, onOpenResource }) => {
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: 16, minHeight: 640 }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 640, overflowY: 'auto', paddingRight: 6 }}>
-        {listings.map((listing) => {
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1.3fr', gap: 16, minHeight: isMobile ? 'auto' : 640 }}>
+      <div ref={panelRef} style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: isMobile ? 'none' : 640, overflowY: 'auto', paddingRight: isMobile ? 0 : 6, order: isMobile ? 2 : 1 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
+          <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.62)' }}>
+            <strong style={{ color: '#1A2744' }}>{points.length}</strong> mapped · <strong style={{ color: '#1A2744' }}>{panelListings.length}</strong> in list
+          </div>
+          <button className="btn btn-ghost btn-sm" onClick={fitToPoints}>
+            <IPin s={14} /> Fit results
+          </button>
+        </div>
+        {panelListings.map((listing) => {
           const active = listing.id === selectedId;
           return (
-            <div key={listing.id} className="card" onClick={() => onSelect(listing.id)} style={{ padding: 14, display: 'flex', gap: 10, alignItems: 'start', border: active ? `1px solid ${toneMapColor(listing.tone).fg}` : '1px solid #EFF1F7', boxShadow: active ? `0 10px 22px ${toneMapColor(listing.tone).fg}24` : 'var(--shadow-sm)', cursor: 'pointer' }}>
+            <div key={listing.id} data-lid={listing.id} className="card" onClick={() => onSelect(listing.id)} style={{ padding: 14, display: 'flex', gap: 10, alignItems: 'start', border: active ? `1px solid ${toneMapColor(listing.tone).fg}` : '1px solid #EFF1F7', boxShadow: active ? `0 10px 22px ${toneMapColor(listing.tone).fg}24` : 'var(--shadow-sm)', cursor: 'pointer' }}>
               <IconTile tone={listing.tone} size={42} radius={10}>{listing.icon}</IconTile>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 14.5 }}>{listing.title}</div>
@@ -1341,13 +1647,19 @@ const DirectoryMap = ({ listings, selectedId, onSelect, onOpenResource }) => {
         })}
       </div>
 
-      <div className="card" style={{ padding: 0, overflow: 'hidden', borderRadius: 20, minHeight: 640 }}>
+      <div className="card" style={{ padding: 0, overflow: 'hidden', borderRadius: 20, minHeight: isMobile ? 420 : 640, order: isMobile ? 1 : 2 }}>
         {isLoaded ? (
-          <GoogleMap mapContainerStyle={{ width: '100%', height: '640px' }} center={selected ? { lat: selected.lat, lng: selected.lng } : { lat: 50.266, lng: -5.05 }} zoom={11} options={{ mapTypeControl: false, streetViewControl: false, fullscreenControl: false, gestureHandling: 'greedy' }}>
-            {points.map((listing) => (
-              <MarkerF key={listing.id} position={{ lat: listing.lat, lng: listing.lng }} onClick={() => onSelect(listing.id)} title={listing.title} />
-            ))}
-
+          <GoogleMap
+            mapContainerStyle={{ width: '100%', height: isMobile ? '420px' : '640px' }}
+            center={selected ? { lat: selected.lat, lng: selected.lng } : { lat: 50.266, lng: -5.05 }}
+            zoom={11}
+            onLoad={(map) => {
+              mapRef.current = map;
+            }}
+            onDragStart={() => { shouldAutoFitRef.current = false; }}
+            onZoomChanged={() => { shouldAutoFitRef.current = false; }}
+            options={{ mapTypeControl: false, streetViewControl: false, fullscreenControl: false, gestureHandling: 'greedy' }}
+          >
             {selected && (
               <InfoWindowF position={{ lat: selected.lat, lng: selected.lng }} onCloseClick={() => onSelect('')}>
                 <div style={{ maxWidth: 230 }}>
@@ -1362,7 +1674,7 @@ const DirectoryMap = ({ listings, selectedId, onSelect, onOpenResource }) => {
             )}
           </GoogleMap>
         ) : (
-          <div style={{ display: 'grid', placeItems: 'center', minHeight: 640, color: 'rgba(26,39,68,0.65)' }}>Loading interactive map...</div>
+          <div style={{ display: 'grid', placeItems: 'center', minHeight: isMobile ? 420 : 640, color: 'rgba(26,39,68,0.65)' }}>Loading interactive map...</div>
         )}
       </div>
     </div>
@@ -1374,8 +1686,8 @@ const SkeletonBlock = ({ w = '100%', h = 14, mt = 0 }) => (
   <div style={{ width: w, height: h, borderRadius: 999, background: 'linear-gradient(90deg, #EEF2FA 25%, #E0E8F5 50%, #EEF2FA 75%)', backgroundSize: '400% 100%', animation: 'shimmer 1.4s ease infinite', marginTop: mt }} />
 );
 
-const LoadingGrid = () => (
-  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+const LoadingGrid = ({ isMobile }) => (
+  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
     {Array.from({ length: 4 }).map((_, i) => (
       <div key={i} className="card" style={{ padding: 22 }}>
         <div style={{ display: 'flex', gap: 14 }}>
@@ -1403,12 +1715,17 @@ const StateCard = ({ title, subtitle = 'Try another category or area filter, or 
 );
 
 const FindHelpV2 = ({ onNavigate }) => {
+  const isMobile = useIsMobile();
   const [view, setView] = React.useState('list');
   const [activeCat, setActiveCat] = React.useState('all');
   const [savedIds, setSavedIds] = React.useState(new Set());
   const [keyword, setKeyword] = React.useState('');
   const [areaFilter, setAreaFilter] = React.useState('all');
   const [countyFilter, setCountyFilter] = React.useState('all');
+  const [showMappableOnly, setShowMappableOnly] = React.useState(false);
+  const [sortBy, setSortBy] = React.useState('relevance');
+  const [pageSize, setPageSize] = React.useState(24);
+  const [visibleCount, setVisibleCount] = React.useState(24);
   const [resources, setResources] = React.useState([]);
   const [categories, setCategories] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
@@ -1418,6 +1735,7 @@ const FindHelpV2 = ({ onNavigate }) => {
   const [toast, setToast] = React.useState('');
   const [selectedId, setSelectedId] = React.useState('');
   const [detailSlug, setDetailSlug] = React.useState(() => getDetailSlugFromPath());
+  const [newOrganisationOpen, setNewOrganisationOpen] = React.useState(false);
 
   React.useEffect(() => {
     const onPop = () => setDetailSlug(getDetailSlugFromPath());
@@ -1535,6 +1853,7 @@ const FindHelpV2 = ({ onNavigate }) => {
         setResources(loadedResources);
         setLoading(false);
       } catch (loadError) {
+        console.error('[FindHelp] loadData error:', loadError);
         if (!cancelled) {
           setCategories([]);
           setResources([]);
@@ -1554,17 +1873,60 @@ const FindHelpV2 = ({ onNavigate }) => {
   const areaOptions = React.useMemo(() => Array.from(new Set(resources.map((resource) => resource.locationKey).filter(Boolean))).sort(), [resources]);
   const countyOptions = React.useMemo(() => Array.from(new Set(resources.map((resource) => resource.county).filter(Boolean))).sort(), [resources]);
 
+  React.useEffect(() => {
+    if (countyFilter !== 'all' && countyOptions.length > 0 && !countyOptions.includes(countyFilter)) {
+      setCountyFilter('all');
+    }
+  }, [countyOptions, countyFilter]);
+
+  React.useEffect(() => {
+    const nextPageSize = isMobile ? 12 : 24;
+    setPageSize(nextPageSize);
+    setVisibleCount(nextPageSize);
+  }, [isMobile]);
+
   const filtered = React.useMemo(() => {
-    const searchNeedle = keyword.trim().toLowerCase();
+    const searchNeedle = normalizeForSearch(keyword);
+    const searchWords = searchNeedle ? searchNeedle.split(/\s+/).filter(Boolean) : [];
 
     return resources.filter((resource) => {
       if (activeCat !== 'all' && resource.cat !== activeCat) return false;
       if (areaFilter !== 'all' && resource.locationKey !== areaFilter) return false;
       if (countyFilter !== 'all' && resource.county !== countyFilter) return false;
-      if (searchNeedle && !resource.searchText.includes(searchNeedle)) return false;
+      if (showMappableOnly && (resource.lat === null || resource.lng === null)) return false;
+      if (searchWords.length > 0 && !searchWords.every((word) => resource.searchText.includes(word))) return false;
       return true;
     });
-  }, [resources, activeCat, areaFilter, countyFilter, keyword]);
+  }, [resources, activeCat, areaFilter, countyFilter, keyword, showMappableOnly]);
+
+  const sortedFiltered = React.useMemo(() => {
+    const searchNeedle = normalizeForSearch(keyword);
+    const items = [...filtered];
+
+    if (sortBy === 'az') {
+      return items.sort((a, b) => a.title.localeCompare(b.title));
+    }
+
+    return items.sort((a, b) => {
+      const scoreDiff = getSearchScore(b, searchNeedle) - getSearchScore(a, searchNeedle);
+      if (scoreDiff !== 0) return scoreDiff;
+      return a.title.localeCompare(b.title);
+    });
+  }, [filtered, keyword, sortBy]);
+
+  React.useEffect(() => {
+    setVisibleCount(pageSize);
+  }, [activeCat, areaFilter, countyFilter, keyword, pageSize, showMappableOnly, sortBy, view]);
+
+  React.useEffect(() => {
+    if (selectedId && !sortedFiltered.some((resource) => resource.id === selectedId)) {
+      setSelectedId('');
+    }
+  }, [selectedId, sortedFiltered]);
+
+  const visibleListings = React.useMemo(() => sortedFiltered.slice(0, visibleCount), [sortedFiltered, visibleCount]);
+  const hasMore = visibleCount < sortedFiltered.length;
+  const mappableCount = React.useMemo(() => sortedFiltered.filter((resource) => resource.lat !== null && resource.lng !== null).length, [sortedFiltered]);
 
   const selectedResource = React.useMemo(() => (detailSlug ? resources.find((item) => item.slug === detailSlug) || null : null), [resources, detailSlug]);
   const featuredListings = React.useMemo(() => resources.filter((item) => item.featured).slice(0, 3), [resources]);
@@ -1598,6 +1960,8 @@ const FindHelpV2 = ({ onNavigate }) => {
     setAreaFilter('all');
     setCountyFilter('all');
     setActiveCat('all');
+    setShowMappableOnly(false);
+    setSortBy('relevance');
   };
 
   const openResource = (listing) => {
@@ -1683,40 +2047,12 @@ const FindHelpV2 = ({ onNavigate }) => {
             <span style={{ color: '#1A2744', fontWeight: 600 }}>{detailSlug ? 'Resource detail' : 'Find help near you'}</span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 40, alignItems: 'end' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: isMobile ? 20 : 40, alignItems: 'end' }}>
             <div>
               <div className="eyebrow" style={{ color: '#2D9CDB' }}>For the people you support</div>
               <h1 style={{ fontSize: 'clamp(36px, 4vw, 56px)', marginTop: 10, letterSpacing: '-0.03em', fontWeight: 700, textWrap: 'balance' }}>Trusted local support, ready to share.</h1>
               <p style={{ marginTop: 14, fontSize: 17, color: 'rgba(26,39,68,0.7)', maxWidth: 600 }}>Search, filter, open a dedicated detail page, and share polished links with clients in one flow.</p>
             </div>
-
-            {!detailSlug && (
-              <div style={{ background: 'white', borderRadius: 20, padding: 18, border: '1px solid #EFF1F7', boxShadow: 'var(--shadow-md)' }}>
-                <div style={{ display: 'grid', gap: 8 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 12, background: '#FAFBFF', border: '1px solid #EFF1F7' }}>
-                    <ISearch s={18} />
-                    <input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="Search support, services or keywords" style={{ border: 'none', outline: 'none', background: 'transparent', flex: 1, fontSize: 14, fontWeight: 600, color: '#1A2744', fontFamily: 'Inter, sans-serif' }} />
-                  </div>
-
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <div style={{ flex: '1 1 160px', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 12, background: '#FAFBFF', border: '1px solid #EFF1F7' }}>
-                      <IPin s={18} />
-                      <select value={areaFilter} onChange={(event) => setAreaFilter(event.target.value)} style={{ border: 'none', outline: 'none', background: 'transparent', flex: 1, fontSize: 14, fontWeight: 600, color: '#1A2744', fontFamily: 'Inter, sans-serif' }}>
-                        <option value="all">All towns and areas</option>
-                        {areaOptions.map((area) => <option key={area} value={area}>{area}</option>)}
-                      </select>
-                    </div>
-                    {countyOptions.length > 0 && (
-                      <select value={countyFilter} onChange={(event) => setCountyFilter(event.target.value)} style={{ flex: '1 1 140px', padding: '10px 12px', borderRadius: 12, border: '1px solid #EFF1F7', background: '#FAFBFF', fontSize: 14, fontWeight: 600, color: '#1A2744', fontFamily: 'Inter, sans-serif', outline: 'none' }}>
-                        <option value="all">All counties</option>
-                        {countyOptions.map((county) => <option key={county} value={county}>{county}</option>)}
-                      </select>
-                    )}
-                    <button className="btn btn-sky btn-sm" onClick={clearFilters}><IClose s={14} /> Clear</button>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </section>
@@ -1731,6 +2067,7 @@ const FindHelpV2 = ({ onNavigate }) => {
           onToggleSave={toggleSave}
           onOpenResource={openResource}
           onNotify={setToast}
+          onNavigate={onNavigate}
         />
       ) : (
         <>
@@ -1764,6 +2101,55 @@ const FindHelpV2 = ({ onNavigate }) => {
                   ].map((item) => (
                     <div key={item} style={{ borderRadius: 12, padding: '10px 12px', background: 'rgba(255,255,255,0.13)', border: '1px solid rgba(255,255,255,0.22)', fontSize: 13.5, fontWeight: 600, color: 'rgba(255,255,255,0.94)' }}>{item}</div>
                   ))}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section style={{ paddingTop: 22, paddingBottom: 0, background: '#FAFBFF' }}>
+            <div className="container">
+              <div className="card" style={{ padding: 22, borderRadius: 28, background: '#FFFFFF', border: '1px solid #EFF1F7', boxShadow: 'var(--shadow-md)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1.8fr) minmax(240px, 0.9fr)', gap: 14, alignItems: 'stretch' }}>
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    <div>
+                      <div className="eyebrow" style={{ color: '#2D9CDB' }}>Search the directory</div>
+                      <div style={{ marginTop: 8, fontSize: 22, fontWeight: 800, color: '#1A2744' }}>Find help, then choose the right acquisition path</div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 12, background: '#FAFBFF', border: '1px solid #EFF1F7' }}>
+                      <ISearch s={18} />
+                      <input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="Search support, services or keywords" style={{ border: 'none', outline: 'none', background: 'transparent', flex: 1, fontSize: 14, fontWeight: 600, color: '#1A2744', fontFamily: 'Inter, sans-serif' }} />
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <div style={{ flex: '1 1 160px', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 12, background: '#FAFBFF', border: '1px solid #EFF1F7' }}>
+                        <IPin s={18} />
+                        <select value={areaFilter} onChange={(event) => setAreaFilter(event.target.value)} style={{ border: 'none', outline: 'none', background: 'transparent', flex: 1, fontSize: 14, fontWeight: 600, color: '#1A2744', fontFamily: 'Inter, sans-serif' }}>
+                          <option value="all">All towns and areas</option>
+                          {areaOptions.map((area) => <option key={area} value={area}>{area}</option>)}
+                        </select>
+                      </div>
+                      {countyOptions.length > 1 && (
+                        <select value={countyFilter} onChange={(event) => setCountyFilter(event.target.value)} style={{ flex: '1 1 140px', padding: '10px 12px', borderRadius: 12, border: '1px solid #EFF1F7', background: '#FAFBFF', fontSize: 14, fontWeight: 600, color: '#1A2744', fontFamily: 'Inter, sans-serif', outline: 'none' }}>
+                          <option value="all">All counties</option>
+                          {countyOptions.map((county) => <option key={county} value={county}>{county}</option>)}
+                        </select>
+                      )}
+                      <button className="btn btn-sky btn-sm" onClick={clearFilters}><IClose s={14} /> Clear</button>
+                    </div>
+                  </div>
+
+                  <div style={{ borderRadius: 22, padding: 18, background: 'linear-gradient(180deg, rgba(245,166,35,0.08), rgba(45,156,219,0.08))', border: '1px solid rgba(45,156,219,0.15)', display: 'grid', alignContent: 'space-between', gap: 12 }}>
+                    <div>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 999, background: 'rgba(45,156,219,0.12)', color: '#1A2744', fontSize: 12, fontWeight: 700 }}><IBuilding s={14} /> Submit a new organisation</div>
+                      <div style={{ marginTop: 12, fontSize: 18, fontWeight: 800, color: '#1A2744' }}>Know a service that is missing?</div>
+                      <div style={{ marginTop: 8, fontSize: 13.5, lineHeight: 1.65, color: 'rgba(26,39,68,0.66)' }}>Send it to the admin team for moderation. This is separate from claiming an existing listing and does not publish anything automatically.</div>
+                    </div>
+                    <div>
+                      <button className="btn btn-gold" style={{ width: '100%', justifyContent: 'center', gap: 8 }} onClick={() => setNewOrganisationOpen(true)}>
+                        <IBuilding s={16} /> Submit a new organisation
+                      </button>
+                      <div style={{ marginTop: 8, fontSize: 11.5, color: 'rgba(26,39,68,0.5)' }}>All submissions go to admin approval first.</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1804,6 +2190,17 @@ const FindHelpV2 = ({ onNavigate }) => {
             </section>
           ) : null}
 
+
+      {newOrganisationOpen ? (
+        <NewOrganisationModal
+          onClose={() => setNewOrganisationOpen(false)}
+          onSuccess={(organisationName) => {
+            setNewOrganisationOpen(false);
+            setToast(`${organisationName} submitted for admin review.`);
+          }}
+          onError={(message) => setToast(message)}
+        />
+      ) : null}
           <section style={{ paddingTop: 24, paddingBottom: 0, background: '#FAFBFF' }}>
             <div className="container">
               <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, padding: 14, background: 'rgba(255,255,255,0.9)', borderRadius: 22, border: '1px solid #EFF1F7', boxShadow: 'var(--shadow-sm)' }}>
@@ -1834,17 +2231,49 @@ const FindHelpV2 = ({ onNavigate }) => {
 
           <section style={{ paddingTop: 32, paddingBottom: 80, background: '#FAFBFF' }}>
             <div className="container">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <div style={{ fontSize: 14, color: 'rgba(26,39,68,0.7)' }}><strong style={{ color: '#1A2744' }}>{filtered.length} results</strong> across All + category filters</div>
-                <div style={{ display: 'flex', gap: 6, padding: 4, background: 'white', borderRadius: 999, border: '1px solid #EFF1F7' }}>
+              <div style={{ display: 'grid', gap: 14, marginBottom: 20 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: 12, flexWrap: 'wrap' }}>
+                  <div style={{ fontSize: 14, color: 'rgba(26,39,68,0.7)' }}>
+                    <strong style={{ color: '#1A2744' }}>{sortedFiltered.length} results</strong>
+                    {view === 'list' && visibleListings.length < sortedFiltered.length && (
+                      <span style={{ marginLeft: 6 }}>· showing {visibleListings.length}</span>
+                    )}
+                    <span style={{ marginLeft: 6 }}>· {mappableCount} mappable</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, padding: 4, background: 'white', borderRadius: 999, border: '1px solid #EFF1F7' }}>
                   {['list', 'map'].map((mode) => (
                     <button key={mode} onClick={() => setView(mode)} style={{ padding: '7px 16px', borderRadius: 999, fontSize: 13, fontWeight: 600, background: view === mode ? '#1A2744' : 'transparent', color: view === mode ? 'white' : '#1A2744', textTransform: 'capitalize' }}>{mode}</button>
                   ))}
                 </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', padding: 14, background: 'rgba(255,255,255,0.92)', borderRadius: 18, border: '1px solid #EFF1F7', boxShadow: 'var(--shadow-sm)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: isMobile ? '1 1 100%' : '0 1 auto', minWidth: isMobile ? '100%' : 170 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,39,68,0.55)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Sort</span>
+                    <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} style={{ flex: 1, minHeight: 40, borderRadius: 12, border: '1px solid #E5ECF8', background: '#FAFBFF', padding: '0 12px', fontSize: 13.5, fontWeight: 600, color: '#1A2744' }}>
+                      <option value="relevance">Relevance</option>
+                      <option value="az">A-Z</option>
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: isMobile ? '1 1 100%' : '0 1 auto', minWidth: isMobile ? '100%' : 170 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,39,68,0.55)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Page size</span>
+                    <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))} style={{ flex: 1, minHeight: 40, borderRadius: 12, border: '1px solid #E5ECF8', background: '#FAFBFF', padding: '0 12px', fontSize: 13.5, fontWeight: 600, color: '#1A2744' }}>
+                      {(isMobile ? [12, 24, 36] : [24, 48, 72]).map((size) => <option key={size} value={size}>{size} per page</option>)}
+                    </select>
+                  </div>
+
+                  <button
+                    onClick={() => setShowMappableOnly((prev) => !prev)}
+                    style={{ minHeight: 40, borderRadius: 999, padding: '0 14px', border: `1px solid ${showMappableOnly ? '#2D9CDB' : '#E5ECF8'}`, background: showMappableOnly ? 'rgba(45,156,219,0.12)' : '#FAFBFF', color: '#1A2744', fontSize: 13.5, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 8 }}
+                  >
+                    <IPin s={14} /> Mapped pins only
+                  </button>
+                </div>
               </div>
 
               {loading ? (
-                <LoadingGrid />
+                <LoadingGrid isMobile={isMobile} />
               ) : error ? (
                 <div style={{ display: 'grid', gap: 12 }}>
                   <StateCard title="We are having trouble loading local support right now." subtitle="Please retry. If this persists, check your Supabase environment and listings schema." />
@@ -1853,10 +2282,22 @@ const FindHelpV2 = ({ onNavigate }) => {
                   </div>
                 </div>
               ) : !filtered.length ? (
-                <StateCard title="No support listings found yet." />
+                <StateCard
+                  title={
+                    keyword.trim() || activeCat !== 'all' || areaFilter !== 'all' || countyFilter !== 'all' || showMappableOnly
+                      ? 'No results match your current filters.'
+                      : 'No support listings found yet.'
+                  }
+                  subtitle={
+                    keyword.trim() || activeCat !== 'all' || areaFilter !== 'all' || countyFilter !== 'all' || showMappableOnly
+                      ? 'Try adjusting or clearing your search filters to see more results.'
+                      : 'Check back soon — more listings are being added by the community team.'
+                  }
+                />
               ) : view === 'list' ? (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                  {filtered.map((listing) => (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
+                  {visibleListings.map((listing) => (
                     <ListingCard
                       key={listing.id}
                       listing={listing}
@@ -1870,9 +2311,17 @@ const FindHelpV2 = ({ onNavigate }) => {
                       setShareOpen={(value) => setShareOpenId(value)}
                     />
                   ))}
-                </div>
+                  </div>
+                  {hasMore && (
+                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: 22 }}>
+                      <button className="btn btn-navy" onClick={() => setVisibleCount((prev) => prev + pageSize)}>
+                        Load more results <span style={{ opacity: 0.7 }}>({Math.min(pageSize, sortedFiltered.length - visibleCount)} more)</span>
+                      </button>
+                    </div>
+                  )}
+                </>
               ) : (
-                <DirectoryMap listings={filtered} selectedId={selectedId} onSelect={setSelectedId} onOpenResource={openResource} />
+                <DirectoryMap listings={sortedFiltered} panelListings={sortedFiltered} selectedId={selectedId} onSelect={setSelectedId} onOpenResource={openResource} isMobile={isMobile} />
               )}
             </div>
           </section>

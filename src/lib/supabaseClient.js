@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-const env = import.meta?.env || {};
+const env = import.meta.env || {};
 const resolveRuntimeConfig = () => {
   const runtimeRaw = typeof window !== 'undefined' ? (window.__IC_ENV__ || window.__ENV__ || {}) : {};
   if (typeof runtimeRaw === 'string') {

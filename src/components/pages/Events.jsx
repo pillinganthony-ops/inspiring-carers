@@ -19,6 +19,56 @@ const formatDateTime = (value) => {
   }).format(date);
 };
 
+const insertEventEnquiry = async ({ event, fullName, email, phone, message, spacesRequested }) => {
+  if (!isSupabaseConfigured() || !supabase) return;
+
+  const enquiryPayload = {
+    organisation_event_id: event.id,
+    organisation_profile_id: event.organisation_profile_id,
+    cta_type: event.cta_type || 'contact',
+    full_name: fullName.trim(),
+    email: email.trim(),
+    phone: phone.trim() || null,
+    message: message.trim() || null,
+    spaces_requested: Number(spacesRequested) || 1,
+    status: 'new',
+  };
+
+  if (event.id && event.organisation_profile_id) {
+    const { error } = await supabase.from('organisation_event_enquiries').insert(enquiryPayload);
+    if (!error) return;
+  }
+
+  const moderationDescription = [
+    `Event enquiry for: ${event.title}`,
+    `Type: ${event.cta_type === 'book' ? 'booking' : 'contact'}`,
+    `Spaces requested: ${Number(spacesRequested) || 1}`,
+    '',
+    message.trim() || 'No message provided.',
+  ].join('\n');
+
+  const { error: queueError } = await supabase.from('resource_update_submissions').insert({
+    resource_id: event.resource?.id || null,
+    resource_name: event.profile?.display_name || event.title || 'Event enquiry',
+    resource_category: 'events',
+    update_type: 'event_enquiry',
+    description: moderationDescription,
+    submitter_name: fullName.trim(),
+    submitter_email: email.trim(),
+    consent_review: true,
+    status: 'pending',
+    payload: {
+      event_id: event.id,
+      organisation_profile_id: event.organisation_profile_id,
+      cta_type: event.cta_type,
+      phone: phone.trim() || null,
+      spaces_requested: Number(spacesRequested) || 1,
+      destination_email: event.contact_email || event.profile?.email || null,
+    },
+  });
+  if (queueError) throw queueError;
+};
+
 const EventEnquiryModal = ({ event, onClose, onSuccess }) => {
   const [form, setForm] = React.useState({ fullName: '', email: '', phone: '', message: '', spacesRequested: 1 });
   const [busy, setBusy] = React.useState(false);
@@ -35,44 +85,22 @@ const EventEnquiryModal = ({ event, onClose, onSuccess }) => {
     setBusy(true);
     setError('');
     try {
-      const moderationDescription = [
-        `Event enquiry for: ${event.title}`,
-        `Type: ${event.cta_type === 'book' ? 'booking' : 'contact'}`,
-        `Spaces requested: ${Number(form.spacesRequested) || 1}`,
-        '',
-        form.message.trim() || 'No message provided.',
-      ].join('\n');
-
-      if (isSupabaseConfigured() && supabase) {
-        const { error: queueError } = await supabase.from('resource_update_submissions').insert({
-          resource_id: event.resource?.id || null,
-          resource_name: event.profile?.display_name || event.title || 'Event enquiry',
-          resource_category: 'events',
-          update_type: 'event_enquiry',
-          description: moderationDescription,
-          submitter_name: form.fullName.trim(),
-          submitter_email: form.email.trim(),
-          consent_review: true,
-          status: 'pending',
-          payload: {
-            event_id: event.id,
-            organisation_profile_id: event.organisation_profile_id,
-            cta_type: event.cta_type,
-            phone: form.phone.trim() || null,
-            spaces_requested: Number(form.spacesRequested) || 1,
-            destination_email: event.contact_email || event.profile?.email || null,
-          },
-        });
-        if (queueError) throw queueError;
-      }
+      await insertEventEnquiry({
+        event,
+        fullName: form.fullName,
+        email: form.email,
+        phone: form.phone,
+        message: form.message,
+        spacesRequested: form.spacesRequested,
+      });
 
       if (event.cta_type === 'book' && event.booking_url) {
         window.open(event.booking_url, '_blank', 'noopener,noreferrer');
-        onSuccess('Booking opened and request logged for admin.');
+        onSuccess('Booking opened and enquiry added to the organiser pipeline.');
       } else {
         const destinationEmail = event.contact_email || event.profile?.email;
         if (!destinationEmail) {
-          onSuccess('Request logged for admin. No direct contact email is available yet.');
+          onSuccess('Enquiry added to the organiser pipeline. No direct contact email is available yet.');
         } else {
           const subject = encodeURIComponent(`Enquiry: ${event.title}`);
           const body = encodeURIComponent([
@@ -84,7 +112,7 @@ const EventEnquiryModal = ({ event, onClose, onSuccess }) => {
             form.message.trim() || 'No message provided.',
           ].join('\n'));
           window.location.href = `mailto:${destinationEmail}?subject=${subject}&body=${body}`;
-          onSuccess('Contact email prepared and request logged for admin.');
+          onSuccess('Contact email prepared and enquiry added to the organiser pipeline.');
         }
       }
     } catch (submissionError) {
