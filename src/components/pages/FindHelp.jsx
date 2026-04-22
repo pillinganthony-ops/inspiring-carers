@@ -736,16 +736,83 @@ const ShareTray = ({ listing, onAction, onClose }) => (
 const RELATIONSHIP_OPTIONS = ['Owner / Director', 'Senior Staff Member', 'Volunteer Lead', 'Partnership Organisation', 'Trustee / Board Member', 'Other'];
 
 const ClaimModal = ({ listing, onClose, onSuccess, onError }) => {
-  const [form, setForm] = React.useState({ fullName: '', orgName: deriveClaimOrgName(listing), email: '', phone: '', relationship: '', reason: '' });
+  const [form, setForm] = React.useState({
+    fullName: '',
+    orgName: deriveClaimOrgName(listing),
+    jobTitle: '',
+    email: '',
+    phone: '',
+    relationship: '',
+    reason: '',
+    supportingLink: '',
+  });
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState('');
 
   const set = (key) => (e) => setForm((prev) => ({ ...prev, [key]: e.target.value }));
 
+  const normalizeUrlInput = (value) => {
+    const v = `${value || ''}`.trim();
+    if (!v) return '';
+    if (/^https?:\/\//i.test(v)) return v;
+    if (/^www\./i.test(v)) return `https://${v}`;
+    return v;
+  };
+
+  const isValidHttpUrl = (value) => {
+    const v = `${value || ''}`.trim();
+    if (!v) return true;
+    try {
+      const u = new URL(v);
+      return u.protocol === 'http:' || u.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  };
+
+  const buildAdminReason = (fields) => {
+    const {
+      message,
+      relationship,
+      jobTitle,
+      supportingUrl,
+    } = fields;
+
+    const contextLines = [
+      `Directory listing: ${listing?.title || 'Unknown listing'}`,
+      listing?.slug ? `Public slug: ${listing.slug}` : null,
+      listing?.id ? `Resource ID: ${listing.id}` : null,
+      listing?.categoryLabel ? `Category: ${listing.categoryLabel}` : null,
+      listing?.locationLabel ? `Location: ${listing.locationLabel}` : null,
+      listing?.profile?.id ? `Organisation profile ID: ${listing.profile.id}` : null,
+      listing?.profile?.display_name ? `Profile display name: ${listing.profile.display_name}` : null,
+      listing?.profile?.claim_status ? `Current claim status: ${listing.profile.claim_status}` : null,
+    ].filter(Boolean);
+
+    const requestLines = [
+      `Claimant relationship: ${relationship}`,
+      `Job title: ${jobTitle}`,
+      supportingUrl ? `Supporting link: ${supportingUrl}` : null,
+    ].filter(Boolean);
+
+    return [
+      '--- Claim request (auto-formatted) ---',
+      'Listing context:',
+      ...contextLines.map((line) => `- ${line}`),
+      '',
+      'Request details:',
+      ...requestLines.map((line) => `- ${line}`),
+      '',
+      'Supporting message from claimant:',
+      message,
+    ].join('\n');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (busy) return;
     const email = form.email.trim();
-    if (!form.fullName.trim() || !email || !form.relationship.trim() || !form.reason.trim() || !form.orgName.trim()) {
+    if (!form.fullName.trim() || !email || !form.jobTitle.trim() || !form.relationship.trim() || !form.reason.trim() || !form.orgName.trim()) {
       setError('Please fill in all required fields.');
       return;
     }
@@ -753,21 +820,40 @@ const ClaimModal = ({ listing, onClose, onSuccess, onError }) => {
       setError('Please enter a valid email address.');
       return;
     }
+    const supportingUrl = normalizeUrlInput(form.supportingLink);
+    if (supportingUrl && !isValidHttpUrl(supportingUrl)) {
+      setError('Please enter a valid supporting link (https://…). You can also leave it blank.');
+      return;
+    }
+    const phone = form.phone.replace(/[^\d+()\s-]/g, '').trim();
+    if (form.phone.trim() && phone.length < 6) {
+      setError('Please enter a valid phone number, or leave phone blank.');
+      return;
+    }
     setBusy(true);
     setError('');
     try {
       if (!supabase) throw new Error('Database not available.');
+      const jobTitle = form.jobTitle.trim();
+      const relationship = form.relationship.trim();
+      const message = form.reason.trim();
+      const reason = buildAdminReason({
+        message,
+        relationship,
+        jobTitle,
+        supportingUrl,
+      });
       const claimPayload = {
         listing_id: listing.id,
         listing_slug: listing.slug,
         listing_title: listing.title,
         full_name: form.fullName.trim(),
         org_name: form.orgName.trim(),
-        role: form.relationship.trim(),
+        role: jobTitle,
         email,
         phone: form.phone.trim() || null,
-        relationship: form.relationship.trim(),
-        reason: form.reason.trim(),
+        relationship,
+        reason,
         status: 'pending',
       };
 
@@ -793,9 +879,15 @@ const ClaimModal = ({ listing, onClose, onSuccess, onError }) => {
   const fieldSt = { width: '100%', borderRadius: 12, border: '1px solid #E9EEF5', padding: '12px 14px', fontSize: 14, color: '#1A2744', background: '#FAFBFF', fontFamily: 'Inter, sans-serif', boxSizing: 'border-box' };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(15,23,42,0.50)', display: 'grid', placeItems: 'center', padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{ background: 'white', borderRadius: 28, padding: '32px 30px', width: '100%', maxWidth: 520, maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 40px 80px rgba(15,23,42,0.25)', position: 'relative' }}>
-        <button onClick={onClose} style={{ position: 'absolute', right: 20, top: 20, width: 36, height: 36, borderRadius: 999, border: '1px solid #EFF1F7', background: '#FAFBFF', display: 'grid', placeItems: 'center' }}>
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(15,23,42,0.50)', display: 'grid', placeItems: 'center', padding: 20 }}
+      onClick={(e) => { if (!busy && e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ background: 'white', borderRadius: 28, padding: '32px 30px', width: '100%', maxWidth: 520, maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 40px 80px rgba(15,23,42,0.25)', position: 'relative' }}
+      >
+        <button onClick={onClose} type="button" disabled={busy} style={{ position: 'absolute', right: 20, top: 20, width: 36, height: 36, borderRadius: 999, border: '1px solid #EFF1F7', background: '#FAFBFF', display: 'grid', placeItems: 'center' }}>
           <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#1A2744" strokeWidth={2} strokeLinecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
         </button>
 
@@ -809,12 +901,30 @@ const ClaimModal = ({ listing, onClose, onSuccess, onError }) => {
         <div style={{ padding: '9px 12px', borderRadius: 10, background: 'rgba(45,156,219,0.07)', border: '1px solid rgba(45,156,219,0.15)', fontSize: 13, color: 'rgba(26,39,68,0.75)', marginBottom: 4 }}>
           Claiming: <strong style={{ color: '#1A2744' }}>{listing?.title}</strong>
         </div>
+        {listing?.locationLabel && (
+          <div style={{ marginTop: 6, fontSize: 12.5, color: 'rgba(26,39,68,0.6)', lineHeight: 1.5 }}>
+            <IPin s={12} style={{ display: 'inline', marginRight: 6, verticalAlign: 'middle' }} />
+            {listing.locationLabel}
+          </div>
+        )}
 
-        <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.66)', lineHeight: 1.65, marginBottom: 22 }}>
-          Are you a representative of this organisation? Submit your details and our team will review your claim and be in touch.
+        <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.66)', lineHeight: 1.65, marginBottom: 12 }}>
+          This form helps us verify you represent the right organisation. Your submission is reviewed by the community team, and the public directory listing does not change until a claim is approved.
         </p>
+        <div style={{ display: 'grid', gap: 8, marginBottom: 18, padding: '10px 12px', borderRadius: 12, background: 'rgba(26,39,68,0.04)', border: '1px solid #E8EEF8' }}>
+          {[
+            'We may email you to confirm details before approval.',
+            'You can start onboarding in your dashboard, but access stays pending until approved.',
+            'For fastest review, add a link that helps verify your relationship (optional).',
+          ].map((line) => (
+            <div key={line} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12.5, color: 'rgba(26,39,68,0.72)', lineHeight: 1.55 }}>
+              <ICheck s={14} style={{ color: '#10B981', marginTop: 2, flexShrink: 0 }} />
+              <span>{line}</span>
+            </div>
+          ))}
+        </div>
 
-        <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 12 }}>
+        <form onSubmit={handleSubmit} noValidate style={{ display: 'grid', gap: 12 }}>
           <div>
             <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,39,68,0.55)', display: 'block', marginBottom: 5 }}>Full name *</label>
             <input value={form.fullName} onChange={set('fullName')} required placeholder="Your full name" style={fieldSt} />
@@ -826,14 +936,19 @@ const ClaimModal = ({ listing, onClose, onSuccess, onError }) => {
             <div style={{ marginTop: 5, fontSize: 12, color: 'rgba(26,39,68,0.58)' }}>This should match the organisation behind this listing.</div>
           </div>
 
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,39,68,0.55)', display: 'block', marginBottom: 5 }}>Your role / job title *</label>
+            <input value={form.jobTitle} onChange={set('jobTitle')} required placeholder="e.g. Operations Director, Practice Manager" style={fieldSt} />
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,39,68,0.55)', display: 'block', marginBottom: 5 }}>Email *</label>
-              <input type="email" value={form.email} onChange={set('email')} required placeholder="you@example.com" style={fieldSt} />
+              <input type="email" value={form.email} onChange={set('email')} required placeholder="you@example.com" style={fieldSt} autoComplete="email" inputMode="email" />
             </div>
             <div>
               <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,39,68,0.55)', display: 'block', marginBottom: 5 }}>Phone</label>
-              <input type="tel" value={form.phone} onChange={set('phone')} placeholder="Optional" style={fieldSt} />
+              <input type="tel" value={form.phone} onChange={set('phone')} placeholder="Optional" style={fieldSt} autoComplete="tel" inputMode="tel" />
             </div>
           </div>
 
@@ -846,8 +961,21 @@ const ClaimModal = ({ listing, onClose, onSuccess, onError }) => {
           </div>
 
           <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,39,68,0.55)', display: 'block', marginBottom: 5 }}>Proof / reason for claim *</label>
-            <textarea value={form.reason} onChange={set('reason')} required rows={4} placeholder="Please describe your role and how you can verify your relationship to this organisation..." style={{ ...fieldSt, resize: 'vertical' }} />
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,39,68,0.55)', display: 'block', marginBottom: 5 }}>Supporting message *</label>
+            <textarea value={form.reason} onChange={set('reason')} required rows={4} placeholder="What should the admin team know to verify your claim? Include anything helpful (e.g. official email domain, your responsibilities, and how to reach you on organiser channels)." style={{ ...fieldSt, resize: 'vertical' }} />
+          </div>
+
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,39,68,0.55)', display: 'block', marginBottom: 5 }}>Optional supporting link</label>
+            <input
+              value={form.supportingLink}
+              onChange={set('supportingLink')}
+              placeholder="https:// (company site, registered charity page, LinkedIn, etc.)"
+              style={fieldSt}
+            />
+            <div style={{ marginTop: 5, fontSize: 12, color: 'rgba(26,39,68,0.58)' }}>
+              Not required, but it speeds up verification when it clearly ties you to the organisation.
+            </div>
           </div>
 
           {error && <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(244,97,58,0.1)', color: '#A03A2D', fontSize: 13, fontWeight: 600 }}>{error}</div>}
@@ -856,7 +984,7 @@ const ClaimModal = ({ listing, onClose, onSuccess, onError }) => {
             <button type="submit" disabled={busy} className="btn btn-gold" style={{ flex: 1, justifyContent: 'center' }}>
               {busy ? 'Submitting…' : 'Submit claim request'}
             </button>
-            <button type="button" onClick={onClose} className="btn btn-ghost">Cancel</button>
+            <button type="button" onClick={onClose} className="btn btn-ghost" disabled={busy}>Cancel</button>
           </div>
         </form>
       </div>
@@ -1580,6 +1708,9 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
                     <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.55)', marginTop: 1 }}>Claim it to manage details, publish events and prepare premium upgrades</div>
                   </div>
                 </div>
+                <div style={{ marginTop: 10, fontSize: 12.5, lineHeight: 1.6, color: 'rgba(26,39,68,0.66)' }}>
+                  Claims are reviewed for ownership. Nothing on the public listing changes until an admin approves your request.
+                </div>
                 <div style={{ marginTop: 14, display: 'grid', gap: 7 }}>
                   {[
                     'Update your logo, description and support categories',
@@ -1592,10 +1723,14 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
                     </div>
                   ))}
                 </div>
-                <button onClick={() => setClaimOpen(true)} className="btn btn-ghost btn-sm" style={{ width: '100%', marginTop: 14, justifyContent: 'center', gap: 8 }}>
-                  <IFlag s={14} /> Claim listing and start onboarding
+                <button
+                  onClick={() => setClaimOpen(true)}
+                  className="btn btn-gold btn-sm"
+                  style={{ width: '100%', marginTop: 14, justifyContent: 'center', gap: 8, boxShadow: '0 10px 24px rgba(245,166,35,0.25)' }}
+                >
+                  <IFlag s={14} /> Start a verified claim
                 </button>
-                <div style={{ marginTop: 10, fontSize: 11.5, color: 'rgba(26,39,68,0.48)' }}>Featured listings, enquiry tracking and paid upgrades can be added after approval.</div>
+                <div style={{ marginTop: 10, fontSize: 11.5, color: 'rgba(26,39,68,0.48)' }}>This opens a short secure form. Featured listings, enquiry tracking and paid upgrades can be added after approval.</div>
               </div>
             ) : (
               <div style={{ background: 'rgba(16,185,129,0.08)', borderRadius: 22, padding: 18, border: '1px solid rgba(16,185,129,0.2)' }}>
@@ -1647,6 +1782,7 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
       {/* Claim modal */}
       {SUPPORTS_CLAIMS && claimOpen && (
         <ClaimModal
+          key={listing?.id || 'claim'}
           listing={listing}
           onClose={() => setClaimOpen(false)}
           onSuccess={(payload) => {
@@ -1654,7 +1790,7 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
             setClaimSuccess(payload || { listingName: listing?.title || 'this listing' });
             const listingName = payload?.listingName || listing?.title || 'this listing';
             const organisationName = payload?.organisationName || listingName;
-            onNotify?.(`Claim request submitted for ${listingName} (${organisationName}).`);
+            onNotify?.(`Claim request received for “${listingName}” · ${organisationName}. We will email you if we need more detail.`);
           }}
           onError={(message) => onNotify?.(message)}
         />
