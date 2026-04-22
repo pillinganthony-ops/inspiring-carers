@@ -1758,6 +1758,18 @@ const DirectoryMap = ({ listings, panelListings, selectedId, onSelect, onOpenRes
 
   React.useEffect(() => { shouldAutoFitRef.current = true; }, [listings]);
 
+  // Stable initial center — never recreated, so the library's setCenter effect
+  // only fires once (on map init) and never on deselection.
+  const mapInitialCenter = React.useMemo(() => ({ lat: 50.266, lng: -5.05 }), []);
+
+  // Imperatively pan to a newly selected pin.
+  // Guard: only when selectedId is non-empty, so clearing selection never pans.
+  React.useEffect(() => {
+    if (!selectedId || !mapRef.current) return;
+    const pt = allPoints.find((p) => p.id === selectedId);
+    if (pt) mapRef.current.panTo({ lat: pt.lat, lng: pt.lng });
+  }, [selectedId, allPoints]);
+
   // Single effect owns icon creation, marker creation, and clustering.
   // Icons are created inline so there is no cross-effect dependency that
   // can cause the guard to fire before icons exist.
@@ -1921,7 +1933,7 @@ const DirectoryMap = ({ listings, panelListings, selectedId, onSelect, onOpenRes
           {isLoaded ? (
             <GoogleMap
               mapContainerStyle={{ width: '100%', height: isMobile ? '420px' : '640px', borderRadius: 22 }}
-              center={selected ? { lat: selected.lat, lng: selected.lng } : { lat: 50.266, lng: -5.05 }}
+              center={mapInitialCenter}
               zoom={11}
               onLoad={(map) => { mapRef.current = map; }}
               onDragStart={() => { shouldAutoFitRef.current = false; }}
