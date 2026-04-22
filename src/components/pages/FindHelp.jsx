@@ -1758,60 +1758,66 @@ const DirectoryMap = ({ listings, panelListings, selectedId, onSelect, onOpenRes
 
   React.useEffect(() => { shouldAutoFitRef.current = true; }, [listings]);
 
+  // Single effect owns icon creation, marker creation, and clustering.
+  // Icons are created inline so there is no cross-effect dependency that
+  // can cause the guard to fire before icons exist.
   React.useEffect(() => {
-    if (!isLoaded || !window.google?.maps || iconsRef.current) return;
-    const { Size, Point } = window.google.maps;
-    const mkI = (svg, w, h, ax, ay) => ({ url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`, scaledSize: new Size(w, h), anchor: new Point(ax, ay) });
-    iconsRef.current = {
+    if (!isLoaded || !mapRef.current || !window.google?.maps) return undefined;
+    const { Size, Point, Marker } = window.google.maps;
+
+    // Build icons here — no separate effect, no race condition
+    const mkI = (svg, w, h, ax, ay) => ({
+      url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
+      scaledSize: new Size(w, h),
+      anchor: new Point(ax, ay),
+    });
+    const icons = {
       standard: mkI(_SVG_PIN_STANDARD, 32, 40, 16, 40),
       premium:  mkI(_SVG_PIN_PREMIUM,  32, 40, 16, 40),
       selected: mkI(_SVG_PIN_SELECTED, 40, 50, 20, 50),
     };
-  }, [isLoaded]);
+    iconsRef.current = icons; // share with selected-icon effect
 
-  React.useEffect(() => {
-    if (!isLoaded || !mapRef.current || !window.google?.maps || !iconsRef.current) return undefined;
-    const icons = iconsRef.current;
-    const { Size, Point, Marker } = window.google.maps;
-
+    // Proper teardown of previous clusterer — setMap(null) removes the idle
+    // listener; clearMarkers() does not, leaving a zombie that can race.
+    if (clusterRef.current) { clusterRef.current.setMap(null); clusterRef.current = null; }
     markerMapRef.current.forEach((m) => m.setMap(null));
     markerMapRef.current.clear();
-    if (clusterRef.current) { clusterRef.current.clearMarkers(); clusterRef.current = null; }
-
-    const clusterRenderer = {
-      render({ count, position }) {
-        const s = count < 10 ? 40 : count < 50 ? 46 : 54;
-        const half = s / 2;
-        return new Marker({
-          position,
-          icon: { url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(_makeClusterSvg(count, s))}`, scaledSize: new Size(s, s), anchor: new Point(half, half) },
-          zIndex: Number(Marker.MAX_ZINDEX) + count,
-        });
-      },
-    };
 
     const newMarkers = points.map((listing) => {
       const isPremium = Boolean(listing.profile);
-      const marker = new Marker({ position: { lat: listing.lat, lng: listing.lng }, title: listing.title, icon: isPremium ? icons.premium : icons.standard, zIndex: isPremium ? 2 : 1 });
+      const marker = new Marker({
+        position: { lat: listing.lat, lng: listing.lng },
+        title: listing.title,
+        icon: isPremium ? icons.premium : icons.standard,
+        zIndex: isPremium ? 2 : 1,
+      });
       marker.addListener('click', () => onSelect(listing.id));
       markerMapRef.current.set(listing.id, marker);
       return marker;
     });
 
-    clusterRef.current = new MarkerClusterer({ map: mapRef.current, markers: newMarkers, renderer: clusterRenderer });
+    // Use the library's DefaultRenderer — it handles legacy Marker correctly
+    // when the map has no mapId (our case). Custom cluster SVG renderer is
+    // re-added once basic pin rendering is confirmed working on live.
+    clusterRef.current = new MarkerClusterer({ map: mapRef.current, markers: newMarkers });
+
     if (shouldAutoFitRef.current) { fitToPoints(); shouldAutoFitRef.current = false; }
 
     return () => {
-      newMarkers.forEach((m) => m.setMap(null));
+      if (clusterRef.current) { clusterRef.current.setMap(null); clusterRef.current = null; }
+      markerMapRef.current.forEach((m) => m.setMap(null));
       markerMapRef.current.clear();
-      if (clusterRef.current) { clusterRef.current.clearMarkers(); clusterRef.current = null; }
     };
   }, [fitToPoints, isLoaded, onSelect, points]);
 
+  // Selected-marker icon swap — runs only when selection changes, no full
+  // marker recreation needed. iconsRef is always populated by the effect above
+  // (same flush, defined first), so the guard is safe here.
   React.useEffect(() => {
     if (!isLoaded || !window.google?.maps || !iconsRef.current) return;
     const icons = iconsRef.current;
-    const MAX_Z = Number(window.google.maps.Marker.MAX_ZINDEX);
+    const MAX_Z = (Number(window.google.maps.Marker.MAX_ZINDEX) || 1000000);
     markerMapRef.current.forEach((marker, id) => {
       const listing = points.find((p) => p.id === id);
       if (!listing) return;
