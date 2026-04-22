@@ -1667,16 +1667,50 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
 /* ─── ListingCard ────────────────────────────────────────── */
 const ListingCard = ({ listing, saved, onToggleSave, onOpenResource, onShareAction, shareOpen, setShareOpen, selected, onSelect }) => {
   const color = toneMapColor(listing.tone).fg;
+  const isVerified = Boolean(
+    listing.tags?.includes('Verified') ||
+    listing.profile?.verified_status === 'verified',
+  );
+  const isClaimed = Boolean(
+    listing.profile &&
+    ['claimed', 'pending'].includes(`${listing.profile?.claim_status || ''}`.toLowerCase()),
+  );
+  const isPremium = Boolean(
+    listing.profile &&
+    (
+      listing.profile?.featured ||
+      ['trial', 'active'].includes(`${listing.profile?.entitlement_status || ''}`.toLowerCase())
+    ),
+  );
+  const hasEvents = Boolean(Array.isArray(listing.events) && listing.events.length);
+  const isWideArea = ['county_wide', 'multi_location'].includes(`${listing.serviceFootprintModel || ''}`.toLowerCase());
+  const summaryText = `${listing.desc || ''}`.trim();
+  const locationMeta = [listing.town, listing.county].filter(Boolean).join(' · ') || listing.locationLabel;
+  const websiteUrl = listing.website
+    ? (listing.website.startsWith('http') ? listing.website : `https://${listing.website}`)
+    : '';
 
   return (
     <div
       className="card"
       onClick={() => onSelect(listing.id)}
-      style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 0, border: selected ? `1.5px solid ${color}` : '1px solid #EFF1F7', boxShadow: selected ? `0 12px 32px ${color}20` : 'var(--shadow-sm)', cursor: 'pointer', transition: 'border-color 0.2s, box-shadow 0.2s' }}
+      onMouseEnter={(event) => {
+        if (selected) return;
+        event.currentTarget.style.transform = 'translateY(-2px)';
+        event.currentTarget.style.boxShadow = '0 16px 34px rgba(26,39,68,0.11)';
+      }}
+      onMouseLeave={(event) => {
+        if (selected) return;
+        event.currentTarget.style.transform = 'translateY(0)';
+        event.currentTarget.style.boxShadow = '0 10px 26px rgba(26,39,68,0.07)';
+      }}
+      style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 0, border: selected ? `1.5px solid ${color}` : '1px solid #E9EEF8', boxShadow: selected ? `0 16px 36px ${color}24` : '0 10px 26px rgba(26,39,68,0.07)', cursor: 'pointer', transition: 'border-color 0.22s ease, box-shadow 0.22s ease, transform 0.22s ease' }}
     >
       {/* Card header */}
       <div style={{ display: 'flex', gap: 14, alignItems: 'start' }}>
-        <OrgAvatar listing={listing} size={54} />
+        <div style={{ flexShrink: 0, padding: 3, borderRadius: 16, background: 'linear-gradient(180deg, #FFFFFF, #F5F9FF)', border: '1px solid #EAF0FB' }}>
+          <OrgAvatar listing={listing} size={58} />
+        </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
             <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', color }}>{listing.categoryLabel}</span>
@@ -1688,28 +1722,41 @@ const ListingCard = ({ listing, saved, onToggleSave, onOpenResource, onShareActi
               <IHeart s={15} />
             </button>
           </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+            {isVerified && <span style={{ padding: '3px 8px', borderRadius: 999, background: 'rgba(16,185,129,0.12)', color: '#0f766e', fontSize: 10.5, fontWeight: 700 }}>Verified</span>}
+            {isClaimed && <span style={{ padding: '3px 8px', borderRadius: 999, background: 'rgba(45,156,219,0.14)', color: '#1c78b5', fontSize: 10.5, fontWeight: 700 }}>Claimed profile</span>}
+            {isPremium && <span style={{ padding: '3px 8px', borderRadius: 999, background: 'rgba(245,166,35,0.15)', color: '#8a5a0b', fontSize: 10.5, fontWeight: 700 }}>Premium</span>}
+            {hasEvents && <span style={{ padding: '3px 8px', borderRadius: 999, background: 'rgba(123,92,245,0.13)', color: '#5f3dc4', fontSize: 10.5, fontWeight: 700 }}>Events available</span>}
+          </div>
           <button
             onClick={(e) => { e.stopPropagation(); onOpenResource(listing); }}
-            style={{ fontFamily: 'Sora, sans-serif', fontWeight: 700, fontSize: 17, marginTop: 3, letterSpacing: '-0.01em', color: '#1A2744', textAlign: 'left', lineHeight: 1.25, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+            style={{ fontFamily: 'Sora, sans-serif', fontWeight: 700, fontSize: 19, marginTop: 8, letterSpacing: '-0.015em', color: '#1A2744', textAlign: 'left', lineHeight: 1.22, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
           >
             {listing.title}
           </button>
-          <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.6)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.62)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
             <IBuilding s={12} />
-            <span>{listing.venue} · {listing.locationLabel}</span>
+            <span>{listing.venue}</span>
+          </div>
+          <div style={{ marginTop: 5, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 12, color: 'rgba(26,39,68,0.62)' }}>
+            <IPin s={12} />
+            <span style={{ fontWeight: 600, color: 'rgba(26,39,68,0.72)' }}>{locationMeta}</span>
+            {isWideArea && <span style={{ padding: '2px 7px', borderRadius: 999, fontSize: 10.5, fontWeight: 700, color: '#2D9CDB', background: 'rgba(45,156,219,0.12)' }}>Serving wider area</span>}
             {listing.footprintBadge && <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 7px', borderRadius: 999, fontSize: 10.5, fontWeight: 700, color: listing.footprintBadge.color, background: listing.footprintBadge.bg }}>{listing.footprintBadge.label}</span>}
           </div>
         </div>
       </div>
 
       {/* Description */}
-      <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.7)', lineHeight: 1.55, marginTop: 14, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{listing.desc}</p>
+      <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.72)', lineHeight: 1.62, marginTop: 14, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+        {summaryText}
+      </p>
 
       {/* Tags */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 12 }}>
-        {listing.tags.slice(0, 3).map((tag) => <span key={tag} className="chip" style={{ padding: '3px 9px', fontSize: 11 }}>{tag}</span>)}
+        {listing.tags.slice(0, 2).map((tag) => <span key={tag} className="chip" style={{ padding: '3px 9px', fontSize: 11 }}>{tag}</span>)}
         {listing.website && (
-          <a href={listing.website.startsWith('http') ? listing.website : `https://${listing.website}`} target="_blank" rel="noreferrer"
+          <a href={websiteUrl} target="_blank" rel="noreferrer"
             className="chip chip-sky" onClick={(e) => e.stopPropagation()} style={{ padding: '3px 9px', fontSize: 11 }}>
             <IGlobe s={11} /> Website
           </a>
@@ -1717,16 +1764,31 @@ const ListingCard = ({ listing, saved, onToggleSave, onOpenResource, onShareActi
       </div>
 
       {/* Footer row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 14, marginTop: 14, borderTop: '1px solid #F0F2FA' }}>
-        <div style={{ fontSize: 12.5 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 14, marginTop: 14, borderTop: '1px solid #EDF2FA', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 12.5, flex: '1 1 auto' }}>
           <span style={{ fontWeight: 700, color: '#1A2744' }}>{listing.when}</span>
           <span style={{ color: 'rgba(26,39,68,0.45)', marginLeft: 5 }}>· {listing.distance}</span>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', position: 'relative' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', position: 'relative', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {listing.phone ? (
+            <a className="btn btn-ghost btn-sm" href={`tel:${listing.phone}`} onClick={(e) => e.stopPropagation()} style={{ gap: 6 }}>
+              <IPhone s={13} />
+            </a>
+          ) : null}
+          {websiteUrl ? (
+            <a className="btn btn-ghost btn-sm" href={websiteUrl} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ gap: 6 }}>
+              <IGlobe s={13} />
+            </a>
+          ) : null}
+          {listing.lat !== null && listing.lng !== null ? (
+            <a className="btn btn-ghost btn-sm" href={getMapsDirectionsUrl(listing)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ gap: 6 }}>
+              <IDirections s={13} />
+            </a>
+          ) : null}
           <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); onOpenResource(listing); }} style={{ gap: 6 }}>
             View <IArrow s={14} />
           </button>
-          <button className="btn btn-sky btn-sm" onClick={(e) => { e.stopPropagation(); setShareOpen(shareOpen ? '' : listing.id); }} style={{ gap: 6 }}>
+          <button className="btn btn-sky btn-sm" onClick={(e) => { e.stopPropagation(); setShareOpen(shareOpen ? '' : listing.id); }} style={{ gap: 6, boxShadow: '0 6px 16px rgba(45,156,219,0.25)' }}>
             <IShare s={14} /> Share
           </button>
           {shareOpen && <ShareTray listing={listing} onAction={onShareAction} onClose={() => setShareOpen('')} />}
