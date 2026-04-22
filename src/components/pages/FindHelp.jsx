@@ -381,6 +381,45 @@ const deriveOrganisationNameFromContact = (row) => {
   return label.replace(/\b\w/g, (char) => char.toUpperCase());
 };
 
+/* ─── Isles of Scilly detection ─────────────────────────── */
+const IOS_LAT_MIN = 49.82;
+const IOS_LAT_MAX = 49.98;
+const IOS_LNG_MIN = -6.50;
+const IOS_LNG_MAX = -6.14;
+const IOS_POSTCODE_RE = /^TR2[1-5]/i;
+
+const isIosCoord = (lat, lng) =>
+  typeof lat === 'number' && Number.isFinite(lat) &&
+  typeof lng === 'number' && Number.isFinite(lng) &&
+  lat >= IOS_LAT_MIN && lat <= IOS_LAT_MAX &&
+  lng >= IOS_LNG_MIN && lng <= IOS_LNG_MAX;
+
+const detectIosTown = (row, title, rawLat, rawLng) => {
+  const nameAddress = `${title || ''} ${row?.address || ''}`.trim();
+
+  // Bryher and Tresco: unique island names — match on name alone
+  if (/\bBryher\b/i.test(nameAddress)) return 'Bryher';
+  if (/\bTresco\b/i.test(nameAddress)) return 'Tresco';
+
+  // Confirm IoS by coordinates or postcode before matching ambiguous names
+  const inIos = isIosCoord(rawLat, rawLng) || IOS_POSTCODE_RE.test(`${row?.postcode || ''}`.trim());
+  if (inIos) {
+    if (/\bSt\.?\s*Martin'?s\b/i.test(nameAddress)) return "St Martin's";
+    if (/\bSt\.?\s*Mary'?s\b/i.test(nameAddress)) return "St Mary's";
+    if (/\bSt\.?\s*Agnes\b/i.test(nameAddress)) return 'St Agnes';
+    return 'Isles of Scilly';
+  }
+
+  // Text-only fallback: "Isles of Scilly" in the listing title, but NOT alongside
+  // "Cornwall" — avoids matching county-wide org names like "NHS Cornwall and Isles of Scilly"
+  const titleStr = `${title || ''}`;
+  if (/\bIsles?\s+of\s+Scilly\b/i.test(titleStr) && !/\bCornwall\b/i.test(titleStr)) {
+    return 'Isles of Scilly';
+  }
+
+  return '';
+};
+
 const normalizeResource = (row, index, options = {}) => {
   const knownTowns = Array.isArray(options.knownTowns) ? options.knownTowns : [];
   const rawCategory = pickField(row, ['category_name', 'category', 'category_label', 'resource_type', 'type']) || 'Support';
@@ -404,9 +443,15 @@ const normalizeResource = (row, index, options = {}) => {
   const rawCoverageAreaLabel = `${row?.coverage_area_label || ''}`.trim() || null;
 
   const explicitTown = cleanPlaceLabel(pickField(row, ['town', 'area', 'location', 'city']));
-  const derivedTown = explicitTown || deriveTownFromRow(row, knownTowns);
+  // rawLat/rawLng must be computed before derivedTown so detectIosTown can use them
+  const rawLat = parseCoordinate(pickField(row, ['lat', 'latitude']));
+  const rawLng = parseCoordinate(pickField(row, ['lng', 'longitude']));
   const postcode = cleanPlaceLabel(pickField(row, ['postcode']));
   const county = normalizeCountyLabel(pickField(row, ['county', 'region', 'admin_county']));
+
+  // Isles of Scilly: all IoS rows have blank town fields; detect from coords/name
+  const iosTown = !explicitTown ? detectIosTown(row, title, rawLat, rawLng) : '';
+  const derivedTown = explicitTown || iosTown || deriveTownFromRow(row, knownTowns);
 
   const hasCoverageModel = serviceFootprintModel !== null;
   const isPhysicalVenue = serviceFootprintModel === 'physical_venue';
@@ -428,8 +473,6 @@ const normalizeResource = (row, index, options = {}) => {
   // Precise map pin: physical_venue and legacy null keep coords as-is
   // county_wide and multi_location: suppress pin (null out coords)
   // hq_only: keep coords (optional HQ pin)
-  const rawLat = parseCoordinate(pickField(row, ['lat', 'latitude']));
-  const rawLng = parseCoordinate(pickField(row, ['lng', 'longitude']));
   const suppressPin = isCountyWide || isMultiLocation;
   const lat = suppressPin ? null : rawLat;
   const lng = suppressPin ? null : rawLng;
