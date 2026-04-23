@@ -857,8 +857,23 @@ const ClaimModal = ({ listing, onClose, onSuccess, onError }) => {
         status: 'pending',
       };
 
-      const { error: dbError } = await supabase.from('listing_claims').insert(claimPayload);
-      if (dbError) throw dbError;
+      let { error: dbError } = await supabase.from('listing_claims').insert(claimPayload);
+      if (dbError) {
+        // listing_claims unavailable (RLS or missing) — fall back to the moderation queue
+        const fallback = {
+          organisation_name: `[CLAIM] ${claimPayload.listing_title}`,
+          submitter_name: claimPayload.full_name,
+          submitter_email: claimPayload.email,
+          submitter_phone: claimPayload.phone || null,
+          relationship_to_organisation: claimPayload.relationship,
+          reason: claimPayload.reason,
+          status: 'pending',
+          update_type: 'claim',
+        };
+        const { error: fallbackError } = await supabase.from('resource_update_submissions').insert(fallback);
+        if (fallbackError) throw dbError; // surface original error if both fail
+        dbError = null; // fallback succeeded
+      }
       onSuccess({
         listingName: listing?.title || deriveClaimOrgName(listing),
         organisationName: claimPayload.org_name,
@@ -1954,6 +1969,9 @@ const DirectoryMap = ({ listings, selectedId, onSelect, onOpenResource, isMobile
   const [mapPremiumOnly, setMapPremiumOnly] = React.useState(false);
   const [mapHasEvents, setMapHasEvents] = React.useState(false);
   const [mapArea, setMapArea] = React.useState('all');
+  // mapReady is React state (not just a ref) so the marker effect re-runs
+  // when onLoad fires — a ref change alone never re-triggers effects.
+  const [mapReady, setMapReady] = React.useState(false);
 
   const mapRef = React.useRef(null);
   const clusterRef = React.useRef(null);
@@ -2034,8 +2052,11 @@ const DirectoryMap = ({ listings, selectedId, onSelect, onOpenResource, isMobile
   // Single effect owns icon creation, marker creation, and clustering.
   // Icons are created inline so there is no cross-effect dependency that
   // can cause the guard to fire before icons exist.
+  // mapReady is React state so this effect re-fires when onLoad completes,
+  // guaranteeing markers are created even when isLoaded was already true
+  // before DirectoryMap mounted (e.g. switching from list to map view).
   React.useEffect(() => {
-    if (!isLoaded || !mapRef.current || !window.google?.maps) return undefined;
+    if (!isLoaded || !mapReady || !mapRef.current || !window.google?.maps) return undefined;
     const { Size, Point, Marker } = window.google.maps;
 
     // Build icons here — no separate effect, no race condition
@@ -2082,7 +2103,7 @@ const DirectoryMap = ({ listings, selectedId, onSelect, onOpenResource, isMobile
       markerMapRef.current.forEach((m) => m.setMap(null));
       markerMapRef.current.clear();
     };
-  }, [fitToPoints, isLoaded, onSelect, points]);
+  }, [fitToPoints, isLoaded, mapReady, onSelect, points]);
 
   // Selected-marker icon swap — runs only when selection changes, no full
   // marker recreation needed. iconsRef is always populated by the effect above
@@ -2221,7 +2242,8 @@ const DirectoryMap = ({ listings, selectedId, onSelect, onOpenResource, isMobile
               mapContainerStyle={{ width: '100%', height: isMobile ? '420px' : '640px', borderRadius: 22 }}
               center={mapInitialCenter}
               zoom={11}
-              onLoad={(map) => { mapRef.current = map; }}
+              onLoad={(map) => { mapRef.current = map; setMapReady(true); }}
+              onUnmount={() => { mapRef.current = null; setMapReady(false); }}
               onDragStart={() => { shouldAutoFitRef.current = false; }}
               onZoomChanged={() => { shouldAutoFitRef.current = false; }}
               options={{ mapTypeControl: false, streetViewControl: false, fullscreenControl: false, gestureHandling: 'greedy', styles: [{ featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }, { featureType: 'transit', stylers: [{ visibility: 'off' }] }] }}
@@ -2659,7 +2681,7 @@ const FindHelpV2 = ({ onNavigate }) => {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'rgba(26,39,68,0.5)', fontSize: 13, marginBottom: 16 }}>
             <button onClick={() => onNavigate('home')} style={{ color: 'inherit' }}>Home</button>
             <IChevron s={12} />
-            <span style={{ color: '#1A2744', fontWeight: 600 }}>{detailSlug ? 'Resource detail' : 'Find help near you'}</span>
+            <span style={{ color: '#1A2744', fontWeight: 600 }}>{detailSlug ? (selectedResource?.title || 'Resource detail') : 'Find help near you'}</span>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: isMobile ? 20 : 40, alignItems: 'end' }}>
