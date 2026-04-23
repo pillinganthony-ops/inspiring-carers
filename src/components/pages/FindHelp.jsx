@@ -643,7 +643,6 @@ const useIsMobile = () => {
 };
 
 /* ─── Toast ──────────────────────────────────────────────── */
-/* ─── Toast ──────────────────────────────────────────────── */
 const Toast = ({ toast, onClose }) => {
   React.useEffect(() => {
     if (!toast) return undefined;
@@ -671,18 +670,24 @@ const Toast = ({ toast, onClose }) => {
 
 /* ─── OrgAvatar ──────────────────────────────────────────── */
 const OrgAvatar = ({ listing, size = 80 }) => {
-  const [imgError, setImgError] = React.useState(false);
+  const [logoError, setLogoError] = React.useState(false);
+  const [faviconError, setFaviconError] = React.useState(false);
   const logoUrl = isSafeImageUrl(listing.logoUrl) ? listing.logoUrl : '';
+  const faviconUrl = !logoUrl || logoError ? getFaviconUrl(listing.website, 128) : null;
 
-  if (logoUrl && !imgError) {
+  if (logoUrl && !logoError) {
     return (
       <div style={{ width: size, height: size, borderRadius: Math.round(size * 0.22), background: 'white', boxShadow: '0 4px 20px rgba(0,0,0,0.14)', border: '3px solid white', display: 'grid', placeItems: 'center', overflow: 'hidden', flexShrink: 0 }}>
-        <img
-          src={logoUrl}
-          alt={listing.title}
-          onError={() => setImgError(true)}
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-        />
+        <img src={logoUrl} alt={listing.title} onError={() => setLogoError(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      </div>
+    );
+  }
+
+  if (faviconUrl && !faviconError) {
+    const iconSize = Math.round(size * 0.52);
+    return (
+      <div style={{ width: size, height: size, borderRadius: Math.round(size * 0.22), background: 'white', boxShadow: '0 4px 16px rgba(26,39,68,0.10)', border: '2px solid #EEF2FA', display: 'grid', placeItems: 'center', overflow: 'hidden', flexShrink: 0 }}>
+        <img src={faviconUrl} alt={listing.title} onError={() => setFaviconError(true)} style={{ width: iconSize, height: iconSize, objectFit: 'contain' }} />
       </div>
     );
   }
@@ -1434,12 +1439,23 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
     setMobileShareOpen(true);
   };
 
+  const hasCoverImage = isSafeImageUrl(listing.coverImageUrl);
+
   return (
     <section style={{ paddingBottom: isMobile ? 100 : 80, background: '#FAFBFF' }}>
       {/* Hero banner */}
-      <div style={{ background: `linear-gradient(135deg, ${heroBg}18 0%, ${heroBg}30 40%, ${heroBg}10 100%)`, borderBottom: `1px solid ${heroBg}22`, paddingTop: 20, paddingBottom: 36, position: 'relative' }}>
-        <div className="container">
-          <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13.5, fontWeight: 700, color: '#1A2744', background: 'rgba(255,255,255,0.8)', border: '1px solid rgba(255,255,255,0.6)', borderRadius: 999, padding: '7px 14px', backdropFilter: 'blur(6px)', marginBottom: 28 }}>
+      <div style={{ borderBottom: `1px solid ${heroBg}22`, paddingTop: 20, paddingBottom: 36, position: 'relative', overflow: 'hidden' }}>
+        {/* Cover image layer */}
+        {hasCoverImage && (
+          <div
+            aria-hidden="true"
+            style={{ position: 'absolute', inset: 0, backgroundImage: `url(${listing.coverImageUrl})`, backgroundSize: 'cover', backgroundPosition: 'center 35%', opacity: 0.14, zIndex: 0 }}
+          />
+        )}
+        {/* Gradient overlay */}
+        <div aria-hidden="true" style={{ position: 'absolute', inset: 0, background: `linear-gradient(135deg, ${heroBg}18 0%, ${heroBg}28 40%, ${heroBg}08 100%)`, zIndex: 1 }} />
+        <div className="container" style={{ position: 'relative', zIndex: 2 }}>
+          <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13.5, fontWeight: 700, color: '#1A2744', background: 'rgba(255,255,255,0.85)', border: '1px solid rgba(255,255,255,0.6)', borderRadius: 999, padding: '7px 14px', backdropFilter: 'blur(8px)', marginBottom: 28 }}>
             <IChevron s={12} dir="left" /> Back to results
           </button>
 
@@ -1841,21 +1857,35 @@ const ListingCard = ({ listing, saved, onToggleSave, onOpenResource, onShareActi
     ? (listing.website.startsWith('http') ? listing.website : `https://${listing.website}`)
     : '';
 
+  const cardBorder = selected
+    ? `1.5px solid ${color}`
+    : isPremium || listing.featured
+    ? '1.5px solid rgba(245,166,35,0.30)'
+    : '1px solid #E9EEF8';
+  const cardShadow = selected
+    ? `0 16px 36px ${color}24`
+    : isPremium || listing.featured
+    ? '0 10px 26px rgba(245,166,35,0.12)'
+    : '0 10px 26px rgba(26,39,68,0.07)';
+  const cardBg = isPremium || listing.featured
+    ? 'linear-gradient(180deg, rgba(245,166,35,0.04) 0%, #ffffff 60%)'
+    : 'white';
+
   return (
     <div
       className="card"
-      onClick={() => onSelect(listing.id)}
+      onClick={() => { onSelect(listing.id); onOpenResource(listing); }}
       onMouseEnter={(event) => {
         if (selected) return;
         event.currentTarget.style.transform = 'translateY(-2px)';
-        event.currentTarget.style.boxShadow = '0 16px 34px rgba(26,39,68,0.11)';
+        event.currentTarget.style.boxShadow = isPremium || listing.featured ? '0 18px 38px rgba(245,166,35,0.18)' : '0 16px 34px rgba(26,39,68,0.11)';
       }}
       onMouseLeave={(event) => {
         if (selected) return;
         event.currentTarget.style.transform = 'translateY(0)';
-        event.currentTarget.style.boxShadow = '0 10px 26px rgba(26,39,68,0.07)';
+        event.currentTarget.style.boxShadow = cardShadow;
       }}
-      style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 0, border: selected ? `1.5px solid ${color}` : '1px solid #E9EEF8', boxShadow: selected ? `0 16px 36px ${color}24` : '0 10px 26px rgba(26,39,68,0.07)', cursor: 'pointer', transition: 'border-color 0.22s ease, box-shadow 0.22s ease, transform 0.22s ease' }}
+      style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 0, background: cardBg, border: cardBorder, boxShadow: cardShadow, cursor: 'pointer', transition: 'border-color 0.22s ease, box-shadow 0.22s ease, transform 0.22s ease' }}
     >
       {/* Card header */}
       <div style={{ display: 'flex', gap: 14, alignItems: 'start' }}>
@@ -1879,12 +1909,11 @@ const ListingCard = ({ listing, saved, onToggleSave, onOpenResource, onShareActi
             {isPremium && <span style={{ padding: '3px 8px', borderRadius: 999, background: 'rgba(245,166,35,0.15)', color: '#8a5a0b', fontSize: 10.5, fontWeight: 700 }}>Premium</span>}
             {hasEvents && <span style={{ padding: '3px 8px', borderRadius: 999, background: 'rgba(123,92,245,0.13)', color: '#5f3dc4', fontSize: 10.5, fontWeight: 700 }}>Events available</span>}
           </div>
-          <button
-            onClick={(e) => { e.stopPropagation(); onOpenResource(listing); }}
+          <div
             style={{ fontFamily: 'Sora, sans-serif', fontWeight: 700, fontSize: 19, marginTop: 8, letterSpacing: '-0.015em', color: '#1A2744', textAlign: 'left', lineHeight: 1.22, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
           >
             {listing.title}
-          </button>
+          </div>
           <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.62)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
             <IBuilding s={12} />
             <span>{listing.venue}</span>
@@ -1936,9 +1965,9 @@ const ListingCard = ({ listing, saved, onToggleSave, onOpenResource, onShareActi
               <IDirections s={13} />
             </a>
           ) : null}
-          <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); onOpenResource(listing); }} style={{ gap: 6 }}>
+          <span className="btn btn-ghost btn-sm" style={{ gap: 6, pointerEvents: 'none' }}>
             View <IArrow s={14} />
-          </button>
+          </span>
           <button className="btn btn-sky btn-sm" onClick={(e) => { e.stopPropagation(); setShareOpen(shareOpen ? '' : listing.id); }} style={{ gap: 6, boxShadow: '0 6px 16px rgba(45,156,219,0.25)' }}>
             <IShare s={14} /> Share
           </button>
@@ -2629,7 +2658,8 @@ const FindHelpV2 = ({ onNavigate }) => {
         document.execCommand('copy');
         document.body.removeChild(temp);
       }
-      setToast('Link copied to clipboard.');
+      const shortUrl = resourceUrl.replace(/^https?:\/\/[^/]+/, '');
+      setToast(`Link copied · ${shortUrl}`);
       return;
     }
 
