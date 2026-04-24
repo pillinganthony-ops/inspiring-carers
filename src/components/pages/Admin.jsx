@@ -779,10 +779,6 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   const [linkedProfileDraft, setLinkedProfileDraft] = React.useState({});
   const [linkedProfileBusy, setLinkedProfileBusy] = React.useState(false);
   const [linkedProfileError, setLinkedProfileError] = React.useState('');
-  // Auth debug state — remove or hide behind import.meta.env.DEV once resolved
-  const [debugAuthInfo, setDebugAuthInfo] = React.useState(null);
-  const [debugWriteResult, setDebugWriteResult] = React.useState(null);
-  const [debugWriteBusy, setDebugWriteBusy] = React.useState(false);
 
   const canAccessAdmin = React.useMemo(() => {
     const email = `${session?.user?.email || ''}`.trim().toLowerCase();
@@ -957,85 +953,11 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     loadData();
   }, [loadData]);
 
-  // Auth state probe — runs whenever session changes; populates debug card.
-  // Uses explicit column list (no email — not in live schema) and reports
-  // query errors separately so "NOT FOUND" only means zero rows, not an error.
-  React.useEffect(() => {
-    if (!session?.user?.id || !supabase) {
-      setDebugAuthInfo({ noSession: true });
-      return;
-    }
-    const probe = async () => {
-      const [getUserResult, adminRowResult] = await Promise.all([
-        supabase.auth.getUser(),
-        supabase
-          .from('admin_users')
-          .select('user_id, display_name, role, is_active, created_at')
-          .eq('user_id', session.user.id)
-          .eq('is_active', true)
-          .maybeSingle(),
-      ]);
-      setDebugAuthInfo({
-        sessionUserId: session.user.id,
-        sessionEmail: session.user.email,
-        getUserId: getUserResult.data?.user?.id ?? null,
-        getUserEmail: getUserResult.data?.user?.email ?? null,
-        getUserError: getUserResult.error?.message ?? null,
-        // Separate "no row" from "query failed"
-        adminRowFound: adminRowResult.data !== null && adminRowResult.error === null,
-        adminRow: adminRowResult.data ?? null,
-        adminRowError: adminRowResult.error?.message ?? null,
-        adminRowStatus: adminRowResult.error
-          ? `ERROR: ${adminRowResult.error.message}`
-          : adminRowResult.data
-          ? 'FOUND'
-          : 'NOT FOUND (0 rows — row exists in DB but SELECT returned nothing — likely is_active_admin() recursion blocking SELECT via RLS)',
-      });
-    };
-    probe();
-  }, [session]);
-
   React.useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(''), 2200);
     return () => clearTimeout(timer);
   }, [toast]);
-
-  // Write-test: updates facebook_url with its own existing value (harmless no-op on data)
-  const runDebugWriteTest = async () => {
-    if (!supabase || !profiles.length) {
-      setDebugWriteResult({ error: 'No profiles loaded — load the admin dashboard first.' });
-      return;
-    }
-    setDebugWriteBusy(true);
-    setDebugWriteResult(null);
-    try {
-      const testProfile = profiles[0];
-      const result = await supabase
-        .from('organisation_profiles')
-        .update({ facebook_url: testProfile.facebook_url ?? null })
-        .eq('id', testProfile.id)
-        .select('id, organisation_name, facebook_url');
-      setDebugWriteResult({
-        data: result.data,
-        error: result.error ? result.error.message : null,
-        rowsReturned: result.data?.length ?? 0,
-        profileId: testProfile.id,
-        profileName: testProfile.organisation_name || testProfile.display_name || '(no name)',
-        sessionUserId: session?.user?.id ?? null,
-        adminRow: debugAuthInfo?.adminRow ?? null,
-        diagnosis: result.error
-          ? `E. Supabase error: ${result.error.message}`
-          : (result.data?.length ?? 0) === 0
-            ? 'D. RLS blocked — update matched 0 rows despite correct profile id'
-            : 'Write succeeded — RLS is NOT the issue for this profile',
-      });
-    } catch (e) {
-      setDebugWriteResult({ error: String(e?.message ?? e) });
-    } finally {
-      setDebugWriteBusy(false);
-    }
-  };
 
   const withBusy = async (action, successMessage) => {
     setBusy(true);
@@ -1750,7 +1672,6 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         <div className="container" style={{ display: 'grid', gap: 14 }}>
           <div className="card" style={{ padding: 22, borderRadius: 20 }}>
             <h1 style={{ fontSize: 36, fontWeight: 800 }}>Admin Dashboard</h1>
-            <div style={{ marginTop: 4, fontSize: 11, color: 'rgba(26,39,68,0.38)', fontFamily: 'monospace' }}>Build: 7966a76 · deployed 2026-04-24</div>
             <p style={{ marginTop: 8, color: 'rgba(26,39,68,0.7)' }}>Live schema mode: categories, resources, organisation_profiles, organisation_events, listing_claims, resource_update_submissions, walk_risk_updates, walk_comments.</p>
             {error ? <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 10, background: 'rgba(244,97,58,0.08)', color: '#A03A2D', fontSize: 13, fontWeight: 600 }}>{error}</div> : null}
             {toast ? <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 10, background: 'rgba(16,185,129,0.08)', color: '#0D7A55', fontSize: 13, fontWeight: 600 }}>{toast}</div> : null}
@@ -1761,88 +1682,6 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
               </div>
             ) : null}
           </div>
-
-          {/* ── Auth + write debug card ─────────────────────────────────────────── */}
-          {/* Remove or gate behind import.meta.env.DEV once the RLS issue is resolved */}
-          {debugAuthInfo && (() => {
-            const userId = debugAuthInfo.sessionUserId;
-            const adminRow = debugAuthInfo.adminRow;
-            const noSession = debugAuthInfo.noSession;
-            const rowFound = debugAuthInfo.adminRowFound;
-            const rowStatus = debugAuthInfo.adminRowStatus ?? 'loading…';
-            const rowError = debugAuthInfo.adminRowError;
-            let category = '';
-            if (noSession || !userId) {
-              category = 'A. No Supabase session — writes run as anon, RLS blocks them';
-            } else if (debugAuthInfo.getUserId && debugAuthInfo.getUserId !== userId) {
-              category = `B. getUser().id (${debugAuthInfo.getUserId}) ≠ session.user.id (${userId})`;
-            } else if (rowError) {
-              category = `Query error on admin_users — ${rowError}`;
-            } else if (!rowFound) {
-              category = 'C/D. admin_users SELECT returned 0 rows. Row may exist but RLS + is_active_admin() recursion is blocking the SELECT. Apply the SECURITY DEFINER fix below.';
-            } else {
-              category = rowFound && !debugWriteResult
-                ? 'Row FOUND. Run the write test below to confirm UPDATE works.'
-                : rowFound && debugWriteResult?.rowsReturned > 0
-                ? 'RESOLVED — admin row found and profile UPDATE succeeded.'
-                : 'Row FOUND but write test returned 0 rows → D. is_active_admin() returns false because admin_users SELECT is blocked. Apply SECURITY DEFINER fix.';
-            }
-            const isOk = rowFound && (debugWriteResult?.rowsReturned ?? 0) > 0;
-            const needsSecDefFix = userId && (!rowFound || (rowFound && debugWriteResult?.rowsReturned === 0));
-            return (
-              <div style={{ border: `2px solid ${isOk ? '#2DA44E' : '#F5A623'}`, borderRadius: 16, padding: 18, background: isOk ? '#F0FDF4' : '#FFFBF2', fontSize: 13 }}>
-                <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 10, color: isOk ? '#1E5E3D' : '#8A5A00' }}>Auth Debug Card — remove once resolved</div>
-                <div style={{ display: 'grid', gap: 5, fontFamily: 'monospace', fontSize: 12 }}>
-                  <div><b>session.user.id:</b> {userId ?? 'null'}</div>
-                  <div><b>session.user.email:</b> {debugAuthInfo.sessionEmail ?? 'null'}</div>
-                  <div><b>getUser() id:</b> {debugAuthInfo.getUserId ?? 'null'}{debugAuthInfo.getUserError ? ` — ERROR: ${debugAuthInfo.getUserError}` : ''}</div>
-                  <div><b>canAccessAdmin:</b> {String(canAccessAdmin)}</div>
-                  <div><b>admin_users row:</b> <span style={{ color: rowFound ? '#1E5E3D' : '#A03A2D', fontWeight: 700 }}>{rowStatus}</span></div>
-                  {rowFound && adminRow && (
-                    <>
-                      <div><b>role:</b> {adminRow.role}</div>
-                      <div><b>is_active:</b> {String(adminRow.is_active)}</div>
-                      <div><b>display_name:</b> {adminRow.display_name ?? '(none)'}</div>
-                    </>
-                  )}
-                  {rowError && <div style={{ color: '#A03A2D' }}><b>admin_users query error:</b> {rowError}</div>}
-                  <div style={{ marginTop: 6, padding: '6px 10px', borderRadius: 8, background: isOk ? 'rgba(46,164,79,0.10)' : 'rgba(212,80,80,0.10)', color: isOk ? '#1E5E3D' : '#A03A2D', fontWeight: 700 }}>
-                    → {category}
-                  </div>
-                </div>
-                <div style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <button className="btn btn-ghost btn-sm" disabled={debugWriteBusy || !profiles.length} onClick={runDebugWriteTest}>
-                    {debugWriteBusy ? 'Testing…' : 'Test org profile UPDATE'}
-                  </button>
-                  {debugWriteResult && (
-                    <div style={{ fontFamily: 'monospace', fontSize: 11.5, padding: '6px 10px', borderRadius: 8, background: (debugWriteResult.rowsReturned > 0) ? 'rgba(46,164,79,0.10)' : 'rgba(212,80,80,0.10)', color: (debugWriteResult.rowsReturned > 0) ? '#1E5E3D' : '#A03A2D', maxWidth: 720 }}>
-                      <b>rows returned:</b> {debugWriteResult.rowsReturned ?? '—'} &nbsp;|&nbsp;
-                      <b>error:</b> {debugWriteResult.error ?? 'none'} &nbsp;|&nbsp;
-                      <b>profile:</b> {debugWriteResult.profileName} ({debugWriteResult.profileId?.slice(-8)}) &nbsp;|&nbsp;
-                      <b>session uid:</b> {debugWriteResult.sessionUserId?.slice(-8) ?? 'null'} &nbsp;|&nbsp;
-                      <b>admin row uid:</b> {debugWriteResult.adminRow?.user_id?.slice(-8) ?? 'none'}<br />
-                      <b>→ {debugWriteResult.diagnosis ?? (debugWriteResult.rowsReturned > 0 ? 'Write succeeded — RLS is NOT the issue' : 'D. RLS UPDATE policy mismatch — is_active_admin() returns false')}</b>
-                    </div>
-                  )}
-                </div>
-                {needsSecDefFix && (
-                  <div style={{ marginTop: 12, padding: '10px 12px', borderRadius: 8, background: 'rgba(18,99,214,0.07)', color: '#0B5CAD', fontSize: 11.5, fontFamily: 'monospace', lineHeight: 1.7 }}>
-                    <b style={{ fontSize: 12 }}>Fix: run this SQL in Supabase SQL editor</b><br />
-                    {'-- Makes is_active_admin() bypass RLS when checking admin_users (SECURITY DEFINER)'}<br />
-                    {'CREATE OR REPLACE FUNCTION public.is_active_admin()'}<br />
-                    {'RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$'}<br />
-                    {'  SELECT EXISTS ('}<br />
-                    {'    SELECT 1 FROM public.admin_users'}<br />
-                    {'    WHERE user_id = auth.uid() AND is_active = true'}<br />
-                    {'  );'}<br />
-                    {'$$;'}<br /><br />
-                    {'-- Grant execute to authenticated and anon roles'}<br />
-                    {'GRANT EXECUTE ON FUNCTION public.is_active_admin() TO authenticated, anon;'}
-                  </div>
-                )}
-              </div>
-            );
-          })()}
 
           {!loading && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8 }}>
