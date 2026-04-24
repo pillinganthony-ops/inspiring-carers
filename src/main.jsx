@@ -159,8 +159,10 @@ const ClosingBand = ({ onNavigate }) => (
           <p style={{
             marginTop: 20,
             fontSize: 13,
-            color: 'rgba(255,255,255,0.65)',
-            fontWeight: 500,
+            color: '#FFFFFF',
+            WebkitTextFillColor: '#FFFFFF',
+            opacity: 1,
+            fontWeight: 700,
             letterSpacing: '0.02em',
           }}>
             ✓ Trusted by local providers · ✓ Carer-first approach · ✓ Free to join
