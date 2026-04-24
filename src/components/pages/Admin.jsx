@@ -1068,7 +1068,6 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       );
       // The UPDATE's returned row is authoritative — patch local state immediately.
       // This prevents stale data if the user reopens the drawer before loadData() resolves.
-      console.log('[Admin][saveLinkedProfileSocials] UPDATE returned:', updatedRows);
       if (updatedRows?.[0]) {
         const saved = updatedRows[0];
         // Patch the draft so the open drawer inputs reflect what was actually committed

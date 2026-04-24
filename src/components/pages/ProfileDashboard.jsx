@@ -582,7 +582,7 @@ const ProfileDashboard = ({ onNavigate, session }) => {
         <div className="container" style={{ display: 'grid', gap: 18 }}>
           <div className="card" style={{ padding: 22, borderRadius: 20 }}>
             <h1 style={{ fontSize: 34, fontWeight: 800 }}>Organisation Profile Dashboard</h1>
-            <p style={{ marginTop: 8, color: 'rgba(26,39,68,0.7)' }}>Signed in as {session.user.email}. Profile ownership is linked by owner email and created profile records.</p>
+            <p style={{ marginTop: 8, color: 'rgba(26,39,68,0.7)' }}>Signed in as {session.user.email}.</p>
             {error ? <div style={{ marginTop: 10, color: '#A03A2D', fontWeight: 600 }}>{error}</div> : null}
             {toast ? <div style={{ marginTop: 10, color: '#2D6B1F', fontWeight: 600 }}>{toast}</div> : null}
           </div>
