@@ -245,48 +245,79 @@ const WalksPage = ({ onNavigate, session }) => {
     <>
       <Nav activePage="walks" onNavigate={onNavigate} session={session} />
 
-      <section style={{ paddingTop: 48, paddingBottom: 36, background: 'linear-gradient(180deg, #FEFEFE 0%, #F7FBFF 100%)' }}>
-        <div className="container">
-          <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: 36, alignItems: 'center' }}>
-            <div>
-              <div className="eyebrow" style={{ color: '#5BC94A' }}>Cornwall Walk Finder</div>
-              <h1 style={{ fontSize: 'clamp(40px, 5vw, 60px)', marginTop: 16, lineHeight: 1.05, fontWeight: 800, letterSpacing: '-0.04em' }}>
-                Find safe local walks across Cornwall
-              </h1>
-              <p style={{ marginTop: 18, fontSize: 18, color: 'rgba(26,39,68,0.78)', maxWidth: 660, lineHeight: 1.75 }}>
-                Search handpicked routes with accessibility, transport and wellbeing filters. Designed for carers, support workers and anyone needing gentle outdoor connection.
-              </p>
+      <section style={{ background: 'linear-gradient(160deg, #0F2A1A 0%, #1A3A2A 45%, #1A2744 100%)', paddingTop: 64, paddingBottom: 56, position: 'relative', overflow: 'hidden' }}>
+        {/* Decorative orbs */}
+        <div style={{ position: 'absolute', right: -120, top: -80, width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle at 40% 40%, rgba(91,201,74,0.18), transparent 70%)', filter: 'blur(24px)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', left: -100, bottom: -120, width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle at 50% 50%, rgba(45,156,219,0.14), transparent 70%)', filter: 'blur(20px)', pointerEvents: 'none' }} />
 
-              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 30 }}>
-                <button className="btn btn-gold btn-lg" onClick={() => document.getElementById('walk-filters')?.scrollIntoView({ behavior: 'smooth' })} style={{ fontSize: 17, padding: '20px 38px', boxShadow: '0 18px 60px rgba(212,175,55,0.28)' }}>
-                  Start exploring
-                  <IArrow s={16} />
-                </button>
-                <button className="btn btn-ghost btn-lg" onClick={() => onNavigate('find-help')} style={{ fontSize: 17, padding: '20px 36px' }}>
-                  Browse related support
-                </button>
-              </div>
+        <div className="container" style={{ position: 'relative' }}>
+          {/* Eyebrow */}
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 24, background: 'rgba(91,201,74,0.15)', border: '1px solid rgba(91,201,74,0.3)', borderRadius: 999, padding: '6px 16px', fontSize: 12.5, fontWeight: 800, color: '#7FDE6A', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            <div style={{ width: 6, height: 6, borderRadius: 999, background: '#5BC94A', flexShrink: 0 }} />
+            Walks &amp; Wellbeing
+          </div>
 
-              <div style={{ marginTop: 34, display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-                <Stat label="Curated Cornwall routes" value={DATASET_TOTAL_ROUTES} />
-                <Stat label="Accessible options" value={DATASET_ACCESSIBLE_ROUTES} />
-                <Stat label="Public transport friendly" value={DATASET_PUBLIC_TRANSPORT_ROUTES} />
+          {/* Headline */}
+          <h1 style={{ fontSize: 'clamp(38px, 5.5vw, 64px)', fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.05, color: '#FFFFFF', WebkitTextFillColor: '#FFFFFF', marginBottom: 18, maxWidth: 720 }}>
+            Discover walks across Cornwall
+          </h1>
+
+          {/* Subtext */}
+          <p style={{ fontSize: 18, lineHeight: 1.72, color: 'rgba(255,255,255,0.8)', maxWidth: 580, fontWeight: 500, marginBottom: 28, fontFamily: 'Inter, sans-serif' }}>
+            Find accessible walks, nature routes, coastal paths and wellbeing-friendly places to explore.
+          </p>
+
+          {/* Trust chips */}
+          <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', marginBottom: 32 }}>
+            {[
+              { label: 'Coastal routes', icon: '✓' },
+              { label: 'Accessible options', icon: '✓' },
+              { label: 'Mental wellbeing', icon: '✓' },
+              { label: 'Cornwall wide', icon: '✓' },
+            ].map(({ label, icon }) => (
+              <span key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 999, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.18)', fontSize: 13.5, fontWeight: 700, color: 'rgba(255,255,255,0.9)' }}>
+                <span style={{ color: '#5BC94A', fontWeight: 900 }}>{icon}</span> {label}
+              </span>
+            ))}
+          </div>
+
+          {/* Search bar */}
+          <div style={{ marginBottom: 24, maxWidth: 680 }}>
+            <div style={{ display: 'flex', borderRadius: 18, overflow: 'hidden', background: 'white', boxShadow: '0 8px 32px rgba(0,0,0,0.18)', border: '1.5px solid rgba(255,255,255,0.12)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', paddingLeft: 18, color: 'rgba(26,39,68,0.4)', flexShrink: 0 }}>
+                <IWalks s={18} />
               </div>
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search walks, towns, beaches, woodland..."
+                style={{ flex: 1, border: 'none', outline: 'none', padding: '16px 14px', fontSize: 16, background: 'transparent', color: '#1A2744', fontFamily: 'inherit' }}
+              />
+              <button
+                onClick={() => document.getElementById('walk-filters')?.scrollIntoView({ behavior: 'smooth' })}
+                style={{ padding: '0 26px', background: 'linear-gradient(135deg,#5BC94A,#4CAF50)', color: 'white', fontWeight: 800, fontSize: 15, border: 'none', cursor: 'pointer', flexShrink: 0 }}
+              >
+                Search
+              </button>
             </div>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ borderRadius: 30, padding: 28, background: 'linear-gradient(180deg, #FFFFFF 0%, #F7FBFF 100%)', border: '1px solid #E9EEF5', boxShadow: '0 22px 58px rgba(26,39,68,0.08)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24 }}>
-                  <IconTile tone="lime" size={56} radius={18}><IWalks s={26} /></IconTile>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#1A2744' }}>Wellbeing walk finder</div>
-                    <div style={{ marginTop: 8, fontSize: 16, fontWeight: 600, color: 'rgba(26,39,68,0.9)' }}>Safe walks, practical routes and care-friendly details.</div>
-                  </div>
-                </div>
-                <div style={{ color: 'rgba(26,39,68,0.74)', lineHeight: 1.7, fontSize: 15 }}>
-                  Find routes with toilets, parking, public transport, easy terrain, circular loops and nearby refreshments — all within Cornwall.
-                </div>
-              </div>
-            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-gold btn-lg"
+              onClick={() => document.getElementById('walk-filters')?.scrollIntoView({ behavior: 'smooth' })}
+              style={{ fontSize: 16, padding: '16px 32px', fontWeight: 700, boxShadow: '0 14px 40px rgba(212,175,55,0.35)', background: 'linear-gradient(135deg,#F5A623,#D4AF37)' }}
+            >
+              Browse all walks <IArrow s={16} />
+            </button>
+            <button
+              className="btn btn-lg"
+              onClick={() => document.getElementById('walk-filters')?.scrollIntoView({ behavior: 'smooth' })}
+              style={{ fontSize: 16, padding: '16px 32px', fontWeight: 700, background: 'rgba(255,255,255,0.1)', color: 'white', border: '1.5px solid rgba(255,255,255,0.25)', borderRadius: 16 }}
+            >
+              View map
+            </button>
           </div>
         </div>
       </section>
