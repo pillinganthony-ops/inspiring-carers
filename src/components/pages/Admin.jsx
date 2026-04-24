@@ -794,6 +794,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   const [postcodeError, setPostcodeError] = React.useState('');
   const [postcodeCandidates, setPostcodeCandidates] = React.useState([]);
   const [selectedPostcodeCandidateId, setSelectedPostcodeCandidateId] = React.useState('');
+  const [postcodeDebug, setPostcodeDebug] = React.useState(null);
   const [analyticsWindow, setAnalyticsWindow] = React.useState('30d');
   // Linked org-profile state — separate from the full profile CRUD tab
   const [linkedProfileDraft, setLinkedProfileDraft] = React.useState({});
@@ -1052,6 +1053,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     setPostcodeError('');
     setPostcodeCandidates([]);
     setSelectedPostcodeCandidateId('');
+    setPostcodeDebug(null);
   };
 
   const saveLinkedProfileSocials = async () => {
@@ -1445,29 +1447,60 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         const getAddressKey = import.meta.env.VITE_GETADDRESS_IO_API_KEY || '';
         let candidates = [];
 
+        const debugBase = {
+          keyDetected: Boolean(getAddressKey),
+          envMode: import.meta.env.MODE || 'unknown',
+          requestUrl: null,
+          status: null,
+          statusText: null,
+          errorBody: null,
+        };
+
         if (getAddressKey) {
-          const gaResponse = await fetch(
-            `https://api.getAddress.io/find/${encodeURIComponent(formattedPostcode)}?api-key=${getAddressKey}&expand=true`,
-          );
-          if (gaResponse.ok) {
-            const gaPayload = await gaResponse.json();
-            const gaLat = asNumber(gaPayload?.latitude ?? postcodeResult.latitude);
-            const gaLng = asNumber(gaPayload?.longitude ?? postcodeResult.longitude);
-            candidates = (gaPayload?.addresses || []).map((addr, index) => {
-              const streetLine = [addr.building_name, addr.line_1].filter(Boolean).join(', ');
-              const addressStr = [streetLine || null, addr.town_or_city || fallbackTown, formattedPostcode].filter(Boolean).join(', ');
-              const label = streetLine || `Address ${index + 1}`;
-              return buildAddressCandidate({
-                id: `ga-${index}`,
-                label,
-                address: addressStr,
-                town: addr.town_or_city || fallbackTown,
-                postcode: formattedPostcode,
-                latitude: asNumber(addr.latitude) || gaLat,
-                longitude: asNumber(addr.longitude) || gaLng,
-              });
-            }).filter((c) => c.address && Number.isFinite(c.latitude) && Number.isFinite(c.longitude));
+          const maskedUrl = `https://api.getaddress.io/find/${encodeURIComponent(formattedPostcode)}?api-key=***&expand=true`;
+          const realUrl = `https://api.getaddress.io/find/${encodeURIComponent(formattedPostcode)}?api-key=${getAddressKey}&expand=true`;
+          debugBase.requestUrl = maskedUrl;
+
+          let gaResponse;
+          try {
+            gaResponse = await fetch(realUrl);
+          } catch (fetchErr) {
+            setPostcodeDebug({ ...debugBase, errorBody: `Network error: ${fetchErr.message}` });
+            gaResponse = null;
           }
+
+          if (gaResponse) {
+            debugBase.status = gaResponse.status;
+            debugBase.statusText = gaResponse.statusText;
+            if (gaResponse.ok) {
+              const gaPayload = await gaResponse.json();
+              const gaLat = asNumber(gaPayload?.latitude ?? postcodeResult.latitude);
+              const gaLng = asNumber(gaPayload?.longitude ?? postcodeResult.longitude);
+              candidates = (gaPayload?.addresses || []).map((addr, index) => {
+                const streetLine = [addr.building_name, addr.line_1].filter(Boolean).join(', ');
+                const addressStr = [streetLine || null, addr.town_or_city || fallbackTown, formattedPostcode].filter(Boolean).join(', ');
+                const label = streetLine || `Address ${index + 1}`;
+                return buildAddressCandidate({
+                  id: `ga-${index}`,
+                  label,
+                  address: addressStr,
+                  town: addr.town_or_city || fallbackTown,
+                  postcode: formattedPostcode,
+                  latitude: asNumber(addr.latitude) || gaLat,
+                  longitude: asNumber(addr.longitude) || gaLng,
+                });
+              }).filter((c) => c.address && Number.isFinite(c.latitude) && Number.isFinite(c.longitude));
+              setPostcodeDebug({ ...debugBase, errorBody: null });
+            } else {
+              let errBody = '';
+              try { errBody = await gaResponse.text(); } catch { /* ignore */ }
+              setPostcodeDebug({ ...debugBase, errorBody: errBody || `HTTP ${gaResponse.status}` });
+            }
+          } else if (!debugBase.errorBody) {
+            setPostcodeDebug({ ...debugBase });
+          }
+        } else {
+          setPostcodeDebug({ ...debugBase });
         }
 
         // Fallback: Nominatim → Overpass (free, limited UK building coverage).
@@ -2435,6 +2468,16 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                           {postcodeCandidates.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
                         </select>
                         <div style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.52)' }}>Selecting an address updates street address, town, postcode, latitude and longitude.</div>
+                      </div>
+                    ) : null}
+                    {postcodeDebug ? (
+                      <div style={{ marginTop: 8, padding: '10px 12px', borderRadius: 8, background: '#F0F4FF', border: '1px solid #C8D6F0', fontSize: 11.5, fontFamily: 'monospace', lineHeight: 1.7, color: '#1A2744' }}>
+                        <div style={{ fontWeight: 700, fontFamily: 'inherit', marginBottom: 4, fontSize: 12 }}>Postcode lookup diagnostic</div>
+                        <div><span style={{ color: 'rgba(26,39,68,0.55)' }}>getAddress key:</span> {postcodeDebug.keyDetected ? <span style={{ color: '#1a7a3a', fontWeight: 700 }}>detected ✓</span> : <span style={{ color: '#A03A2D', fontWeight: 700 }}>NOT detected ✗</span>}</div>
+                        <div><span style={{ color: 'rgba(26,39,68,0.55)' }}>env mode:</span> {postcodeDebug.envMode}</div>
+                        {postcodeDebug.requestUrl ? <div><span style={{ color: 'rgba(26,39,68,0.55)' }}>request URL:</span> <span style={{ wordBreak: 'break-all' }}>{postcodeDebug.requestUrl}</span></div> : null}
+                        {postcodeDebug.status !== null ? <div><span style={{ color: 'rgba(26,39,68,0.55)' }}>HTTP status:</span> <span style={{ color: postcodeDebug.status === 200 ? '#1a7a3a' : '#A03A2D', fontWeight: 700 }}>{postcodeDebug.status} {postcodeDebug.statusText}</span></div> : null}
+                        {postcodeDebug.errorBody ? <div style={{ marginTop: 4, color: '#A03A2D', wordBreak: 'break-all' }}><span style={{ color: 'rgba(26,39,68,0.55)' }}>error:</span> {postcodeDebug.errorBody}</div> : null}
                       </div>
                     ) : null}
                   </div>
