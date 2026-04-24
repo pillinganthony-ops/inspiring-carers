@@ -439,8 +439,7 @@ const normalizeResource = (row, index, options = {}) => {
 
   const title = pickField(row, ['name', 'title']) || `Support listing ${index + 1}`;
   const orgCandidates = [
-    pickField(row?.profile || {}, ['display_name']),
-    pickField(row?.profile || {}, ['name']),
+    pickField(row?.profile || {}, ['organisation_name', 'display_name', 'name']),
     pickField(row, ['organisation_name']),
     pickField(row, ['provider_name']),
     title,
@@ -502,8 +501,8 @@ const normalizeResource = (row, index, options = {}) => {
   const summary = pickField(row, ['summary', 'description', 'short_description']) || 'Local support for carers and the people they support.';
   const resourceOrganisationName = pickField(row, ['organisation_name']);
   const providerName = pickField(row, ['provider_name']);
-  const profileDisplayName = pickField(row?.profile || {}, ['display_name', 'name']);
-  const profileBio = pickField(row?.profile || {}, ['bio']);
+  const profileDisplayName = pickField(row?.profile || {}, ['organisation_name', 'display_name', 'name']);
+  const profileBio = pickField(row?.profile || {}, ['short_bio', 'full_bio', 'bio']);
   const profileServiceCategories = Array.isArray(row?.profile?.service_categories) ? row.profile.service_categories.join(' ') : '';
   const profileAreasCovered = Array.isArray(row?.profile?.areas_covered) ? row.profile.areas_covered.join(' ') : '';
   const searchText = normalizeForSearch([
@@ -580,6 +579,7 @@ const GENERIC_ORG_NAMES = new Set(['community support', 'support service', 'loca
 const deriveClaimOrgName = (listing) => {
   const candidates = [
     listing?.organisationName,
+    listing?.profile?.organisation_name,
     listing?.profile?.display_name,
     listing?.venue,
     listing?.title,
@@ -1470,8 +1470,9 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
   const saved = savedIds?.has(listing.id);
   const websiteUrl = listing.website ? (listing.website.startsWith('http') ? listing.website : `https://${listing.website}`) : null;
   const domain = getDomain(listing.website);
-  const profileBio = listing.profile?.bio || listing.desc;
+  const profileBio = listing.profile?.short_bio || listing.profile?.full_bio || listing.profile?.bio || listing.desc;
   const organisationDisplayName = [
+    listing.profile?.organisation_name,
     listing.profile?.display_name,
     listing.profile?.name,
     listing.resourceOrganisationName,
@@ -1713,6 +1714,8 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
               {/* Social media links — reads flat _url columns (live schema) with JSONB fallback */}
               {(() => {
                 const links = getProfileSocialLinks(listing.profile);
+                // Temporary diagnostic — remove once social links confirmed working
+                console.log('PROFILE SOCIAL DEBUG', listing.id, listing.profile);
                 if (!links.length) return null;
                 return (
                   <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #EFF1F7' }}>

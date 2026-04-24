@@ -1017,9 +1017,16 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     setLinkedProfileBusy(true);
     setLinkedProfileError('');
     try {
-      await updateOrgProfileCompat(supabase, profId, buildSocialColumnsPayload(linkedProfileDraft));
-      setToast('Social links saved.');
+      const { stripped } = await updateOrgProfileCompat(supabase, profId, buildSocialColumnsPayload(linkedProfileDraft));
       await loadData();
+      if (stripped.length > 0) {
+        setLinkedProfileError(
+          `Schema mismatch — these social columns are not in the live database and were not saved: ${stripped.join(', ')}. ` +
+          `Add them to organisation_profiles in Supabase, then retry.`,
+        );
+      } else {
+        setToast('Social links saved.');
+      }
     } catch (err) {
       setLinkedProfileError(err?.message || 'Failed to save social links.');
     } finally {
@@ -1083,7 +1090,10 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       const profId = linkedProfileDraft._id;
       if (profId) {
         try {
-          await updateOrgProfileCompat(supabase, profId, buildSocialColumnsPayload(linkedProfileDraft));
+          const { stripped: socialStripped } = await updateOrgProfileCompat(supabase, profId, buildSocialColumnsPayload(linkedProfileDraft));
+          if (socialStripped.length > 0) {
+            setLinkedProfileError(`Schema mismatch — social columns not in live DB: ${socialStripped.join(', ')}`);
+          }
         } catch (socialsErr) {
           setLinkedProfileError(`Social links save failed: ${socialsErr?.message || 'unknown error'}`);
         }
