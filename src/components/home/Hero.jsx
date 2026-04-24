@@ -17,13 +17,13 @@ const Hero = ({ headline, onNavigate }) => (
           </div>
 
           {/* Headline — white on dark navy */}
-          <h1 style={{ fontSize: 'clamp(42px, 5.5vw, 68px)', lineHeight: 1.06, fontWeight: 800, letterSpacing: '-0.04em', color: '#FFFFFF', marginBottom: 22 }}>
+          <h1 style={{ fontSize: 'clamp(42px, 5.5vw, 68px)', lineHeight: 1.06, fontWeight: 800, letterSpacing: '-0.04em', color: '#FFFFFF', WebkitTextFillColor: '#FFFFFF', marginBottom: 22 }}>
             Support for carers.<br />
-            <span style={{ color: '#7CC8F8' }}>Opportunities for organisations.</span>
+            <span style={{ color: '#7CC8F8', WebkitTextFillColor: '#7CC8F8' }}>Opportunities for organisations.</span>
           </h1>
 
           {/* Subtext — high contrast on dark */}
-          <p style={{ fontSize: 18, lineHeight: 1.7, color: 'rgba(255,255,255,0.78)', maxWidth: 500, fontWeight: 500, marginBottom: 36, fontFamily: 'Inter, sans-serif' }}>
+          <p style={{ fontSize: 18, lineHeight: 1.7, color: 'rgba(255,255,255,0.86)', maxWidth: 500, fontWeight: 500, marginBottom: 36, fontFamily: 'Inter, sans-serif' }}>
             Discover help, walks, events, discounts and trusted local services across Cornwall.
           </p>
 
@@ -38,7 +38,7 @@ const Hero = ({ headline, onNavigate }) => (
           </div>
 
           {/* Trust signals — white on dark */}
-          <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', marginTop: 28, fontSize: 13, color: 'rgba(255,255,255,0.52)', fontWeight: 600 }}>
+          <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', marginTop: 28, fontSize: 13, color: 'rgba(255,255,255,0.82)', fontWeight: 600 }}>
             {['Free to join', 'Cornwall focused', 'Walks, events & support', 'Growing community'].map((sig) => (
               <span key={sig} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                 <span style={{ width: 5, height: 5, borderRadius: 999, background: '#10B981', flexShrink: 0 }} />
