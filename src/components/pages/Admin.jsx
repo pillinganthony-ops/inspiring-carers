@@ -779,6 +779,10 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   const [linkedProfileDraft, setLinkedProfileDraft] = React.useState({});
   const [linkedProfileBusy, setLinkedProfileBusy] = React.useState(false);
   const [linkedProfileError, setLinkedProfileError] = React.useState('');
+  // Auth debug state — remove or hide behind import.meta.env.DEV once resolved
+  const [debugAuthInfo, setDebugAuthInfo] = React.useState(null);
+  const [debugWriteResult, setDebugWriteResult] = React.useState(null);
+  const [debugWriteBusy, setDebugWriteBusy] = React.useState(false);
 
   const canAccessAdmin = React.useMemo(() => {
     const email = `${session?.user?.email || ''}`.trim().toLowerCase();
@@ -953,11 +957,71 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     loadData();
   }, [loadData]);
 
+  // Auth state probe — runs whenever session changes; populates debug card
+  React.useEffect(() => {
+    if (!session?.user?.id || !supabase) {
+      setDebugAuthInfo({ noSession: true });
+      return;
+    }
+    const probe = async () => {
+      const [getUserResult, adminRowResult] = await Promise.all([
+        supabase.auth.getUser(),
+        supabase.from('admin_users').select('*').eq('user_id', session.user.id).maybeSingle(),
+      ]);
+      setDebugAuthInfo({
+        sessionUserId: session.user.id,
+        sessionEmail: session.user.email,
+        getUserId: getUserResult.data?.user?.id ?? null,
+        getUserEmail: getUserResult.data?.user?.email ?? null,
+        getUserError: getUserResult.error?.message ?? null,
+        adminRow: adminRowResult.data ?? null,
+        adminRowError: adminRowResult.error?.message ?? null,
+      });
+    };
+    probe();
+  }, [session]);
+
   React.useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(''), 2200);
     return () => clearTimeout(timer);
   }, [toast]);
+
+  // Write-test: updates facebook_url with its own existing value (harmless no-op on data)
+  const runDebugWriteTest = async () => {
+    if (!supabase || !profiles.length) {
+      setDebugWriteResult({ error: 'No profiles loaded — load the admin dashboard first.' });
+      return;
+    }
+    setDebugWriteBusy(true);
+    setDebugWriteResult(null);
+    try {
+      const testProfile = profiles[0];
+      const result = await supabase
+        .from('organisation_profiles')
+        .update({ facebook_url: testProfile.facebook_url ?? null })
+        .eq('id', testProfile.id)
+        .select('id, organisation_name, facebook_url');
+      setDebugWriteResult({
+        data: result.data,
+        error: result.error ? result.error.message : null,
+        rowsReturned: result.data?.length ?? 0,
+        profileId: testProfile.id,
+        profileName: testProfile.organisation_name || testProfile.display_name || '(no name)',
+        sessionUserId: session?.user?.id ?? null,
+        adminRow: debugAuthInfo?.adminRow ?? null,
+        diagnosis: result.error
+          ? `E. Supabase error: ${result.error.message}`
+          : (result.data?.length ?? 0) === 0
+            ? 'D. RLS blocked — update matched 0 rows despite correct profile id'
+            : 'Write succeeded — RLS is NOT the issue for this profile',
+      });
+    } catch (e) {
+      setDebugWriteResult({ error: String(e?.message ?? e) });
+    } finally {
+      setDebugWriteBusy(false);
+    }
+  };
 
   const withBusy = async (action, successMessage) => {
     setBusy(true);
@@ -1682,6 +1746,66 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
               </div>
             ) : null}
           </div>
+
+          {/* ── Auth + write debug card ─────────────────────────────────────────── */}
+          {/* Remove or gate behind import.meta.env.DEV once the RLS issue is resolved */}
+          {debugAuthInfo && (() => {
+            const userId = debugAuthInfo.sessionUserId;
+            const adminRow = debugAuthInfo.adminRow;
+            const noSession = debugAuthInfo.noSession;
+            let category = '';
+            if (noSession || !userId) {
+              category = 'A. No Supabase session — writes run as anon (RLS blocks them)';
+            } else if (debugAuthInfo.getUserId && debugAuthInfo.getUserId !== userId) {
+              category = `B. getUser().id (${debugAuthInfo.getUserId}) ≠ session.user.id (${userId})`;
+            } else if (!adminRow) {
+              category = `C. No admin_users row where user_id = ${userId}`;
+            } else {
+              category = `Row found — user_id: ${adminRow.user_id}. If write test below still returns 0 rows → D. RLS policy mismatch.`;
+            }
+            return (
+              <div style={{ border: '2px solid #F5A623', borderRadius: 16, padding: 18, background: '#FFFBF2', fontSize: 13 }}>
+                <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 10, color: '#8A5A00' }}>Auth Debug Card — remove once resolved</div>
+                <div style={{ display: 'grid', gap: 5, fontFamily: 'monospace', fontSize: 12 }}>
+                  <div><b>session.user.id:</b> {userId ?? 'null'}</div>
+                  <div><b>session.user.email:</b> {debugAuthInfo.sessionEmail ?? 'null'}</div>
+                  <div><b>supabase.auth.getUser() id:</b> {debugAuthInfo.getUserId ?? 'null'}{debugAuthInfo.getUserError ? ` — ERROR: ${debugAuthInfo.getUserError}` : ''}</div>
+                  <div><b>canAccessAdmin:</b> {String(canAccessAdmin)}</div>
+                  <div><b>admin_users row:</b> {adminRow ? JSON.stringify(adminRow) : (debugAuthInfo.adminRowError ? `ERROR: ${debugAuthInfo.adminRowError}` : 'NOT FOUND')}</div>
+                  <div style={{ marginTop: 6, padding: '6px 10px', borderRadius: 8, background: noSession || !userId || !adminRow || (debugAuthInfo.getUserId && debugAuthInfo.getUserId !== userId) ? 'rgba(212,80,80,0.10)' : 'rgba(46,164,79,0.10)', color: noSession || !userId || !adminRow ? '#A03A2D' : '#1E5E3D', fontWeight: 700 }}>
+                    → {category}
+                  </div>
+                </div>
+                <div style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    disabled={debugWriteBusy || !profiles.length}
+                    onClick={runDebugWriteTest}
+                  >
+                    {debugWriteBusy ? 'Testing…' : 'Test org profile UPDATE'}
+                  </button>
+                  {debugWriteResult && (
+                    <div style={{ fontFamily: 'monospace', fontSize: 11.5, padding: '6px 10px', borderRadius: 8, background: (debugWriteResult.rowsReturned > 0) ? 'rgba(46,164,79,0.10)' : 'rgba(212,80,80,0.10)', color: (debugWriteResult.rowsReturned > 0) ? '#1E5E3D' : '#A03A2D', maxWidth: 700 }}>
+                      <b>rows returned:</b> {debugWriteResult.rowsReturned ?? '—'} &nbsp;|&nbsp;
+                      <b>error:</b> {debugWriteResult.error ?? 'none'} &nbsp;|&nbsp;
+                      <b>profile:</b> {debugWriteResult.profileName} ({debugWriteResult.profileId?.slice(-8)}) &nbsp;|&nbsp;
+                      <b>session uid:</b> {debugWriteResult.sessionUserId?.slice(-8) ?? 'null'} &nbsp;|&nbsp;
+                      <b>admin row uid:</b> {debugWriteResult.adminRow?.user_id?.slice(-8) ?? 'none'}
+                      <br /><b>→ {debugWriteResult.diagnosis}</b>
+                    </div>
+                  )}
+                </div>
+                {!adminRow && userId && (
+                  <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 8, background: 'rgba(18,99,214,0.08)', color: '#0B5CAD', fontSize: 12, fontFamily: 'monospace' }}>
+                    Fix SQL (run in Supabase SQL editor):<br />
+                    INSERT INTO public.admin_users (user_id, email)<br />
+                    VALUES (&apos;{userId}&apos;, &apos;{debugAuthInfo.sessionEmail}&apos;)<br />
+                    ON CONFLICT (user_id) DO UPDATE SET email = EXCLUDED.email;
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {!loading && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8 }}>
