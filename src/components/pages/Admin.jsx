@@ -1437,14 +1437,16 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         ? pcioPostcode
         : canonicalPostcode;
       const fallbackTown = postcodeResult.admin_district || postcodeResult.admin_ward || postcodeResult.parish || postcodeResult.region || '';
+      const centroidLat = asNumber(postcodeResult.latitude);
+      const centroidLng = asNumber(postcodeResult.longitude);
       const fallbackCandidate = {
         id: 'postcode-centroid',
         label: `${formattedPostcode}${fallbackTown ? ` (${fallbackTown})` : ''}`,
         address: [fallbackTown, formattedPostcode].filter(Boolean).join(', '),
         town: fallbackTown,
         postcode: formattedPostcode,
-        latitude: asNumber(postcodeResult.latitude),
-        longitude: asNumber(postcodeResult.longitude),
+        latitude: centroidLat,
+        longitude: centroidLng,
       };
 
       applyPostcodeCandidate(fallbackCandidate);
@@ -1466,46 +1468,48 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         };
 
         if (getAddressKey) {
-          // getAddress.io requires spaced postcode URL-encoded: PL14%204EN not PL144EN.
-          // canonicalPostcode is already correctly formatted (e.g. "PL14 4EN").
-          const maskedUrl = `https://api.getaddress.io/find/${encodeURIComponent(canonicalPostcode)}?api-key=***&expand=true`;
-          const realUrl = `https://api.getaddress.io/find/${encodeURIComponent(canonicalPostcode)}?api-key=${getAddressKey}&expand=true`;
-          debugBase.requestUrl = maskedUrl;
+          // Domain-token autocomplete flow: /autocomplete returns a suggestion list with IDs.
+          // On selection, /get/{id} is called to retrieve precise lat/lng (see selectPostcodeCandidate).
+          const acMasked = `https://api.getaddress.io/autocomplete/${encodeURIComponent(canonicalPostcode)}?api-key=***`;
+          const acReal = `https://api.getaddress.io/autocomplete/${encodeURIComponent(canonicalPostcode)}?api-key=${getAddressKey}`;
+          debugBase.requestUrl = acMasked;
 
-          let gaResponse;
+          let acResponse;
           try {
-            gaResponse = await fetch(realUrl);
+            acResponse = await fetch(acReal);
           } catch (fetchErr) {
             setPostcodeDebug({ ...debugBase, errorBody: `Network error: ${fetchErr.message}` });
-            gaResponse = null;
+            acResponse = null;
           }
 
-          if (gaResponse) {
-            debugBase.status = gaResponse.status;
-            debugBase.statusText = gaResponse.statusText;
-            if (gaResponse.ok) {
-              const gaPayload = await gaResponse.json();
-              const gaLat = asNumber(gaPayload?.latitude ?? postcodeResult.latitude);
-              const gaLng = asNumber(gaPayload?.longitude ?? postcodeResult.longitude);
-              candidates = (gaPayload?.addresses || []).map((addr, index) => {
-                const streetLine = [addr.building_name, addr.line_1].filter(Boolean).join(', ');
-                const addressStr = [streetLine || null, addr.town_or_city || fallbackTown, formattedPostcode].filter(Boolean).join(', ');
-                const label = streetLine || `Address ${index + 1}`;
-                return buildAddressCandidate({
-                  id: `ga-${index}`,
+          if (acResponse) {
+            debugBase.status = acResponse.status;
+            debugBase.statusText = acResponse.statusText;
+            if (acResponse.ok) {
+              const acPayload = await acResponse.json();
+              const suggestions = Array.isArray(acPayload?.suggestions) ? acPayload.suggestions : [];
+              setPostcodeDebug({ ...debugBase, errorBody: suggestions.length ? null : 'No suggestions returned' });
+              // Build preliminary candidates — lat/lng will be upgraded to building-level on selection via /get/{id}.
+              candidates = suggestions.slice(0, 12).map((s, idx) => {
+                const parts = `${s.address || ''}`.split(',').map((p) => p.trim()).filter(Boolean);
+                const town = parts.length >= 3 ? parts[parts.length - 2] : fallbackTown;
+                const streetLine = parts.length >= 2 ? parts.slice(0, -2).join(', ') : (parts[0] || '');
+                const label = s.address || streetLine || `Address ${idx + 1}`;
+                return {
+                  id: `ga-${idx}`,
+                  ga_id: `${s.id || ''}`,
                   label,
-                  address: addressStr,
-                  town: addr.town_or_city || fallbackTown,
+                  address: [streetLine, formattedPostcode].filter(Boolean).join(', '),
+                  town: town || fallbackTown,
                   postcode: formattedPostcode,
-                  latitude: asNumber(addr.latitude) || gaLat,
-                  longitude: asNumber(addr.longitude) || gaLng,
-                });
-              }).filter((c) => c.address && Number.isFinite(c.latitude) && Number.isFinite(c.longitude));
-              setPostcodeDebug({ ...debugBase, errorBody: null });
+                  latitude: centroidLat,
+                  longitude: centroidLng,
+                };
+              }).filter((c) => Boolean(c.label));
             } else {
               let errBody = '';
-              try { errBody = await gaResponse.text(); } catch { /* ignore */ }
-              setPostcodeDebug({ ...debugBase, errorBody: errBody || `HTTP ${gaResponse.status}` });
+              try { errBody = await acResponse.text(); } catch { /* ignore */ }
+              setPostcodeDebug({ ...debugBase, errorBody: errBody || `HTTP ${acResponse.status}` });
             }
           } else if (!debugBase.errorBody) {
             setPostcodeDebug({ ...debugBase });
@@ -1595,6 +1599,33 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     } finally {
       setPostcodeBusy(false);
     }
+  };
+
+  // On selection: apply candidate immediately (centroid lat/lng), then upgrade with /get/{id}.
+  const selectPostcodeCandidate = async (candidateId) => {
+    const candidate = postcodeCandidates.find((c) => c.id === candidateId);
+    if (!candidate) return;
+    setSelectedPostcodeCandidateId(candidateId);
+    applyPostcodeCandidate(candidate);
+
+    const gaId = candidate.ga_id;
+    if (!gaId) return;
+    const key = import.meta.env.VITE_GETADDRESS_IO_API_KEY || '';
+    if (!key) return;
+
+    try {
+      const res = await fetch(`https://api.getaddress.io/get/${gaId}?api-key=${key}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const lat = asNumber(data.latitude);
+      const lng = asNumber(data.longitude);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      const line1 = `${data.line_1 || ''}`.trim();
+      const line2 = `${data.line_2 || ''}`.trim();
+      const addressStr = [line1, line2].filter(Boolean).join(', ') || candidate.address;
+      const town = line2 || `${data.line_3 || ''}`.trim() || `${data.town_or_city || ''}`.trim() || candidate.town;
+      applyPostcodeCandidate({ ...candidate, address: addressStr, town, latitude: lat, longitude: lng });
+    } catch { /* centroid lat/lng already applied — admin can adjust manually */ }
   };
 
   const deleteRow = async (table, id, message) => {
@@ -2472,7 +2503,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                       <div style={{ marginTop: 6, display: 'grid', gap: 6 }}>
                         <select
                           value={selectedPostcodeCandidateId}
-                          onChange={(e) => { setSelectedPostcodeCandidateId(e.target.value); applyPostcodeCandidate(postcodeCandidates.find((c) => c.id === e.target.value) || null); }}
+                          onChange={(e) => selectPostcodeCandidate(e.target.value)}
                           style={inputStyle}
                         >
                           <option value="">— Choose address to populate fields —</option>
