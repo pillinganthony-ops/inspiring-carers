@@ -549,15 +549,25 @@ const insertOrgProfileCompat = async (supabaseClient, payload) => {
   throw new Error('Too many schema compatibility retries on organisation_profiles insert.');
 };
 
-const updateOrgProfileCompat = async (supabaseClient, id, payload) => {
+const updateOrgProfileCompat = async (supabaseClient, id, payload, selectCols = 'id') => {
   let attempt = { ...payload };
   const stripped = [];
   for (let i = 0; i < 20; i++) {
     const result = await supabaseClient
       .from('organisation_profiles')
       .update(attempt)
-      .eq('id', id);
-    if (!result.error) return { stripped };
+      .eq('id', id)
+      .select(selectCols);
+    if (!result.error) {
+      if (!result.data || result.data.length === 0) {
+        throw new Error(
+          `Organisation profile update matched 0 rows (profile id: ${id}). ` +
+          `RLS is likely blocking the write. ` +
+          `Fix: add a Supabase UPDATE policy on organisation_profiles — see deliverable SQL below.`,
+        );
+      }
+      return { stripped, data: result.data };
+    }
     const msg = `${result.error?.message || result.error?.details || ''}`;
     const colMatch = msg.match(/find the ['"`]?(\w+)['"`]? column/i)
       || msg.match(/column ['"`]?(\w+)['"`]? of/i);
@@ -1011,23 +1021,33 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     setSelectedPostcodeCandidateId('');
   };
 
+  const SOCIAL_SELECT_COLS = 'id, organisation_name, facebook_url, instagram_url, linkedin_url, youtube_url, tiktok_url, x_url, threads_url, whatsapp_url';
+
   const saveLinkedProfileSocials = async () => {
     const profId = linkedProfileDraft._id;
     if (!profId || !supabase) return;
     setLinkedProfileBusy(true);
     setLinkedProfileError('');
     try {
-      const { stripped } = await updateOrgProfileCompat(supabase, profId, buildSocialColumnsPayload(linkedProfileDraft));
+      const { stripped, data: updatedRows } = await updateOrgProfileCompat(
+        supabase,
+        profId,
+        buildSocialColumnsPayload(linkedProfileDraft),
+        SOCIAL_SELECT_COLS,
+      );
+      // Log the row returned by the UPDATE so social column values are visible
+      console.log('[Admin][saveLinkedProfileSocials] UPDATE returned:', updatedRows);
       await loadData();
       if (stripped.length > 0) {
         setLinkedProfileError(
-          `Schema mismatch — these social columns are not in the live database and were not saved: ${stripped.join(', ')}. ` +
+          `Schema mismatch — social columns not in live DB: ${stripped.join(', ')}. ` +
           `Add them to organisation_profiles in Supabase, then retry.`,
         );
       } else {
         setToast('Social links saved.');
       }
     } catch (err) {
+      // Drawer intentionally stays open so the user can see the error and retry
       setLinkedProfileError(err?.message || 'Failed to save social links.');
     } finally {
       setLinkedProfileBusy(false);
