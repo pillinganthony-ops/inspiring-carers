@@ -2,139 +2,48 @@
 import Icons from '../Icons.jsx';
 const { IDot, ICard, IPin, IArrow, ISparkle, IDiscount, IReward, IRecognition, IChevron, IconTile, BloomMark } = Icons;
 
-const Hero = ({ headline }) => (
-  <section style={{ paddingTop: 100, paddingBottom: 104, position: 'relative', overflow: 'hidden', background: 'linear-gradient(180deg, #FEFEFE 0%, #FFFBF3 100%)' }}>
-    {/* Enhanced decorative elements */}
-    <div style={{
-      position: 'absolute', right: -140, top: -100,
-      width: 600, height: 600, borderRadius: '50%',
-      background: 'radial-gradient(circle at 35% 35%, rgba(245,166,35,0.12), rgba(212,175,55,0.08), transparent 70%)',
-      filter: 'blur(20px)', pointerEvents: 'none',
-    }} />
-    <div style={{
-      position: 'absolute', left: -160, bottom: -180,
-      width: 520, height: 520, borderRadius: '50%',
-      background: 'radial-gradient(circle at 50% 50%, rgba(45,156,219,0.14), rgba(16,185,129,0.06), transparent 75%)',
-      filter: 'blur(18px)', pointerEvents: 'none',
-    }} />
+const Hero = ({ headline, onNavigate }) => (
+  <section style={{ paddingTop: 100, paddingBottom: 90, position: 'relative', overflow: 'hidden', background: 'linear-gradient(180deg, #FEFEFE 0%, #FFFBF3 100%)' }}>
+    <div style={{ position: 'absolute', right: -140, top: -100, width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle at 35% 35%, rgba(245,166,35,0.12), rgba(212,175,55,0.08), transparent 70%)', filter: 'blur(20px)', pointerEvents: 'none' }} />
+    <div style={{ position: 'absolute', left: -160, bottom: -180, width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle at 50% 50%, rgba(45,156,219,0.14), rgba(16,185,129,0.06), transparent 75%)', filter: 'blur(18px)', pointerEvents: 'none' }} />
 
-    {/* Trust signals above fold */}
-    <div style={{ position: 'absolute', top: 32, left: '50%', transform: 'translateX(-50%)', zIndex: 10 }}>
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 16,
-        background: 'rgba(255,255,255,0.95)',
-        backdropFilter: 'blur(20px)',
-        border: '1px solid rgba(26,39,68,0.08)',
-        borderRadius: 999, padding: '12px 24px',
-        boxShadow: '0 8px 32px rgba(26,39,68,0.12)',
-        fontSize: 14, fontWeight: 600, color: '#1A2744',
-      }}>
-        <div style={{ width: 8, height: 8, borderRadius: 999, background: '#10B981', flexShrink: 0 }} />
-        <span>Supporting unpaid carers, local providers &amp; community organisations across Cornwall</span>
-        <div style={{ width: 8, height: 8, borderRadius: 999, background: '#10B981', flexShrink: 0 }} />
-      </div>
-    </div>
-
-    <div className="container" style={{ position: 'relative', paddingTop: 80 }}>
+    <div className="container" style={{ position: 'relative' }}>
       <div className="hero-grid">
         <div>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 12, marginBottom: 32,
-            background: 'linear-gradient(135deg, rgba(245,166,35,0.1), rgba(212,175,55,0.08))',
-            border: '1px solid rgba(245,166,35,0.2)',
-            borderRadius: 999, padding: '16px 24px',
-            fontSize: 16, fontWeight: 700, color: '#8B5A00',
-          }}>
-            <BloomMark size={24} showRing={false} />
-            The carers' movement — free for life
+          {/* Badge */}
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 28, background: 'rgba(245,166,35,0.1)', border: '1px solid rgba(245,166,35,0.22)', borderRadius: 999, padding: '7px 16px', fontSize: 13.5, fontWeight: 700, color: '#8B5A00' }}>
+            <div style={{ width: 6, height: 6, borderRadius: 999, background: '#F5A623', flexShrink: 0 }} />
+            Free community platform for carers
           </div>
 
-          <h1 style={{
-            fontSize: 'clamp(52px, 6vw, 80px)',
-            lineHeight: 1.02,
-            fontWeight: 800,
-            letterSpacing: '-0.045em',
-            background: 'linear-gradient(135deg, #0F172A 0%, #1A2744 35%, #2D9CDB 70%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
-            marginBottom: 24,
-          }}>
-            A trusted national movement for carers and the people they support.
+          {/* Headline */}
+          <h1 style={{ fontSize: 'clamp(42px, 5.5vw, 68px)', lineHeight: 1.06, fontWeight: 800, letterSpacing: '-0.04em', color: '#1A2744', marginBottom: 22 }}>
+            Support for carers.<br />
+            <span style={{ color: '#2D9CDB' }}>Opportunities for organisations.</span>
           </h1>
 
-          <p style={{
-            marginTop: 0, fontSize: 20, lineHeight: 1.7,
-            color: 'rgba(26,39,68,0.82)', maxWidth: 720, fontWeight: 500,
-            fontFamily: 'Inter, sans-serif',
-          }}>
-            Real support for the person who gives care, and for the person they care for. Your free member card, local groups, wellbeing, advice and rewards are designed to make life easier for the whole household.
+          {/* Subtext */}
+          <p style={{ fontSize: 18, lineHeight: 1.7, color: 'rgba(26,39,68,0.72)', maxWidth: 500, fontWeight: 500, marginBottom: 36, fontFamily: 'Inter, sans-serif' }}>
+            Discover help, walks, events, discounts and trusted local services across Cornwall.
           </p>
 
-          <div className="hero-entry-grid">
-            <div className="hero-entry-card">
-              <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--authority-navy)' }}>
-                For carers personally
-              </div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--navy)' }}>
-                More recognition, relief and everyday rewards.
-              </div>
-              <div style={{ fontSize: 15, color: 'rgba(26,39,68,0.72)', lineHeight: 1.7 }}>
-                Discounts, wellbeing meetups, advice and a stronger support network so carers can look after themselves while they care.
-              </div>
-            </div>
-            <div className="hero-entry-card">
-              <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--authority-navy)' }}>
-                For the people they support
-              </div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--navy)' }}>
-                Practical local help and meaningful connection.
-              </div>
-              <div style={{ fontSize: 15, color: 'rgba(26,39,68,0.72)', lineHeight: 1.7 }}>
-                Nearby activities, family support groups and useful services that make everyday life more manageable for the person you care for.
-              </div>
-            </div>
-          </div>
-
-          <div className="hero-buttons">
-            <button className="btn btn-gold btn-lg" style={{
-              boxShadow: '0 18px 60px rgba(212,175,55,0.34)',
-              fontSize: 19, padding: '24px 42px', fontWeight: 700,
-              background: 'linear-gradient(135deg, #F5A623 0%, #D4AF37 100%)',
-              border: '2px solid rgba(255,255,255,0.2)',
-            }}>
-              <ICard s={22} /> Claim your free card
+          {/* CTAs */}
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button className="btn btn-gold btn-lg" onClick={() => onNavigate?.('benefits')} style={{ fontSize: 17, padding: '18px 34px', fontWeight: 700, boxShadow: '0 14px 40px rgba(212,175,55,0.3)', background: 'linear-gradient(135deg, #F5A623 0%, #D4AF37 100%)' }}>
+              <ICard s={20} /> Get your free card
             </button>
-            <button className="btn btn-navy btn-lg" style={{
-              fontSize: 19, padding: '24px 42px', fontWeight: 700,
-              border: '1px solid rgba(255,255,255,0.12)',
-            }}>
-              <IPin s={22} /> Find support nearby
+            <button className="btn btn-ghost btn-lg" onClick={() => onNavigate?.('profile')} style={{ fontSize: 17, padding: '18px 34px', fontWeight: 700 }}>
+              List your organisation <IArrow s={18} />
             </button>
           </div>
 
-          <div className="hero-proof-grid">
-            {[
-              ['84,000+', 'carers joined'],
-              ['1,240+', 'local partners'],
-              ['312', 'support groups'],
-            ].map(([n, l]) => (
-              <div key={l} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                <div style={{
-                  fontFamily: 'Sora, sans-serif',
-                  fontSize: 36,
-                  fontWeight: 800,
-                  color: '#D4AF37',
-                  textShadow: '0 2px 8px rgba(245,166,35,0.3)',
-                }}>{n}</div>
-                <div style={{
-                  fontSize: 14,
-                  color: 'rgba(26,39,68,0.7)',
-                  marginTop: 6,
-                  fontWeight: 600,
-                  letterSpacing: '0.02em',
-                }}>{l}</div>
-              </div>
+          {/* Subtle trust signals — no hype numbers */}
+          <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', marginTop: 28, fontSize: 13, color: 'rgba(26,39,68,0.52)', fontWeight: 600 }}>
+            {['Free to join', 'Cornwall focused', 'Walks, events & support', 'Growing community'].map((sig) => (
+              <span key={sig} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ width: 5, height: 5, borderRadius: 999, background: '#10B981', flexShrink: 0 }} />
+                {sig}
+              </span>
             ))}
           </div>
         </div>

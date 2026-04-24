@@ -17,7 +17,7 @@ const Businesses = () => {
           <div>
             <div className="eyebrow" style={{ color: '#F5A623', fontWeight: 800 }}>For you · Benefits</div>
             <h2 style={{ fontSize: 'clamp(36px, 4.2vw, 52px)', fontWeight: 700, marginTop: 14, letterSpacing: '-0.03em', textWrap: 'balance', color: '#1A2744' }}>
-              Over 1,240 businesses say thanks.
+              Local businesses who support carers.
             </h2>
             <p style={{ marginTop: 20, color: 'rgba(26,39,68,0.75)', fontSize: 17, lineHeight: 1.65, fontWeight: 500 }}>
               Restaurants, gyms, gardens, cafés—they all offer discounts and perks to carers. Show your free card and save money every day.

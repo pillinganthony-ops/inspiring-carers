@@ -4,10 +4,10 @@ const { IGroups, ICoffee, IWalks, IEvent, ILibrary, IHub, IMind, IFinance, ITran
 
 const Signposting = ({ onNavigate }) => {
   const tiles = [
-    { icon: <IGroups s={24}/>,  tone: 'sky',   label: 'Support groups',    count: '312 nearby', big: true },
-    { icon: <ICoffee s={24}/>,  tone: 'coral', label: 'Coffee mornings',   count: '48 this week' },
-    { icon: <IWalks s={24}/>,   tone: 'lime',  label: 'Walks & outdoors',  count: '86 routes' },
-    { icon: <IEvent s={24}/>,   tone: 'violet',label: 'Events',            count: '24 this week' },
+    { icon: <IGroups s={24}/>,  tone: 'sky',   label: 'Support groups',    count: 'Across Cornwall', big: true },
+    { icon: <ICoffee s={24}/>,  tone: 'coral', label: 'Coffee mornings',   count: 'Regular sessions' },
+    { icon: <IWalks s={24}/>,   tone: 'lime',  label: 'Walks & outdoors',  count: 'Walks & trails' },
+    { icon: <IEvent s={24}/>,   tone: 'violet',label: 'Events',            count: 'Near you' },
     { icon: <ILibrary s={24}/>, tone: 'gold',  label: 'Libraries',         count: '38 nearby' },
     { icon: <IHub s={24}/>,     tone: 'sky',   label: 'Community hubs',    count: '17 local hubs' },
     { icon: <IMind s={24}/>,    tone: 'violet',label: 'Mental wellbeing',  count: '63 resources' },

@@ -4,17 +4,17 @@ const { IDiscount, IWellbeing, IGroups, IWalks, IEvent, IAdvice, ILibrary, IHub,
 
 const IconDiscovery = ({ onNavigate }) => {
   const items = [
-    { icon: <IDiscount s={32}/>,    tone: 'gold',   label: 'Discounts & offers',        side: 'you',     count: '1,240+ verified partners' },
-    { icon: <IWellbeing s={32}/>,   tone: 'coral',  label: 'Wellbeing & courses',      side: 'both',    count: '48 live sessions monthly' },
-    { icon: <IGroups s={32}/>,      tone: 'sky',    label: 'Local groups & socials',   side: 'support', count: '312+ groups nationwide' },
-    { icon: <IWalks s={32}/>,       tone: 'lime',   label: 'Walks & outdoors',        side: 'support', count: '86 curated routes' },
-    { icon: <IEvent s={32}/>,       tone: 'violet', label: 'Events everywhere',        side: 'both',    count: '24+ happening this week' },
+    { icon: <IDiscount s={32}/>,    tone: 'gold',   label: 'Discounts & offers',        side: 'you',     count: 'Local & regional offers' },
+    { icon: <IWellbeing s={32}/>,   tone: 'coral',  label: 'Wellbeing & courses',      side: 'both',    count: 'Regular sessions' },
+    { icon: <IGroups s={32}/>,      tone: 'sky',    label: 'Local groups & socials',   side: 'support', count: 'Cornwall & beyond' },
+    { icon: <IWalks s={32}/>,       tone: 'lime',   label: 'Walks & outdoors',        side: 'support', count: 'Walks & trails' },
+    { icon: <IEvent s={32}/>,       tone: 'violet', label: 'Events everywhere',        side: 'both',    count: 'Near you' },
     { icon: <IAdvice s={32}/>,      tone: 'sky',    label: 'Expert advice',            side: 'support', count: 'Updated daily' },
     { icon: <ILibrary s={32}/>,     tone: 'gold',   label: 'Libraries & hubs',        side: 'support', count: '38+ near you' },
     { icon: <IHub s={32}/>,         tone: 'violet', label: 'Community centres',       side: 'support', count: '17 local hubs' },
     { icon: <IReward s={32}/>,      tone: 'coral',  label: 'Rewards & cashback',      side: 'you',     count: 'Points you can spend' },
     { icon: <IRecognition s={32}/>, tone: 'gold',   label: 'Recognition & awards',    side: 'you',     count: 'Get featured' },
-    { icon: <IFamily s={32}/>,      tone: 'lime',   label: 'Family support',          side: 'support', count: '112 services' },
+    { icon: <IFamily s={32}/>,      tone: 'lime',   label: 'Family support',          side: 'support', count: 'Local services' },
     { icon: <IMind s={32}/>,        tone: 'violet', label: 'Mental wellbeing',        side: 'both',    count: '63 resources' },
   ];
   const sideAccent = { you: '#F5A623', support: '#2D9CDB', both: '#7B5CF5' };

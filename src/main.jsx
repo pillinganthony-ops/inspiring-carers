@@ -108,7 +108,7 @@ const ClosingBand = ({ onNavigate }) => (
               textWrap: 'balance',
             }}
           >
-            Join 84,000 carers. Get your free card in 3 minutes.
+            Your free Inspiring Carers card. No cost, no catch.
           </h2>
 
           <p
@@ -121,7 +121,7 @@ const ClosingBand = ({ onNavigate }) => (
               fontWeight: 500,
             }}
           >
-            Unlock instant access to 1,240+ discounts, local groups, activities, and support services. Physical card, PDF backup, and benefits all included. No hidden fees. No expiry.
+            Connect with local groups, events, walks, and support services across Cornwall. Physical card, PDF backup — free now and always.
           </p>
 
           <div
@@ -175,7 +175,7 @@ const ClosingBand = ({ onNavigate }) => (
 const HomePage = ({ onNavigate, tweaks }) => (
   <>
     <Nav activePage="home" onNavigate={onNavigate} />
-    <Hero headline={tweaks.hero_headline} />
+    <Hero headline={tweaks.hero_headline} onNavigate={onNavigate} />
     <DualEntry onNavigate={onNavigate} />
     <PersonalStrip greeting={tweaks.greeting_name} location={tweaks.location} />
     <IconDiscovery onNavigate={onNavigate} />

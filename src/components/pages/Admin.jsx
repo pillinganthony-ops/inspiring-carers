@@ -1647,13 +1647,14 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
 
   const pendingClaims = claims.filter((row) => isPendingStatus(row.status));
   const createdResourceUpdates = resourceUpdates.filter((row) => isCreatedSubmission(row));
-  const pendingResourceUpdates = resourceUpdates.filter((row) => isExactPendingStatus(row.status) && !isCreatedSubmission(row));
+  const commercialLeads = resourceUpdates.filter((row) => row._queueType === 'upgrade_enquiry');
+  const pendingResourceUpdates = resourceUpdates.filter((row) => isExactPendingStatus(row.status) && !isCreatedSubmission(row) && row._queueType !== 'upgrade_enquiry');
   const inReviewResourceUpdates = resourceUpdates.filter((row) => isInReviewStatus(row.status) && !isCreatedSubmission(row));
   const approvedResourceUpdatesReady = resourceUpdates.filter((row) => isApprovedStatus(row.status) && !isCreatedSubmission(row));
   const rejectedResourceUpdates = resourceUpdates.filter((row) => isRejectedStatus(row.status) && !isCreatedSubmission(row));
   const pendingWalkUpdates = walkUpdates.filter((row) => isPendingStatus(row.status));
   const pendingWalkComments = walkComments.filter((row) => isPendingStatus(row.status));
-  const moderationWorkloadCount = pendingClaims.length + pendingResourceUpdates.length + inReviewResourceUpdates.length + approvedResourceUpdatesReady.length + pendingWalkUpdates.length + pendingWalkComments.length;
+  const moderationWorkloadCount = pendingClaims.length + pendingResourceUpdates.length + inReviewResourceUpdates.length + approvedResourceUpdatesReady.length + pendingWalkUpdates.length + pendingWalkComments.length + commercialLeads.length;
   const tabCounts = {
     overview: 0,
     moderation: moderationWorkloadCount,
@@ -1720,6 +1721,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                 ['Events', events.length, null],
                 ['Pending claims', pendingClaims.length, pendingClaims.length > 0 ? '#F5A623' : null],
                 ['Pending subs', pendingResourceUpdates.length, pendingResourceUpdates.length > 0 ? '#F5A623' : null],
+                ['Comm. leads', commercialLeads.length, commercialLeads.length > 0 ? '#7B5CF5' : null],
                 ['Profile views', ownerPerformanceSummary.totalViews, null],
                 ['Enquiries', ownerPerformanceSummary.totalEnquiries, null],
               ].map(([label, value, accent]) => (
@@ -1842,6 +1844,44 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                   </div>
                 </div>
               ) : null}
+
+              {commercialLeads.length > 0 && (
+                <div className="card" style={{ padding: 22, borderRadius: 22 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+                    <div>
+                      <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#5f3dc4' }}>Commercial</div>
+                      <h3 style={{ marginTop: 6, fontSize: 22, fontWeight: 800, color: '#1A2744' }}>Upgrade Enquiries</h3>
+                      <p style={{ marginTop: 4, fontSize: 13, color: 'rgba(26,39,68,0.62)', lineHeight: 1.55 }}>Organisations that expressed interest in featured listings, analytics, or discovery calls.</p>
+                    </div>
+                    <div style={{ padding: '8px 14px', borderRadius: 999, background: 'rgba(123,92,245,0.1)', color: '#5f3dc4', fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap' }}>{commercialLeads.length} lead{commercialLeads.length !== 1 ? 's' : ''}</div>
+                  </div>
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    {commercialLeads.map((lead) => {
+                      const reasonText = `${lead.reason || ''}`;
+                      const [interestLine, ...msgParts] = reasonText.split('\n\n');
+                      const interest = interestLine.replace(/^Upgrade enquiry:\s*/i, '').trim() || 'Upgrade enquiry';
+                      const message = msgParts.join('\n\n').trim();
+                      return (
+                        <div key={lead.id} style={{ padding: '14px 16px', borderRadius: 14, background: '#FAFBFF', border: '1px solid #E9EEF5' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: 14, fontWeight: 700, color: '#1A2744' }}>{lead.submitter_name || lead._queueSubmitter || 'Unknown'}</span>
+                              {(lead.organisation_name || lead._queueTitle) && <span style={{ fontSize: 13, color: 'rgba(26,39,68,0.62)' }}>{lead.organisation_name || lead._queueTitle}</span>}
+                              {lead.submitter_email && <a href={`mailto:${lead.submitter_email}`} style={{ fontSize: 13, color: '#2D9CDB', textDecoration: 'none', fontWeight: 600 }}>{lead.submitter_email}</a>}
+                            </div>
+                            <div style={{ display: 'flex', gap: 7, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
+                              <span style={{ padding: '3px 9px', borderRadius: 8, background: 'rgba(123,92,245,0.1)', color: '#5f3dc4', fontSize: 11.5, fontWeight: 700 }}>{interest}</span>
+                              <span style={{ padding: '3px 9px', borderRadius: 8, background: 'rgba(245,166,35,0.12)', color: '#8a5a0b', fontSize: 11.5, fontWeight: 700 }}>New</span>
+                              <span style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.42)', fontWeight: 600 }}>{formatAdminDate(lead.created_at)}</span>
+                            </div>
+                          </div>
+                          {message && <p style={{ marginTop: 8, fontSize: 13, color: 'rgba(26,39,68,0.65)', lineHeight: 1.5, margin: '8px 0 0' }}>{message}</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14 }}>
               <QueueCard
