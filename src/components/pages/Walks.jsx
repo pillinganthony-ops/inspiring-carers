@@ -1,4 +1,5 @@
 import React from 'react';
+import { GoogleMap, MarkerF, InfoWindowF, useJsApiLoader } from '@react-google-maps/api';
 import Icons from '../Icons.jsx';
 import Nav from '../Nav.jsx';
 import Footer from '../Footer.jsx';
@@ -6,6 +7,10 @@ import walks from '../../data/walks.json';
 import { RiskAssessmentDisclaimer, WalkRiskSummary, SubmitRiskUpdateModal, downloadRiskAssessmentPDF } from '../WalkRiskAssessment.jsx';
 import supabase, { isSupabaseConfigured } from '../../lib/supabaseClient.js';
 const { IWalks, IArrow, IChevron, IStar, IClose, IconTile } = Icons;
+
+const WALKS_MAP_LIBRARIES = ['places'];
+const WALKS_MAP_CENTER = { lat: 50.45, lng: -4.65 }; // Cornwall centre
+const _walkGeoCache = {}; // module-level: persists across list/map toggles
 
 const parseDistanceMiles = (value) => {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -196,6 +201,120 @@ const buildWalkEmailHref = (walk) => {
   ].join('\n');
 
   return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+};
+
+const WalkMapView = ({ walks: mapWalks, onSelectWalk }) => {
+  const { isLoaded } = useJsApiLoader({
+    id: 'ic-walk-map',
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
+    libraries: WALKS_MAP_LIBRARIES,
+  });
+  const [coords, setCoords] = React.useState({ ..._walkGeoCache });
+  const [geocoding, setGeocoding] = React.useState(false);
+  const [activeWalk, setActiveWalk] = React.useState(null);
+
+  React.useEffect(() => {
+    const postcodes = [...new Set(mapWalks.map((w) => w.postcode).filter(Boolean))];
+    const uncached = postcodes.filter((pc) => !_walkGeoCache[pc]);
+    if (!uncached.length) return;
+
+    let cancelled = false;
+    setGeocoding(true);
+
+    (async () => {
+      for (let i = 0; i < uncached.length; i += 100) {
+        if (cancelled) break;
+        const chunk = uncached.slice(i, i + 100);
+        try {
+          const resp = await fetch('https://api.postcodes.io/postcodes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ postcodes: chunk }),
+          });
+          const data = await resp.json();
+          (data.result || []).forEach(({ query, result }) => {
+            if (result?.latitude && result?.longitude) {
+              _walkGeoCache[query] = { lat: result.latitude, lng: result.longitude };
+            }
+          });
+        } catch { /* chunk failure — skip silently */ }
+      }
+      if (!cancelled) {
+        setCoords({ ..._walkGeoCache });
+        setGeocoding(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [mapWalks]);
+
+  const pinWalks = mapWalks.filter((w) => w.postcode && coords[w.postcode]);
+
+  if (!isLoaded || geocoding) {
+    return (
+      <div style={{ height: 480, borderRadius: 22, background: '#F0F7FF', border: '1px solid #D8E8F8', display: 'grid', placeItems: 'center' }}>
+        <div style={{ textAlign: 'center', color: 'rgba(26,39,68,0.6)', fontSize: 15 }}>
+          <div style={{ fontSize: 28, marginBottom: 10 }}>🗺</div>
+          {geocoding ? `Locating ${mapWalks.length} walks…` : 'Loading map…'}
+        </div>
+      </div>
+    );
+  }
+
+  if (!pinWalks.length) {
+    return (
+      <div style={{ height: 200, borderRadius: 22, background: '#F8FAFF', border: '1px dashed #C8D8F0', display: 'grid', placeItems: 'center', textAlign: 'center', padding: 24 }}>
+        <div style={{ color: 'rgba(26,39,68,0.55)', fontSize: 14, lineHeight: 1.6 }}>
+          <strong style={{ color: '#1A2744', display: 'block', marginBottom: 6 }}>No map locations for current filters</strong>
+          Try broadening your search to see walk pins on the map.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ borderRadius: 22, overflow: 'hidden', boxShadow: '0 8px 32px rgba(26,39,68,0.12)', border: '1px solid #EFF1F7', marginBottom: 18 }}>
+      <GoogleMap
+        mapContainerStyle={{ width: '100%', height: '500px' }}
+        center={WALKS_MAP_CENTER}
+        zoom={9}
+        options={{ mapTypeId: 'roadmap', mapTypeControl: false, streetViewControl: false, fullscreenControl: true }}
+        onClick={() => setActiveWalk(null)}
+      >
+        {pinWalks.map((walk) => (
+          <MarkerF
+            key={walk.id}
+            position={coords[walk.postcode]}
+            title={walk.name}
+            onClick={() => setActiveWalk(walk)}
+          />
+        ))}
+        {activeWalk && coords[activeWalk.postcode] && (
+          <InfoWindowF
+            position={coords[activeWalk.postcode]}
+            onCloseClick={() => setActiveWalk(null)}
+          >
+            <div style={{ maxWidth: 220, fontFamily: 'Inter, sans-serif', padding: '4px 2px' }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: '#1A2744', marginBottom: 4 }}>{activeWalk.name}</div>
+              <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.65)', marginBottom: 10 }}>
+                {activeWalk.area} · {formatDistance(activeWalk.distanceMiles)} · {activeWalk.difficulty}
+              </div>
+              <button
+                onClick={() => { onSelectWalk(activeWalk); setActiveWalk(null); }}
+                style={{ padding: '6px 14px', borderRadius: 8, background: '#1A2744', color: 'white', fontSize: 12.5, fontWeight: 700, border: 'none', cursor: 'pointer', width: '100%' }}
+              >
+                View details →
+              </button>
+            </div>
+          </InfoWindowF>
+        )}
+      </GoogleMap>
+      <div style={{ padding: '10px 16px', background: '#FAFBFF', borderTop: '1px solid #EFF1F7', fontSize: 12.5, color: 'rgba(26,39,68,0.55)', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ color: '#5BC94A', fontWeight: 800 }}>●</span>
+        {pinWalks.length} walk{pinWalks.length !== 1 ? 's' : ''} pinned · click any marker to see details
+      </div>
+    </div>
+  );
 };
 
 const WalksPage = ({ onNavigate, session }) => {
@@ -394,18 +513,8 @@ const WalksPage = ({ onNavigate, session }) => {
                 </div>
               ) : viewMode === 'map' ? (
                 <div>
-                  <div style={{ marginBottom: 18, borderRadius: 22, overflow: 'hidden', boxShadow: '0 8px 32px rgba(26,39,68,0.12)', border: '1px solid #EFF1F7' }}>
-                    <iframe
-                      title="Cornwall walks overview map"
-                      src="https://www.google.com/maps?q=Cornwall,England,UK&output=embed"
-                      width="100%"
-                      height="420"
-                      style={{ display: 'block', border: 'none' }}
-                      loading="lazy"
-                      referrerPolicy="no-referrer-when-downgrade"
-                    />
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 18 }}>
+                  <WalkMapView walks={filteredWalks} onSelectWalk={setDetailWalk} />
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 18, marginTop: 4 }}>
                     {filteredWalks.map((walk) => (
                       <WalkCard key={walk.id} walk={walk} onView={() => setDetailWalk(walk)} />
                     ))}
