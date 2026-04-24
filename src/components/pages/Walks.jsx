@@ -207,6 +207,7 @@ const WalksPage = ({ onNavigate, session }) => {
   const [filters, setFilters] = React.useState({ toilets: false, refreshments: false, parking: false, publicTransport: false, accessible: false, circular: false });
   const [detailWalk, setDetailWalk] = React.useState(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = React.useState(false);
+  const [viewMode, setViewMode] = React.useState('list');
 
   const difficultyOptions = ['Any', 'Easy', 'Moderate', 'Hard'];
 
@@ -306,14 +307,14 @@ const WalksPage = ({ onNavigate, session }) => {
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <button
               className="btn btn-gold btn-lg"
-              onClick={() => document.getElementById('walk-filters')?.scrollIntoView({ behavior: 'smooth' })}
+              onClick={() => { setViewMode('list'); setTimeout(() => document.getElementById('walk-filters')?.scrollIntoView({ behavior: 'smooth' }), 50); }}
               style={{ fontSize: 16, padding: '16px 32px', fontWeight: 700, boxShadow: '0 14px 40px rgba(212,175,55,0.35)', background: 'linear-gradient(135deg,#F5A623,#D4AF37)' }}
             >
               Browse all walks <IArrow s={16} />
             </button>
             <button
               className="btn btn-lg"
-              onClick={() => document.getElementById('walk-filters')?.scrollIntoView({ behavior: 'smooth' })}
+              onClick={() => { setViewMode('map'); setTimeout(() => document.getElementById('walk-results')?.scrollIntoView({ behavior: 'smooth' }), 50); }}
               style={{ fontSize: 16, padding: '16px 32px', fontWeight: 700, background: 'rgba(255,255,255,0.1)', color: 'white', border: '1.5px solid rgba(255,255,255,0.25)', borderRadius: 16 }}
             >
               View map
@@ -369,15 +370,20 @@ const WalksPage = ({ onNavigate, session }) => {
               </div>
             </div>
 
-            <div>
+            <div id="walk-results">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
                 <div>
                   <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.65)', textTransform: 'uppercase', letterSpacing: '0.12em' }}>Results</div>
                   <div style={{ marginTop: 6, fontSize: 22, fontWeight: 700 }}>{filteredWalks.length} walks matched</div>
                 </div>
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
                   <div style={{ fontSize: 14, color: 'rgba(26,39,68,0.72)' }}><strong>Max distance</strong> {maxDistance} mi</div>
                   <div style={{ fontSize: 14, color: 'rgba(26,39,68,0.72)' }}><strong>Max duration</strong> {formatDuration(maxDuration)}</div>
+                  <div style={{ display: 'flex', gap: 4, padding: 4, background: 'white', borderRadius: 999, border: '1px solid #EFF1F7', marginLeft: 4 }}>
+                    {['list', 'map'].map((mode) => (
+                      <button key={mode} onClick={() => setViewMode(mode)} style={{ padding: '6px 16px', borderRadius: 999, fontSize: 13, fontWeight: 700, background: viewMode === mode ? '#1A2744' : 'transparent', color: viewMode === mode ? 'white' : '#1A2744', textTransform: 'capitalize', border: 'none', cursor: 'pointer', transition: 'background 0.15s' }}>{mode}</button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -385,6 +391,25 @@ const WalksPage = ({ onNavigate, session }) => {
                 <div style={{ borderRadius: 24, padding: 32, background: 'white', border: '1px solid #EFF1F7', boxShadow: 'var(--shadow-sm)' }}>
                   <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 10 }}>No matching walks found</div>
                   <p style={{ color: 'rgba(26,39,68,0.72)', lineHeight: 1.7 }}>Try reducing filters or removing the duration and distance caps. Our collection is built for accessible wellbeing routes.</p>
+                </div>
+              ) : viewMode === 'map' ? (
+                <div>
+                  <div style={{ marginBottom: 18, borderRadius: 22, overflow: 'hidden', boxShadow: '0 8px 32px rgba(26,39,68,0.12)', border: '1px solid #EFF1F7' }}>
+                    <iframe
+                      title="Cornwall walks overview map"
+                      src="https://www.google.com/maps?q=Cornwall,England,UK&output=embed"
+                      width="100%"
+                      height="420"
+                      style={{ display: 'block', border: 'none' }}
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                    />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 18 }}>
+                    {filteredWalks.map((walk) => (
+                      <WalkCard key={walk.id} walk={walk} onView={() => setDetailWalk(walk)} />
+                    ))}
+                  </div>
                 </div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 18 }}>
