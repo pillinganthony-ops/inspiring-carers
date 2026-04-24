@@ -97,6 +97,15 @@ const getProfileName = (profile, resources = []) => {
   return `${profile.display_name || profile.name || linkedResource?.name || profile.slug || profile.owner_email || 'Organisation profile'}`.trim();
 };
 
+// Extract only the human-written section from the structured buildAdminReason output.
+const extractClaimMessage = (reason) => {
+  if (!reason) return '';
+  const marker = 'Supporting message from claimant:';
+  const idx = reason.indexOf(marker);
+  if (idx !== -1) return reason.slice(idx + marker.length).trim();
+  return reason.trim();
+};
+
 const isPendingStatus = (value) => {
   const status = `${value || ''}`.trim().toLowerCase();
   if (!status) return true;
@@ -1678,13 +1687,35 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                     updateQueueStatus(claimRow?._source || 'listing_claims', id, status);
                   }}
                   formatRow={(row) => `${row.listing_title || row.org_name || 'Claim'} · ${row.full_name || row.email || 'Unknown'}`}
-                  renderMeta={(row) => (
-                    <div style={{ display: 'grid', gap: 4, fontSize: 12, color: 'rgba(26,39,68,0.72)' }}>
-                      <div>Email: {row.email || 'Unknown'}</div>
-                      <div>Role: {row.relationship || row.role || 'Not provided'}</div>
-                      <div>Reason: {row.reason || 'No reason supplied'}</div>
-                    </div>
-                  )}
+                  renderMeta={(row) => {
+                    const msg = extractClaimMessage(row.reason);
+                    return (
+                      <div style={{ display: 'grid', gap: 5, fontSize: 12, color: 'rgba(26,39,68,0.72)', marginTop: 4 }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                          {row.org_name && <span><strong style={{ color: '#1A2744' }}>Org:</strong> {row.org_name}</span>}
+                          {row.listing_title && row.listing_title !== row.org_name && <span><strong style={{ color: '#1A2744' }}>Listing:</strong> {row.listing_title}</span>}
+                          {row.listing_id && <span style={{ fontFamily: 'monospace', fontSize: 11 }}>ID {row.listing_id}</span>}
+                        </div>
+                        {row.full_name && <div><strong style={{ color: '#1A2744' }}>Claimant:</strong> {row.full_name}</div>}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                          {row.email && <span><strong style={{ color: '#1A2744' }}>Email:</strong> {row.email}</span>}
+                          {row.phone && <span><strong style={{ color: '#1A2744' }}>Phone:</strong> {row.phone}</span>}
+                        </div>
+                        {(row.relationship || row.role) && <div><strong style={{ color: '#1A2744' }}>Role:</strong> {row.relationship || row.role}</div>}
+                        {msg && (
+                          <div style={{ marginTop: 4, padding: '7px 10px', borderRadius: 8, background: 'rgba(26,39,68,0.04)', border: '1px solid #EEF2FA', fontSize: 11.5, lineHeight: 1.55, color: '#1A2744' }}>
+                            {msg.length > 260 ? `${msg.slice(0, 257)}…` : msg}
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
+                          {row._source === 'resource_update_submissions'
+                            ? <span style={{ padding: '2px 8px', borderRadius: 999, background: 'rgba(245,166,35,0.13)', color: '#8a5a0b', fontSize: 10.5, fontWeight: 700 }}>Fallback queue</span>
+                            : <span style={{ padding: '2px 8px', borderRadius: 999, background: 'rgba(45,156,219,0.10)', color: '#1c78b5', fontSize: 10.5, fontWeight: 700 }}>Primary claims table</span>}
+                          {row.created_at && <span style={{ padding: '2px 8px', borderRadius: 999, background: 'rgba(26,39,68,0.06)', color: 'rgba(26,39,68,0.65)', fontSize: 10.5, fontWeight: 600 }}>{formatAdminDate(row.created_at)}</span>}
+                        </div>
+                      </div>
+                    );
+                  }}
                   approveLabel="Approve and grant access"
                   rejectLabel="Reject claim"
                   reviewLabel="Hold for review"

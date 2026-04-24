@@ -9,6 +9,7 @@ const emptyProfile = {
   slug: '',
   bio: '',
   logo_url: '',
+  cover_image_url: '',
   email: '',
   phone: '',
   website: '',
@@ -128,10 +129,13 @@ const ProfileDashboard = ({ onNavigate, session }) => {
     setAnalyticsNotice('');
 
     try {
-      const [byOwnerEmail, byCreatedBy, claimsResult] = await Promise.all([
+      const [byOwnerEmail, byCreatedBy, claimsResult, fallbackClaimsResult] = await Promise.all([
         supabase.from('organisation_profiles').select('*').eq('owner_email', userEmail),
         supabase.from('organisation_profiles').select('*').eq('created_by', session.user.id),
         supabase.from('listing_claims').select('*').eq('email', userEmail).order('created_at', { ascending: false }),
+        // Also load fallback claims that landed in resource_update_submissions
+        supabase.from('resource_update_submissions').select('id, organisation_name, status, created_at, update_type, resource_id')
+          .eq('submitter_email', userEmail).eq('update_type', 'claim_request').order('created_at', { ascending: false }),
       ]);
 
       const mergedProfiles = [...(byOwnerEmail.data || []), ...(byCreatedBy.data || [])];
@@ -171,9 +175,23 @@ const ProfileDashboard = ({ onNavigate, session }) => {
         }
       }
 
+      // Merge primary claims with fallback queue entries
+      const primaryClaims = claimsResult.data || [];
+      const fallbackClaims = (fallbackClaimsResult.data || []).map((row) => ({
+        id: row.id,
+        listing_title: `${row.organisation_name || ''}`.replace(/^\[CLAIM\]\s*/i, ''),
+        org_name: `${row.organisation_name || ''}`.replace(/^\[CLAIM\]\s*/i, ''),
+        status: row.status || 'pending',
+        created_at: row.created_at,
+        listing_id: row.resource_id || null,
+        _source: 'resource_update_submissions',
+      }));
+      const primaryIds = new Set(primaryClaims.map((r) => String(r.id)));
+      const allClaims = [...primaryClaims, ...fallbackClaims.filter((r) => !primaryIds.has(String(r.id)))];
+
       setProfiles(uniqueProfiles);
       setEvents(eventRows);
-      setClaims(claimsResult.data || []);
+      setClaims(allClaims);
       setEventEnquiries(enquiryRows);
       setViewEvents(viewRows);
       setActiveProfileId((current) => current || initialProfileId);
@@ -183,6 +201,7 @@ const ProfileDashboard = ({ onNavigate, session }) => {
         setProfileDraft({
           ...seedProfile,
           display_name: getProfileDisplayName(seedProfile),
+          cover_image_url: seedProfile.cover_image_url || '',
           service_categories_text: (seedProfile.service_categories || []).join(', '),
           areas_covered_text: (seedProfile.areas_covered || []).join(', '),
         });
@@ -212,6 +231,7 @@ const ProfileDashboard = ({ onNavigate, session }) => {
     setProfileDraft({
       ...selected,
       display_name: getProfileDisplayName(selected),
+      cover_image_url: selected.cover_image_url || '',
       service_categories_text: (selected.service_categories || []).join(', '),
       areas_covered_text: (selected.areas_covered || []).join(', '),
     });
@@ -372,6 +392,7 @@ const ProfileDashboard = ({ onNavigate, session }) => {
         slug: slugify(profileDraft.slug || profileDraft.display_name),
         bio: profileDraft.bio?.trim() || null,
         logo_url: profileDraft.logo_url?.trim() || null,
+        cover_image_url: profileDraft.cover_image_url?.trim() || null,
         email: profileDraft.email?.trim() || userEmail,
         phone: profileDraft.phone?.trim() || null,
         website: profileDraft.website?.trim() || null,
@@ -764,7 +785,8 @@ const ProfileDashboard = ({ onNavigate, session }) => {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 14 }}>
                   <input value={profileDraft.display_name || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, display_name: event.target.value }))} placeholder="Organisation name" style={inputStyle} />
                   <input value={profileDraft.slug || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, slug: event.target.value }))} placeholder="Slug" style={inputStyle} />
-                  <input value={profileDraft.logo_url || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, logo_url: event.target.value }))} placeholder="Logo URL" style={inputStyle} />
+                  <input value={profileDraft.logo_url || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, logo_url: event.target.value }))} placeholder="Logo URL (https://…)" style={inputStyle} />
+                  <input value={profileDraft.cover_image_url || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, cover_image_url: event.target.value }))} placeholder="Cover image URL (https://…)" style={inputStyle} />
                   <input value={profileDraft.email || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, email: event.target.value }))} placeholder="Contact email" style={inputStyle} />
                   <input value={profileDraft.phone || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, phone: event.target.value }))} placeholder="Phone" style={inputStyle} />
                   <input value={profileDraft.website || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, website: event.target.value }))} placeholder="Website" style={inputStyle} />
@@ -837,14 +859,34 @@ const ProfileDashboard = ({ onNavigate, session }) => {
 
               <div className="card" style={{ padding: 22, borderRadius: 20 }}>
                 <h2 style={{ fontSize: 22, fontWeight: 700 }}>Your listing claims</h2>
-                <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
-                  {claims.length ? claims.map((claim) => (
-                    <div key={claim.id} style={{ border: '1px solid #E9EEF5', borderRadius: 12, padding: 12 }}>
-                      <div style={{ fontWeight: 700 }}>{claim.listing_title || claim.org_name || 'Claim request'}</div>
-                      <div style={{ marginTop: 4, fontSize: 13, color: 'rgba(26,39,68,0.65)' }}>Status: {titleCase(claim.status || 'pending')}</div>
-                      <div style={{ marginTop: 4, fontSize: 13, color: 'rgba(26,39,68,0.65)' }}>Next step: {(claim.status || 'pending') === 'approved' ? 'Finish onboarding and switch on premium placements.' : 'Complete onboarding so approval can convert faster.'}</div>
-                    </div>
-                  )) : <div style={{ color: 'rgba(26,39,68,0.65)' }}>No listing claims found for your email yet.</div>}
+                <div style={{ marginTop: 10, display: 'grid', gap: 10 }}>
+                  {claims.length ? claims.map((claim) => {
+                    const st = (claim.status || 'pending').toLowerCase();
+                    const statusColor = st === 'approved' ? '#0D7A55' : st === 'rejected' ? '#A03A2D' : st === 'in_review' ? '#1c78b5' : '#8a5a0b';
+                    const statusBg = st === 'approved' ? 'rgba(16,185,129,0.10)' : st === 'rejected' ? 'rgba(244,97,58,0.10)' : st === 'in_review' ? 'rgba(45,156,219,0.10)' : 'rgba(245,166,35,0.12)';
+                    return (
+                      <div key={claim.id} style={{ border: `1px solid ${statusColor}28`, borderRadius: 14, padding: 14, background: '#FAFBFF' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                          <div style={{ fontWeight: 700, fontSize: 15, color: '#1A2744' }}>{claim.listing_title || claim.org_name || 'Claim request'}</div>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            <span style={{ padding: '3px 9px', borderRadius: 999, background: statusBg, color: statusColor, fontSize: 11, fontWeight: 700 }}>{titleCase(claim.status || 'pending')}</span>
+                            {claim._source === 'resource_update_submissions' && (
+                              <span style={{ padding: '3px 9px', borderRadius: 999, background: 'rgba(245,166,35,0.10)', color: '#8a5a0b', fontSize: 11, fontWeight: 700 }}>Fallback queue</span>
+                            )}
+                          </div>
+                        </div>
+                        <div style={{ marginTop: 8, fontSize: 13, color: 'rgba(26,39,68,0.62)', lineHeight: 1.55 }}>
+                          {st === 'approved'
+                            ? 'Claim approved. Finish your organisation profile and publish your first event to start converting directory traffic.'
+                            : st === 'rejected'
+                            ? 'This claim was not approved. Contact the admin team if you believe this is an error.'
+                            : st === 'in_review'
+                            ? 'Your claim is being reviewed. Complete your profile now so approval converts immediately.'
+                            : 'Awaiting admin review. Complete your profile onboarding in the meantime.'}
+                        </div>
+                      </div>
+                    );
+                  }) : <div style={{ color: 'rgba(26,39,68,0.65)', fontSize: 13.5 }}>No listing claims found for your email yet. Submit a claim from any listing in the Find Help directory.</div>}
                 </div>
               </div>
             </>

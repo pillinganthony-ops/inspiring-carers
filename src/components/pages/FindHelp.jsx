@@ -874,6 +874,10 @@ const ClaimModal = ({ listing, onClose, onSuccess, onError }) => {
           reason: claimPayload.reason,
           status: 'pending',
           update_type: 'claim_request',
+          // resource_id is required so applyApprovedClaimOwnership can link
+          // the approved profile back to the correct resources row.
+          resource_id: claimPayload.listing_id || null,
+          resource_name: claimPayload.listing_title || null,
         };
         const { error: fallbackError } = await supabase.from('resource_update_submissions').insert(fallback);
         if (fallbackError) throw dbError; // surface original error if both fail
