@@ -29,9 +29,9 @@ const Hero = ({ headline }) => (
         boxShadow: '0 8px 32px rgba(26,39,68,0.12)',
         fontSize: 14, fontWeight: 600, color: '#1A2744',
       }}>
-        <div style={{ width: 8, height: 8, borderRadius: 999, background: '#10B981' }} />
-        Trusted by NHS organisations · Government recognised · 84,000+ carers supported
-        <div style={{ width: 8, height: 8, borderRadius: 999, background: '#10B981' }} />
+        <div style={{ width: 8, height: 8, borderRadius: 999, background: '#10B981', flexShrink: 0 }} />
+        <span>Trusted by local carers, NHS organisations &amp; community charities across Cornwall</span>
+        <div style={{ width: 8, height: 8, borderRadius: 999, background: '#10B981', flexShrink: 0 }} />
       </div>
     </div>
 

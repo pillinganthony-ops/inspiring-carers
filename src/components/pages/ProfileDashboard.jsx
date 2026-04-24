@@ -646,14 +646,16 @@ const ProfileDashboard = ({ onNavigate, session }) => {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.6fr) minmax(280px, 1fr)', gap: 14 }}>
             <div className="card" style={{ padding: 22, borderRadius: 20, background: 'linear-gradient(145deg, rgba(26,39,68,0.98) 0%, rgba(34,70,110,0.96) 100%)', color: '#FFFFFF' }}>
-              <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(255,255,255,0.7)' }}>Owner onboarding</div>
-              <h2 style={{ marginTop: 10, fontSize: 28, fontWeight: 800 }}>Dashboard access is live while your claim is reviewed</h2>
+              <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(255,255,255,0.7)' }}>Your owner dashboard</div>
+              <h2 style={{ marginTop: 10, fontSize: 28, fontWeight: 800 }}>
+                {dashboardKpis.approvedClaims ? 'Your listing is live — grow your reach' : 'Dashboard is live while your claim is reviewed'}
+              </h2>
               <p style={{ marginTop: 10, color: 'rgba(255,255,255,0.82)', lineHeight: 1.7 }}>
                 {dashboardKpis.pendingClaims
-                  ? 'You can complete onboarding now so your listing is ready to convert as soon as the admin team approves it.'
+                  ? 'Complete your profile now so your listing is ready the moment admin approves your claim.'
                   : dashboardKpis.approvedClaims
-                    ? 'Your claim has been approved. Finish onboarding and prepare featured upgrades to turn directory traffic into enquiries.'
-                    : 'Create an organisation profile now, then connect it to a claim or new listing as your commercial onboarding base.'}
+                    ? 'Your claim is approved. Add events, update your profile, and explore premium upgrades to turn directory traffic into enquiries.'
+                    : 'Build your organisation profile and submit a claim to connect it to your listing.'}
               </p>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }}>
                 <div style={{ padding: '10px 12px', borderRadius: 14, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.16)' }}>
@@ -672,6 +674,17 @@ const ProfileDashboard = ({ onNavigate, session }) => {
                   <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.72)' }}>Featured access</div>
                   <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4 }}>{hasFeaturedAccess ? 'Enabled' : 'Locked'}</div>
                 </div>
+              </div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
+                <button
+                  onClick={() => document.getElementById('pd-profile-section')?.scrollIntoView({ behavior: 'smooth' })}
+                  style={{ padding: '9px 18px', borderRadius: 10, background: 'rgba(255,255,255,0.15)', color: 'white', border: '1.5px solid rgba(255,255,255,0.28)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer' }}
+                >
+                  Complete your profile →
+                </button>
+                <a href="mailto:hello@inspiringcarers.co.uk?subject=Book a discovery call" style={{ padding: '9px 18px', borderRadius: 10, background: 'rgba(245,166,35,0.22)', color: '#FFD980', border: '1.5px solid rgba(245,166,35,0.35)', fontSize: 13.5, fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+                  Book a discovery call
+                </a>
               </div>
               {latestClaim ? (
                 <div style={{ marginTop: 14, padding: '12px 14px', borderRadius: 16, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.12)' }}>
@@ -723,8 +736,13 @@ const ProfileDashboard = ({ onNavigate, session }) => {
                 <div key={title} style={{ border: active ? '1.5px solid rgba(16,185,129,0.3)' : '1px solid #F0E3C5', borderRadius: 16, padding: 14, background: active ? 'rgba(16,185,129,0.04)' : '#FFFFFF' }}>
                   <div style={{ fontSize: 15, fontWeight: 700, color: '#1A2744' }}>{title}</div>
                   <div style={{ marginTop: 6, fontSize: 13, color: 'rgba(26,39,68,0.64)', lineHeight: 1.6 }}>{description}</div>
-                  <div style={{ marginTop: 8, fontSize: 11.5, fontWeight: 700, color: active ? '#0D7A55' : '#9A5A00' }}>
-                    {active ? 'Active on your plan' : 'Contact us to activate'}
+                  <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                    <span style={{ fontSize: 11.5, fontWeight: 700, color: active ? '#0D7A55' : 'rgba(26,39,68,0.5)' }}>{active ? '✓ Active on your plan' : 'Not yet active'}</span>
+                    {!active && (
+                      <a href="mailto:hello@inspiringcarers.co.uk?subject=Upgrade Enquiry" style={{ fontSize: 11.5, fontWeight: 800, color: '#B45309', textDecoration: 'none', background: 'rgba(245,166,35,0.12)', padding: '3px 9px', borderRadius: 8, border: '1px solid rgba(245,166,35,0.25)', whiteSpace: 'nowrap' }}>
+                        Enquire →
+                      </a>
+                    )}
                   </div>
                 </div>
               ))}
@@ -822,7 +840,7 @@ const ProfileDashboard = ({ onNavigate, session }) => {
             <div className="card" style={{ padding: 20 }}>Loading profile data...</div>
           ) : (
             <>
-              <div className="card" style={{ padding: 22, borderRadius: 20 }}>
+              <div id="pd-profile-section" className="card" style={{ padding: 22, borderRadius: 20 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                   <h2 style={{ fontSize: 22, fontWeight: 700 }}>Your organisation profiles</h2>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>

@@ -1729,33 +1729,33 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
                 if (!links.length) return null;
                 return (
                   <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #EFF1F7' }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'rgba(26,39,68,0.45)', marginBottom: 10 }}>Follow this organisation</div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.42)', marginBottom: 10 }}>Connect</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
                       {links.map(({ key, label, color, Icon: SocialIcon, url }) => (
                         <a
                           key={key}
                           href={url}
                           target="_blank"
                           rel="noreferrer noopener"
-                          title={label}
+                          title={`${label} page`}
                           style={{
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: 7,
-                            padding: '8px 14px',
-                            borderRadius: 12,
-                            background: `${color}12`,
+                            gap: 6,
+                            padding: '7px 13px',
+                            borderRadius: 10,
+                            background: `${color}10`,
                             color,
-                            fontSize: 13,
+                            fontSize: 12.5,
                             fontWeight: 700,
-                            border: `1.5px solid ${color}22`,
+                            border: `1.5px solid ${color}20`,
                             textDecoration: 'none',
-                            transition: 'background 0.15s, border-color 0.15s',
+                            transition: 'background 0.15s, border-color 0.15s, transform 0.12s',
                           }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = `${color}22`; e.currentTarget.style.borderColor = `${color}44`; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.background = `${color}12`; e.currentTarget.style.borderColor = `${color}22`; }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = `${color}20`; e.currentTarget.style.borderColor = `${color}50`; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = `${color}10`; e.currentTarget.style.borderColor = `${color}20`; e.currentTarget.style.transform = 'translateY(0)'; }}
                         >
-                          {SocialIcon && <SocialIcon s={15} />}
+                          {SocialIcon && <SocialIcon s={16} />}
                           {label}
                         </a>
                       ))}
@@ -2011,8 +2011,11 @@ const ListingCard = ({ listing, saved, onToggleSave, onOpenResource, onShareActi
         event.currentTarget.style.transform = 'translateY(0)';
         event.currentTarget.style.boxShadow = cardShadow;
       }}
-      style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 0, background: cardBg, border: cardBorder, boxShadow: cardShadow, cursor: 'pointer', transition: 'border-color 0.22s ease, box-shadow 0.22s ease, transform 0.22s ease' }}
+      style={{ position: 'relative', padding: 20, display: 'flex', flexDirection: 'column', gap: 0, background: cardBg, border: cardBorder, boxShadow: cardShadow, cursor: 'pointer', transition: 'border-color 0.22s ease, box-shadow 0.22s ease, transform 0.22s ease' }}
     >
+      {listing.featured && (
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #F5A623 0%, #D4A820 55%, transparent 100%)', borderRadius: '16px 16px 0 0', pointerEvents: 'none' }} />
+      )}
       {/* Card header */}
       <div style={{ display: 'flex', gap: 14, alignItems: 'start' }}>
         <div style={{ flexShrink: 0, padding: 3, borderRadius: 16, background: 'linear-gradient(180deg, #FFFFFF, #F5F9FF)', border: '1px solid #EAF0FB' }}>
@@ -2032,7 +2035,7 @@ const ListingCard = ({ listing, saved, onToggleSave, onOpenResource, onShareActi
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
             {isVerified && <span style={{ padding: '3px 8px', borderRadius: 999, background: 'rgba(16,185,129,0.12)', color: '#0f766e', fontSize: 10.5, fontWeight: 700 }}>Verified</span>}
             {isClaimed && <span style={{ padding: '3px 8px', borderRadius: 999, background: 'rgba(45,156,219,0.14)', color: '#1c78b5', fontSize: 10.5, fontWeight: 700 }}>Claimed profile</span>}
-            {isPremium && <span style={{ padding: '3px 8px', borderRadius: 999, background: 'rgba(245,166,35,0.15)', color: '#8a5a0b', fontSize: 10.5, fontWeight: 700 }}>Premium</span>}
+            {listing.featured ? <span style={{ padding: '3px 9px', borderRadius: 999, background: 'rgba(245,166,35,0.18)', color: '#7A4B00', fontSize: 10.5, fontWeight: 800 }}>★ Featured</span> : isPremium ? <span style={{ padding: '3px 8px', borderRadius: 999, background: 'rgba(245,166,35,0.15)', color: '#8a5a0b', fontSize: 10.5, fontWeight: 700 }}>Premium</span> : null}
             {hasEvents && <span style={{ padding: '3px 8px', borderRadius: 999, background: 'rgba(123,92,245,0.13)', color: '#5f3dc4', fontSize: 10.5, fontWeight: 700 }}>Events available</span>}
           </div>
           <div
@@ -2696,10 +2699,14 @@ const FindHelpV2 = ({ onNavigate, session }) => {
     const items = [...filtered];
 
     if (sortBy === 'az') {
-      return items.sort((a, b) => a.title.localeCompare(b.title));
+      return items.sort((a, b) => {
+        if (a.featured !== b.featured) return a.featured ? -1 : 1;
+        return a.title.localeCompare(b.title);
+      });
     }
 
     return items.sort((a, b) => {
+      if (a.featured !== b.featured) return a.featured ? -1 : 1;
       const scoreDiff = getSearchScore(b, searchNeedle) - getSearchScore(a, searchNeedle);
       if (scoreDiff !== 0) return scoreDiff;
       return a.title.localeCompare(b.title);
@@ -2993,9 +3000,9 @@ const FindHelpV2 = ({ onNavigate, session }) => {
           onError={(message) => setToast(message)}
         />
       ) : null}
-          <section style={{ paddingTop: 24, paddingBottom: 0, background: '#FAFBFF' }}>
+          <section style={{ paddingTop: 10, paddingBottom: 10, background: '#FAFBFF', position: 'sticky', top: 78, zIndex: 80, borderBottom: '1px solid rgba(26,39,68,0.06)', boxShadow: '0 2px 10px rgba(26,39,68,0.05)' }}>
             <div className="container">
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, padding: 14, background: 'rgba(255,255,255,0.9)', borderRadius: 22, border: '1px solid #EFF1F7', boxShadow: 'var(--shadow-sm)' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'rgba(255,255,255,0.97)', borderRadius: 18, border: '1px solid #EFF1F7', boxShadow: 'var(--shadow-sm)' }}>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, flex: '1 1 520px', minWidth: 0, padding: '2px 2px 4px' }}>
                   {featuredCategoryOptions.map((category) => {
                     const active = activeCat === category.id;
@@ -3074,18 +3081,32 @@ const FindHelpV2 = ({ onNavigate, session }) => {
                   </div>
                 </div>
               ) : !filtered.length ? (
-                <StateCard
-                  title={
-                    keyword.trim() || activeCat !== 'all' || areaFilter !== 'all' || countyFilter !== 'all' || showMappableOnly
-                      ? 'No results match your current filters.'
-                      : 'No support listings found yet.'
-                  }
-                  subtitle={
-                    keyword.trim() || activeCat !== 'all' || areaFilter !== 'all' || countyFilter !== 'all' || showMappableOnly
-                      ? 'Try adjusting or clearing your search filters to see more results.'
-                      : 'Check back soon — more listings are being added by the community team.'
-                  }
-                />
+                <div style={{ display: 'grid', gap: 12 }}>
+                  <StateCard
+                    title={
+                      keyword.trim() || activeCat !== 'all' || areaFilter !== 'all' || countyFilter !== 'all' || showMappableOnly
+                        ? 'No results match your current filters.'
+                        : 'No support listings found yet.'
+                    }
+                    subtitle={
+                      keyword.trim() || activeCat !== 'all' || areaFilter !== 'all' || countyFilter !== 'all' || showMappableOnly
+                        ? 'Try broadening your search — or clear all filters to see everything available.'
+                        : 'Check back soon — more listings are being added by the community team.'
+                    }
+                  />
+                  {(keyword.trim() || activeCat !== 'all' || areaFilter !== 'all' || countyFilter !== 'all' || showMappableOnly) && (
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
+                      <button className="btn btn-ghost btn-sm" onClick={() => { setKeyword(''); setActiveCat('all'); setAreaFilter('all'); setCountyFilter('all'); setShowMappableOnly(false); }}>
+                        Clear all filters
+                      </button>
+                      {activeCat !== 'all' && (
+                        <button className="btn btn-ghost btn-sm" onClick={() => setActiveCat('all')}>
+                          Show all categories
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               ) : view === 'list' ? (
                 <>
                   <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
