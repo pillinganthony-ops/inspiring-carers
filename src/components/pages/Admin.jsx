@@ -1750,6 +1750,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         <div className="container" style={{ display: 'grid', gap: 14 }}>
           <div className="card" style={{ padding: 22, borderRadius: 20 }}>
             <h1 style={{ fontSize: 36, fontWeight: 800 }}>Admin Dashboard</h1>
+            <div style={{ marginTop: 4, fontSize: 11, color: 'rgba(26,39,68,0.38)', fontFamily: 'monospace' }}>Build: 7966a76 · deployed 2026-04-24</div>
             <p style={{ marginTop: 8, color: 'rgba(26,39,68,0.7)' }}>Live schema mode: categories, resources, organisation_profiles, organisation_events, listing_claims, resource_update_submissions, walk_risk_updates, walk_comments.</p>
             {error ? <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 10, background: 'rgba(244,97,58,0.08)', color: '#A03A2D', fontSize: 13, fontWeight: 600 }}>{error}</div> : null}
             {toast ? <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 10, background: 'rgba(16,185,129,0.08)', color: '#0D7A55', fontSize: 13, fontWeight: 600 }}>{toast}</div> : null}
