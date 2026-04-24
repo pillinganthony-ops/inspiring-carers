@@ -207,7 +207,10 @@ const findCategoryIdByLabel = (categories, label) => {
   return categories.find((category) => normalizeNameForMatch(category.name) === normalizedLabel)?.id || '';
 };
 
-const buildResourcePayloadFromDraft = (draft, userId) => ({
+// updated_by / created_by are NOT in the live legacy resources table.
+// The expansion migration is additive and does not modify that table.
+// Only send columns confirmed to exist in the live schema.
+const buildResourcePayloadFromDraft = (draft) => ({
   name: draft.name.trim(),
   slug: slugify(draft.slug || draft.name),
   category_id: draft.category_id || null,
@@ -224,7 +227,6 @@ const buildResourcePayloadFromDraft = (draft, userId) => ({
   verified: Boolean(draft.verified),
   featured: Boolean(draft.featured),
   is_archived: Boolean(draft.is_archived),
-  updated_by: userId || null,
 });
 
 const buildLiveListingInsertPayload = (draft) => {
@@ -803,13 +805,13 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       setError('Resource name is required.');
       return;
     }
-    const payload = buildResourcePayloadFromDraft(resourceDraft, session?.user?.id || null);
+    const payload = buildResourcePayloadFromDraft(resourceDraft);
     const isEdit = Boolean(resourceDraft.id);
     let saved = false;
     await withBusy(async () => {
       const result = isEdit
         ? await supabase.from('resources').update(payload).eq('id', resourceDraft.id)
-        : await supabase.from('resources').insert({ ...payload, created_by: session?.user?.id || null });
+        : await supabase.from('resources').insert(payload);
       if (result.error) throw result.error;
       saved = true;
     }, isEdit ? 'Resource updated.' : 'Resource created.');
