@@ -1439,60 +1439,83 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       applyPostcodeCandidate(fallbackCandidate);
 
       try {
-        const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&countrycodes=gb&limit=8&q=${encodeURIComponent(formattedPostcode)}`;
-        const nominatimResponse = await fetch(nominatimUrl);
-        const nominatimRows = nominatimResponse.ok ? await nominatimResponse.json() : [];
+        // Primary: getAddress.io — Royal Mail PAF data, accurate UK building addresses.
+        // Set VITE_GETADDRESS_IO_API_KEY in Vercel env vars to unlock property-level lookup.
+        // Free tier: 20 lookups/day (sufficient for admin use).
+        const getAddressKey = import.meta.env.VITE_GETADDRESS_IO_API_KEY || '';
+        let candidates = [];
 
-        let candidates = (Array.isArray(nominatimRows) ? nominatimRows : []).map((row, index) => buildAddressCandidate({
-          id: row.place_id || index + 1,
-          label: (row.display_name || '').split(',').slice(0, 3).join(', ').trim() || `Address option ${index + 1}`,
-          address: row.display_name || '',
-          town: row.address?.town || row.address?.city || row.address?.village || row.address?.county || fallbackTown,
-          postcode: formattedPostcode,
-          latitude: row.lat,
-          longitude: row.lon,
-        })).filter((candidate) => Number.isFinite(candidate.latitude) && Number.isFinite(candidate.longitude));
+        if (getAddressKey) {
+          const gaResponse = await fetch(
+            `https://api.getAddress.io/find/${encodeURIComponent(formattedPostcode)}?api-key=${getAddressKey}&expand=true`,
+          );
+          if (gaResponse.ok) {
+            const gaPayload = await gaResponse.json();
+            const gaLat = asNumber(gaPayload?.latitude ?? postcodeResult.latitude);
+            const gaLng = asNumber(gaPayload?.longitude ?? postcodeResult.longitude);
+            candidates = (gaPayload?.addresses || []).map((addr, index) => {
+              const streetLine = [addr.building_name, addr.line_1].filter(Boolean).join(', ');
+              const addressStr = [streetLine || null, addr.town_or_city || fallbackTown, formattedPostcode].filter(Boolean).join(', ');
+              const label = streetLine || `Address ${index + 1}`;
+              return buildAddressCandidate({
+                id: `ga-${index}`,
+                label,
+                address: addressStr,
+                town: addr.town_or_city || fallbackTown,
+                postcode: formattedPostcode,
+                latitude: asNumber(addr.latitude) || gaLat,
+                longitude: asNumber(addr.longitude) || gaLng,
+              });
+            }).filter((c) => c.address && Number.isFinite(c.latitude) && Number.isFinite(c.longitude));
+          }
+        }
 
-        const postcodeOnlyResults = (Array.isArray(nominatimRows) ? nominatimRows : []).every((row) => `${row.type || ''}`.toLowerCase() === 'postcode');
-        if (!candidates.length || postcodeOnlyResults) {
-          const overpassQuery = `[out:json][timeout:12];(
-            node(around:250,${postcodeResult.latitude},${postcodeResult.longitude})["addr:housenumber"];
-            way(around:250,${postcodeResult.latitude},${postcodeResult.longitude})["addr:housenumber"];
-            node(around:250,${postcodeResult.latitude},${postcodeResult.longitude})["building"]["addr:street"];
-            way(around:250,${postcodeResult.latitude},${postcodeResult.longitude})["building"]["addr:street"];
-            node(around:250,${postcodeResult.latitude},${postcodeResult.longitude})["amenity"]["name"];
-            way(around:250,${postcodeResult.latitude},${postcodeResult.longitude})["amenity"]["name"];
-          );out center tags 30;`;
+        // Fallback: Nominatim → Overpass (free, limited UK building coverage).
+        // Used when no getAddress.io key is configured.
+        if (!candidates.length) {
+          const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&countrycodes=gb&limit=8&q=${encodeURIComponent(formattedPostcode)}`;
+          const nominatimResponse = await fetch(nominatimUrl);
+          const nominatimRows = nominatimResponse.ok ? await nominatimResponse.json() : [];
 
-          const overpassResponse = await fetch('https://overpass-api.de/api/interpreter', {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-            body: overpassQuery,
-          });
-          const overpassPayload = overpassResponse.ok ? await overpassResponse.json() : { elements: [] };
-          const overpassCandidates = ((overpassPayload && Array.isArray(overpassPayload.elements)) ? overpassPayload.elements : []).map((element, index) => {
-            const tags = element.tags || {};
-            const latitude = asNumber(element.lat ?? element.center?.lat);
-            const longitude = asNumber(element.lon ?? element.center?.lon);
-            const town = tags['addr:city'] || tags['addr:town'] || tags['addr:village'] || fallbackTown;
-            const road = tags['addr:street'] || tags.street || '';
-            const houseNumber = tags['addr:housenumber'] || '';
-            const name = tags.name || '';
-            const label = name || [houseNumber, road].filter(Boolean).join(' ') || `Location option ${index + 1}`;
-            const address = [name || null, [houseNumber, road].filter(Boolean).join(' ') || null, town || null, formattedPostcode || null].filter(Boolean).join(', ');
-            return buildAddressCandidate({
-              id: element.id || `overpass-${index + 1}`,
-              label,
-              address,
-              town,
-              postcode: formattedPostcode,
-              latitude,
-              longitude,
+          candidates = (Array.isArray(nominatimRows) ? nominatimRows : []).map((row, index) => buildAddressCandidate({
+            id: row.place_id || index + 1,
+            label: (row.display_name || '').split(',').slice(0, 3).join(', ').trim() || `Address option ${index + 1}`,
+            address: row.display_name || '',
+            town: row.address?.town || row.address?.city || row.address?.village || row.address?.county || fallbackTown,
+            postcode: formattedPostcode,
+            latitude: row.lat,
+            longitude: row.lon,
+          })).filter((candidate) => Number.isFinite(candidate.latitude) && Number.isFinite(candidate.longitude));
+
+          const postcodeOnlyResults = (Array.isArray(nominatimRows) ? nominatimRows : []).every((row) => `${row.type || ''}`.toLowerCase() === 'postcode');
+          if (!candidates.length || postcodeOnlyResults) {
+            const overpassQuery = `[out:json][timeout:12];(
+              node(around:250,${postcodeResult.latitude},${postcodeResult.longitude})["addr:housenumber"];
+              way(around:250,${postcodeResult.latitude},${postcodeResult.longitude})["addr:housenumber"];
+              node(around:250,${postcodeResult.latitude},${postcodeResult.longitude})["building"]["addr:street"];
+              way(around:250,${postcodeResult.latitude},${postcodeResult.longitude})["building"]["addr:street"];
+              node(around:250,${postcodeResult.latitude},${postcodeResult.longitude})["amenity"]["name"];
+              way(around:250,${postcodeResult.latitude},${postcodeResult.longitude})["amenity"]["name"];
+            );out center tags 30;`;
+            const overpassResponse = await fetch('https://overpass-api.de/api/interpreter', {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+              body: overpassQuery,
             });
-          }).filter((candidate) => candidate.address && Number.isFinite(candidate.latitude) && Number.isFinite(candidate.longitude));
-
-          if (overpassCandidates.length) {
-            candidates = overpassCandidates;
+            const overpassPayload = overpassResponse.ok ? await overpassResponse.json() : { elements: [] };
+            const overpassCandidates = ((overpassPayload && Array.isArray(overpassPayload.elements)) ? overpassPayload.elements : []).map((element, index) => {
+              const tags = element.tags || {};
+              const latitude = asNumber(element.lat ?? element.center?.lat);
+              const longitude = asNumber(element.lon ?? element.center?.lon);
+              const town = tags['addr:city'] || tags['addr:town'] || tags['addr:village'] || fallbackTown;
+              const road = tags['addr:street'] || tags.street || '';
+              const houseNumber = tags['addr:housenumber'] || '';
+              const name = tags.name || '';
+              const label = name || [houseNumber, road].filter(Boolean).join(' ') || `Location option ${index + 1}`;
+              const address = [name || null, [houseNumber, road].filter(Boolean).join(' ') || null, town || null, formattedPostcode || null].filter(Boolean).join(', ');
+              return buildAddressCandidate({ id: element.id || `overpass-${index + 1}`, label, address, town, postcode: formattedPostcode, latitude, longitude });
+            }).filter((c) => c.address && Number.isFinite(c.latitude) && Number.isFinite(c.longitude));
+            if (overpassCandidates.length) candidates = overpassCandidates;
           }
         }
 
@@ -1501,6 +1524,9 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         if (!candidates.length) {
           setPostcodeCandidates([fallbackCandidate]);
           setSelectedPostcodeCandidateId(fallbackCandidate.id);
+          if (!getAddressKey) {
+            setPostcodeError('Postcode coordinates found. Street address lookup requires a getAddress.io API key (VITE_GETADDRESS_IO_API_KEY). Enter the street address manually.');
+          }
           return;
         }
 
@@ -1518,7 +1544,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       } catch {
         setPostcodeCandidates([fallbackCandidate]);
         setSelectedPostcodeCandidateId(fallbackCandidate.id);
-        setPostcodeError('We found postcode coordinates, but detailed address choices could not be loaded. You can still enter the address manually.');
+        setPostcodeError('Postcode coordinates found. Detailed address lookup is unavailable. Enter the street address manually.');
       }
     } catch {
       setPostcodeError('Detailed address lookup is unavailable right now. You can still enter the address manually.');

@@ -1427,7 +1427,7 @@ const EventActionModal = ({ listing, event, onClose, onSuccess, onFailure }) => 
 };
 
 /* ─── ResourceDetail ─────────────────────────────────────── */
-const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds, onToggleSave, onOpenResource, onNotify, onNavigate }) => {
+const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds, onToggleSave, onOpenResource, onNotify, onNavigate, session }) => {
   const [shareOpen, setShareOpen] = React.useState(false);
   const [mobileShareOpen, setMobileShareOpen] = React.useState(false);
   const [claimOpen, setClaimOpen] = React.useState(false);
@@ -2838,6 +2838,7 @@ const FindHelpV2 = ({ onNavigate, session }) => {
           onOpenResource={openResource}
           onNotify={setToast}
           onNavigate={onNavigate}
+          session={session}
         />
       ) : (
         <>
