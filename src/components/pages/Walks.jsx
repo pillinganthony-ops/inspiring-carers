@@ -327,6 +327,12 @@ const WalksPage = ({ onNavigate, session }) => {
   const [detailWalk, setDetailWalk] = React.useState(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = React.useState(false);
   const [viewMode, setViewMode] = React.useState('list');
+  const [visibleCount, setVisibleCount] = React.useState(24);
+
+  // Reset pagination when any filter or search changes
+  React.useEffect(() => {
+    setVisibleCount(24);
+  }, [query, area, difficulty, maxDistance, maxDuration, filters]);
 
   const difficultyOptions = ['Any', 'Easy', 'Moderate', 'Hard'];
 
@@ -494,6 +500,11 @@ const WalksPage = ({ onNavigate, session }) => {
                 <div>
                   <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.65)', textTransform: 'uppercase', letterSpacing: '0.12em' }}>Results</div>
                   <div style={{ marginTop: 6, fontSize: 22, fontWeight: 700 }}>{filteredWalks.length} walks matched</div>
+                  {viewMode === 'list' && filteredWalks.length > 24 && (
+                    <div style={{ marginTop: 4, fontSize: 13, color: 'rgba(26,39,68,0.55)' }}>
+                      Showing {Math.min(visibleCount, filteredWalks.length)} of {filteredWalks.length}
+                    </div>
+                  )}
                 </div>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
                   <div style={{ fontSize: 14, color: 'rgba(26,39,68,0.72)' }}><strong>Max distance</strong> {maxDistance} mi</div>
@@ -513,19 +524,55 @@ const WalksPage = ({ onNavigate, session }) => {
                 </div>
               ) : viewMode === 'map' ? (
                 <div>
+                  {/* Map uses full filteredWalks for all pins */}
                   <WalkMapView walks={filteredWalks} onSelectWalk={setDetailWalk} />
+                  {/* Cards below map are also paginated */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 18, marginTop: 4 }}>
-                    {filteredWalks.map((walk) => (
+                    {filteredWalks.slice(0, visibleCount).map((walk) => (
                       <WalkCard key={walk.id} walk={walk} onView={() => setDetailWalk(walk)} />
                     ))}
                   </div>
+                  {filteredWalks.length > visibleCount && (
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 14, marginTop: 24, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)' }}>
+                        Showing {Math.min(visibleCount, filteredWalks.length)} of {filteredWalks.length} walks
+                      </span>
+                      <button className="btn btn-ghost" onClick={() => setVisibleCount((n) => n + 24)}>
+                        Load 24 more
+                      </button>
+                    </div>
+                  )}
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 18 }}>
-                  {filteredWalks.map((walk) => (
-                    <WalkCard key={walk.id} walk={walk} onView={() => setDetailWalk(walk)} />
-                  ))}
-                </div>
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 18 }}>
+                    {filteredWalks.slice(0, visibleCount).map((walk) => (
+                      <WalkCard key={walk.id} walk={walk} onView={() => setDetailWalk(walk)} />
+                    ))}
+                  </div>
+                  {filteredWalks.length > visibleCount ? (
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 14, marginTop: 24, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)' }}>
+                        Showing {Math.min(visibleCount, filteredWalks.length)} of {filteredWalks.length} walks
+                      </span>
+                      <button className="btn btn-ghost" onClick={() => setVisibleCount((n) => n + 24)}>
+                        Load 24 more
+                      </button>
+                      {visibleCount > 24 && (
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => { setVisibleCount(24); document.getElementById('walk-results')?.scrollIntoView({ behavior: 'smooth' }); }}
+                        >
+                          ↑ Back to top
+                        </button>
+                      )}
+                    </div>
+                  ) : filteredWalks.length > 24 ? (
+                    <div style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: 'rgba(26,39,68,0.45)' }}>
+                      All {filteredWalks.length} walks shown
+                    </div>
+                  ) : null}
+                </>
               )}
             </div>
           </div>
@@ -961,10 +1008,10 @@ const WalkDetailModal = ({ walk, onClose }) => {
           </div>
           <div style={{ background: 'rgba(245,250,255,1)', border: '1px solid #E9EEF5', borderRadius: 22, padding: 18, display: 'grid', gap: 12 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: '#1A2744' }}>Practical details</div>
-            <DetailBadge label="Toilets" value={walk.toilets} />
-            <DetailBadge label="Parking" value={walk.parking} />
-            <DetailBadge label="Public transport" value={walk.publicTransport} />
-            <DetailBadge label="Refreshments" value={walk.refreshments} />
+            <DetailBadge label="Toilets" value={walk.toilets} note={walk.toiletsNote} />
+            <DetailBadge label="Parking" value={walk.parking} note={walk.parkingNote} />
+            <DetailBadge label="Public transport" value={walk.publicTransport} note={walk.busInfo || undefined} />
+            <DetailBadge label="Refreshments" value={walk.refreshments} note={walk.refreshmentsNote} />
             <DetailBadge label="Accessibility" value={walk.accessibility} secondary />
           </div>
         </div>
@@ -1241,10 +1288,13 @@ const SectionItem = ({ label, value }) => (
   </div>
 );
 
-const DetailBadge = ({ label, value, secondary }) => (
-  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'start', padding: '10px 12px', borderRadius: 14, background: secondary ? 'rgba(255,255,255,0.8)' : 'rgba(245,255,235,1)', border: '1px solid #E9EEF5' }}>
-    <div style={{ color: '#1A2744', fontWeight: 600, fontSize: 13 }}>{label}</div>
-    <div style={{ color: value ? '#1A2744' : 'rgba(26,39,68,0.6)', fontWeight: 700, fontSize: 13, textAlign: 'right', maxWidth: 180 }}>{value ? (value === true ? 'Yes' : value) : 'No'}</div>
+const DetailBadge = ({ label, value, secondary, note }) => (
+  <div style={{ padding: '10px 12px', borderRadius: 14, background: secondary ? 'rgba(255,255,255,0.8)' : 'rgba(245,255,235,1)', border: '1px solid #E9EEF5' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'start' }}>
+      <div style={{ color: '#1A2744', fontWeight: 600, fontSize: 13 }}>{label}</div>
+      <div style={{ color: value ? '#1A2744' : 'rgba(26,39,68,0.6)', fontWeight: 700, fontSize: 13, textAlign: 'right', maxWidth: 180 }}>{value ? (value === true ? 'Yes' : value) : 'No'}</div>
+    </div>
+    {note && <div style={{ marginTop: 5, fontSize: 12, color: 'rgba(26,39,68,0.58)', lineHeight: 1.55 }}>{note}</div>}
   </div>
 );
 
