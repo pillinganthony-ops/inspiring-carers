@@ -602,6 +602,10 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   const [postcodeCandidates, setPostcodeCandidates] = React.useState([]);
   const [selectedPostcodeCandidateId, setSelectedPostcodeCandidateId] = React.useState('');
   const [analyticsWindow, setAnalyticsWindow] = React.useState('30d');
+  // Linked org-profile state — separate from the full profile CRUD tab
+  const [linkedProfileDraft, setLinkedProfileDraft] = React.useState({});
+  const [linkedProfileBusy, setLinkedProfileBusy] = React.useState(false);
+  const [linkedProfileError, setLinkedProfileError] = React.useState('');
 
   const canAccessAdmin = React.useMemo(() => {
     const email = `${session?.user?.email || ''}`.trim().toLowerCase();
@@ -806,6 +810,15 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
 
   const openResourceEditor = (row) => {
     setResourceDraft(row ? { ...emptyResource, ...row, category_id: row.category_id || '' } : { ...emptyResource });
+    // Populate linked profile draft from existing profiles state
+    if (row?.id) {
+      const linked = profiles.find((p) => String(p.resource_id) === String(row.id)) || null;
+      setLinkedProfileDraft(linked ? { _id: linked.id, ...unpackSocials(linked.socials) } : {});
+    } else {
+      setLinkedProfileDraft({});
+    }
+    setLinkedProfileError('');
+    setLinkedProfileBusy(false);
     setPostcodeError('');
     setPostcodeCandidates([]);
     setSelectedPostcodeCandidateId('');
@@ -815,9 +828,69 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
 
   const closeResourceEditor = () => {
     setResourceEditorOpen(false);
+    setLinkedProfileDraft({});
+    setLinkedProfileError('');
+    setLinkedProfileBusy(false);
     setPostcodeError('');
     setPostcodeCandidates([]);
     setSelectedPostcodeCandidateId('');
+  };
+
+  const saveLinkedProfileSocials = async () => {
+    const profId = linkedProfileDraft._id;
+    if (!profId || !supabase) return;
+    setLinkedProfileBusy(true);
+    setLinkedProfileError('');
+    try {
+      const { error: updateError } = await supabase
+        .from('organisation_profiles')
+        .update({ socials: packSocials(linkedProfileDraft) })
+        .eq('id', profId);
+      if (updateError) throw updateError;
+      setToast('Social links saved.');
+      await loadData();
+    } catch (err) {
+      setLinkedProfileError(err?.message || 'Failed to save social links.');
+    } finally {
+      setLinkedProfileBusy(false);
+    }
+  };
+
+  const createProfileForResource = async () => {
+    if (!resourceDraft.id || !resourceDraft.name?.trim() || !supabase) return;
+    setLinkedProfileBusy(true);
+    setLinkedProfileError('');
+    try {
+      const displayName = resourceDraft.name.trim();
+      const baseSlug = slugify(displayName);
+      const profileSlug = `${baseSlug}-${String(resourceDraft.id).slice(-6)}`;
+      const insertPayload = {
+        resource_id: resourceDraft.id,
+        display_name: displayName,
+        slug: profileSlug,
+        email: resourceDraft.email?.trim() || null,
+        website: resourceDraft.website?.trim() || null,
+        bio: resourceDraft.summary?.trim() || null,
+        is_active: true,
+        claim_status: 'unclaimed',
+        verified_status: 'community',
+        socials: {},
+      };
+      let result = await supabase.from('organisation_profiles').insert(insertPayload).select('id').single();
+      if (result.error?.message?.includes('display_name')) {
+        const legacyPayload = { ...insertPayload, name: displayName };
+        delete legacyPayload.display_name;
+        result = await supabase.from('organisation_profiles').insert(legacyPayload).select('id').single();
+      }
+      if (result.error) throw result.error;
+      setToast('Organisation profile created.');
+      await loadData();
+      setLinkedProfileDraft({ _id: result.data.id, ...unpackSocials({}) });
+    } catch (err) {
+      setLinkedProfileError(err?.message || 'Failed to create organisation profile.');
+    } finally {
+      setLinkedProfileBusy(false);
+    }
   };
 
   const saveResource = async () => {
@@ -830,9 +903,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     let saved = false;
     await withBusy(async () => {
       if (isEdit) {
-        // Use .select('id') so PostgREST returns affected rows.
-        // Without .select(), a silently-blocked update (RLS or wrong id) returns
-        // { data: null, error: null } and we cannot distinguish success from failure.
+        // .select('id') lets us detect 0-row updates (RLS block or wrong id)
         const result = await supabase
           .from('resources')
           .update(payload)
@@ -853,6 +924,18 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
           .select('id, name')
           .single();
         if (result.error) throw result.error;
+      }
+      // Also persist social links to the linked org profile if one is open
+      const profId = linkedProfileDraft._id;
+      if (profId) {
+        const { error: socialsErr } = await supabase
+          .from('organisation_profiles')
+          .update({ socials: packSocials(linkedProfileDraft) })
+          .eq('id', profId);
+        if (socialsErr) {
+          // Non-blocking: note the issue but do not abort the resource save
+          setLinkedProfileError(`Social links save failed: ${socialsErr.message}`);
+        }
       }
       saved = true;
     }, isEdit ? 'Resource updated.' : 'Resource created.');
@@ -2144,6 +2227,55 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                   </label>
                 </div>
               </div>
+
+              {/* Organisation profile + social media */}
+              {resourceDraft.id && (() => {
+                const linkedProfile = profiles.find((p) => String(p.resource_id) === String(resourceDraft.id)) || null;
+                const profId = linkedProfileDraft._id || linkedProfile?.id;
+                const hasProfile = Boolean(linkedProfile || linkedProfileDraft._id);
+
+                if (!hasProfile) {
+                  return (
+                    <div>
+                      <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.44)', marginBottom: 10 }}>Organisation profile</div>
+                      <div style={{ padding: '14px 16px', borderRadius: 12, background: '#FAFBFF', border: '1px solid #E9EEF5' }}>
+                        <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.65)', lineHeight: 1.55, marginBottom: 12 }}>
+                          No organisation profile is linked to this resource. Creating one enables logo, cover image, events and social media on the public listing.
+                        </div>
+                        {linkedProfileError && <div style={{ marginBottom: 10, padding: '8px 10px', borderRadius: 8, background: 'rgba(244,97,58,0.08)', color: '#A03A2D', fontSize: 12 }}>{linkedProfileError}</div>}
+                        <button className="btn btn-sky btn-sm" disabled={linkedProfileBusy} onClick={createProfileForResource}>
+                          {linkedProfileBusy ? 'Creating…' : 'Create profile for this resource'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div>
+                    <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.44)', marginBottom: 10 }}>Organisation profile</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+                      {linkedProfile?.claim_status && <span style={{ padding: '3px 9px', borderRadius: 999, background: 'rgba(45,156,219,0.10)', color: '#1c78b5', fontSize: 10.5, fontWeight: 700 }}>{linkedProfile.claim_status}</span>}
+                      {linkedProfile?.verified_status && <span style={{ padding: '3px 9px', borderRadius: 999, background: 'rgba(16,185,129,0.09)', color: '#0D7A55', fontSize: 10.5, fontWeight: 700 }}>{linkedProfile.verified_status}</span>}
+                      {linkedProfile?.owner_email && <span style={{ padding: '3px 9px', borderRadius: 999, background: 'rgba(26,39,68,0.06)', color: '#1A2744', fontSize: 10.5, fontWeight: 600 }}>{linkedProfile.owner_email}</span>}
+                      {profId && <span style={{ padding: '3px 9px', borderRadius: 999, background: 'rgba(26,39,68,0.04)', color: 'rgba(26,39,68,0.45)', fontSize: 10, fontFamily: 'monospace' }}>…{String(profId).slice(-8)}</span>}
+                    </div>
+                    <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.44)', marginBottom: 8 }}>Social media</div>
+                    <div style={{ display: 'grid', gap: 7 }}>
+                      {SOCIAL_KEYS.map((k) => (
+                        <input key={k} value={linkedProfileDraft[`socials_${k}`] || ''} onChange={(e) => setLinkedProfileDraft((p) => ({ ...p, [`socials_${k}`]: e.target.value }))} placeholder={`${SOCIAL_LABELS[k]}: ${SOCIAL_PLACEHOLDERS[k]}`} style={{ ...inputStyle, fontSize: 12.5 }} />
+                      ))}
+                    </div>
+                    {linkedProfileError && <div style={{ marginTop: 8, padding: '8px 10px', borderRadius: 8, background: 'rgba(244,97,58,0.08)', color: '#A03A2D', fontSize: 12 }}>{linkedProfileError}</div>}
+                    <button className="btn btn-sky btn-sm" style={{ marginTop: 10 }} disabled={linkedProfileBusy || !profId} onClick={saveLinkedProfileSocials}>
+                      {linkedProfileBusy ? 'Saving social links…' : 'Save social links'}
+                    </button>
+                    <div style={{ marginTop: 8, fontSize: 11.5, color: 'rgba(26,39,68,0.48)' }}>
+                      Social links also save automatically when you click Save changes above.
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Drawer footer — sticky */}
