@@ -1426,7 +1426,16 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       }
 
       const postcodeResult = postcodePayload.result;
-      const formattedPostcode = postcodeResult.postcode || rawPostcode;
+      // Derive canonical form directly from user input: last 3 chars = inward, rest = outward.
+      // This prevents postcodes.io from mangling digits (e.g. returning PL14 EN for PL144EN).
+      const canonicalPostcode = normalizedPostcode.length >= 5
+        ? `${normalizedPostcode.slice(0, -3)} ${normalizedPostcode.slice(-3)}`
+        : rawPostcode;
+      // Accept postcodes.io formatting only if it compacts to the same string we sent.
+      const pcioPostcode = `${postcodeResult.postcode || ''}`;
+      const formattedPostcode = pcioPostcode.replace(/\s+/g, '').toUpperCase() === normalizedPostcode
+        ? pcioPostcode
+        : canonicalPostcode;
       const fallbackTown = postcodeResult.admin_district || postcodeResult.admin_ward || postcodeResult.parish || postcodeResult.region || '';
       const fallbackCandidate = {
         id: 'postcode-centroid',
@@ -1457,8 +1466,9 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         };
 
         if (getAddressKey) {
-          const maskedUrl = `https://api.getaddress.io/find/${encodeURIComponent(formattedPostcode)}?api-key=***&expand=true`;
-          const realUrl = `https://api.getaddress.io/find/${encodeURIComponent(formattedPostcode)}?api-key=${getAddressKey}&expand=true`;
+          // Use compact normalizedPostcode (from raw user input) — no spaces, no encoding ambiguity.
+          const maskedUrl = `https://api.getaddress.io/find/${normalizedPostcode}?api-key=***&expand=true`;
+          const realUrl = `https://api.getaddress.io/find/${normalizedPostcode}?api-key=${getAddressKey}&expand=true`;
           debugBase.requestUrl = maskedUrl;
 
           let gaResponse;
