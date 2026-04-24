@@ -94,7 +94,7 @@ const dedupeAddressCandidates = (candidates) => {
 const getProfileName = (profile, resources = []) => {
   if (!profile) return 'Organisation profile';
   const linkedResource = resources.find((resource) => `${resource.id}` === `${profile.resource_id}`) || null;
-  return `${profile.organisation_name || profile.display_name || profile.name || linkedResource?.name || profile.slug || profile.owner_email || 'Organisation profile'}`.trim();
+  return `${profile.organisation_name || profile.display_name || profile.name || linkedResource?.name || profile.slug || 'Organisation profile'}`.trim();
 };
 
 // Extract only the human-written section from the structured buildAdminReason output.
@@ -418,7 +418,6 @@ const normalizeProfileRow = (row) => {
     organisation_name: row.organisation_name || row.display_name || row.name || '',
     slug: row.slug || '',
     resource_id: row.resource_id || '',
-    owner_email: row.owner_email || '',
     contact_email: row.contact_email || row.email || '',
     contact_phone: row.contact_phone || row.phone || '',
     website_url: row.website_url || row.website || '',
@@ -461,7 +460,6 @@ const buildLiveProfilePayload = (profileDraft) => {
     organisation_name: `${profileDraft.organisation_name || ''}`.trim(),
     slug: slugify(profileDraft.slug || profileDraft.organisation_name),
     resource_id: profileDraft.resource_id || null,
-    owner_email: profileDraft.owner_email?.trim() || null,
     contact_email: profileDraft.contact_email?.trim() || null,
     contact_phone: profileDraft.contact_phone?.trim() || null,
     website_url: profileDraft.website_url?.trim() || null,
@@ -583,9 +581,10 @@ const updateOrgProfileCompat = async (supabaseClient, id, payload, selectCols = 
 
 const SOCIAL_SELECT_COLS = 'id, organisation_name, facebook_url, instagram_url, linkedin_url, youtube_url, tiktok_url, x_url, threads_url, whatsapp_url';
 
-// Upsert an organisation_profile_members row so is_profile_owner() returns true
-// for this email. Called after every claim approval. Non-fatal — a warning is
-// logged if it fails so the profile ownership (set via owner_email) still works.
+// Upsert an organisation_profile_members row so is_profile_owner() returns true.
+// Called after every claim approval. organisation_profile_members.owner_email is a
+// separate column on that join table — distinct from organisation_profiles ownership.
+// Non-fatal — profile access via created_by still works if this fails.
 const ensureProfileMemberAccess = async (supabaseClient, profileId, ownerEmail) => {
   if (!profileId || !ownerEmail) return;
   const { error } = await supabaseClient
@@ -639,7 +638,6 @@ const emptyProfile = {
   organisation_name: '',
   slug: '',
   resource_id: '',
-  owner_email: '',
   contact_email: '',
   contact_phone: '',
   website_url: '',
@@ -1539,8 +1537,12 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
 
   const applyApprovedClaimOwnership = async (claim) => {
     if (!claim || !supabase) return;
-    const ownerEmail = `${claim.email || ''}`.trim().toLowerCase();
-    if (!ownerEmail) return;
+    const contactEmail = `${claim.email || ''}`.trim().toLowerCase();
+    if (!contactEmail) return;
+
+    // submitted_by_user_id is populated when the claimant was authenticated.
+    // If present, use it as created_by so the owner can access via RLS.
+    const claimantUserId = claim.submitted_by_user_id || null;
 
     const linkedResource = resources.find((resource) => `${resource.id}` === `${claim.listing_id}`) || null;
     const displayName = `${claim.org_name || claim.listing_title || linkedResource?.name || 'Claimed organisation'}`.trim();
@@ -1555,36 +1557,40 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       if (profileLookupError) throw profileLookupError;
 
       if (existingProfile?.id) {
-        await updateOrgProfileCompat(supabase, existingProfile.id, {
+        const updateFields = {
           organisation_name: displayName,
-          owner_email: ownerEmail,
-          contact_email: ownerEmail,
+          contact_email: contactEmail,
           is_active: true,
-        });
-        await ensureProfileMemberAccess(supabase, existingProfile.id, ownerEmail);
+        };
+        // Only update created_by if claimant has a known user id
+        if (claimantUserId) updateFields.created_by = claimantUserId;
+        await updateOrgProfileCompat(supabase, existingProfile.id, updateFields);
+        await ensureProfileMemberAccess(supabase, existingProfile.id, contactEmail);
         return;
       }
 
-      const { data: createdProfile } = await insertOrgProfileCompat(supabase, {
+      const insertFields = {
         resource_id: claim.listing_id,
         organisation_name: displayName,
         slug: `${slugBase}-${`${claim.listing_id}`.slice(-6)}`,
-        owner_email: ownerEmail,
-        contact_email: ownerEmail,
+        contact_email: contactEmail,
         is_active: true,
-      });
-      await ensureProfileMemberAccess(supabase, createdProfile.id, ownerEmail);
+        created_by: claimantUserId,
+      };
+      const { data: createdProfile } = await insertOrgProfileCompat(supabase, insertFields);
+      await ensureProfileMemberAccess(supabase, createdProfile.id, contactEmail);
       return;
     }
 
-    const { data: createdProfileFallback } = await insertOrgProfileCompat(supabase, {
+    const fallbackInsertFields = {
       organisation_name: displayName,
       slug: `${slugBase}-${Date.now()}`,
-      owner_email: ownerEmail,
-      contact_email: ownerEmail,
+      contact_email: contactEmail,
       is_active: true,
-    });
-    await ensureProfileMemberAccess(supabase, createdProfileFallback.id, ownerEmail);
+      created_by: claimantUserId,
+    };
+    const { data: createdProfileFallback } = await insertOrgProfileCompat(supabase, fallbackInsertFields);
+    await ensureProfileMemberAccess(supabase, createdProfileFallback.id, contactEmail);
   };
 
   const updateQueueStatus = async (table, id, status) => {
@@ -2137,8 +2143,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                   <option value="">Linked resource</option>
                   {resources.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
                 </select>
-                <input value={profileDraft.owner_email} onChange={(e) => setProfileDraft((p) => ({ ...p, owner_email: e.target.value }))} placeholder="Owner email" style={inputStyle} />
-                <input value={profileDraft.contact_email} onChange={(e) => setProfileDraft((p) => ({ ...p, contact_email: e.target.value }))} placeholder="Contact email" style={inputStyle} />
+                <input value={profileDraft.contact_email} onChange={(e) => setProfileDraft((p) => ({ ...p, contact_email: e.target.value }))} placeholder="Contact email (public)" style={inputStyle} />
                 <input value={profileDraft.contact_phone} onChange={(e) => setProfileDraft((p) => ({ ...p, contact_phone: e.target.value }))} placeholder="Contact phone" style={inputStyle} />
                 <input value={profileDraft.website_url} onChange={(e) => setProfileDraft((p) => ({ ...p, website_url: e.target.value }))} placeholder="Website URL" style={inputStyle} />
                 <input value={profileDraft.package_name || ''} onChange={(e) => setProfileDraft((p) => ({ ...p, package_name: e.target.value }))} placeholder="Package name" style={inputStyle} />
@@ -2174,7 +2179,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
               <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
                 {profiles.map((row) => (
                   <div key={row.id} style={{ border: '1px solid #E9EEF5', borderRadius: 10, padding: 10, display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
-                    <div>{getProfileName(row, resources)} <span style={{ color: 'rgba(26,39,68,0.55)' }}>({row.owner_email || 'No owner email'})</span></div>
+                    <div>{getProfileName(row, resources)} <span style={{ color: 'rgba(26,39,68,0.55)' }}>({row.contact_email || 'No contact email'})</span></div>
                     <div style={{ display: 'flex', gap: 6 }}>
                       <button className="btn btn-ghost btn-sm" onClick={() => setProfileDraft({ ...emptyProfile, ...normalizeProfileRow(row) })}>Edit</button>
                       <button className="btn btn-ghost btn-sm" onClick={() => deleteRow('organisation_profiles', row.id, 'Profile deleted.')}>Delete</button>
@@ -2515,7 +2520,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
                       {linkedProfile?.claim_status && <span style={{ padding: '3px 9px', borderRadius: 999, background: 'rgba(45,156,219,0.10)', color: '#1c78b5', fontSize: 10.5, fontWeight: 700 }}>{linkedProfile.claim_status}</span>}
                       {linkedProfile?.verified_status && <span style={{ padding: '3px 9px', borderRadius: 999, background: 'rgba(16,185,129,0.09)', color: '#0D7A55', fontSize: 10.5, fontWeight: 700 }}>{linkedProfile.verified_status}</span>}
-                      {linkedProfile?.owner_email && <span style={{ padding: '3px 9px', borderRadius: 999, background: 'rgba(26,39,68,0.06)', color: '#1A2744', fontSize: 10.5, fontWeight: 600 }}>{linkedProfile.owner_email}</span>}
+                      {linkedProfile?.contact_email && <span style={{ padding: '3px 9px', borderRadius: 999, background: 'rgba(26,39,68,0.06)', color: '#1A2744', fontSize: 10.5, fontWeight: 600 }}>{linkedProfile.contact_email}</span>}
                       {profId && <span style={{ padding: '3px 9px', borderRadius: 999, background: 'rgba(26,39,68,0.04)', color: 'rgba(26,39,68,0.45)', fontSize: 10, fontFamily: 'monospace' }}>…{String(profId).slice(-8)}</span>}
                     </div>
                     <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.44)', marginBottom: 8 }}>Social media</div>

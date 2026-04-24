@@ -162,8 +162,8 @@ const ProfileDashboard = ({ onNavigate, session }) => {
     setAnalyticsNotice('');
 
     try {
-      const [byOwnerEmail, byCreatedBy, claimsResult, fallbackClaimsResult] = await Promise.all([
-        supabase.from('organisation_profiles').select('*').eq('owner_email', userEmail),
+      const [profilesResult, claimsResult, fallbackClaimsResult] = await Promise.all([
+        // Ownership = created_by. No owner_email column on organisation_profiles.
         supabase.from('organisation_profiles').select('*').eq('created_by', session.user.id),
         supabase.from('listing_claims').select('*').eq('email', userEmail).order('created_at', { ascending: false }),
         // Also load fallback claims that landed in resource_update_submissions
@@ -171,8 +171,9 @@ const ProfileDashboard = ({ onNavigate, session }) => {
           .eq('submitter_email', userEmail).eq('update_type', 'claim_request').order('created_at', { ascending: false }),
       ]);
 
-      const mergedProfiles = [...(byOwnerEmail.data || []), ...(byCreatedBy.data || [])];
-      const uniqueProfiles = Array.from(new Map(mergedProfiles.map((item) => [item.id, item])).values());
+      const uniqueProfiles = Array.from(
+        new Map((profilesResult.data || []).map((item) => [item.id, item])).values(),
+      );
       const initialProfileId = uniqueProfiles[0]?.id || '';
 
       let eventRows = [];
@@ -461,7 +462,6 @@ const ProfileDashboard = ({ onNavigate, session }) => {
         resource_id: profileDraft.resource_id || null,
         service_categories: (profileDraft.service_categories_text || '').split(',').map((s) => s.trim()).filter(Boolean),
         areas_covered: (profileDraft.areas_covered_text || '').split(',').map((s) => s.trim()).filter(Boolean),
-        owner_email: userEmail,
         is_active: Boolean(profileDraft.is_active),
         updated_by: session.user.id,
         ...buildPdSocialPayload(profileDraft),
