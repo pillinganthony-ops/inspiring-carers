@@ -1466,9 +1466,10 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         };
 
         if (getAddressKey) {
-          // Use compact normalizedPostcode (from raw user input) — no spaces, no encoding ambiguity.
-          const maskedUrl = `https://api.getaddress.io/find/${normalizedPostcode}?api-key=***&expand=true`;
-          const realUrl = `https://api.getaddress.io/find/${normalizedPostcode}?api-key=${getAddressKey}&expand=true`;
+          // getAddress.io requires spaced postcode URL-encoded: PL14%204EN not PL144EN.
+          // canonicalPostcode is already correctly formatted (e.g. "PL14 4EN").
+          const maskedUrl = `https://api.getaddress.io/find/${encodeURIComponent(canonicalPostcode)}?api-key=***&expand=true`;
+          const realUrl = `https://api.getaddress.io/find/${encodeURIComponent(canonicalPostcode)}?api-key=${getAddressKey}&expand=true`;
           debugBase.requestUrl = maskedUrl;
 
           let gaResponse;
