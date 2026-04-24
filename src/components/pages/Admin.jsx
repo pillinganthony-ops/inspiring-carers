@@ -747,6 +747,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   const [tab, setTab] = React.useState('overview');
 
   const [categories, setCategories] = React.useState([]);
+  const [catSaveResult, setCatSaveResult] = React.useState(null);
   const [resources, setResources] = React.useState([]);
   const [profiles, setProfiles] = React.useState([]);
   const [events, setEvents] = React.useState([]);
@@ -968,6 +969,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       return;
     }
 
+    const isEdit = Boolean(categoryDraft.id);
     const payload = {
       name: categoryDraft.name.trim(),
       slug: slugify(categoryDraft.slug || categoryDraft.name),
@@ -975,13 +977,65 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       active: Boolean(categoryDraft.active),
     };
 
-    await withBusy(async () => {
-      const result = categoryDraft.id
-        ? await supabase.from('categories').update(payload).eq('id', categoryDraft.id)
-        : await supabase.from('categories').insert(payload);
+    // Diagnostic logging — remove once UPDATE confirmed working
+    console.log('[Category save] operation:', isEdit ? 'UPDATE' : 'INSERT');
+    console.log('[Category save] table: categories');
+    console.log('[Category save] id:', categoryDraft.id, '| typeof:', typeof categoryDraft.id);
+    console.log('[Category save] payload:', payload);
+
+    setBusy(true);
+    setError('');
+    setCatSaveResult(null);
+    try {
+      const result = isEdit
+        ? await supabase.from('categories').update(payload).eq('id', categoryDraft.id).select()
+        : await supabase.from('categories').insert(payload).select();
+
+      console.log('[Category save] result.data:', result.data);
+      console.log('[Category save] result.error:', result.error);
+      console.log('[Category save] rows returned:', result.data?.length ?? 0);
+
+      const rowsReturned = result.data?.length ?? 0;
+      const errMsg = result.error?.message ?? null;
+
+      let diagnosis;
+      if (errMsg) {
+        diagnosis = `E. Supabase error — ${errMsg}`;
+      } else if (isEdit && rowsReturned === 0) {
+        diagnosis = 'A. UPDATE matched 0 rows — missing UPDATE policy on categories table or wrong id';
+      } else if (!isEdit && rowsReturned === 0) {
+        diagnosis = 'A. INSERT returned 0 rows — missing INSERT policy on categories table';
+      } else {
+        diagnosis = `OK — ${rowsReturned} row(s) returned`;
+      }
+
+      setCatSaveResult({
+        operation: isEdit ? 'UPDATE' : 'INSERT',
+        id: String(categoryDraft.id ?? '—'),
+        idType: typeof categoryDraft.id,
+        payload,
+        rowsReturned,
+        error: errMsg,
+        diagnosis,
+      });
+
       if (result.error) throw result.error;
+      if (rowsReturned === 0) {
+        throw new Error(
+          isEdit
+            ? `UPDATE matched 0 rows (id: ${categoryDraft.id}, type: ${typeof categoryDraft.id}). Add an UPDATE policy on the categories table.`
+            : `INSERT returned 0 rows. Add an INSERT policy on the categories table.`,
+        );
+      }
+
       setCategoryDraft(emptyCategory);
-    }, categoryDraft.id ? 'Category updated.' : 'Category created.');
+      setToast(isEdit ? 'Category updated.' : 'Category created.');
+      await loadData();
+    } catch (actionError) {
+      setError(actionError?.message || 'Category save failed.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const openResourceEditor = (row) => {
@@ -2016,8 +2070,19 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
               <label style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 8 }}><input type="checkbox" checked={Boolean(categoryDraft.active)} onChange={(e) => setCategoryDraft((p) => ({ ...p, active: e.target.checked }))} /> Active</label>
               <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
                 <button className="btn btn-gold" disabled={busy} onClick={saveCategory}>{categoryDraft.id ? 'Update' : 'Create'} category</button>
-                {categoryDraft.id ? <button className="btn btn-ghost" onClick={() => setCategoryDraft(emptyCategory)}>Cancel</button> : null}
+                {categoryDraft.id ? <button className="btn btn-ghost" onClick={() => { setCategoryDraft(emptyCategory); setCatSaveResult(null); }}>Cancel</button> : null}
               </div>
+              {catSaveResult && (
+                <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 10, background: catSaveResult.rowsReturned > 0 ? 'rgba(16,185,129,0.08)' : 'rgba(244,97,58,0.08)', border: `1px solid ${catSaveResult.rowsReturned > 0 ? 'rgba(16,185,129,0.2)' : 'rgba(244,97,58,0.2)'}`, fontSize: 12, fontFamily: 'monospace', lineHeight: 1.7 }}>
+                  <strong>Save diagnostic:</strong><br />
+                  operation: {catSaveResult.operation} | table: categories<br />
+                  id: {catSaveResult.id} (typeof: {catSaveResult.idType})<br />
+                  payload: {JSON.stringify(catSaveResult.payload)}<br />
+                  rows returned: {catSaveResult.rowsReturned}<br />
+                  error: {catSaveResult.error ?? 'none'}<br />
+                  <strong>→ {catSaveResult.diagnosis}</strong>
+                </div>
+              )}
               <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
                 {categories.map((row) => (
                   <div key={row.id} style={{ border: '1px solid #E9EEF5', borderRadius: 10, padding: 10, display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
