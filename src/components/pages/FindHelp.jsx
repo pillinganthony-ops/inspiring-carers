@@ -715,6 +715,56 @@ const TrustBadges = ({ listing }) => {
   );
 };
 
+/* ─── Profile social links ───────────────────────────────── */
+// Live schema stores individual URL columns; legacy rows may have a socials JSONB.
+// Priority: flat columns first, JSONB fallback only when no flat links found.
+const PROFILE_SOCIAL_FLAT = [
+  { col: 'facebook_url',  label: 'Facebook',  color: '#1877F2' },
+  { col: 'instagram_url', label: 'Instagram', color: '#E1306C' },
+  { col: 'linkedin_url',  label: 'LinkedIn',  color: '#0A66C2' },
+  { col: 'youtube_url',   label: 'YouTube',   color: '#FF0000' },
+  { col: 'tiktok_url',    label: 'TikTok',    color: '#69C9D0' },
+  { col: 'x_url',         label: 'X',         color: '#000000' },
+  { col: 'threads_url',   label: 'Threads',   color: '#000000' },
+  { col: 'whatsapp_url',  label: 'WhatsApp',  color: '#25D366' },
+  { col: 'snapchat_url',  label: 'Snapchat',  color: '#FFFC00' },
+];
+const JSONB_SOCIAL_META = {
+  facebook:  { label: 'Facebook',  color: '#1877F2' },
+  instagram: { label: 'Instagram', color: '#E1306C' },
+  tiktok:    { label: 'TikTok',    color: '#69C9D0' },
+  x:         { label: 'X',         color: '#000000' },
+  youtube:   { label: 'YouTube',   color: '#FF0000' },
+  linkedin:  { label: 'LinkedIn',  color: '#0A66C2' },
+  whatsapp:  { label: 'WhatsApp',  color: '#25D366' },
+  threads:   { label: 'Threads',   color: '#000000' },
+  snapchat:  { label: 'Snapchat',  color: '#FFFC00' },
+};
+const ensureSocialHttps = (v) => {
+  const s = `${v || ''}`.trim();
+  if (!s) return '';
+  return /^https?:\/\//i.test(s) ? s : `https://${s}`;
+};
+const getProfileSocialLinks = (profile) => {
+  if (!profile) return [];
+  const links = [];
+  // 1. Flat columns (live schema)
+  for (const { col, label, color } of PROFILE_SOCIAL_FLAT) {
+    const url = ensureSocialHttps(profile[col]);
+    if (url) links.push({ key: col, label, color, url });
+  }
+  // 2. JSONB fallback for legacy rows that pre-date the schema migration
+  if (!links.length && profile.socials && typeof profile.socials === 'object' && !Array.isArray(profile.socials)) {
+    for (const [key, raw] of Object.entries(profile.socials)) {
+      const url = ensureSocialHttps(raw);
+      if (!url) continue;
+      const meta = JSONB_SOCIAL_META[key] || { label: key, color: '#1A2744' };
+      links.push({ key, label: meta.label, color: meta.color, url });
+    }
+  }
+  return links;
+};
+
 /* ─── ShareTray (card-level dropdown) ───────────────────── */
 const SHARE_CHANNELS = [
   { id: 'copy',      label: 'Copy link',   Icon: IClipboard },
@@ -1660,25 +1710,18 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
                 <ContactItem icon={<IGlobe s={16} />} label="Website" value={domain || listing.website || null} href={websiteUrl} external />
               </div>
 
-              {/* Social media links */}
+              {/* Social media links — reads flat _url columns (live schema) with JSONB fallback */}
               {(() => {
-                const socials = listing.profile?.socials;
-                if (!socials || typeof socials !== 'object') return null;
-                const SOCIAL_COLORS = { facebook:'#1877F2', instagram:'#E1306C', tiktok:'#69C9D0', x:'#000000', youtube:'#FF0000', linkedin:'#0A66C2', whatsapp:'#25D366', threads:'#000000', snapchat:'#FFFC00' };
-                const SOCIAL_NAMES = { facebook:'Facebook', instagram:'Instagram', tiktok:'TikTok', x:'X', youtube:'YouTube', linkedin:'LinkedIn', whatsapp:'WhatsApp', threads:'Threads', snapchat:'Snapchat' };
-                const entries = Object.entries(socials).filter(([, v]) => {
-                  const s = `${v || ''}`.trim();
-                  return s && /^https?:\/\//i.test(s);
-                });
-                if (!entries.length) return null;
+                const links = getProfileSocialLinks(listing.profile);
+                if (!links.length) return null;
                 return (
                   <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #EFF1F7' }}>
                     <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'rgba(26,39,68,0.45)', marginBottom: 10 }}>Follow this organisation</div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                      {entries.map(([key, url]) => (
+                      {links.map(({ key, label, color, url }) => (
                         <a key={key} href={url} target="_blank" rel="noreferrer noopener"
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 999, background: `${SOCIAL_COLORS[key] || '#1A2744'}14`, color: SOCIAL_COLORS[key] || '#1A2744', fontSize: 12.5, fontWeight: 700, border: `1px solid ${SOCIAL_COLORS[key] || '#1A2744'}28`, textDecoration: 'none' }}>
-                          {SOCIAL_NAMES[key] || key}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 999, background: `${color}14`, color, fontSize: 12.5, fontWeight: 700, border: `1px solid ${color}28`, textDecoration: 'none' }}>
+                          {label}
                         </a>
                       ))}
                     </div>
