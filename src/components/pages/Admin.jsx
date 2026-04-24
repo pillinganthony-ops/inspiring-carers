@@ -571,6 +571,8 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
 
   const [categoryDraft, setCategoryDraft] = React.useState(emptyCategory);
   const [resourceDraft, setResourceDraft] = React.useState(emptyResource);
+  const [resourceEditorOpen, setResourceEditorOpen] = React.useState(false);
+  const [resourceSearch, setResourceSearch] = React.useState('');
   const [profileDraft, setProfileDraft] = React.useState(emptyProfile);
   const [eventDraft, setEventDraft] = React.useState(emptyEvent);
   const [postcodeBusy, setPostcodeBusy] = React.useState(false);
@@ -780,21 +782,41 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     }, categoryDraft.id ? 'Category updated.' : 'Category created.');
   };
 
+  const openResourceEditor = (row) => {
+    setResourceDraft(row ? { ...emptyResource, ...row, category_id: row.category_id || '' } : { ...emptyResource });
+    setPostcodeError('');
+    setPostcodeCandidates([]);
+    setSelectedPostcodeCandidateId('');
+    setError('');
+    setResourceEditorOpen(true);
+  };
+
+  const closeResourceEditor = () => {
+    setResourceEditorOpen(false);
+    setPostcodeError('');
+    setPostcodeCandidates([]);
+    setSelectedPostcodeCandidateId('');
+  };
+
   const saveResource = async () => {
     if (!resourceDraft.name.trim()) {
       setError('Resource name is required.');
       return;
     }
-
     const payload = buildResourcePayloadFromDraft(resourceDraft, session?.user?.id || null);
-
+    const isEdit = Boolean(resourceDraft.id);
+    let saved = false;
     await withBusy(async () => {
-      const result = resourceDraft.id
+      const result = isEdit
         ? await supabase.from('resources').update(payload).eq('id', resourceDraft.id)
         : await supabase.from('resources').insert({ ...payload, created_by: session?.user?.id || null });
       if (result.error) throw result.error;
+      saved = true;
+    }, isEdit ? 'Resource updated.' : 'Resource created.');
+    if (saved) {
       setResourceDraft(emptyResource);
-    }, resourceDraft.id ? 'Resource updated.' : 'Resource created.');
+      closeResourceEditor();
+    }
   };
 
   const openCreateListingModal = (submission) => {
@@ -821,7 +843,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       const resource = resources.find((row) => `${row.id}` === `${match.id}`) || null;
       if (resource) {
         setTab('resources');
-        setResourceDraft({ ...emptyResource, ...resource, category_id: resource.category_id || '' });
+        openResourceEditor(resource);
       }
       closeCreateListingModal();
       return;
@@ -1409,10 +1431,14 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
           <div className="card" style={{ padding: 22, borderRadius: 20 }}>
             <h1 style={{ fontSize: 36, fontWeight: 800 }}>Admin Dashboard</h1>
             <p style={{ marginTop: 8, color: 'rgba(26,39,68,0.7)' }}>Live schema mode: categories, resources, organisation_profiles, organisation_events, listing_claims, resource_update_submissions, walk_risk_updates, walk_comments.</p>
-            {error ? <div style={{ marginTop: 10, color: '#A03A2D', fontWeight: 700 }}>{error}</div> : null}
-            {analyticsNotice ? <div style={{ marginTop: 10, color: '#9A6700', fontWeight: 700 }}>{analyticsNotice}</div> : null}
-            {resourceUpdatesNotice ? <div style={{ marginTop: 10, color: '#9A6700', fontWeight: 700 }}>{resourceUpdatesNotice}</div> : null}
-            {toast ? <div style={{ marginTop: 10, color: '#2D6B1F', fontWeight: 700 }}>{toast}</div> : null}
+            {error ? <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 10, background: 'rgba(244,97,58,0.08)', color: '#A03A2D', fontSize: 13, fontWeight: 600 }}>{error}</div> : null}
+            {toast ? <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 10, background: 'rgba(16,185,129,0.08)', color: '#0D7A55', fontSize: 13, fontWeight: 600 }}>{toast}</div> : null}
+            {(analyticsNotice || resourceUpdatesNotice) ? (
+              <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {analyticsNotice ? <span style={{ padding: '3px 10px', borderRadius: 999, background: 'rgba(245,166,35,0.10)', color: '#8a5a0b', fontSize: 11.5, fontWeight: 600 }}>{analyticsNotice}</span> : null}
+                {resourceUpdatesNotice ? <span style={{ padding: '3px 10px', borderRadius: 999, background: 'rgba(245,166,35,0.10)', color: '#8a5a0b', fontSize: 11.5, fontWeight: 600 }}>{resourceUpdatesNotice}</span> : null}
+              </div>
+            ) : null}
           </div>
 
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -1770,74 +1796,53 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
 
           {!loading && tab === 'resources' ? (
             <div className="card" style={{ padding: 18 }}>
-              <h2 style={{ fontSize: 22, fontWeight: 700 }}>Resource CRUD</h2>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginTop: 10 }}>
-                <input value={resourceDraft.name} onChange={(e) => setResourceDraft((p) => ({ ...p, name: e.target.value }))} placeholder="Name" style={inputStyle} />
-                <input value={resourceDraft.slug} onChange={(e) => setResourceDraft((p) => ({ ...p, slug: e.target.value }))} placeholder="Slug" style={inputStyle} />
-                <select value={resourceDraft.category_id} onChange={(e) => setResourceDraft((p) => ({ ...p, category_id: e.target.value }))} style={inputStyle}>
-                  <option value="">Category</option>
-                  {categories.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
-                </select>
-                <input value={resourceDraft.town} onChange={(e) => setResourceDraft((p) => ({ ...p, town: e.target.value }))} placeholder="Town" style={inputStyle} />
-                <input value={resourceDraft.website} onChange={(e) => setResourceDraft((p) => ({ ...p, website: e.target.value }))} placeholder="Website" style={inputStyle} />
-                <input value={resourceDraft.phone} onChange={(e) => setResourceDraft((p) => ({ ...p, phone: e.target.value }))} placeholder="Phone" style={inputStyle} />
-                <input value={resourceDraft.email} onChange={(e) => setResourceDraft((p) => ({ ...p, email: e.target.value }))} placeholder="Email" style={inputStyle} />
-                <input value={resourceDraft.address} onChange={(e) => setResourceDraft((p) => ({ ...p, address: e.target.value }))} placeholder="Address" style={inputStyle} />
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <input value={resourceDraft.postcode} onChange={(e) => setResourceDraft((p) => ({ ...p, postcode: e.target.value }))} placeholder="Postcode" style={{ ...inputStyle, flex: 1 }} />
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    style={{ whiteSpace: 'nowrap', alignSelf: 'stretch', padding: '0 10px' }}
-                    disabled={!resourceDraft.postcode?.trim() || postcodeBusy}
-                    onClick={handlePostcodeLookup}
-                  >
-                    {postcodeBusy ? 'Looking up…' : 'Lookup →'}
-                  </button>
-                </div>
-                {postcodeError ? <div style={{ gridColumn: '1 / -1', color: '#A03A2D', fontSize: 13 }}>{postcodeError}</div> : null}
-                {postcodeCandidates.length ? (
-                  <div style={{ gridColumn: '1 / -1', display: 'grid', gap: 6 }}>
-                    <select
-                      value={selectedPostcodeCandidateId}
-                      onChange={(event) => {
-                        const nextId = event.target.value;
-                        setSelectedPostcodeCandidateId(nextId);
-                        const selectedCandidate = postcodeCandidates.find((candidate) => candidate.id === nextId) || null;
-                        applyPostcodeCandidate(selectedCandidate);
-                      }}
-                      style={inputStyle}
-                    >
-                      <option value="">Select an address result</option>
-                      {postcodeCandidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.label}</option>)}
-                    </select>
-                    <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.64)' }}>Choose an address result to populate address, town, postcode, and coordinates.</div>
-                  </div>
-                ) : null}
-                <input value={resourceDraft.latitude} onChange={(e) => setResourceDraft((p) => ({ ...p, latitude: e.target.value }))} placeholder="Latitude" style={inputStyle} />
-                <input value={resourceDraft.longitude} onChange={(e) => setResourceDraft((p) => ({ ...p, longitude: e.target.value }))} placeholder="Longitude" style={inputStyle} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
+                <h2 style={{ fontSize: 22, fontWeight: 700 }}>Resources <span style={{ fontSize: 16, fontWeight: 600, color: 'rgba(26,39,68,0.5)' }}>({resources.length})</span></h2>
+                <button className="btn btn-gold" onClick={() => openResourceEditor(null)}>+ New resource</button>
               </div>
-              <textarea value={resourceDraft.summary} onChange={(e) => setResourceDraft((p) => ({ ...p, summary: e.target.value }))} placeholder="Summary" rows={2} style={{ ...inputStyle, marginTop: 8, resize: 'vertical' }} />
-              <textarea value={resourceDraft.description} onChange={(e) => setResourceDraft((p) => ({ ...p, description: e.target.value }))} placeholder="Description" rows={3} style={{ ...inputStyle, marginTop: 8, resize: 'vertical' }} />
-              <div style={{ marginTop: 8, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                <label><input type="checkbox" checked={Boolean(resourceDraft.verified)} onChange={(e) => setResourceDraft((p) => ({ ...p, verified: e.target.checked }))} /> Verified</label>
-                <label><input type="checkbox" checked={Boolean(resourceDraft.featured)} onChange={(e) => setResourceDraft((p) => ({ ...p, featured: e.target.checked }))} /> Featured</label>
-                <label><input type="checkbox" checked={Boolean(resourceDraft.is_archived)} onChange={(e) => setResourceDraft((p) => ({ ...p, is_archived: e.target.checked }))} /> Archived</label>
-              </div>
-              <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
-                <button className="btn btn-gold" disabled={busy} onClick={saveResource}>{resourceDraft.id ? 'Update' : 'Create'} resource</button>
-                {resourceDraft.id ? <button className="btn btn-ghost" onClick={() => setResourceDraft(emptyResource)}>Cancel</button> : null}
-              </div>
-              <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
-                {resources.map((row) => (
-                  <div key={row.id} style={{ border: '1px solid #E9EEF5', borderRadius: 10, padding: 10, display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
-                    <div>{row.name} <span style={{ color: 'rgba(26,39,68,0.55)' }}>({row.town || 'No town'})</span></div>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button className="btn btn-ghost btn-sm" onClick={() => setResourceDraft({ ...emptyResource, ...row, category_id: row.category_id || '' })}>Edit</button>
-                      <button className="btn btn-ghost btn-sm" onClick={() => deleteRow('resources', row.id, 'Resource deleted.')}>Delete</button>
-                    </div>
-                  </div>
-                ))}
+              <input
+                value={resourceSearch}
+                onChange={(e) => setResourceSearch(e.target.value)}
+                placeholder="Search by name, town, email or category…"
+                style={{ ...inputStyle, marginBottom: 10 }}
+              />
+              <div style={{ display: 'grid', gap: 6 }}>
+                {resources
+                  .filter((row) => {
+                    if (!resourceSearch.trim()) return true;
+                    const q = resourceSearch.toLowerCase();
+                    const catName = (categories.find((c) => `${c.id}` === `${row.category_id}`)?.name || '').toLowerCase();
+                    return (
+                      (row.name || '').toLowerCase().includes(q) ||
+                      (row.town || '').toLowerCase().includes(q) ||
+                      (row.email || '').toLowerCase().includes(q) ||
+                      catName.includes(q)
+                    );
+                  })
+                  .map((row) => {
+                    const catName = categories.find((c) => `${c.id}` === `${row.category_id}`)?.name || '';
+                    return (
+                      <div key={row.id} style={{ border: '1px solid #E9EEF5', borderRadius: 12, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', background: row.is_archived ? 'rgba(244,97,58,0.03)' : 'white' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <span style={{ fontWeight: 700, fontSize: 14, color: '#1A2744' }}>{row.name}</span>
+                            {row.verified && <span style={{ padding: '1px 7px', borderRadius: 999, background: 'rgba(16,185,129,0.12)', color: '#0D7A55', fontSize: 10.5, fontWeight: 700 }}>Verified</span>}
+                            {row.featured && <span style={{ padding: '1px 7px', borderRadius: 999, background: 'rgba(245,166,35,0.14)', color: '#8a5a0b', fontSize: 10.5, fontWeight: 700 }}>Featured</span>}
+                            {row.is_archived && <span style={{ padding: '1px 7px', borderRadius: 999, background: 'rgba(244,97,58,0.12)', color: '#A03A2D', fontSize: 10.5, fontWeight: 700 }}>Archived</span>}
+                          </div>
+                          <div style={{ marginTop: 3, fontSize: 12, color: 'rgba(26,39,68,0.55)', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            {catName && <span>{catName}</span>}
+                            {row.town && <span>{row.town}</span>}
+                            {row.email && <span>{row.email}</span>}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                          <button className="btn btn-ghost btn-sm" onClick={() => openResourceEditor(row)}>Edit</button>
+                          <button className="btn btn-ghost btn-sm" onClick={() => deleteRow('resources', row.id, 'Resource deleted.')}>Delete</button>
+                        </div>
+                      </div>
+                    );
+                  })}
               </div>
             </div>
           ) : null}
@@ -1991,6 +1996,115 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         onMarkFollowUp={markOwnerFollowUp}
         busy={busy}
       />
+
+      {/* Resource editor drawer */}
+      {resourceEditorOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 270, display: 'flex', justifyContent: 'flex-end' }}>
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(15,23,42,0.42)' }} onClick={closeResourceEditor} />
+          <div style={{ position: 'relative', width: '100%', maxWidth: 540, height: '100%', background: 'white', display: 'flex', flexDirection: 'column', boxShadow: '-8px 0 40px rgba(15,23,42,0.18)' }}>
+            {/* Drawer header */}
+            <div style={{ padding: '18px 22px 16px', borderBottom: '1px solid #E9EEF5', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexShrink: 0 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.48)' }}>{resourceDraft.id ? 'Edit resource' : 'New resource'}</div>
+                <h2 style={{ marginTop: 4, fontSize: 20, fontWeight: 800, color: '#1A2744', lineHeight: 1.2 }}>{resourceDraft.name || 'Untitled resource'}</h2>
+              </div>
+              <button onClick={closeResourceEditor} disabled={busy} style={{ width: 34, height: 34, borderRadius: 999, border: '1px solid #EFF1F7', background: '#FAFBFF', display: 'grid', placeItems: 'center', flexShrink: 0, fontSize: 18, lineHeight: 1 }}>×</button>
+            </div>
+
+            {/* Drawer body — scrollable */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '18px 22px', display: 'grid', gap: 20 }}>
+              {error && <div style={{ padding: '9px 12px', borderRadius: 10, background: 'rgba(244,97,58,0.08)', color: '#A03A2D', fontSize: 13, fontWeight: 600 }}>{error}</div>}
+
+              {/* Primary */}
+              <div>
+                <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.44)', marginBottom: 10 }}>Primary</div>
+                <div style={{ display: 'grid', gap: 8 }}>
+                  <input value={resourceDraft.name} onChange={(e) => setResourceDraft((p) => ({ ...p, name: e.target.value }))} placeholder="Name *" style={inputStyle} />
+                  <input value={resourceDraft.slug} onChange={(e) => setResourceDraft((p) => ({ ...p, slug: e.target.value }))} placeholder="Slug" style={inputStyle} />
+                  <select value={resourceDraft.category_id} onChange={(e) => setResourceDraft((p) => ({ ...p, category_id: e.target.value }))} style={inputStyle}>
+                    <option value="">Category</option>
+                    {categories.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
+                  </select>
+                  <input value={resourceDraft.town} onChange={(e) => setResourceDraft((p) => ({ ...p, town: e.target.value }))} placeholder="Town" style={inputStyle} />
+                  <input value={resourceDraft.website} onChange={(e) => setResourceDraft((p) => ({ ...p, website: e.target.value }))} placeholder="Website" style={inputStyle} />
+                  <input value={resourceDraft.phone} onChange={(e) => setResourceDraft((p) => ({ ...p, phone: e.target.value }))} placeholder="Phone" style={inputStyle} />
+                  <input value={resourceDraft.email} onChange={(e) => setResourceDraft((p) => ({ ...p, email: e.target.value }))} placeholder="Email" style={inputStyle} />
+                </div>
+              </div>
+
+              {/* Location */}
+              <div>
+                <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.44)', marginBottom: 10 }}>Location</div>
+                <div style={{ display: 'grid', gap: 8 }}>
+                  <input value={resourceDraft.address} onChange={(e) => setResourceDraft((p) => ({ ...p, address: e.target.value }))} placeholder="Address" style={inputStyle} />
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input value={resourceDraft.postcode} onChange={(e) => setResourceDraft((p) => ({ ...p, postcode: e.target.value }))} placeholder="Postcode" style={{ ...inputStyle, flex: 1 }} />
+                    <button type="button" className="btn btn-ghost btn-sm" style={{ whiteSpace: 'nowrap', alignSelf: 'stretch', padding: '0 12px' }} disabled={!resourceDraft.postcode?.trim() || postcodeBusy} onClick={handlePostcodeLookup}>
+                      {postcodeBusy ? 'Looking…' : 'Lookup →'}
+                    </button>
+                  </div>
+                  {postcodeError ? <div style={{ color: '#A03A2D', fontSize: 12 }}>{postcodeError}</div> : null}
+                  {postcodeCandidates.length ? (
+                    <>
+                      <select
+                        value={selectedPostcodeCandidateId}
+                        onChange={(e) => {
+                          const nextId = e.target.value;
+                          setSelectedPostcodeCandidateId(nextId);
+                          applyPostcodeCandidate(postcodeCandidates.find((c) => c.id === nextId) || null);
+                        }}
+                        style={inputStyle}
+                      >
+                        <option value="">Select an address result</option>
+                        {postcodeCandidates.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+                      </select>
+                      <div style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.58)' }}>Select to populate address, town, postcode and coordinates.</div>
+                    </>
+                  ) : null}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <input value={resourceDraft.latitude} onChange={(e) => setResourceDraft((p) => ({ ...p, latitude: e.target.value }))} placeholder="Latitude" style={inputStyle} />
+                    <input value={resourceDraft.longitude} onChange={(e) => setResourceDraft((p) => ({ ...p, longitude: e.target.value }))} placeholder="Longitude" style={inputStyle} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div>
+                <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.44)', marginBottom: 10 }}>Content</div>
+                <div style={{ display: 'grid', gap: 8 }}>
+                  <textarea value={resourceDraft.summary} onChange={(e) => setResourceDraft((p) => ({ ...p, summary: e.target.value }))} placeholder="Short summary" rows={2} style={{ ...inputStyle, resize: 'vertical' }} />
+                  <textarea value={resourceDraft.description} onChange={(e) => setResourceDraft((p) => ({ ...p, description: e.target.value }))} placeholder="Full description" rows={4} style={{ ...inputStyle, resize: 'vertical' }} />
+                </div>
+              </div>
+
+              {/* Flags */}
+              <div>
+                <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.44)', marginBottom: 10 }}>Flags</div>
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={Boolean(resourceDraft.verified)} onChange={(e) => setResourceDraft((p) => ({ ...p, verified: e.target.checked }))} /> Verified
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={Boolean(resourceDraft.featured)} onChange={(e) => setResourceDraft((p) => ({ ...p, featured: e.target.checked }))} /> Featured
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13.5, fontWeight: 600, color: '#A03A2D', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={Boolean(resourceDraft.is_archived)} onChange={(e) => setResourceDraft((p) => ({ ...p, is_archived: e.target.checked }))} /> Archived
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Drawer footer — sticky */}
+            <div style={{ padding: '14px 22px', borderTop: '1px solid #E9EEF5', display: 'flex', gap: 8, background: 'white', flexShrink: 0 }}>
+              <button className="btn btn-gold" disabled={busy} onClick={saveResource} style={{ flex: 1, justifyContent: 'center' }}>
+                {busy ? 'Saving…' : (resourceDraft.id ? 'Save changes' : 'Create resource')}
+              </button>
+              <button className="btn btn-ghost" disabled={busy} onClick={closeResourceEditor}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Footer onNavigate={onNavigate} />
     </>
   );
