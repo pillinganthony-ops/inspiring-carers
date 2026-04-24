@@ -148,6 +148,7 @@ const normalizeAdminCategoryRows = (rows) => (
       slug: `${row.slug || row.name || ''}`.trim() ? slugify(row.slug || row.name) : '',
       active: row.active !== false,
       sort_order: Number(row.sort_order) || 0,
+      _derived: false, // explicitly real — rows from the categories DB table
     }))
     .filter((row) => row.id !== null && row.id !== undefined && row.name)
     .sort((left, right) => left.sort_order - right.sort_order || left.name.localeCompare(right.name, 'en', { sensitivity: 'base' }))
@@ -1996,10 +1997,17 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
             <div className="card" style={{ padding: 18 }}>
               <h2 style={{ fontSize: 22, fontWeight: 700 }}>Category CRUD</h2>
               <div style={{ marginTop: 8, fontSize: 13, color: 'rgba(26,39,68,0.66)' }}>
-                {categories.length
-                  ? 'Live categories are loaded into admin and reused by the create-listing flow.'
-                  : 'No live categories are currently visible. If this is unexpected, inspect categories table access or population.'}
+                {categories.some((c) => c._derived)
+                  ? 'Categories table returned no rows — showing names derived from resource data. These are read-only hints; edits will fail until the categories table is accessible.'
+                  : categories.length
+                    ? `${categories.length} live categories loaded from categories table.`
+                    : 'No categories found.'}
               </div>
+              {categories.some((c) => c._derived) && (
+                <div style={{ marginTop: 8, padding: '8px 12px', borderRadius: 10, background: 'rgba(245,166,35,0.10)', color: '#8a5a0b', fontSize: 12.5, fontWeight: 600 }}>
+                  Derived fallback active — the categories table may be empty or access may be blocked. Real categories cannot be saved until this is resolved.
+                </div>
+              )}
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 8, marginTop: 10 }}>
                 <input value={categoryDraft.name} onChange={(e) => setCategoryDraft((p) => ({ ...p, name: e.target.value }))} placeholder="Name" style={inputStyle} />
                 <input value={categoryDraft.slug} onChange={(e) => setCategoryDraft((p) => ({ ...p, slug: e.target.value }))} placeholder="Slug" style={inputStyle} />
