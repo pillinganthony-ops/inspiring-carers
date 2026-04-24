@@ -157,7 +157,15 @@ const deriveAdminCategoryFallback = (resourcesRows) => {
   const byKey = new Map();
   (resourcesRows || []).forEach((row) => {
     const id = row?.category_id ?? null;
-    const rawName = `${row?.category_name || row?.category || row?.category_label || row?.resource_type || row?.type || ''}`.trim();
+    const rawName = `${
+      row?.category_name ||
+      row?.category ||
+      row?.category_label ||
+      resolveAdminCatLabel(row?.category_slug) ||
+      row?.resource_type ||
+      row?.type ||
+      ''
+    }`.trim();
     const key = id !== null && id !== undefined ? `id:${id}` : '';
     if (!key || byKey.has(key)) return;
     byKey.set(key, {
@@ -402,6 +410,95 @@ const buildCompatibleProfilePayload = (payload) => ({
     name: payload.display_name,
   },
 });
+
+/* ─── Category slug → label resolver ─────────────────────── */
+const ADMIN_CAT_LABELS = {
+  'mental-health-wellbeing': 'Mental Health',
+  'carer-support': 'Carers',
+  carers: 'Carers',
+  'health-medical-support': 'Health & Medical',
+  'advice-guidance': 'Advice',
+  'housing-homelessness': 'Housing',
+  'food-essentials': 'Food',
+  'family-children': 'Families',
+  'older-people-support': 'Older People',
+  'community-groups-social-connection': 'Community',
+  'faith-spiritual-support': 'Faith',
+  'employment-skills': 'Employment & Skills',
+  'crisis-safety-support': 'Crisis Support',
+  'disability-accessibility': 'Disability',
+  'transport-access': 'Transport',
+  'nature-activity-outdoors': 'Outdoors',
+};
+const resolveAdminCatLabel = (slug) => {
+  if (!slug) return '';
+  const s = `${slug}`.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return ADMIN_CAT_LABELS[s] || '';
+};
+
+/* ─── organisation_profiles compatibility INSERT ─────────── */
+// Retries the insert, stripping one unrecognised column per attempt until
+// either the insert succeeds or there is a non-schema error.
+const insertOrgProfileCompat = async (supabaseClient, payload) => {
+  let attempt = { ...payload };
+  const stripped = [];
+  for (let i = 0; i < 20; i++) {
+    const result = await supabaseClient
+      .from('organisation_profiles')
+      .insert(attempt)
+      .select('id')
+      .single();
+    if (!result.error) return { data: result.data, stripped };
+    const msg = `${result.error?.message || result.error?.details || ''}`;
+    // PostgREST schema-cache error: "Could not find the 'X' column of 'T'"
+    const colMatch = msg.match(/find the ['"`]?(\w+)['"`]? column/i)
+      || msg.match(/column ['"`]?(\w+)['"`]? of/i);
+    if (!colMatch?.[1]) throw result.error;
+    const missing = colMatch[1];
+    if (missing === 'display_name' && 'display_name' in attempt) {
+      // display_name → name compatibility fallback
+      attempt = { ...attempt, name: attempt.display_name };
+      delete attempt.display_name;
+      stripped.push('display_name→name');
+    } else if (missing in attempt) {
+      const { [missing]: _removed, ...rest } = attempt;
+      attempt = rest;
+      stripped.push(missing);
+    } else {
+      throw result.error; // column not in our payload — unexpected error
+    }
+  }
+  throw new Error('Too many schema compatibility retries on organisation_profiles insert.');
+};
+
+const updateOrgProfileCompat = async (supabaseClient, id, payload) => {
+  let attempt = { ...payload };
+  const stripped = [];
+  for (let i = 0; i < 20; i++) {
+    const result = await supabaseClient
+      .from('organisation_profiles')
+      .update(attempt)
+      .eq('id', id);
+    if (!result.error) return { stripped };
+    const msg = `${result.error?.message || result.error?.details || ''}`;
+    const colMatch = msg.match(/find the ['"`]?(\w+)['"`]? column/i)
+      || msg.match(/column ['"`]?(\w+)['"`]? of/i);
+    if (!colMatch?.[1]) throw result.error;
+    const missing = colMatch[1];
+    if (missing === 'display_name' && 'display_name' in attempt) {
+      attempt = { ...attempt, name: attempt.display_name };
+      delete attempt.display_name;
+      stripped.push('display_name→name');
+    } else if (missing in attempt) {
+      const { [missing]: _removed, ...rest } = attempt;
+      attempt = rest;
+      stripped.push(missing);
+    } else {
+      throw result.error;
+    }
+  }
+  throw new Error('Too many schema compatibility retries on organisation_profiles update.');
+};
 
 /* ─── Social platform helpers ─────────────────────────────── */
 const SOCIAL_KEYS = ['facebook','instagram','tiktok','x','youtube','linkedin','whatsapp','threads','snapchat'];
@@ -682,14 +779,28 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         setResourceUpdatesNotice(`New organisation submissions unavailable (${resourceUpdatesResult.error.message}).`);
       }
 
-      const normalizedCategories = categoriesResult.error ? [] : normalizeAdminCategoryRows(categoriesResult.data || []);
+      // Primary: categories table. Secondary: resource_categories (schema.sql name).
+      let categoriesRows = categoriesResult.error ? [] : (categoriesResult.data || []);
+      let categoriesSourceNote = '';
+      if (!categoriesRows.length) {
+        const altResult = await supabase
+          .from('resource_categories')
+          .select('id, name, slug, active, sort_order')
+          .order('sort_order', { ascending: true })
+          .order('name', { ascending: true });
+        if (!altResult.error && altResult.data?.length) {
+          categoriesRows = altResult.data;
+          categoriesSourceNote = 'resource_categories';
+        }
+      }
+      const normalizedCategories = normalizeAdminCategoryRows(categoriesRows);
       const fallbackCategories = deriveAdminCategoryFallback(resourcesResult.data || []);
       const resolvedCategories = normalizedCategories.length ? normalizedCategories : fallbackCategories;
 
-      if (categoriesResult.error) {
-        setResourceUpdatesNotice(`Categories table read failed (${categoriesResult.error.message}). Using category hints from live resources where possible.`);
+      if (categoriesResult.error && !categoriesSourceNote) {
+        setResourceUpdatesNotice(`Categories table read failed (${categoriesResult.error.message}). Using category hints from live resources.`);
       } else if (!normalizedCategories.length && fallbackCategories.length) {
-        setResourceUpdatesNotice('Standalone categories returned no rows, but live resources contain category assignments. Admin is using derived category hints until the categories table is populated consistently.');
+        setResourceUpdatesNotice('Categories table is empty — using names derived from resource data. Run the categories population SQL to fix permanently.');
       }
 
       setCategories(resolvedCategories);
@@ -869,60 +980,28 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       const displayName = resourceDraft.name.trim();
       const profileSlug = `${slugify(displayName)}-${String(resourceDraft.id).slice(-6)}`;
 
-      // Core payload uses ONLY confirmed-live columns — matches applyApprovedClaimOwnership.
-      // bio / website / socials are intentionally absent: they may not exist in the live
-      // organisation_profiles table if it pre-dates the expansion migration.
-      const corePayload = {
+      // Full desired payload — insertOrgProfileCompat strips any column the live
+      // schema doesn't support and retries automatically, so no manual SQL is needed.
+      const payload = {
         resource_id: resourceDraft.id,
         display_name: displayName,
         slug: profileSlug,
         email: resourceDraft.email?.trim() || null,
+        website: resourceDraft.website?.trim() || null,
         is_active: true,
         claim_status: 'unclaimed',
         verified_status: 'community',
+        socials: {},
       };
 
-      let result = await supabase
-        .from('organisation_profiles')
-        .insert(corePayload)
-        .select('id')
-        .single();
+      const { data: newProfile, stripped } = await insertOrgProfileCompat(supabase, payload);
 
-      // display_name / name compatibility fallback (same pattern as applyApprovedClaimOwnership)
-      if (result.error?.message?.includes('display_name')) {
-        const legacyPayload = { ...corePayload, name: displayName };
-        delete legacyPayload.display_name;
-        result = await supabase
-          .from('organisation_profiles')
-          .insert(legacyPayload)
-          .select('id')
-          .single();
-      }
-
-      if (result.error) throw result.error;
-
-      const newProfileId = result.data.id;
-
-      // Optional post-insert: add website and socials if those columns exist live.
-      // If they don't exist the error is swallowed — it does not fail the create.
-      const optionalFields = { socials: {} };
-      if (resourceDraft.website?.trim()) optionalFields.website = resourceDraft.website.trim();
-      const { error: optErr } = await supabase
-        .from('organisation_profiles')
-        .update(optionalFields)
-        .eq('id', newProfileId);
-      if (optErr) {
-        const missing = optErr.message?.match(/column ['"]?(\w+)['"]?/)?.[1] || '';
-        if (missing && !['website', 'socials'].includes(missing)) {
-          // Unexpected column error — surface it as a warning but don't block
-          setLinkedProfileError(`Profile created. Optional fields failed: ${optErr.message}`);
-        }
-        // website/socials missing from live schema is expected — stay silent
-      }
-
-      setToast('Organisation profile created.');
+      const strippedNote = stripped.length
+        ? ` (schema skipped: ${stripped.join(', ')})`
+        : '';
+      setToast(`Organisation profile created${strippedNote}.`);
       await loadData();
-      setLinkedProfileDraft({ _id: newProfileId, ...unpackSocials({}) });
+      setLinkedProfileDraft({ _id: newProfile.id, ...unpackSocials({}) });
     } catch (err) {
       setLinkedProfileError(err?.message || 'Failed to create organisation profile.');
     } finally {
@@ -1395,39 +1474,18 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       if (profileLookupError) throw profileLookupError;
 
       if (existingProfile?.id) {
-        const { error: updateError } = await supabase
-          .from('organisation_profiles')
-          .update({
-            display_name: displayName,
-            owner_email: ownerEmail,
-            email: ownerEmail,
-            claim_status: 'claimed',
-            verified_status: 'claimed',
-            is_active: true,
-            updated_by: session?.user?.id || null,
-          })
-          .eq('id', existingProfile.id);
-        if (updateError?.message?.includes('display_name')) {
-          const { error: legacyUpdateError } = await supabase
-            .from('organisation_profiles')
-            .update({
-              name: displayName,
-              owner_email: ownerEmail,
-              email: ownerEmail,
-              claim_status: 'claimed',
-              verified_status: 'claimed',
-              is_active: true,
-              updated_by: session?.user?.id || null,
-            })
-            .eq('id', existingProfile.id);
-          if (legacyUpdateError) throw legacyUpdateError;
-          return;
-        }
-        if (updateError) throw updateError;
+        await updateOrgProfileCompat(supabase, existingProfile.id, {
+          display_name: displayName,
+          owner_email: ownerEmail,
+          email: ownerEmail,
+          claim_status: 'claimed',
+          verified_status: 'claimed',
+          is_active: true,
+        });
         return;
       }
 
-      let { error: insertError } = await supabase.from('organisation_profiles').insert({
+      await insertOrgProfileCompat(supabase, {
         resource_id: claim.listing_id,
         display_name: displayName,
         slug: `${slugBase}-${`${claim.listing_id}`.slice(-6)}`,
@@ -1436,27 +1494,11 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         claim_status: 'claimed',
         verified_status: 'claimed',
         is_active: true,
-        created_by: session?.user?.id || null,
       });
-      if (insertError?.message?.includes('display_name')) {
-        const legacyInsert = await supabase.from('organisation_profiles').insert({
-          resource_id: claim.listing_id,
-          name: displayName,
-          slug: `${slugBase}-${`${claim.listing_id}`.slice(-6)}`,
-          owner_email: ownerEmail,
-          email: ownerEmail,
-          claim_status: 'claimed',
-          verified_status: 'claimed',
-          is_active: true,
-          created_by: session?.user?.id || null,
-        });
-        insertError = legacyInsert.error;
-      }
-      if (insertError) throw insertError;
       return;
     }
 
-    let { error: fallbackInsertError } = await supabase.from('organisation_profiles').insert({
+    await insertOrgProfileCompat(supabase, {
       display_name: displayName,
       slug: `${slugBase}-${Date.now()}`,
       owner_email: ownerEmail,
@@ -1464,22 +1506,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       claim_status: 'claimed',
       verified_status: 'claimed',
       is_active: true,
-      created_by: session?.user?.id || null,
     });
-    if (fallbackInsertError?.message?.includes('display_name')) {
-      const legacyFallbackInsert = await supabase.from('organisation_profiles').insert({
-        name: displayName,
-        slug: `${slugBase}-${Date.now()}`,
-        owner_email: ownerEmail,
-        email: ownerEmail,
-        claim_status: 'claimed',
-        verified_status: 'claimed',
-        is_active: true,
-        created_by: session?.user?.id || null,
-      });
-      fallbackInsertError = legacyFallbackInsert.error;
-    }
-    if (fallbackInsertError) throw fallbackInsertError;
   };
 
   const updateQueueStatus = async (table, id, status) => {
@@ -2388,7 +2415,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                           No organisation profile is linked to this resource. Creating one enables logo, cover image, events and social media on the public listing.
                         </div>
                         {linkedProfileError && <div style={{ marginBottom: 10, padding: '8px 10px', borderRadius: 8, background: 'rgba(244,97,58,0.08)', color: '#A03A2D', fontSize: 12 }}>{linkedProfileError}</div>}
-                        <button className="btn btn-sky btn-sm" disabled={linkedProfileBusy} onClick={createProfileForResource}>
+                        <button className="btn btn-navy btn-sm" disabled={linkedProfileBusy} onClick={createProfileForResource}>
                           {linkedProfileBusy ? 'Creating…' : 'Create profile for this resource'}
                         </button>
                       </div>
@@ -2412,9 +2439,21 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                       ))}
                     </div>
                     {linkedProfileError && <div style={{ marginTop: 8, padding: '8px 10px', borderRadius: 8, background: 'rgba(244,97,58,0.08)', color: '#A03A2D', fontSize: 12 }}>{linkedProfileError}</div>}
-                    <button className="btn btn-sky btn-sm" style={{ marginTop: 10 }} disabled={linkedProfileBusy || !profId} onClick={saveLinkedProfileSocials}>
-                      {linkedProfileBusy ? 'Saving social links…' : 'Save social links'}
-                    </button>
+                    <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <button className="btn btn-navy btn-sm" disabled={linkedProfileBusy || !profId} onClick={saveLinkedProfileSocials}>
+                        {linkedProfileBusy ? 'Saving social links…' : 'Save social links'}
+                      </button>
+                      {profId && (
+                        <button className="btn btn-ghost btn-sm" onClick={() => {
+                          const prof = profiles.find((p) => String(p.id) === String(profId));
+                          if (prof) setProfileDraft({ ...emptyProfile, ...prof, display_name: prof.display_name || prof.name || '', resource_id: prof.resource_id || '', start_date: prof.start_date || '', end_date: prof.end_date || '', ...unpackSocials(prof.socials) });
+                          closeResourceEditor();
+                          setTab('profiles');
+                        }}>
+                          Open full profile editor
+                        </button>
+                      )}
+                    </div>
                     <div style={{ marginTop: 8, fontSize: 11.5, color: 'rgba(26,39,68,0.48)' }}>
                       Social links also save automatically when you click Save changes above.
                     </div>
