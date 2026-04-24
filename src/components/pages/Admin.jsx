@@ -580,6 +580,8 @@ const updateOrgProfileCompat = async (supabaseClient, id, payload, selectCols = 
   throw new Error('Too many schema compatibility retries on organisation_profiles update.');
 };
 
+const SOCIAL_SELECT_COLS = 'id, organisation_name, facebook_url, instagram_url, linkedin_url, youtube_url, tiktok_url, x_url, threads_url, whatsapp_url';
+
 // Build flat social columns payload from a draft (null-ifies empty strings).
 const buildSocialColumnsPayload = (draft) => {
   const payload = {};
@@ -997,7 +999,12 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     setResourceDraft(row ? { ...emptyResource, ...row, category_id: row.category_id || '' } : { ...emptyResource });
     // Populate linked profile draft from existing profiles state
     if (row?.id) {
-      const linked = profiles.find((p) => String(p.resource_id) === String(row.id)) || null;
+      const allLinked = profiles.filter((p) => String(p.resource_id) === String(row.id));
+      if (allLinked.length > 1) {
+        // Multiple profiles for the same resource — pick the active one, then newest by id
+        console.warn(`[Admin] ${allLinked.length} profiles found for resource ${row.id}:`, allLinked.map((p) => p.id));
+      }
+      const linked = allLinked.find((p) => p.is_active !== false) ?? allLinked[0] ?? null;
       setLinkedProfileDraft(linked ? { _id: linked.id, ...normalizeProfileRow(linked) } : {});
     } else {
       setLinkedProfileDraft({});
@@ -1021,8 +1028,6 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     setSelectedPostcodeCandidateId('');
   };
 
-  const SOCIAL_SELECT_COLS = 'id, organisation_name, facebook_url, instagram_url, linkedin_url, youtube_url, tiktok_url, x_url, threads_url, whatsapp_url';
-
   const saveLinkedProfileSocials = async () => {
     const profId = linkedProfileDraft._id;
     if (!profId || !supabase) return;
@@ -1035,8 +1040,19 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         buildSocialColumnsPayload(linkedProfileDraft),
         SOCIAL_SELECT_COLS,
       );
-      // Log the row returned by the UPDATE so social column values are visible
+      // The UPDATE's returned row is authoritative — patch local state immediately.
+      // This prevents stale data if the user reopens the drawer before loadData() resolves.
       console.log('[Admin][saveLinkedProfileSocials] UPDATE returned:', updatedRows);
+      if (updatedRows?.[0]) {
+        const saved = updatedRows[0];
+        // Patch the draft so the open drawer inputs reflect what was actually committed
+        setLinkedProfileDraft((prev) => ({
+          ...prev,
+          ...Object.fromEntries(PROFILE_SOCIAL_COLUMNS.map((col) => [col, saved[col] || ''])),
+        }));
+        // Patch the profiles array so reopening the drawer also reads correct data
+        setProfiles((prev) => prev.map((p) => String(p.id) === String(saved.id) ? { ...p, ...saved } : p));
+      }
       await loadData();
       if (stripped.length > 0) {
         setLinkedProfileError(
