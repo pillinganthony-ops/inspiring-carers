@@ -30,7 +30,7 @@ const Hero = ({ headline }) => (
         fontSize: 14, fontWeight: 600, color: '#1A2744',
       }}>
         <div style={{ width: 8, height: 8, borderRadius: 999, background: '#10B981', flexShrink: 0 }} />
-        <span>Trusted by local carers, NHS organisations &amp; community charities across Cornwall</span>
+        <span>Supporting unpaid carers, local providers &amp; community organisations across Cornwall</span>
         <div style={{ width: 8, height: 8, borderRadius: 999, background: '#10B981', flexShrink: 0 }} />
       </div>
     </div>

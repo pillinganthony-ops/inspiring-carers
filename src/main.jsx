@@ -163,7 +163,7 @@ const ClosingBand = ({ onNavigate }) => (
             fontWeight: 500,
             letterSpacing: '0.02em',
           }}>
-            ✓ Trusted by NHS-linked organisations · ✓ Recognised platform · ✓ Carer-first approach
+            ✓ Trusted by local providers · ✓ Carer-first approach · ✓ Free to join
           </p>
         </div>
       </div>

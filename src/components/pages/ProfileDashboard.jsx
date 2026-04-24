@@ -130,6 +130,66 @@ const fromSimpleEnquiryState = (value) => {
   return 'new';
 };
 
+const UpgradeEnquiryModal = ({ upgradeTitle, orgName, userEmail, onClose, onSuccess }) => {
+  const fld = { width: '100%', borderRadius: 12, border: '1px solid #E9EEF5', padding: '11px 14px', fontSize: 14, color: '#1A2744', background: '#FAFBFF', boxSizing: 'border-box', fontFamily: 'inherit' };
+  const [form, setForm] = React.useState({ name: '', email: userEmail || '', org: orgName || '', message: '' });
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.name.trim() || !form.email.trim()) { setError('Please enter your name and email.'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) { setError('Please enter a valid email address.'); return; }
+    if (!supabase) { setError('Database unavailable. Please try again later.'); return; }
+    setBusy(true);
+    setError('');
+    try {
+      const { error: dbErr } = await supabase.from('resource_update_submissions').insert({
+        organisation_name: form.org.trim() || 'Not specified',
+        submitter_name: form.name.trim(),
+        submitter_email: form.email.trim(),
+        reason: [`Upgrade enquiry: ${upgradeTitle}`, form.message.trim()].filter(Boolean).join('\n\n'),
+        status: 'pending',
+        update_type: 'upgrade_enquiry',
+      });
+      if (dbErr) throw dbErr;
+      onSuccess();
+    } catch (err) {
+      setError(err.message || 'Something went wrong. Please try again.');
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(15,23,42,0.52)', display: 'grid', placeItems: 'center', padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: 'white', borderRadius: 24, padding: '28px 26px', width: '100%', maxWidth: 460, boxShadow: '0 40px 80px rgba(15,23,42,0.22)', position: 'relative' }}>
+        <button onClick={onClose} style={{ position: 'absolute', right: 18, top: 18, width: 34, height: 34, borderRadius: 999, border: '1px solid #EFF1F7', background: '#FAFBFF', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
+          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#1A2744" strokeWidth={2.5} strokeLinecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+        <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#B45309', marginBottom: 6 }}>Upgrade enquiry</div>
+        <h3 style={{ fontSize: 21, fontWeight: 800, color: '#1A2744', margin: 0 }}>{upgradeTitle}</h3>
+        <p style={{ marginTop: 8, fontSize: 13.5, color: 'rgba(26,39,68,0.64)', lineHeight: 1.6, marginBottom: 18 }}>
+          Leave your details and the team will follow up within 48 hours to discuss options and pricing.
+        </p>
+        <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 10 }}>
+          <input value={form.name} onChange={set('name')} required placeholder="Your name *" style={fld} />
+          <input value={form.email} onChange={set('email')} type="email" required placeholder="Email address *" style={fld} />
+          <input value={form.org} onChange={set('org')} placeholder="Organisation name" style={fld} />
+          <textarea value={form.message} onChange={set('message')} rows={3} placeholder="Anything you'd like to add (optional)" style={{ ...fld, resize: 'vertical' }} />
+          {error && <div style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(244,97,58,0.08)', color: '#A03A2D', fontSize: 13 }}>{error}</div>}
+          <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+            <button type="submit" disabled={busy} style={{ flex: 1, padding: '12px 18px', borderRadius: 12, background: 'linear-gradient(135deg,#F5A623,#D4A017)', color: 'white', fontSize: 14, fontWeight: 800, border: 'none', cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.75 : 1 }}>
+              {busy ? 'Sending…' : 'Send enquiry'}
+            </button>
+            <button type="button" onClick={onClose} style={{ padding: '12px 16px', borderRadius: 12, background: '#F5F7FB', color: '#1A2744', fontSize: 14, fontWeight: 600, border: '1px solid #E9EEF5', cursor: 'pointer' }}>Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 const ProfileDashboard = ({ onNavigate, session }) => {
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
@@ -143,6 +203,7 @@ const ProfileDashboard = ({ onNavigate, session }) => {
   const [eventEnquiries, setEventEnquiries] = React.useState([]);
   const [analyticsNotice, setAnalyticsNotice] = React.useState('');
 
+  const [upgradeEnquiryTarget, setUpgradeEnquiryTarget] = React.useState(null);
   const [activeProfileId, setActiveProfileId] = React.useState('');
   const [profileDraft, setProfileDraft] = React.useState(emptyProfile);
   const [resourceSlugMap, setResourceSlugMap] = React.useState({});
@@ -682,9 +743,9 @@ const ProfileDashboard = ({ onNavigate, session }) => {
                 >
                   Complete your profile →
                 </button>
-                <a href="mailto:hello@inspiringcarers.co.uk?subject=Book a discovery call" style={{ padding: '9px 18px', borderRadius: 10, background: 'rgba(245,166,35,0.22)', color: '#FFD980', border: '1.5px solid rgba(245,166,35,0.35)', fontSize: 13.5, fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+                <button onClick={() => setUpgradeEnquiryTarget('Discovery call')} style={{ padding: '9px 18px', borderRadius: 10, background: 'rgba(245,166,35,0.22)', color: '#FFD980', border: '1.5px solid rgba(245,166,35,0.35)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer' }}>
                   Book a discovery call
-                </a>
+                </button>
               </div>
               {latestClaim ? (
                 <div style={{ marginTop: 14, padding: '12px 14px', borderRadius: 16, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.12)' }}>
@@ -722,7 +783,7 @@ const ProfileDashboard = ({ onNavigate, session }) => {
               <div>
                 <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.46)' }}>Grow your listing</div>
                 <h2 style={{ marginTop: 8, fontSize: 24, fontWeight: 800 }}>Boost your reach and capture more enquiries</h2>
-                <p style={{ marginTop: 8, color: 'rgba(26,39,68,0.68)', lineHeight: 1.65, maxWidth: 760 }}>These upgrades help more people find your listing, track interest, and connect directly with your organisation. Contact the team to activate.</p>
+                <p style={{ marginTop: 8, color: 'rgba(26,39,68,0.68)', lineHeight: 1.65, maxWidth: 760 }}>Select any upgrade to enquire — the team will follow up within 48 hours to discuss options and pricing.</p>
               </div>
               <div style={{ padding: '8px 10px', borderRadius: 999, background: hasFeaturedAccess ? 'rgba(16,185,129,0.12)' : 'rgba(245,166,35,0.14)', color: hasFeaturedAccess ? '#0D7A55' : '#9A5A00', fontSize: 12, fontWeight: 700 }}>{hasFeaturedAccess ? 'Featured active' : 'Standard listing'}</div>
             </div>
@@ -739,9 +800,9 @@ const ProfileDashboard = ({ onNavigate, session }) => {
                   <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                     <span style={{ fontSize: 11.5, fontWeight: 700, color: active ? '#0D7A55' : 'rgba(26,39,68,0.5)' }}>{active ? '✓ Active on your plan' : 'Not yet active'}</span>
                     {!active && (
-                      <a href="mailto:hello@inspiringcarers.co.uk?subject=Upgrade Enquiry" style={{ fontSize: 11.5, fontWeight: 800, color: '#B45309', textDecoration: 'none', background: 'rgba(245,166,35,0.12)', padding: '3px 9px', borderRadius: 8, border: '1px solid rgba(245,166,35,0.25)', whiteSpace: 'nowrap' }}>
+                      <button onClick={() => setUpgradeEnquiryTarget(title)} style={{ fontSize: 11.5, fontWeight: 800, color: '#B45309', background: 'rgba(245,166,35,0.12)', padding: '3px 9px', borderRadius: 8, border: '1px solid rgba(245,166,35,0.25)', whiteSpace: 'nowrap', cursor: 'pointer' }}>
                         Enquire →
-                      </a>
+                      </button>
                     )}
                   </div>
                 </div>
@@ -983,6 +1044,18 @@ const ProfileDashboard = ({ onNavigate, session }) => {
           )}
         </div>
       </section>
+      {upgradeEnquiryTarget && (
+        <UpgradeEnquiryModal
+          upgradeTitle={upgradeEnquiryTarget}
+          orgName={activeProfile?.organisation_name || ''}
+          userEmail={session?.user?.email || ''}
+          onClose={() => setUpgradeEnquiryTarget(null)}
+          onSuccess={() => {
+            setUpgradeEnquiryTarget(null);
+            setToast('Enquiry sent — the team will be in touch shortly.');
+          }}
+        />
+      )}
       <Footer onNavigate={onNavigate} />
     </>
   );

@@ -9,7 +9,7 @@ const Signposting = ({ onNavigate }) => {
     { icon: <IWalks s={24}/>,   tone: 'lime',  label: 'Walks & outdoors',  count: '86 routes' },
     { icon: <IEvent s={24}/>,   tone: 'violet',label: 'Events',            count: '24 this week' },
     { icon: <ILibrary s={24}/>, tone: 'gold',  label: 'Libraries',         count: '38 nearby' },
-    { icon: <IHub s={24}/>,     tone: 'sky',   label: 'Community hubs',    count: '17 NHS-linked' },
+    { icon: <IHub s={24}/>,     tone: 'sky',   label: 'Community hubs',    count: '17 local hubs' },
     { icon: <IMind s={24}/>,    tone: 'violet',label: 'Mental wellbeing',  count: '63 resources' },
     { icon: <IFinance s={24}/>, tone: 'lime',  label: 'Finance help',      count: '22 services' },
     { icon: <ITransport s={24}/>,tone: 'coral', label: 'Transport help',   count: '19 options' },

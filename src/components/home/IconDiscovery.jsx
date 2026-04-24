@@ -11,7 +11,7 @@ const IconDiscovery = ({ onNavigate }) => {
     { icon: <IEvent s={32}/>,       tone: 'violet', label: 'Events everywhere',        side: 'both',    count: '24+ happening this week' },
     { icon: <IAdvice s={32}/>,      tone: 'sky',    label: 'Expert advice',            side: 'support', count: 'Updated daily' },
     { icon: <ILibrary s={32}/>,     tone: 'gold',   label: 'Libraries & hubs',        side: 'support', count: '38+ near you' },
-    { icon: <IHub s={32}/>,         tone: 'violet', label: 'Community centres',       side: 'support', count: '17 NHS-linked' },
+    { icon: <IHub s={32}/>,         tone: 'violet', label: 'Community centres',       side: 'support', count: '17 local hubs' },
     { icon: <IReward s={32}/>,      tone: 'coral',  label: 'Rewards & cashback',      side: 'you',     count: 'Points you can spend' },
     { icon: <IRecognition s={32}/>, tone: 'gold',   label: 'Recognition & awards',    side: 'you',     count: 'Get featured' },
     { icon: <IFamily s={32}/>,      tone: 'lime',   label: 'Family support',          side: 'support', count: '112 services' },
