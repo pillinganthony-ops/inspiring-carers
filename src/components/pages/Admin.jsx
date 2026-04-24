@@ -809,10 +809,31 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     const isEdit = Boolean(resourceDraft.id);
     let saved = false;
     await withBusy(async () => {
-      const result = isEdit
-        ? await supabase.from('resources').update(payload).eq('id', resourceDraft.id)
-        : await supabase.from('resources').insert(payload);
-      if (result.error) throw result.error;
+      if (isEdit) {
+        // Use .select('id') so PostgREST returns affected rows.
+        // Without .select(), a silently-blocked update (RLS or wrong id) returns
+        // { data: null, error: null } and we cannot distinguish success from failure.
+        const result = await supabase
+          .from('resources')
+          .update(payload)
+          .eq('id', resourceDraft.id)
+          .select('id, name');
+        if (result.error) throw result.error;
+        if (!result.data || result.data.length === 0) {
+          throw new Error(
+            `Database update returned 0 rows. The row may be blocked by a permission policy (RLS). ` +
+            `To fix: run the admin_users SQL in the Supabase console to grant write access. ` +
+            `Resource ID: ${resourceDraft.id}`,
+          );
+        }
+      } else {
+        const result = await supabase
+          .from('resources')
+          .insert(payload)
+          .select('id, name')
+          .single();
+        if (result.error) throw result.error;
+      }
       saved = true;
     }, isEdit ? 'Resource updated.' : 'Resource created.');
     if (saved) {
