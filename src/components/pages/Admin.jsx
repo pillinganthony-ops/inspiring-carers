@@ -157,7 +157,7 @@ const deriveAdminCategoryFallback = (resourcesRows) => {
   const byKey = new Map();
   (resourcesRows || []).forEach((row) => {
     const id = row?.category_id ?? null;
-    const rawName = `${row?.category_name || row?.category || ''}`.trim();
+    const rawName = `${row?.category_name || row?.category || row?.category_label || row?.resource_type || row?.type || ''}`.trim();
     const key = id !== null && id !== undefined ? `id:${id}` : '';
     if (!key || byKey.has(key)) return;
     byKey.set(key, {
@@ -2188,83 +2188,187 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
             </div>
 
             {/* Drawer body — scrollable */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '18px 22px', display: 'grid', gap: 20 }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '18px 22px', display: 'grid', gap: 22 }}>
               {error && <div style={{ padding: '9px 12px', borderRadius: 10, background: 'rgba(244,97,58,0.08)', color: '#A03A2D', fontSize: 13, fontWeight: 600 }}>{error}</div>}
 
-              {/* Primary */}
+              {/* ── SECTION: Listing basics ─────────────────── */}
               <div>
-                <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.44)', marginBottom: 10 }}>Primary</div>
-                <div style={{ display: 'grid', gap: 8 }}>
-                  <input value={resourceDraft.name} onChange={(e) => setResourceDraft((p) => ({ ...p, name: e.target.value }))} placeholder="Name *" style={inputStyle} />
-                  <input value={resourceDraft.slug} onChange={(e) => setResourceDraft((p) => ({ ...p, slug: e.target.value }))} placeholder="Slug" style={inputStyle} />
-                  <select value={resourceDraft.category_id} onChange={(e) => setResourceDraft((p) => ({ ...p, category_id: e.target.value }))} style={inputStyle}>
-                    <option value="">Category</option>
-                    {categories.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
-                  </select>
-                  <input value={resourceDraft.town} onChange={(e) => setResourceDraft((p) => ({ ...p, town: e.target.value }))} placeholder="Town" style={inputStyle} />
-                  <input value={resourceDraft.website} onChange={(e) => setResourceDraft((p) => ({ ...p, website: e.target.value }))} placeholder="Website" style={inputStyle} />
-                  <input value={resourceDraft.phone} onChange={(e) => setResourceDraft((p) => ({ ...p, phone: e.target.value }))} placeholder="Phone" style={inputStyle} />
-                  <input value={resourceDraft.email} onChange={(e) => setResourceDraft((p) => ({ ...p, email: e.target.value }))} placeholder="Email" style={inputStyle} />
-                </div>
-              </div>
+                <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.44)', marginBottom: 12 }}>Listing basics · public-facing</div>
+                <div style={{ display: 'grid', gap: 12 }}>
 
-              {/* Location */}
-              <div>
-                <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.44)', marginBottom: 10 }}>Location</div>
-                <div style={{ display: 'grid', gap: 8 }}>
-                  <input value={resourceDraft.address} onChange={(e) => setResourceDraft((p) => ({ ...p, address: e.target.value }))} placeholder="Address" style={inputStyle} />
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <input value={resourceDraft.postcode} onChange={(e) => setResourceDraft((p) => ({ ...p, postcode: e.target.value }))} placeholder="Postcode" style={{ ...inputStyle, flex: 1 }} />
-                    <button type="button" className="btn btn-ghost btn-sm" style={{ whiteSpace: 'nowrap', alignSelf: 'stretch', padding: '0 12px' }} disabled={!resourceDraft.postcode?.trim() || postcodeBusy} onClick={handlePostcodeLookup}>
-                      {postcodeBusy ? 'Looking…' : 'Lookup →'}
-                    </button>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#1A2744', marginBottom: 4 }}>Organisation / listing name <span style={{ color: '#A03A2D' }}>*</span></div>
+                    <input value={resourceDraft.name} onChange={(e) => setResourceDraft((p) => ({ ...p, name: e.target.value }))} placeholder="e.g. Carers Cornwall" style={inputStyle} />
                   </div>
-                  {postcodeError ? <div style={{ color: '#A03A2D', fontSize: 12 }}>{postcodeError}</div> : null}
-                  {postcodeCandidates.length ? (
-                    <>
-                      <select
-                        value={selectedPostcodeCandidateId}
-                        onChange={(e) => {
-                          const nextId = e.target.value;
-                          setSelectedPostcodeCandidateId(nextId);
-                          applyPostcodeCandidate(postcodeCandidates.find((c) => c.id === nextId) || null);
-                        }}
-                        style={inputStyle}
-                      >
-                        <option value="">Select an address result</option>
-                        {postcodeCandidates.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
-                      </select>
-                      <div style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.58)' }}>Select to populate address, town, postcode and coordinates.</div>
-                    </>
-                  ) : null}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                    <input value={resourceDraft.latitude} onChange={(e) => setResourceDraft((p) => ({ ...p, latitude: e.target.value }))} placeholder="Latitude" style={inputStyle} />
-                    <input value={resourceDraft.longitude} onChange={(e) => setResourceDraft((p) => ({ ...p, longitude: e.target.value }))} placeholder="Longitude" style={inputStyle} />
+
+                  <div>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', marginBottom: 4 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#1A2744' }}>URL slug</span>
+                      <span style={{ fontSize: 11, color: 'rgba(26,39,68,0.5)' }}>forms the public /find-help/{'{slug}'} link</span>
+                    </div>
+                    <input value={resourceDraft.slug} onChange={(e) => setResourceDraft((p) => ({ ...p, slug: e.target.value }))} placeholder="e.g. carers-cornwall" style={inputStyle} />
+                  </div>
+
+                  <div>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', marginBottom: 4 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#1A2744' }}>Category</span>
+                      {categories.some((c) => c._derived) && <span style={{ fontSize: 11, color: '#8a5a0b', fontWeight: 600 }}>⚠ using derived fallback — categories table may be empty</span>}
+                    </div>
+                    {/* String-normalise both sides so integer IDs from legacy resources match string IDs from categories table */}
+                    <select
+                      value={String(resourceDraft.category_id || '')}
+                      onChange={(e) => setResourceDraft((p) => ({ ...p, category_id: e.target.value }))}
+                      style={inputStyle}
+                    >
+                      <option value="">— Select category —</option>
+                      {categories.map((row) => (
+                        <option key={row.id} value={String(row.id)}>
+                          {row.name}{row._derived ? ' (derived)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', marginBottom: 4 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#1A2744' }}>Town / area</span>
+                      <span style={{ fontSize: 11, color: 'rgba(26,39,68,0.5)' }}>shown in search results and map panel</span>
+                    </div>
+                    <input value={resourceDraft.town} onChange={(e) => setResourceDraft((p) => ({ ...p, town: e.target.value }))} placeholder="e.g. Truro" style={inputStyle} />
+                  </div>
+
+                  <div>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', marginBottom: 4 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#1A2744' }}>Website</span>
+                      <span style={{ fontSize: 11, color: 'rgba(26,39,68,0.5)' }}>public link on listing card</span>
+                    </div>
+                    <input value={resourceDraft.website} onChange={(e) => setResourceDraft((p) => ({ ...p, website: e.target.value }))} placeholder="https://example.org" style={inputStyle} />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#1A2744', marginBottom: 4 }}>Phone</div>
+                      <input value={resourceDraft.phone} onChange={(e) => setResourceDraft((p) => ({ ...p, phone: e.target.value }))} placeholder="01872 000000" style={inputStyle} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#1A2744', marginBottom: 4 }}>Email</div>
+                      <input value={resourceDraft.email} onChange={(e) => setResourceDraft((p) => ({ ...p, email: e.target.value }))} placeholder="contact@example.org" style={inputStyle} />
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Content */}
+              {/* ── SECTION: Service / public address ─────── */}
               <div>
-                <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.44)', marginBottom: 10 }}>Content</div>
-                <div style={{ display: 'grid', gap: 8 }}>
-                  <textarea value={resourceDraft.summary} onChange={(e) => setResourceDraft((p) => ({ ...p, summary: e.target.value }))} placeholder="Short summary" rows={2} style={{ ...inputStyle, resize: 'vertical' }} />
-                  <textarea value={resourceDraft.description} onChange={(e) => setResourceDraft((p) => ({ ...p, description: e.target.value }))} placeholder="Full description" rows={4} style={{ ...inputStyle, resize: 'vertical' }} />
+                <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.44)', marginBottom: 4 }}>Service address · public-facing</div>
+                <div style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.55)', marginBottom: 12 }}>Where the public service is delivered. Used for the map pin. County-wide services should leave address/lat/lng blank and use the coverage model instead.</div>
+                <div style={{ display: 'grid', gap: 12 }}>
+
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#1A2744', marginBottom: 4 }}>Street address</div>
+                    <input value={resourceDraft.address} onChange={(e) => setResourceDraft((p) => ({ ...p, address: e.target.value }))} placeholder="e.g. 1 High Street, Truro" style={inputStyle} />
+                  </div>
+
+                  <div>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', marginBottom: 4 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#1A2744' }}>Postcode</span>
+                      <span style={{ fontSize: 11, color: 'rgba(26,39,68,0.5)' }}>lookup fills address, town, postcode and map pin</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <input value={resourceDraft.postcode} onChange={(e) => setResourceDraft((p) => ({ ...p, postcode: e.target.value }))} placeholder="TR1 1AB" style={{ ...inputStyle, flex: 1 }} />
+                      <button type="button" className="btn btn-ghost btn-sm" style={{ whiteSpace: 'nowrap', alignSelf: 'stretch', padding: '0 12px' }} disabled={!resourceDraft.postcode?.trim() || postcodeBusy} onClick={handlePostcodeLookup}>
+                        {postcodeBusy ? 'Looking…' : 'Lookup →'}
+                      </button>
+                    </div>
+                    {postcodeError ? <div style={{ color: '#A03A2D', fontSize: 12, marginTop: 4 }}>{postcodeError}</div> : null}
+                    {postcodeCandidates.length ? (
+                      <div style={{ marginTop: 6, display: 'grid', gap: 6 }}>
+                        <select
+                          value={selectedPostcodeCandidateId}
+                          onChange={(e) => { setSelectedPostcodeCandidateId(e.target.value); applyPostcodeCandidate(postcodeCandidates.find((c) => c.id === e.target.value) || null); }}
+                          style={inputStyle}
+                        >
+                          <option value="">— Choose address to populate fields —</option>
+                          {postcodeCandidates.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+                        </select>
+                        <div style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.52)' }}>Selecting an address updates street address, town, postcode, latitude and longitude.</div>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div>
+                      <div style={{ display: 'flex', gap: 5, alignItems: 'baseline', marginBottom: 4 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#1A2744' }}>Latitude</span>
+                        <span style={{ fontSize: 10, color: 'rgba(26,39,68,0.4)', fontFamily: 'monospace' }}>internal</span>
+                      </div>
+                      <input value={resourceDraft.latitude} onChange={(e) => setResourceDraft((p) => ({ ...p, latitude: e.target.value }))} placeholder="50.2660" style={inputStyle} />
+                    </div>
+                    <div>
+                      <div style={{ display: 'flex', gap: 5, alignItems: 'baseline', marginBottom: 4 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#1A2744' }}>Longitude</span>
+                        <span style={{ fontSize: 10, color: 'rgba(26,39,68,0.4)', fontFamily: 'monospace' }}>internal</span>
+                      </div>
+                      <input value={resourceDraft.longitude} onChange={(e) => setResourceDraft((p) => ({ ...p, longitude: e.target.value }))} placeholder="-5.0527" style={inputStyle} />
+                    </div>
+                  </div>
+
+                  <div style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(26,39,68,0.03)', border: '1px dashed #D8E2F0', fontSize: 12, color: 'rgba(26,39,68,0.5)', lineHeight: 1.55 }}>
+                    <strong style={{ color: '#1A2744' }}>Head office / HQ fields</strong> (head_office_address, head_office_town, head_office_postcode) are not yet in the live schema. Run the migration SQL in the deliverable to enable them. The current address fields represent the public service delivery location only.
+                  </div>
                 </div>
               </div>
 
-              {/* Flags */}
+              {/* ── SECTION: Public content ───────────────── */}
               <div>
-                <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.44)', marginBottom: 10 }}>Flags</div>
-                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
-                    <input type="checkbox" checked={Boolean(resourceDraft.verified)} onChange={(e) => setResourceDraft((p) => ({ ...p, verified: e.target.checked }))} /> Verified
+                <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.44)', marginBottom: 12 }}>Public content · shown on listing pages</div>
+                <div style={{ display: 'grid', gap: 12 }}>
+                  <div>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', marginBottom: 4 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#1A2744' }}>Public summary</span>
+                      <span style={{ fontSize: 11, color: 'rgba(26,39,68,0.5)' }}>shown in search results and listing cards (keep under 160 chars)</span>
+                    </div>
+                    <textarea value={resourceDraft.summary} onChange={(e) => setResourceDraft((p) => ({ ...p, summary: e.target.value }))} placeholder="Short public description visible in search and cards" rows={2} style={{ ...inputStyle, resize: 'vertical' }} />
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', marginBottom: 4 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#1A2744' }}>Full description</span>
+                      <span style={{ fontSize: 11, color: 'rgba(26,39,68,0.5)' }}>shown on the detail page "About this service" section</span>
+                    </div>
+                    <textarea value={resourceDraft.description} onChange={(e) => setResourceDraft((p) => ({ ...p, description: e.target.value }))} placeholder="Full public description for the listing detail page" rows={4} style={{ ...inputStyle, resize: 'vertical' }} />
+                    {resourceDraft.description && resourceDraft.description.includes('---') && (
+                      <div style={{ marginTop: 5, fontSize: 11.5, color: '#8a5a0b', background: 'rgba(245,166,35,0.07)', padding: '5px 9px', borderRadius: 7 }}>
+                        This field appears to contain raw import/submission data. Edit to keep only the public-facing description.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* ── SECTION: Flags ────────────────────────── */}
+              <div>
+                <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.44)', marginBottom: 12 }}>Listing flags</div>
+                <div style={{ display: 'grid', gap: 10 }}>
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={Boolean(resourceDraft.verified)} onChange={(e) => setResourceDraft((p) => ({ ...p, verified: e.target.checked }))} style={{ marginTop: 3 }} />
+                    <div>
+                      <div style={{ fontSize: 13.5, fontWeight: 700 }}>Verified</div>
+                      <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.55)' }}>Shows "Verified listing" badge on the public card. Use when contact details are confirmed accurate.</div>
+                    </div>
                   </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
-                    <input type="checkbox" checked={Boolean(resourceDraft.featured)} onChange={(e) => setResourceDraft((p) => ({ ...p, featured: e.target.checked }))} /> Featured
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={Boolean(resourceDraft.featured)} onChange={(e) => setResourceDraft((p) => ({ ...p, featured: e.target.checked }))} style={{ marginTop: 3 }} />
+                    <div>
+                      <div style={{ fontSize: 13.5, fontWeight: 700 }}>Featured</div>
+                      <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.55)' }}>Appears in the featured listings section on Find Help. Gold card treatment in results.</div>
+                    </div>
                   </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13.5, fontWeight: 600, color: '#A03A2D', cursor: 'pointer' }}>
-                    <input type="checkbox" checked={Boolean(resourceDraft.is_archived)} onChange={(e) => setResourceDraft((p) => ({ ...p, is_archived: e.target.checked }))} /> Archived
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={Boolean(resourceDraft.is_archived)} onChange={(e) => setResourceDraft((p) => ({ ...p, is_archived: e.target.checked }))} style={{ marginTop: 3 }} />
+                    <div>
+                      <div style={{ fontSize: 13.5, fontWeight: 700, color: '#A03A2D' }}>Archived</div>
+                      <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.55)' }}>Removes this listing from Find Help entirely. Data is kept but it is no longer public.</div>
+                    </div>
                   </label>
                 </div>
               </div>
