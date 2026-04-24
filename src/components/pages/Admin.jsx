@@ -659,21 +659,32 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       setResources(resourcesResult.data || []);
       setProfiles((profilesResult.data || []).slice().sort((left, right) => getProfileName(left, resourcesResult.data || []).localeCompare(getProfileName(right, resourcesResult.data || []), 'en', { sensitivity: 'base' })));
       setEvents((eventsResult.data || []).slice().sort((left, right) => `${left.starts_at || ''}`.localeCompare(`${right.starts_at || ''}`)));
-      const claimRows = claimsResult.error
-        ? (resourceUpdatesResult.data || [])
-          .filter((row) => `${row.update_type || ''}`.toLowerCase() === 'claim_request')
-          .map((row) => ({
-            id: row.id,
-            listing_id: row.resource_id,
-            listing_title: row.resource_name || row.listing_title || 'Claim request',
-            org_name: row.payload?.org_name || '',
-            full_name: row.submitter_name || row.payload?.full_name || '',
-            email: row.submitter_email || row.payload?.email || '',
-            status: row.status || 'pending',
-            created_at: row.created_at,
-            source: 'resource_update_submissions',
-          }))
-        : (claimsResult.data || []);
+      // Always read both sources and merge so fallback claims are visible even
+      // when listing_claims table is accessible but a specific submission used
+      // the resource_update_submissions fallback path.
+      const primaryClaims = (claimsResult.error ? [] : (claimsResult.data || []))
+        .map((r) => ({ ...r, _source: 'listing_claims' }));
+      const fallbackClaims = (resourceUpdatesResult.data || [])
+        .filter((row) => `${row.update_type || ''}`.toLowerCase() === 'claim_request')
+        .map((row) => ({
+          id: row.id,
+          listing_id: row.resource_id,
+          listing_title: `${row.organisation_name || row.listing_title || 'Claim request'}`.replace(/^\[CLAIM\]\s*/i, ''),
+          org_name: `${row.organisation_name || ''}`.replace(/^\[CLAIM\]\s*/i, ''),
+          full_name: row.submitter_name || '',
+          email: row.submitter_email || '',
+          phone: row.submitter_phone || null,
+          relationship: row.relationship_to_organisation || '',
+          reason: row.reason || '',
+          status: row.status || 'pending',
+          created_at: row.created_at,
+          _source: 'resource_update_submissions',
+        }));
+      const primaryIds = new Set(primaryClaims.map((r) => String(r.id)));
+      const claimRows = [
+        ...primaryClaims,
+        ...fallbackClaims.filter((r) => !primaryIds.has(String(r.id))),
+      ];
 
       setClaims(claimRows);
       setResourceUpdates(
@@ -1277,11 +1288,16 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       const { error: updateError } = await supabase.from(table).update({ status }).eq('id', id);
       if (updateError) throw updateError;
 
-      if (table === 'listing_claims' && status === 'approved') {
+      // Fire ownership provisioning for any claim approval regardless of source table
+      const isClaimApproval = status === 'approved' &&
+        (table === 'listing_claims' || table === 'resource_update_submissions');
+      if (isClaimApproval) {
         const claim = claims.find((row) => `${row.id}` === `${id}`) || null;
-        await applyApprovedClaimOwnership(claim);
+        if (claim) await applyApprovedClaimOwnership(claim);
       }
-    }, table === 'listing_claims' && status === 'approved' ? 'Claim approved and owner access provisioned.' : 'Status updated.');
+    }, status === 'approved' && (table === 'listing_claims' || table === 'resource_update_submissions')
+      ? 'Claim approved and owner access provisioned.'
+      : 'Status updated.');
   };
 
   if (!session) {
@@ -1659,7 +1675,10 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                 <QueueCard
                   title="Pending claims"
                   rows={pendingClaims}
-                  onUpdateStatus={(id, status) => updateQueueStatus('listing_claims', id, status)}
+                  onUpdateStatus={(id, status) => {
+                    const claimRow = claims.find((r) => `${r.id}` === `${id}`);
+                    updateQueueStatus(claimRow?._source || 'listing_claims', id, status);
+                  }}
                   formatRow={(row) => `${row.listing_title || row.org_name || 'Claim'} · ${row.full_name || row.email || 'Unknown'}`}
                   renderMeta={(row) => (
                     <div style={{ display: 'grid', gap: 4, fontSize: 12, color: 'rgba(26,39,68,0.72)' }}>

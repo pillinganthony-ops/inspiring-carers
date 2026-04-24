@@ -873,7 +873,7 @@ const ClaimModal = ({ listing, onClose, onSuccess, onError }) => {
           relationship_to_organisation: claimPayload.relationship,
           reason: claimPayload.reason,
           status: 'pending',
-          update_type: 'claim',
+          update_type: 'claim_request',
         };
         const { error: fallbackError } = await supabase.from('resource_update_submissions').insert(fallback);
         if (fallbackError) throw dbError; // surface original error if both fail
