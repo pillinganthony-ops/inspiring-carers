@@ -6,7 +6,7 @@ import Footer from '../Footer.jsx';
 import walks from '../../data/walks.json';
 import { RiskAssessmentDisclaimer, WalkRiskSummary, SubmitRiskUpdateModal, downloadRiskAssessmentPDF } from '../WalkRiskAssessment.jsx';
 import supabase, { isSupabaseConfigured } from '../../lib/supabaseClient.js';
-const { IWalks, IArrow, IChevron, IStar, IClose, IconTile } = Icons;
+const { IWalks, IArrow, IChevron, IStar, IClose, IPin, IconTile } = Icons;
 
 const WALKS_MAP_LIBRARIES = ['places'];
 const WALKS_MAP_CENTER = { lat: 50.45, lng: -4.65 }; // Cornwall centre
@@ -623,41 +623,114 @@ const NumberInput = ({ label, value, onChange, suffix, min = 0, max = 100, step 
   </div>
 );
 
-const WalkCard = ({ walk, onView }) => (
-  <div className="card" style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16, minHeight: 320, borderRadius: 28, border: '1px solid #EEF1F6' }}>
-    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, alignItems: 'flex-start' }}>
-      <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-        <IconTile tone="lime" size={52} radius={18}><IWalks s={24} /></IconTile>
-        <div>
-          <div style={{ fontFamily: 'Sora, sans-serif', fontSize: 22, fontWeight: 700, lineHeight: 1.15 }}>{walk.name}</div>
-          <div style={{ marginTop: 6, fontSize: 14, color: 'rgba(26,39,68,0.68)' }}>{walk.area}</div>
+const DIFF_ACCENT = { Easy: '#5BC94A', Moderate: '#2D9CDB', Hard: '#F5A623' };
+const DIFF_BG    = { Easy: 'rgba(91,201,74,0.09)', Moderate: 'rgba(45,156,219,0.09)', Hard: 'rgba(245,166,35,0.1)' };
+const DIFF_FG    = { Easy: '#1E6B10', Moderate: '#1054A0', Hard: '#7A4B00' };
+
+const WalkCard = ({ walk, onView }) => {
+  const diff   = normalizeDifficultyLabel(walk.difficulty);
+  const accent = DIFF_ACCENT[diff] || DIFF_ACCENT.Moderate;
+  const bg     = DIFF_BG[diff]    || DIFF_BG.Moderate;
+  const fg     = DIFF_FG[diff]    || DIFF_FG.Moderate;
+  const accessible = hasAccessibleTerrain(walk);
+
+  return (
+    <div
+      className="card"
+      onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 22px 52px rgba(26,39,68,0.13)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; }}
+      style={{ display: 'flex', flexDirection: 'column', borderRadius: 24, border: '1px solid #E8EEF8', overflow: 'hidden', background: 'white', transition: 'transform 0.2s ease, box-shadow 0.2s ease' }}
+    >
+      {/* Difficulty-coded top stripe */}
+      <div style={{ height: 4, background: `linear-gradient(90deg, ${accent} 0%, ${accent}88 100%)`, flexShrink: 0 }} />
+
+      {/* Tinted header: area + difficulty pill */}
+      <div style={{ padding: '12px 18px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, background: bg }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12.5, fontWeight: 700, color: fg, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '60%' }}>
+          <IPin s={12} /> {walk.area}
+        </span>
+        <span style={{ padding: '3px 10px', borderRadius: 999, background: accent, color: 'white', fontSize: 12, fontWeight: 800, flexShrink: 0 }}>
+          {diff}
+        </span>
+      </div>
+
+      {/* Body */}
+      <div style={{ padding: '14px 18px 12px', flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {/* Walk name — 2-line clamp */}
+        <div style={{ fontFamily: 'Sora, sans-serif', fontSize: 18, fontWeight: 800, lineHeight: 1.22, color: '#1A2744', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          {walk.name}
         </div>
+
+        {/* Start → Finish */}
+        <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.56)', display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden' }}>
+          <IWalks s={13} style={{ flexShrink: 0 }} />
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {walk.startLocation}{walk.finishLocation && walk.finishLocation !== walk.startLocation ? ` → ${walk.finishLocation}` : ''}
+          </span>
+        </div>
+
+        {/* Info chips: distance, duration, accessible, circular */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {walk.distanceMiles > 0 && (
+            <span style={{ padding: '4px 11px', borderRadius: 999, background: '#EEF4FF', color: '#2A4A90', fontSize: 12.5, fontWeight: 700 }}>
+              {formatDistance(walk.distanceMiles)}
+            </span>
+          )}
+          {walk.durationMinutes > 0 && (
+            <span style={{ padding: '4px 11px', borderRadius: 999, background: '#EEF4FF', color: '#2A4A90', fontSize: 12.5, fontWeight: 700 }}>
+              {formatDuration(walk.durationMinutes)}
+            </span>
+          )}
+          {accessible && (
+            <span style={{ padding: '4px 11px', borderRadius: 999, background: 'rgba(45,156,219,0.1)', color: '#1054A0', fontSize: 12.5, fontWeight: 700 }}>
+              ♿ Accessible
+            </span>
+          )}
+          {walk.circular && (
+            <span style={{ padding: '4px 11px', borderRadius: 999, background: 'rgba(91,201,74,0.1)', color: '#1E6B10', fontSize: 12.5, fontWeight: 700 }}>
+              Circular
+            </span>
+          )}
+        </div>
+
+        {/* Highlights — 2-line clamp */}
+        {walk.highlights ? (
+          <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.64)', lineHeight: 1.58, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+            {walk.highlights}
+          </div>
+        ) : null}
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
-        <div style={{ borderRadius: 999, padding: '8px 14px', background: 'rgba(91,201,74,0.12)', color: '#1A2744', fontSize: 13, fontWeight: 700 }}>{walk.difficulty}</div>
-        <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.72)' }}>{formatDistance(walk.distanceMiles)}</div>
-        <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.72)' }}>{formatDuration(walk.durationMinutes)}</div>
+
+      {/* Facilities strip */}
+      <div style={{ padding: '9px 18px', borderTop: '1px solid #EEF2FA', display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+        {[
+          { label: 'Toilets', has: walk.toilets },
+          { label: 'Parking', has: walk.parking },
+          { label: 'Buses',   has: walk.publicTransport },
+          { label: 'Cafes',   has: walk.refreshments },
+        ].map(({ label, has }) => (
+          <span key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: has ? '#1E6B10' : 'rgba(26,39,68,0.34)' }}>
+            <span style={{ width: 15, height: 15, borderRadius: 999, background: has ? 'rgba(91,201,74,0.18)' : 'rgba(26,39,68,0.06)', display: 'inline-grid', placeItems: 'center', fontSize: 9, flexShrink: 0 }}>
+              {has ? '✓' : '–'}
+            </span>
+            {label}
+          </span>
+        ))}
+      </div>
+
+      {/* CTA */}
+      <div style={{ padding: '10px 18px 18px' }}>
+        <button
+          className="btn btn-sky"
+          onClick={onView}
+          style={{ width: '100%', justifyContent: 'center', fontWeight: 700, padding: '12px 16px', borderRadius: 14, gap: 8, fontSize: 14 }}
+        >
+          View walk details <IArrow s={14} />
+        </button>
       </div>
     </div>
-
-    <div style={{ color: 'rgba(26,39,68,0.74)', lineHeight: 1.7, fontSize: 15 }}>{walk.highlights}</div>
-
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
-      <MiniStat label="Toilets" value={walk.toilets ? 'Yes' : 'No'} />
-      <MiniStat label="Parking" value={walk.parking ? 'Yes' : 'No'} />
-      <MiniStat label="Transport" value={walk.publicTransport ? 'Yes' : 'No'} />
-    </div>
-
-    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
-      <button className="btn btn-sky btn-sm" onClick={onView} style={{ minWidth: 140, padding: '12px 16px' }}>
-        View details
-      </button>
-      <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.68)', display: 'flex', alignItems: 'center', gap: 6 }}>
-        <IStar s={16} /> Accessible: {hasAccessibleTerrain(walk) ? 'Easier terrain' : 'See notes'}
-      </div>
-    </div>
-  </div>
-);
+  );
+};
 
 const MiniStat = ({ label, value }) => (
   <div style={{ borderRadius: 18, padding: '12px 14px', background: 'rgba(250,251,255,0.9)', border: '1px solid #EFF1F7' }}>
