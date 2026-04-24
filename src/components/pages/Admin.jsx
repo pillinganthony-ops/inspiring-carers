@@ -583,6 +583,27 @@ const updateOrgProfileCompat = async (supabaseClient, id, payload, selectCols = 
 
 const SOCIAL_SELECT_COLS = 'id, organisation_name, facebook_url, instagram_url, linkedin_url, youtube_url, tiktok_url, x_url, threads_url, whatsapp_url';
 
+// Upsert an organisation_profile_members row so is_profile_owner() returns true
+// for this email. Called after every claim approval. Non-fatal — a warning is
+// logged if it fails so the profile ownership (set via owner_email) still works.
+const ensureProfileMemberAccess = async (supabaseClient, profileId, ownerEmail) => {
+  if (!profileId || !ownerEmail) return;
+  const { error } = await supabaseClient
+    .from('organisation_profile_members')
+    .upsert(
+      {
+        organisation_profile_id: profileId,
+        owner_email: ownerEmail.toLowerCase(),
+        role_label: 'owner',
+        status: 'active',
+      },
+      { onConflict: 'organisation_profile_id,owner_email' },
+    );
+  if (error) {
+    console.warn('[Admin] ensureProfileMemberAccess failed (non-fatal):', error.message);
+  }
+};
+
 // Build flat social columns payload from a draft (null-ifies empty strings).
 const buildSocialColumnsPayload = (draft) => {
   const payload = {};
@@ -1540,10 +1561,11 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
           contact_email: ownerEmail,
           is_active: true,
         });
+        await ensureProfileMemberAccess(supabase, existingProfile.id, ownerEmail);
         return;
       }
 
-      await insertOrgProfileCompat(supabase, {
+      const { data: createdProfile } = await insertOrgProfileCompat(supabase, {
         resource_id: claim.listing_id,
         organisation_name: displayName,
         slug: `${slugBase}-${`${claim.listing_id}`.slice(-6)}`,
@@ -1551,16 +1573,18 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         contact_email: ownerEmail,
         is_active: true,
       });
+      await ensureProfileMemberAccess(supabase, createdProfile.id, ownerEmail);
       return;
     }
 
-    await insertOrgProfileCompat(supabase, {
+    const { data: createdProfileFallback } = await insertOrgProfileCompat(supabase, {
       organisation_name: displayName,
       slug: `${slugBase}-${Date.now()}`,
       owner_email: ownerEmail,
       contact_email: ownerEmail,
       is_active: true,
     });
+    await ensureProfileMemberAccess(supabase, createdProfileFallback.id, ownerEmail);
   };
 
   const updateQueueStatus = async (table, id, status) => {

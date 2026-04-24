@@ -3,39 +3,52 @@ import Nav from '../Nav.jsx';
 import Footer from '../Footer.jsx';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient.js';
 
-const SOCIAL_KEYS = ['facebook','instagram','tiktok','x','youtube','linkedin','whatsapp','threads','snapchat'];
-const SOCIAL_LABELS_PD = { facebook:'Facebook', instagram:'Instagram', tiktok:'TikTok', x:'X / Twitter', youtube:'YouTube', linkedin:'LinkedIn', whatsapp:'WhatsApp', threads:'Threads', snapchat:'Snapchat' };
-const SOCIAL_PH_PD = { facebook:'https://facebook.com/…', instagram:'https://instagram.com/…', tiktok:'https://tiktok.com/@…', x:'https://x.com/…', youtube:'https://youtube.com/@…', linkedin:'https://linkedin.com/…', whatsapp:'+44 7700 000000 or wa.me/…', threads:'https://threads.net/…', snapchat:'https://snapchat.com/…' };
+// Live DB uses individual _url columns, not a socials JSONB blob.
+const PD_SOCIAL_COLUMNS = ['facebook_url','instagram_url','linkedin_url','youtube_url','tiktok_url','x_url','threads_url','whatsapp_url'];
+const PD_SOCIAL_LABELS = { facebook_url:'Facebook', instagram_url:'Instagram', linkedin_url:'LinkedIn', youtube_url:'YouTube', tiktok_url:'TikTok', x_url:'X / Twitter', threads_url:'Threads', whatsapp_url:'WhatsApp' };
+const PD_SOCIAL_PLACEHOLDERS = { facebook_url:'https://facebook.com/…', instagram_url:'https://instagram.com/…', linkedin_url:'https://linkedin.com/…', youtube_url:'https://youtube.com/@…', tiktok_url:'https://tiktok.com/@…', x_url:'https://x.com/…', threads_url:'https://threads.net/…', whatsapp_url:'+44 7700 000000 or wa.me/…' };
 
-const unpackSocials = (socials) => {
-  const obj = (socials && typeof socials === 'object' && !Array.isArray(socials)) ? socials : {};
-  return Object.fromEntries(SOCIAL_KEYS.map((k) => [`socials_${k}`, obj[k] || '']));
+// Read a DB profile row into draft fields (handles both old and new column names).
+const unpackProfileRow = (row) => {
+  const base = {
+    organisation_name: row?.organisation_name || row?.display_name || row?.name || '',
+    short_bio: row?.short_bio || row?.bio || '',
+    full_bio: row?.full_bio || '',
+    contact_email: row?.contact_email || row?.email || '',
+    contact_phone: row?.contact_phone || row?.phone || '',
+    website_url: row?.website_url || row?.website || '',
+    banner_url: row?.banner_url || row?.cover_image_url || '',
+  };
+  PD_SOCIAL_COLUMNS.forEach((col) => { base[col] = row?.[col] || ''; });
+  return base;
 };
-const packSocials = (draft) => {
+
+// Build the flat social columns for the DB payload (null-ifies empty strings).
+const buildPdSocialPayload = (draft) => {
   const out = {};
-  SOCIAL_KEYS.forEach((k) => {
-    const v = `${draft[`socials_${k}`] || ''}`.trim();
-    if (!v) return;
-    out[k] = /^https?:\/\//i.test(v) ? v : `https://${v}`;
+  PD_SOCIAL_COLUMNS.forEach((col) => {
+    const v = `${draft[col] || ''}`.trim();
+    out[col] = v ? (/^https?:\/\//i.test(v) ? v : `https://${v}`) : null;
   });
   return out;
 };
 
 const emptyProfile = {
   id: null,
-  display_name: '',
+  organisation_name: '',
   slug: '',
-  bio: '',
+  short_bio: '',
+  full_bio: '',
   logo_url: '',
-  cover_image_url: '',
-  email: '',
-  phone: '',
-  website: '',
+  banner_url: '',
+  contact_email: '',
+  contact_phone: '',
+  website_url: '',
   resource_id: '',
   service_categories_text: '',
   areas_covered_text: '',
   is_active: true,
-  ...Object.fromEntries(SOCIAL_KEYS.map((k) => [`socials_${k}`, ''])),
+  ...Object.fromEntries(PD_SOCIAL_COLUMNS.map((col) => [col, ''])),
 };
 
 const emptyEvent = {
@@ -102,7 +115,7 @@ const titleCase = (value) => `${value || ''}`
   .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
   .join(' ');
 
-const getProfileDisplayName = (profile) => `${profile?.display_name || profile?.name || ''}`.trim();
+const getProfileDisplayName = (profile) => `${profile?.organisation_name || profile?.display_name || profile?.name || ''}`.trim();
 
 const toSimpleEnquiryState = (value) => {
   const normalized = `${value || ''}`.trim().toLowerCase();
@@ -132,6 +145,7 @@ const ProfileDashboard = ({ onNavigate, session }) => {
 
   const [activeProfileId, setActiveProfileId] = React.useState('');
   const [profileDraft, setProfileDraft] = React.useState(emptyProfile);
+  const [resourceSlugMap, setResourceSlugMap] = React.useState({});
   const [eventDraft, setEventDraft] = React.useState(emptyEvent);
   const [analyticsWindow, setAnalyticsWindow] = React.useState('30d');
 
@@ -208,25 +222,40 @@ const ProfileDashboard = ({ onNavigate, session }) => {
       const primaryIds = new Set(primaryClaims.map((r) => String(r.id)));
       const allClaims = [...primaryClaims, ...fallbackClaims.filter((r) => !primaryIds.has(String(r.id)))];
 
+      // Fetch slugs for linked resources so "View live listing" links work
+      const linkedResourceIds = uniqueProfiles.map((p) => p.resource_id).filter(Boolean);
+      let slugMap = {};
+      if (linkedResourceIds.length) {
+        const { data: resourceRows } = await supabase
+          .from('resources')
+          .select('id, slug')
+          .in('id', linkedResourceIds);
+        (resourceRows || []).forEach((r) => { slugMap[r.id] = r.slug; });
+      }
+
       setProfiles(uniqueProfiles);
       setEvents(eventRows);
       setClaims(allClaims);
       setEventEnquiries(enquiryRows);
       setViewEvents(viewRows);
+      setResourceSlugMap(slugMap);
       setActiveProfileId((current) => current || initialProfileId);
 
       const seedProfile = uniqueProfiles.find((profile) => profile.id === (activeProfileId || initialProfileId)) || uniqueProfiles[0] || null;
       if (seedProfile) {
         setProfileDraft({
-          ...seedProfile,
-          display_name: getProfileDisplayName(seedProfile),
-          cover_image_url: seedProfile.cover_image_url || '',
+          ...emptyProfile,
+          id: seedProfile.id,
+          slug: seedProfile.slug || '',
+          logo_url: seedProfile.logo_url || '',
+          resource_id: seedProfile.resource_id || '',
           service_categories_text: (seedProfile.service_categories || []).join(', '),
           areas_covered_text: (seedProfile.areas_covered || []).join(', '),
-          ...unpackSocials(seedProfile.socials),
+          is_active: seedProfile.is_active !== false,
+          ...unpackProfileRow(seedProfile),
         });
       } else {
-        setProfileDraft({ ...emptyProfile, email: userEmail });
+        setProfileDraft({ ...emptyProfile, contact_email: userEmail });
       }
     } catch (loadError) {
       setError(loadError?.message || 'Unable to load profile dashboard.');
@@ -249,12 +278,15 @@ const ProfileDashboard = ({ onNavigate, session }) => {
     const selected = profiles.find((profile) => profile.id === activeProfileId);
     if (!selected) return;
     setProfileDraft({
-      ...selected,
-      display_name: getProfileDisplayName(selected),
-      cover_image_url: selected.cover_image_url || '',
+      ...emptyProfile,
+      id: selected.id,
+      slug: selected.slug || '',
+      logo_url: selected.logo_url || '',
+      resource_id: selected.resource_id || '',
       service_categories_text: (selected.service_categories || []).join(', '),
       areas_covered_text: (selected.areas_covered || []).join(', '),
-      ...unpackSocials(selected.socials),
+      is_active: selected.is_active !== false,
+      ...unpackProfileRow(selected),
     });
   }, [activeProfileId, profiles]);
 
@@ -300,7 +332,7 @@ const ProfileDashboard = ({ onNavigate, session }) => {
       {
         id: 'description',
         label: 'Write a strong organisation description',
-        done: Boolean((profile?.bio || '').trim().length >= 60),
+        done: Boolean(((profile?.short_bio || profile?.bio || '')).trim().length >= 60),
       },
       {
         id: 'categories',
@@ -310,12 +342,15 @@ const ProfileDashboard = ({ onNavigate, session }) => {
       {
         id: 'contact',
         label: 'Add contact email and phone',
-        done: Boolean(profile?.email?.trim() && profile?.phone?.trim()),
+        done: Boolean(
+          (profile?.contact_email || profile?.email || '').trim() &&
+          (profile?.contact_phone || profile?.phone || '').trim(),
+        ),
       },
       {
         id: 'website',
         label: 'Add a website link',
-        done: Boolean(profile?.website?.trim()),
+        done: Boolean((profile?.website_url || profile?.website || '').trim()),
       },
       {
         id: 'event',
@@ -400,46 +435,41 @@ const ProfileDashboard = ({ onNavigate, session }) => {
 
   const saveProfile = async () => {
     if (!supabase || !session) return;
-    if (!profileDraft.display_name.trim()) {
-      setError('Organisation display name is required.');
+    if (!profileDraft.organisation_name.trim()) {
+      setError('Organisation name is required.');
       return;
     }
 
     setSaving(true);
     setError('');
     try {
+      // Only send fields an owner is allowed to write.
+      // Premium/entitlement fields (featured, featured_enabled, analytics_enabled,
+      // enquiry_tools_enabled, event_quota, package_name, entitlement_status,
+      // start_date, end_date) are deliberately excluded — the DB trigger also
+      // enforces this silently even if a caller tried to send them.
       const payload = {
-        display_name: profileDraft.display_name.trim(),
-        slug: slugify(profileDraft.slug || profileDraft.display_name),
-        bio: profileDraft.bio?.trim() || null,
+        organisation_name: profileDraft.organisation_name.trim(),
+        slug: slugify(profileDraft.slug || profileDraft.organisation_name),
+        short_bio: profileDraft.short_bio?.trim() || null,
+        full_bio: profileDraft.full_bio?.trim() || null,
         logo_url: profileDraft.logo_url?.trim() || null,
-        cover_image_url: profileDraft.cover_image_url?.trim() || null,
-        email: profileDraft.email?.trim() || userEmail,
-        phone: profileDraft.phone?.trim() || null,
-        website: profileDraft.website?.trim() || null,
+        banner_url: profileDraft.banner_url?.trim() || null,
+        contact_email: profileDraft.contact_email?.trim() || userEmail,
+        contact_phone: profileDraft.contact_phone?.trim() || null,
+        website_url: profileDraft.website_url?.trim() || null,
         resource_id: profileDraft.resource_id || null,
-        service_categories: (profileDraft.service_categories_text || '').split(',').map((item) => item.trim()).filter(Boolean),
-        areas_covered: (profileDraft.areas_covered_text || '').split(',').map((item) => item.trim()).filter(Boolean),
+        service_categories: (profileDraft.service_categories_text || '').split(',').map((s) => s.trim()).filter(Boolean),
+        areas_covered: (profileDraft.areas_covered_text || '').split(',').map((s) => s.trim()).filter(Boolean),
         owner_email: userEmail,
         is_active: Boolean(profileDraft.is_active),
-        socials: packSocials(profileDraft),
         updated_by: session.user.id,
+        ...buildPdSocialPayload(profileDraft),
       };
 
-      let result = profileDraft.id
-        ? await supabase.from('organisation_profiles').update(payload).eq('id', profileDraft.id)
-        : await supabase.from('organisation_profiles').insert({ ...payload, created_by: session.user.id }).select('*').single();
-
-      if (result.error?.message?.includes('display_name')) {
-        const legacyPayload = {
-          ...payload,
-          name: payload.display_name,
-        };
-        delete legacyPayload.display_name;
-        result = profileDraft.id
-          ? await supabase.from('organisation_profiles').update(legacyPayload).eq('id', profileDraft.id)
-          : await supabase.from('organisation_profiles').insert({ ...legacyPayload, created_by: session.user.id }).select('*').single();
-      }
+      const result = profileDraft.id
+        ? await supabase.from('organisation_profiles').update(payload).eq('id', profileDraft.id).select('id').single()
+        : await supabase.from('organisation_profiles').insert({ ...payload, created_by: session.user.id }).select('id').single();
 
       if (result.error) throw result.error;
       setToast(profileDraft.id ? 'Profile updated.' : 'Profile created.');
@@ -795,26 +825,38 @@ const ProfileDashboard = ({ onNavigate, session }) => {
               <div className="card" style={{ padding: 22, borderRadius: 20 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                   <h2 style={{ fontSize: 22, fontWeight: 700 }}>Your organisation profiles</h2>
-                  <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    {activeProfile && resourceSlugMap[activeProfile.resource_id] && (
+                      <a
+                        href={`/find-help/${resourceSlugMap[activeProfile.resource_id]}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn btn-ghost btn-sm"
+                        style={{ textDecoration: 'none' }}
+                      >
+                        View live listing ↗
+                      </a>
+                    )}
                     <select value={activeProfileId} onChange={(event) => setActiveProfileId(event.target.value)} style={inputStyle}>
                       <option value="">Select profile</option>
                       {profiles.map((profile) => <option key={profile.id} value={profile.id}>{getProfileDisplayName(profile) || 'Organisation profile'}</option>)}
                     </select>
-                    <button className="btn btn-ghost" onClick={() => { setActiveProfileId(''); setProfileDraft({ ...emptyProfile, email: userEmail }); }}>New profile</button>
+                    <button className="btn btn-ghost" onClick={() => { setActiveProfileId(''); setProfileDraft({ ...emptyProfile, contact_email: userEmail }); }}>New profile</button>
                   </div>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 14 }}>
-                  <input value={profileDraft.display_name || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, display_name: event.target.value }))} placeholder="Organisation name" style={inputStyle} />
+                  <input value={profileDraft.organisation_name || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, organisation_name: event.target.value }))} placeholder="Organisation name *" style={inputStyle} />
                   <input value={profileDraft.slug || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, slug: event.target.value }))} placeholder="Slug" style={inputStyle} />
                   <input value={profileDraft.logo_url || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, logo_url: event.target.value }))} placeholder="Logo URL (https://…)" style={inputStyle} />
-                  <input value={profileDraft.cover_image_url || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, cover_image_url: event.target.value }))} placeholder="Cover image URL (https://…)" style={inputStyle} />
-                  <input value={profileDraft.email || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, email: event.target.value }))} placeholder="Contact email" style={inputStyle} />
-                  <input value={profileDraft.phone || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, phone: event.target.value }))} placeholder="Phone" style={inputStyle} />
-                  <input value={profileDraft.website || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, website: event.target.value }))} placeholder="Website" style={inputStyle} />
-                  <input value={profileDraft.resource_id || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, resource_id: event.target.value }))} placeholder="Linked resource id" style={inputStyle} />
+                  <input value={profileDraft.banner_url || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, banner_url: event.target.value }))} placeholder="Cover / banner image URL (https://…)" style={inputStyle} />
+                  <input value={profileDraft.contact_email || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, contact_email: event.target.value }))} placeholder="Contact email" style={inputStyle} />
+                  <input value={profileDraft.contact_phone || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, contact_phone: event.target.value }))} placeholder="Contact phone" style={inputStyle} />
+                  <input value={profileDraft.website_url || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, website_url: event.target.value }))} placeholder="Website URL" style={inputStyle} />
+                  <input value={profileDraft.resource_id || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, resource_id: event.target.value }))} placeholder="Linked resource id (set by admin)" style={{ ...inputStyle, color: 'rgba(26,39,68,0.5)' }} readOnly />
                 </div>
-                <textarea value={profileDraft.bio || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, bio: event.target.value }))} placeholder="Bio" rows={3} style={{ ...inputStyle, marginTop: 10, resize: 'vertical' }} />
+                <textarea value={profileDraft.short_bio || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, short_bio: event.target.value }))} placeholder="Short description (shown on public listing)" rows={2} style={{ ...inputStyle, marginTop: 10, resize: 'vertical' }} />
+                <textarea value={profileDraft.full_bio || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, full_bio: event.target.value }))} placeholder="Full description (shown on profile detail)" rows={3} style={{ ...inputStyle, marginTop: 8, resize: 'vertical' }} />
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
                   <input value={profileDraft.service_categories_text || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, service_categories_text: event.target.value }))} placeholder="Service categories (comma-separated)" style={inputStyle} />
                   <input value={profileDraft.areas_covered_text || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, areas_covered_text: event.target.value }))} placeholder="Areas covered (comma-separated)" style={inputStyle} />
@@ -822,8 +864,8 @@ const ProfileDashboard = ({ onNavigate, session }) => {
                 <div style={{ marginTop: 14 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'rgba(26,39,68,0.45)', marginBottom: 8 }}>Social media</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                    {SOCIAL_KEYS.map((k) => (
-                      <input key={k} value={profileDraft[`socials_${k}`] || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, [`socials_${k}`]: event.target.value }))} placeholder={`${SOCIAL_LABELS_PD[k]}: ${SOCIAL_PH_PD[k]}`} style={inputStyle} />
+                    {PD_SOCIAL_COLUMNS.map((col) => (
+                      <input key={col} value={profileDraft[col] || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, [col]: event.target.value }))} placeholder={`${PD_SOCIAL_LABELS[col]}: ${PD_SOCIAL_PLACEHOLDERS[col]}`} style={inputStyle} />
                     ))}
                   </div>
                 </div>
