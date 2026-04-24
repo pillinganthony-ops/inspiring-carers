@@ -2432,7 +2432,7 @@ const StateCard = ({ title, subtitle = 'Try another category or area filter, or 
   </div>
 );
 
-const FindHelpV2 = ({ onNavigate }) => {
+const FindHelpV2 = ({ onNavigate, session }) => {
   const isMobile = useIsMobile();
   const [view, setView] = React.useState('list');
   const [activeCat, setActiveCat] = React.useState('all');
@@ -2780,7 +2780,7 @@ const FindHelpV2 = ({ onNavigate }) => {
 
   return (
     <>
-      <Nav activePage="find-help" onNavigate={onNavigate} />
+      <Nav activePage="find-help" onNavigate={onNavigate} session={session} />
 
       <section style={{ paddingTop: 40, paddingBottom: 36, background: 'linear-gradient(180deg, #E7F3FB 0%, #FAFBFF 100%)' }}>
         <div className="container">

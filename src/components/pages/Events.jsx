@@ -185,7 +185,7 @@ const Toast = ({ message, onClose }) => {
   );
 };
 
-const EventsPage = ({ onNavigate }) => {
+const EventsPage = ({ onNavigate, session }) => {
   const [events, setEvents] = React.useState([]);
   const [query, setQuery] = React.useState('');
   const [loading, setLoading] = React.useState(true);
@@ -244,7 +244,7 @@ const EventsPage = ({ onNavigate }) => {
 
   return (
     <>
-      <Nav activePage="events" onNavigate={onNavigate} />
+      <Nav activePage="events" onNavigate={onNavigate} session={session} />
       <section style={{ paddingTop: 46, paddingBottom: 32, background: 'linear-gradient(180deg, #EAF5FF 0%, #FAFBFF 100%)' }}>
         <div className="container">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'rgba(26,39,68,0.5)', fontSize: 13, marginBottom: 16 }}>

@@ -1,5 +1,5 @@
 // Sticky top navigation with a dual-path mega-menu hint.
-// Props: activePage ('home' | 'find-help' | 'benefits' | etc), onNavigate
+// Props: activePage ('home' | 'find-help' | 'benefits' | etc), onNavigate, session (optional)
 
 import React from 'react';
 import Icons from './Icons.jsx';
@@ -7,6 +7,9 @@ import LogoLockup from './Logo.jsx';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient.js';
 
 const { IChevron, IClose, IMenu, IArrow } = Icons;
+
+const ADMIN_EMAIL_ALLOWLIST = (import.meta.env.VITE_ADMIN_EMAIL_ALLOWLIST || 'pillinganthony@gmail.com')
+  .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
 
 const NavItem = ({ label, active, accent, onClick, hasCaret }) => (
   <button
@@ -34,14 +37,16 @@ const NavItem = ({ label, active, accent, onClick, hasCaret }) => (
   </button>
 );
 
-const Nav = ({ activePage = 'home', onNavigate = () => {} }) => {
+const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp }) => {
   const [scrolled, setScrolled] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [moreOpen, setMoreOpen] = React.useState(false);
   const [accountOpen, setAccountOpen] = React.useState(false);
   const moreRef = React.useRef(null);
   const accountRef = React.useRef(null);
-  const [session, setSession] = React.useState(null);
+  // Use session from parent prop when provided; fall back to internal listener.
+  const [sessionInternal, setSessionInternal] = React.useState(null);
+  const session = sessionProp !== undefined ? sessionProp : sessionInternal;
 
   React.useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -49,23 +54,25 @@ const Nav = ({ activePage = 'home', onNavigate = () => {} }) => {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  // Only run the internal auth listener when no session prop is passed in.
   React.useEffect(() => {
+    if (sessionProp !== undefined) return undefined;
     if (!isSupabaseConfigured() || !supabase) return undefined;
     let mounted = true;
 
     supabase.auth.getSession().then(({ data }) => {
-      if (mounted) setSession(data.session ?? null);
+      if (mounted) setSessionInternal(data.session ?? null);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      if (mounted) setSession(nextSession ?? null);
+      if (mounted) setSessionInternal(nextSession ?? null);
     });
 
     return () => {
       mounted = false;
       listener.subscription.unsubscribe();
     };
-  }, []);
+  }, [sessionProp]);
 
   React.useEffect(() => {
     const onPointerDown = (event) => {
@@ -99,6 +106,8 @@ const Nav = ({ activePage = 'home', onNavigate = () => {} }) => {
     { key: 'business', label: 'For businesses' },
     { key: 'about', label: 'About' },
   ];
+
+  const isAdmin = Boolean(session?.user?.email && ADMIN_EMAIL_ALLOWLIST.includes(session.user.email.toLowerCase()));
 
   const handleNavigate = (key) => {
     setMobileOpen(false);
@@ -156,7 +165,10 @@ const Nav = ({ activePage = 'home', onNavigate = () => {} }) => {
             {accountOpen ? (
               <div className="card" style={{ position: 'absolute', top: 'calc(100% + 10px)', right: 0, minWidth: 200, borderRadius: 16, padding: 8, display: 'grid', gap: 4, zIndex: 120 }}>
                 <button onClick={() => handleNavigate('profile')} style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 12, fontSize: 14, fontWeight: 700, background: activePage === 'profile' ? 'rgba(26,39,68,0.06)' : 'transparent', color: '#1A2744' }}>Profile</button>
-                <button onClick={() => handleNavigate('login')} style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 12, fontSize: 14, fontWeight: 700, background: activePage === 'login' ? 'rgba(26,39,68,0.06)' : 'transparent', color: '#1A2744' }}>Admin Login</button>
+                {isAdmin
+                  ? <button onClick={() => handleNavigate('admin')} style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 12, fontSize: 14, fontWeight: 700, background: activePage === 'admin' ? 'rgba(26,39,68,0.06)' : 'transparent', color: '#1A2744' }}>Admin dashboard</button>
+                  : <button onClick={() => handleNavigate('login')} style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 12, fontSize: 14, fontWeight: 700, background: activePage === 'login' ? 'rgba(26,39,68,0.06)' : 'transparent', color: '#1A2744' }}>Admin login</button>
+                }
                 {session ? <button onClick={handleLogout} style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 12, fontSize: 14, fontWeight: 700, background: 'transparent', color: '#A03A2D' }}>Logout</button> : null}
               </div>
             ) : null}
@@ -186,7 +198,10 @@ const Nav = ({ activePage = 'home', onNavigate = () => {} }) => {
 
             <div style={{ display: 'grid', gridTemplateColumns: session ? '1fr 1fr 1fr 1fr' : '1fr 1fr 1fr', gap: 8, marginTop: 8 }}>
               <button className="btn btn-ghost btn-sm" onClick={() => handleNavigate('profile')}>Profile</button>
-              <button className="btn btn-ghost btn-sm" onClick={() => handleNavigate('login')}>Admin Login</button>
+              {isAdmin
+                ? <button className="btn btn-ghost btn-sm" onClick={() => handleNavigate('admin')}>Admin</button>
+                : <button className="btn btn-ghost btn-sm" onClick={() => handleNavigate('login')}>Admin login</button>
+              }
               <button className="btn btn-gold btn-sm" onClick={() => handleNavigate('card')}>Get card</button>
               {session ? <button className="btn btn-ghost btn-sm" onClick={handleLogout}>Logout</button> : null}
             </div>

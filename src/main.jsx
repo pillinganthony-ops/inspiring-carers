@@ -272,7 +272,9 @@ const App = () => {
   }, [page, sessionLoading, session, authRouteGraceUntil]);
 
   const navigate = (key) => {
-    if (key === 'admin' && !session) {
+    // Only redirect away from admin if auth has fully resolved (sessionLoading done)
+    // and there really is no session. Avoids false redirect during localStorage restore.
+    if (key === 'admin' && !sessionLoading && !session) {
       if (page === 'login') {
         // Allow a longer auth hydration window right after successful sign-in.
         setAuthRouteGraceUntil(Date.now() + 15000);
@@ -294,11 +296,11 @@ const App = () => {
 
   let content;
   switch (displayPage) {
-    case 'login': content = <React.Suspense fallback={<RouteLoading />}><LoginPage onNavigate={navigate} /></React.Suspense>; break;
-    case 'find-help': content = <React.Suspense fallback={<RouteLoading />}><FindHelpPage onNavigate={navigate} /></React.Suspense>; break;
-    case 'events': content = <React.Suspense fallback={<RouteLoading />}><EventsPage onNavigate={navigate} /></React.Suspense>; break;
-    case 'benefits': content = <React.Suspense fallback={<RouteLoading />}><BenefitsPage onNavigate={navigate} /></React.Suspense>; break;
-    case 'walks': content = <React.Suspense fallback={<RouteLoading />}><WalksPage onNavigate={navigate} /></React.Suspense>; break;
+    case 'login': content = <React.Suspense fallback={<RouteLoading />}><LoginPage onNavigate={navigate} session={session} /></React.Suspense>; break;
+    case 'find-help': content = <React.Suspense fallback={<RouteLoading />}><FindHelpPage onNavigate={navigate} session={session} /></React.Suspense>; break;
+    case 'events': content = <React.Suspense fallback={<RouteLoading />}><EventsPage onNavigate={navigate} session={session} /></React.Suspense>; break;
+    case 'benefits': content = <React.Suspense fallback={<RouteLoading />}><BenefitsPage onNavigate={navigate} session={session} /></React.Suspense>; break;
+    case 'walks': content = <React.Suspense fallback={<RouteLoading />}><WalksPage onNavigate={navigate} session={session} /></React.Suspense>; break;
     case 'admin': content = <React.Suspense fallback={<RouteLoading />}><AdminPage onNavigate={navigate} session={session} sessionLoading={sessionLoading} /></React.Suspense>; break;
     case 'profile': content = <React.Suspense fallback={<RouteLoading />}><ProfileDashboardPage onNavigate={navigate} session={session} /></React.Suspense>; break;
     case 'recognition': content = <Placeholder title="Recognition & awards" onNavigate={navigate} note="Carer of the Month, stories, nominations and community recognition — coming in the next round. Preview lives in the homepage Recognition section." />; break;

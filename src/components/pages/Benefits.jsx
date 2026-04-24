@@ -4,7 +4,7 @@ import React from 'react';
 import Icons from '../Icons.jsx';
 const { ICoffee, IWellbeing, IStar, IArrow, IPin, ISearch, IChevron, IconTile, BloomMark } = Icons;
 
-const BenefitsPage = ({ onNavigate }) => {
+const BenefitsPage = ({ onNavigate, session }) => {
   const [activeCat, setActiveCat] = React.useState('all');
   const [savedIds, setSavedIds] = React.useState(new Set([1, 4]));
 
@@ -42,7 +42,7 @@ const BenefitsPage = ({ onNavigate }) => {
 
   return (
     <>
-      <Nav activePage="benefits" onNavigate={onNavigate} />
+      <Nav activePage="benefits" onNavigate={onNavigate} session={session} />
 
       {/* Hero */}
       <section style={{

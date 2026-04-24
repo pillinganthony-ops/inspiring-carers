@@ -530,7 +530,7 @@ const ProfileDashboard = ({ onNavigate, session }) => {
   if (!session) {
     return (
       <>
-        <Nav activePage="profile" onNavigate={onNavigate} />
+        <Nav activePage="profile" onNavigate={onNavigate} session={session} />
         <section style={{ minHeight: '60vh', paddingTop: 54, paddingBottom: 64 }}>
           <div className="container">
             <div className="card" style={{ padding: 28, borderRadius: 20 }}>

@@ -198,7 +198,7 @@ const buildWalkEmailHref = (walk) => {
   return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 };
 
-const WalksPage = ({ onNavigate }) => {
+const WalksPage = ({ onNavigate, session }) => {
   const [query, setQuery] = React.useState('');
   const [area, setArea] = React.useState('');
   const [difficulty, setDifficulty] = React.useState('Any');
@@ -243,7 +243,7 @@ const WalksPage = ({ onNavigate }) => {
 
   return (
     <>
-      <Nav activePage="walks" onNavigate={onNavigate} />
+      <Nav activePage="walks" onNavigate={onNavigate} session={session} />
 
       <section style={{ paddingTop: 48, paddingBottom: 36, background: 'linear-gradient(180deg, #FEFEFE 0%, #F7FBFF 100%)' }}>
         <div className="container">

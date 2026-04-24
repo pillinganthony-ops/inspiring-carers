@@ -1575,7 +1575,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     if (sessionLoading) {
       return (
         <>
-          <Nav activePage="admin" onNavigate={onNavigate} />
+          <Nav activePage="admin" onNavigate={onNavigate} session={session} />
           <section style={{ minHeight: '60vh', display: 'grid', placeItems: 'center' }}>
             <div className="card" style={{ padding: 24 }}>Checking session…</div>
           </section>
