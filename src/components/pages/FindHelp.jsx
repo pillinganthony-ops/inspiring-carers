@@ -1660,6 +1660,32 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
                 <ContactItem icon={<IGlobe s={16} />} label="Website" value={domain || listing.website || null} href={websiteUrl} external />
               </div>
 
+              {/* Social media links */}
+              {(() => {
+                const socials = listing.profile?.socials;
+                if (!socials || typeof socials !== 'object') return null;
+                const SOCIAL_COLORS = { facebook:'#1877F2', instagram:'#E1306C', tiktok:'#69C9D0', x:'#000000', youtube:'#FF0000', linkedin:'#0A66C2', whatsapp:'#25D366', threads:'#000000', snapchat:'#FFFC00' };
+                const SOCIAL_NAMES = { facebook:'Facebook', instagram:'Instagram', tiktok:'TikTok', x:'X', youtube:'YouTube', linkedin:'LinkedIn', whatsapp:'WhatsApp', threads:'Threads', snapchat:'Snapchat' };
+                const entries = Object.entries(socials).filter(([, v]) => {
+                  const s = `${v || ''}`.trim();
+                  return s && /^https?:\/\//i.test(s);
+                });
+                if (!entries.length) return null;
+                return (
+                  <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #EFF1F7' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'rgba(26,39,68,0.45)', marginBottom: 10 }}>Follow this organisation</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      {entries.map(([key, url]) => (
+                        <a key={key} href={url} target="_blank" rel="noreferrer noopener"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 999, background: `${SOCIAL_COLORS[key] || '#1A2744'}14`, color: SOCIAL_COLORS[key] || '#1A2744', fontSize: 12.5, fontWeight: 700, border: `1px solid ${SOCIAL_COLORS[key] || '#1A2744'}28`, textDecoration: 'none' }}>
+                          {SOCIAL_NAMES[key] || key}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Last checked label */}
               <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid #EFF1F7', display: 'flex', alignItems: 'center', gap: 6, color: 'rgba(26,39,68,0.45)', fontSize: 12, fontWeight: 600 }}>
                 <IShield s={12} />

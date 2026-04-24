@@ -3,6 +3,24 @@ import Nav from '../Nav.jsx';
 import Footer from '../Footer.jsx';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient.js';
 
+const SOCIAL_KEYS = ['facebook','instagram','tiktok','x','youtube','linkedin','whatsapp','threads','snapchat'];
+const SOCIAL_LABELS_PD = { facebook:'Facebook', instagram:'Instagram', tiktok:'TikTok', x:'X / Twitter', youtube:'YouTube', linkedin:'LinkedIn', whatsapp:'WhatsApp', threads:'Threads', snapchat:'Snapchat' };
+const SOCIAL_PH_PD = { facebook:'https://facebook.com/…', instagram:'https://instagram.com/…', tiktok:'https://tiktok.com/@…', x:'https://x.com/…', youtube:'https://youtube.com/@…', linkedin:'https://linkedin.com/…', whatsapp:'+44 7700 000000 or wa.me/…', threads:'https://threads.net/…', snapchat:'https://snapchat.com/…' };
+
+const unpackSocials = (socials) => {
+  const obj = (socials && typeof socials === 'object' && !Array.isArray(socials)) ? socials : {};
+  return Object.fromEntries(SOCIAL_KEYS.map((k) => [`socials_${k}`, obj[k] || '']));
+};
+const packSocials = (draft) => {
+  const out = {};
+  SOCIAL_KEYS.forEach((k) => {
+    const v = `${draft[`socials_${k}`] || ''}`.trim();
+    if (!v) return;
+    out[k] = /^https?:\/\//i.test(v) ? v : `https://${v}`;
+  });
+  return out;
+};
+
 const emptyProfile = {
   id: null,
   display_name: '',
@@ -17,6 +35,7 @@ const emptyProfile = {
   service_categories_text: '',
   areas_covered_text: '',
   is_active: true,
+  ...Object.fromEntries(SOCIAL_KEYS.map((k) => [`socials_${k}`, ''])),
 };
 
 const emptyEvent = {
@@ -204,6 +223,7 @@ const ProfileDashboard = ({ onNavigate, session }) => {
           cover_image_url: seedProfile.cover_image_url || '',
           service_categories_text: (seedProfile.service_categories || []).join(', '),
           areas_covered_text: (seedProfile.areas_covered || []).join(', '),
+          ...unpackSocials(seedProfile.socials),
         });
       } else {
         setProfileDraft({ ...emptyProfile, email: userEmail });
@@ -234,6 +254,7 @@ const ProfileDashboard = ({ onNavigate, session }) => {
       cover_image_url: selected.cover_image_url || '',
       service_categories_text: (selected.service_categories || []).join(', '),
       areas_covered_text: (selected.areas_covered || []).join(', '),
+      ...unpackSocials(selected.socials),
     });
   }, [activeProfileId, profiles]);
 
@@ -401,6 +422,7 @@ const ProfileDashboard = ({ onNavigate, session }) => {
         areas_covered: (profileDraft.areas_covered_text || '').split(',').map((item) => item.trim()).filter(Boolean),
         owner_email: userEmail,
         is_active: Boolean(profileDraft.is_active),
+        socials: packSocials(profileDraft),
         updated_by: session.user.id,
       };
 
@@ -796,6 +818,14 @@ const ProfileDashboard = ({ onNavigate, session }) => {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
                   <input value={profileDraft.service_categories_text || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, service_categories_text: event.target.value }))} placeholder="Service categories (comma-separated)" style={inputStyle} />
                   <input value={profileDraft.areas_covered_text || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, areas_covered_text: event.target.value }))} placeholder="Areas covered (comma-separated)" style={inputStyle} />
+                </div>
+                <div style={{ marginTop: 14 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'rgba(26,39,68,0.45)', marginBottom: 8 }}>Social media</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    {SOCIAL_KEYS.map((k) => (
+                      <input key={k} value={profileDraft[`socials_${k}`] || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, [`socials_${k}`]: event.target.value }))} placeholder={`${SOCIAL_LABELS_PD[k]}: ${SOCIAL_PH_PD[k]}`} style={inputStyle} />
+                    ))}
+                  </div>
                 </div>
                 <label style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                   <input type="checkbox" checked={Boolean(profileDraft.is_active)} onChange={(event) => setProfileDraft((prev) => ({ ...prev, is_active: event.target.checked }))} />

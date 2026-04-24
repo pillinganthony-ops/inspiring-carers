@@ -403,6 +403,25 @@ const buildCompatibleProfilePayload = (payload) => ({
   },
 });
 
+/* ─── Social platform helpers ─────────────────────────────── */
+const SOCIAL_KEYS = ['facebook','instagram','tiktok','x','youtube','linkedin','whatsapp','threads','snapchat'];
+const SOCIAL_LABELS = { facebook:'Facebook', instagram:'Instagram', tiktok:'TikTok', x:'X / Twitter', youtube:'YouTube', linkedin:'LinkedIn', whatsapp:'WhatsApp', threads:'Threads', snapchat:'Snapchat' };
+const SOCIAL_PLACEHOLDERS = { facebook:'https://facebook.com/…', instagram:'https://instagram.com/…', tiktok:'https://tiktok.com/@…', x:'https://x.com/…', youtube:'https://youtube.com/@…', linkedin:'https://linkedin.com/…', whatsapp:'+44 7700 000000 or wa.me/…', threads:'https://threads.net/…', snapchat:'https://snapchat.com/…' };
+
+const unpackSocials = (socials) => {
+  const obj = (socials && typeof socials === 'object' && !Array.isArray(socials)) ? socials : {};
+  return Object.fromEntries(SOCIAL_KEYS.map((k) => [`socials_${k}`, obj[k] || '']));
+};
+const packSocials = (draft) => {
+  const out = {};
+  SOCIAL_KEYS.forEach((k) => {
+    const v = `${draft[`socials_${k}`] || ''}`.trim();
+    if (!v) return;
+    out[k] = /^https?:\/\//i.test(v) ? v : `https://${v}`;
+  });
+  return out;
+};
+
 const emptyCategory = { id: null, name: '', slug: '', sort_order: 0, active: true };
 const emptyResource = {
   id: null,
@@ -440,6 +459,7 @@ const emptyProfile = {
   enquiry_tools_enabled: false,
   analytics_enabled: false,
   is_active: true,
+  ...Object.fromEntries(SOCIAL_KEYS.map((k) => [`socials_${k}`, ''])),
 };
 const emptyEvent = {
   id: null,
@@ -1037,6 +1057,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       enquiry_tools_enabled: Boolean(profileDraft.enquiry_tools_enabled),
       analytics_enabled: Boolean(profileDraft.analytics_enabled),
       is_active: Boolean(profileDraft.is_active),
+      socials: packSocials(profileDraft),
       updated_by: session?.user?.id || null,
     };
     const compatiblePayload = buildCompatibleProfilePayload(payload);
@@ -1464,6 +1485,26 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
             ) : null}
           </div>
 
+          {!loading && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8 }}>
+              {[
+                ['Categories', categories.length, null],
+                ['Resources', resources.length, null],
+                ['Profiles', profiles.length, null],
+                ['Events', events.length, null],
+                ['Pending claims', pendingClaims.length, pendingClaims.length > 0 ? '#F5A623' : null],
+                ['Pending subs', pendingResourceUpdates.length, pendingResourceUpdates.length > 0 ? '#F5A623' : null],
+                ['Profile views', ownerPerformanceSummary.totalViews, null],
+                ['Enquiries', ownerPerformanceSummary.totalEnquiries, null],
+              ].map(([label, value, accent]) => (
+                <div key={label} className="card" style={{ padding: '12px 14px', borderRadius: 14, borderLeft: accent ? `3px solid ${accent}` : undefined }}>
+                  <div style={{ fontSize: 11, color: 'rgba(26,39,68,0.52)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em' }}>{label}</div>
+                  <div style={{ marginTop: 5, fontSize: 26, fontWeight: 800, color: accent || '#1A2744' }}>{value}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {[
               ['overview', 'Overview'],
@@ -1521,26 +1562,6 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
           ) : null}
 
           {loading ? <div className="card" style={{ padding: 20 }}>Loading dashboard...</div> : null}
-
-          {!loading && tab === 'overview' ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10 }}>
-              {[
-                ['Categories', categories.length],
-                ['Resources', resources.length],
-                ['Profiles', profiles.length],
-                ['Events', events.length],
-                ['Pending claims', pendingClaims.length],
-                ['Pending submissions', pendingResourceUpdates.length],
-                ['Profile views', ownerPerformanceSummary.totalViews],
-                ['Event enquiries', ownerPerformanceSummary.totalEnquiries],
-              ].map(([label, value]) => (
-                <div key={label} className="card" style={{ padding: 16, borderRadius: 16 }}>
-                  <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.6)', textTransform: 'uppercase' }}>{label}</div>
-                  <div style={{ marginTop: 6, fontSize: 30, fontWeight: 800 }}>{value}</div>
-                </div>
-              ))}
-            </div>
-          ) : null}
 
           {!loading && tab === 'overview' ? (
             <div className="card" style={{ padding: 18, borderRadius: 18 }}>
@@ -1901,6 +1922,14 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                 <label><input type="checkbox" checked={Boolean(profileDraft.enquiry_tools_enabled)} onChange={(e) => setProfileDraft((p) => ({ ...p, enquiry_tools_enabled: e.target.checked }))} /> Enquiry tools enabled</label>
                 <label><input type="checkbox" checked={Boolean(profileDraft.analytics_enabled)} onChange={(e) => setProfileDraft((p) => ({ ...p, analytics_enabled: e.target.checked }))} /> Analytics enabled</label>
               </div>
+              <div style={{ marginTop: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.44)', marginBottom: 8 }}>Social media</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+                  {SOCIAL_KEYS.map((k) => (
+                    <input key={k} value={profileDraft[`socials_${k}`] || ''} onChange={(e) => setProfileDraft((p) => ({ ...p, [`socials_${k}`]: e.target.value }))} placeholder={`${SOCIAL_LABELS[k]}: ${SOCIAL_PLACEHOLDERS[k]}`} style={inputStyle} />
+                  ))}
+                </div>
+              </div>
               <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
                 <button className="btn btn-gold" disabled={busy} onClick={saveProfile}>{profileDraft.id ? 'Update' : 'Create'} profile</button>
                 {profileDraft.id ? <button className="btn btn-ghost" onClick={() => setProfileDraft(emptyProfile)}>Cancel</button> : null}
@@ -1910,7 +1939,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                   <div key={row.id} style={{ border: '1px solid #E9EEF5', borderRadius: 10, padding: 10, display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
                     <div>{getProfileName(row, resources)} <span style={{ color: 'rgba(26,39,68,0.55)' }}>({row.owner_email || 'No owner email'})</span></div>
                     <div style={{ display: 'flex', gap: 6 }}>
-                      <button className="btn btn-ghost btn-sm" onClick={() => setProfileDraft({ ...emptyProfile, ...row, display_name: row.display_name || row.name || '', resource_id: row.resource_id || '', start_date: row.start_date || '', end_date: row.end_date || '' })}>Edit</button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setProfileDraft({ ...emptyProfile, ...row, display_name: row.display_name || row.name || '', resource_id: row.resource_id || '', start_date: row.start_date || '', end_date: row.end_date || '', ...unpackSocials(row.socials) })}>Edit</button>
                       <button className="btn btn-ghost btn-sm" onClick={() => deleteRow('organisation_profiles', row.id, 'Profile deleted.')}>Delete</button>
                     </div>
                   </div>
