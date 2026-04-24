@@ -1,8 +1,8 @@
--- 2026-04-24 Live schema alignment
--- Documents and applies columns that exist in the live DB but are absent from
--- schema.sql / live_legacy_backend_expansion.sql.
--- These columns were added manually via the Supabase UI after the initial
--- migrations ran. Running this against a clean clone aligns it to the live table.
+-- 2026-04-24 Live schema alignment (corrected 2026-04-24)
+-- Live production tables confirmed:
+--   categories (NOT resource_categories)
+--   walk_comments (EXISTS)
+--   resource_categories (does NOT exist)
 --
 -- organisation_profiles: column names were changed from the original schema
 -- (display_name → organisation_name, bio → short_bio/full_bio, email → contact_email,
@@ -11,7 +11,8 @@
 
 begin;
 
--- Add live columns if not present (idempotent)
+-- Add live columns if not present (idempotent).
+-- These were added manually via the Supabase UI after the initial migration ran.
 ALTER TABLE public.organisation_profiles
   ADD COLUMN IF NOT EXISTS organisation_name text,
   ADD COLUMN IF NOT EXISTS owner_email text,
@@ -52,9 +53,9 @@ GRANT EXECUTE ON FUNCTION public.is_active_admin() TO authenticated, anon;
 ALTER TABLE public.admin_users
   DROP CONSTRAINT IF EXISTS admin_users_role_check;
 
--- Populate resource_categories with the 15 standard categories if the table is empty.
--- Uses ON CONFLICT to be safe if some rows already exist.
-INSERT INTO public.resource_categories (name, slug, sort_order, is_active) VALUES
+-- Populate categories with the 15 standard categories if the table is empty.
+-- Uses ON CONFLICT (slug) to be safe if some rows already exist.
+INSERT INTO public.categories (name, slug, sort_order, active) VALUES
   ('Mental Health & Wellbeing',     'mental-health-wellbeing',              10,  true),
   ('Carer Support',                 'carer-support',                        20,  true),
   ('Health & Medical',              'health-medical-support',               30,  true),
