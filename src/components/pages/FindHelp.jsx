@@ -102,23 +102,15 @@ const insertEventEnquiry = async ({ listing, event, fullName, email, phone, mess
   ].join('\n');
 
   const { error: queueError } = await supabase.from('resource_update_submissions').insert({
-    resource_id: listing.id || null,
-    resource_name: listing.title || listing.venue || 'Event enquiry',
-    resource_category: 'events',
     update_type: 'event_enquiry',
-    description: moderationDescription,
+    resource_id: listing.id || null,
+    resource_name: listing.title || listing.venue || null,
+    organisation_name: listing.profile?.organisation_name || listing.venue || listing.title || null,
     submitter_name: fullName.trim(),
     submitter_email: email.trim(),
-    consent_review: true,
+    submitter_phone: phone.trim() || null,
+    reason: moderationDescription,
     status: 'pending',
-    payload: {
-      event_id: event.id,
-      organisation_profile_id: event.organisation_profile_id,
-      cta_type: event.cta_type,
-      phone: phone.trim() || null,
-      spaces_requested: Number(spacesRequested) || 1,
-      destination_email: event.contact_email || listing.email || null,
-    },
   });
   if (queueError) throw queueError;
 };
@@ -1122,6 +1114,7 @@ const NewOrganisationModal = ({ onClose, onSuccess, onError }) => {
       ].join('\n');
 
       const payload = {
+        update_type: 'new_organisation',
         organisation_name: form.organisationName.trim(),
         submitter_name: form.contactName.trim(),
         submitter_email: email,
