@@ -154,6 +154,7 @@ const CATEGORY_DISPLAY_LABELS = {
   'disability-accessibility': 'Accessibility',
   'transport-access': 'Transport',
   'nature-activity-outdoors': 'Outdoors',
+  'activities-things-to-do': 'Activities',
 };
 
 const CATEGORY_SLUG_ALIASES = {
@@ -175,6 +176,9 @@ const CATEGORY_SLUG_ALIASES = {
   'disability & accessibility': 'disability-accessibility',
   'transport & access': 'transport-access',
   'nature, activity & outdoors': 'nature-activity-outdoors',
+  'activities & things to do': 'activities-things-to-do',
+  'activities and things to do': 'activities-things-to-do',
+  'things to do': 'activities-things-to-do',
 };
 
 const pickField = (row, keys) => {
@@ -702,9 +706,11 @@ const OrgAvatar = ({ listing, size = 80 }) => {
 /* ─── TrustBadges ────────────────────────────────────────── */
 const TrustBadges = ({ listing }) => {
   const badges = [];
-  if (listing.tags.includes('Verified') || listing.website) badges.push({ key: 'verified', label: 'Verified listing', color: '#10B981', bg: 'rgba(16,185,129,0.1)' });
+  if (listing.featured) badges.push({ key: 'featured', label: 'Featured listing', color: '#B45309', bg: 'rgba(245,166,35,0.14)' });
+  if (listing.tags.includes('Verified') || listing.profile?.verified_status === 'verified') badges.push({ key: 'verified', label: 'Verified listing', color: '#10B981', bg: 'rgba(16,185,129,0.1)' });
+  if (listing.profile?.claim_status === 'claimed') badges.push({ key: 'claimed', label: 'Claimed by owner', color: '#7B5CF5', bg: 'rgba(123,92,245,0.1)' });
   if (['carer-support', 'carers'].includes(listing.cat)) badges.push({ key: 'carers', label: 'Supports carers', color: '#2D9CDB', bg: 'rgba(45,156,219,0.1)' });
-  if (['community-groups-social-connection', 'mental-health-wellbeing'].includes(listing.cat)) badges.push({ key: 'community', label: 'Community resource', color: '#7B5CF5', bg: 'rgba(123,92,245,0.1)' });
+  if (['community-groups-social-connection', 'mental-health-wellbeing', 'activities-things-to-do'].includes(listing.cat)) badges.push({ key: 'community', label: 'Community resource', color: '#7B5CF5', bg: 'rgba(123,92,245,0.1)' });
   badges.push({ key: 'cornwall', label: 'Cornwall directory', color: '#F5A623', bg: 'rgba(245,166,35,0.1)' });
 
   return (
@@ -1829,6 +1835,23 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
                     <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.55)', marginTop: 1 }}>Listing claims are disabled on the current live schema.</div>
                   </div>
                 </div>
+              </div>
+            ) : listing.profile?.claim_status === 'claimed' && !claimSuccess ? (
+              <div style={{ background: 'rgba(123,92,245,0.06)', borderRadius: 22, padding: 18, border: '1px solid rgba(123,92,245,0.18)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 38, height: 38, borderRadius: 12, background: 'rgba(123,92,245,0.12)', color: '#7B5CF5', display: 'grid', placeItems: 'center' }}>
+                    <IBuilding s={18} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 13.5, color: '#1A2744' }}>This listing is managed by its owner</div>
+                    <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.6)', marginTop: 1 }}>The organisation has already claimed and verified this listing.</div>
+                  </div>
+                </div>
+                {listing.website ? (
+                  <a href={listing.website.startsWith('http') ? listing.website : `https://${listing.website}`} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm" style={{ marginTop: 12, width: '100%', justifyContent: 'center' }}>
+                    Visit their website
+                  </a>
+                ) : null}
               </div>
             ) : !claimSuccess ? (
               <div style={{ background: 'white', borderRadius: 22, padding: 18, border: '1px solid #EFF1F7' }}>

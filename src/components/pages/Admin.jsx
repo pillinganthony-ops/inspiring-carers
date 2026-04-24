@@ -497,6 +497,7 @@ const ADMIN_CAT_LABELS = {
   'disability-accessibility': 'Disability',
   'transport-access': 'Transport',
   'nature-activity-outdoors': 'Outdoors',
+  'activities-things-to-do': 'Activities',
 };
 const resolveAdminCatLabel = (slug) => {
   if (!slug) return '';

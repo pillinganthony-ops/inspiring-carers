@@ -707,24 +707,24 @@ const ProfileDashboard = ({ onNavigate, session }) => {
           <div className="card" style={{ padding: 22, borderRadius: 20, border: '1px solid #E7D8B9', background: 'linear-gradient(180deg, #FFF9ED 0%, #FFFFFF 100%)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
               <div>
-                <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.46)' }}>Premium placeholders</div>
-                <h2 style={{ marginTop: 8, fontSize: 24, fontWeight: 800 }}>Commercial upgrades ready for activation</h2>
-                <p style={{ marginTop: 8, color: 'rgba(26,39,68,0.68)', lineHeight: 1.65, maxWidth: 760 }}>These are intentionally placeholder offers for monetisation design. They keep the commercial path visible without changing billing or fulfilment logic yet.</p>
+                <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.46)' }}>Grow your listing</div>
+                <h2 style={{ marginTop: 8, fontSize: 24, fontWeight: 800 }}>Boost your reach and capture more enquiries</h2>
+                <p style={{ marginTop: 8, color: 'rgba(26,39,68,0.68)', lineHeight: 1.65, maxWidth: 760 }}>These upgrades help more people find your listing, track interest, and connect directly with your organisation. Contact the team to activate.</p>
               </div>
-              <div style={{ padding: '8px 10px', borderRadius: 999, background: hasFeaturedAccess ? 'rgba(16,185,129,0.12)' : 'rgba(245,166,35,0.14)', color: hasFeaturedAccess ? '#0D7A55' : '#9A5A00', fontSize: 12, fontWeight: 700 }}>{hasFeaturedAccess ? 'Featured enabled' : `${titleCase(entitlementState.status)} entitlement`}</div>
+              <div style={{ padding: '8px 10px', borderRadius: 999, background: hasFeaturedAccess ? 'rgba(16,185,129,0.12)' : 'rgba(245,166,35,0.14)', color: hasFeaturedAccess ? '#0D7A55' : '#9A5A00', fontSize: 12, fontWeight: 700 }}>{hasFeaturedAccess ? 'Featured active' : 'Standard listing'}</div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 10, marginTop: 14 }}>
               {[
-                ['Featured listing boost', `You have ${filteredProfileViewEvents.length} profile views in the selected window to benchmark uplift against.`],
-                ['Enquiry capture pack', `You have ${filteredProfileEnquiries.length} event enquiries in the selected window moving through the live pipeline.`],
-                ['Event promotion add-on', `You currently have ${filteredActiveEvents.length} active events in the selected window to amplify.`],
-                ['Conversion proof pack', `Your profile completion score is ${onboardingChecklist.score}% before any paid upsell.`],
-              ].map(([title, description]) => (
-                <div key={title} style={{ border: '1px solid #F0E3C5', borderRadius: 16, padding: 14, background: '#FFFFFF' }}>
+                ['Featured listing', 'Appear at the top of relevant searches and highlighted in map results — putting your organisation in front of people who need you most.', hasFeaturedAccess],
+                ['Enquiry capture', 'Receive direct enquiries from your listing — phone, email, and form contacts tracked and managed in one place.', hasEnquiryToolsAccess],
+                ['Event promotion', 'Promote your sessions, groups, and events to people actively searching for support nearby.', false],
+                ['Listing analytics', 'See exactly how many people viewed and engaged with your listing, so you can grow with confidence.', hasAnalyticsAccess],
+              ].map(([title, description, active]) => (
+                <div key={title} style={{ border: active ? '1.5px solid rgba(16,185,129,0.3)' : '1px solid #F0E3C5', borderRadius: 16, padding: 14, background: active ? 'rgba(16,185,129,0.04)' : '#FFFFFF' }}>
                   <div style={{ fontSize: 15, fontWeight: 700, color: '#1A2744' }}>{title}</div>
                   <div style={{ marginTop: 6, fontSize: 13, color: 'rgba(26,39,68,0.64)', lineHeight: 1.6 }}>{description}</div>
-                  <div style={{ marginTop: 8, fontSize: 11.5, fontWeight: 700, color: hasFeaturedAccess || title !== 'Featured listing boost' ? '#9A5A00' : '#A03A2D' }}>
-                    {title === 'Featured listing boost' ? (hasFeaturedAccess ? 'Ready to use' : 'Locked until featured_enabled = true') : 'Placeholder only'}
+                  <div style={{ marginTop: 8, fontSize: 11.5, fontWeight: 700, color: active ? '#0D7A55' : '#9A5A00' }}>
+                    {active ? 'Active on your plan' : 'Contact us to activate'}
                   </div>
                 </div>
               ))}
@@ -734,10 +734,10 @@ const ProfileDashboard = ({ onNavigate, session }) => {
           <div className="card" style={{ padding: 22, borderRadius: 20 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
               <div>
-                <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.46)' }}>Premium entitlement</div>
-                <h2 style={{ marginTop: 8, fontSize: 24, fontWeight: 800 }}>Current package state</h2>
+                <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.46)' }}>Account plan</div>
+                <h2 style={{ marginTop: 8, fontSize: 24, fontWeight: 800 }}>Your current plan</h2>
               </div>
-              <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.56)' }}>Manual provisioning ready before checkout</div>
+              <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.56)' }}>{entitlementState.packageName !== 'No package assigned' ? entitlementState.packageName : 'Standard listing'}</div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10, marginTop: 14 }}>
               {[
