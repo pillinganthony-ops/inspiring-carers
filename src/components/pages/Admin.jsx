@@ -146,7 +146,8 @@ const normalizeAdminCategoryRows = (rows) => (
       id: row.id,
       name: `${row.name || ''}`.trim(),
       slug: `${row.slug || row.name || ''}`.trim() ? slugify(row.slug || row.name) : '',
-      active: row.active !== false,
+      // resource_categories uses is_active; legacy 'categories' table used active
+      active: (row.is_active ?? row.active) !== false,
       sort_order: Number(row.sort_order) || 0,
     }))
     .filter((row) => row.id !== null && row.id !== undefined && row.name)
@@ -762,7 +763,6 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   const [liveListingSuccess, setLiveListingSuccess] = React.useState(null);
   const [ownerHandoffContext, setOwnerHandoffContext] = React.useState(null);
   const [walkUpdates, setWalkUpdates] = React.useState([]);
-  const [walkComments, setWalkComments] = React.useState([]);
 
   const [categoryDraft, setCategoryDraft] = React.useState(emptyCategory);
   const [resourceDraft, setResourceDraft] = React.useState(emptyResource);
@@ -835,16 +835,14 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         claimsResult,
         resourceUpdatesResult,
         walkUpdatesResult,
-        walkCommentsResult,
       ] = await Promise.all([
-        supabase.from('categories').select('id, name, slug, active, sort_order').order('sort_order', { ascending: true }).order('name', { ascending: true }),
+        supabase.from('resource_categories').select('id, name, slug, is_active, sort_order').order('sort_order', { ascending: true }).order('name', { ascending: true }),
         supabase.from('resources').select('*').order('name', { ascending: true }),
         supabase.from('organisation_profiles').select('*'),
         supabase.from('organisation_events').select('*'),
         supabase.from('listing_claims').select('*').order('created_at', { ascending: false }),
         supabase.from('resource_update_submissions').select('*').order('created_at', { ascending: false }),
         supabase.from('walk_risk_updates').select('*').order('created_at', { ascending: false }),
-        supabase.from('walk_comments').select('*').order('created_at', { ascending: false }),
       ]);
 
       if (resourcesResult.error) throw resourcesResult.error;
@@ -855,28 +853,16 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         setResourceUpdatesNotice(`New organisation submissions unavailable (${resourceUpdatesResult.error.message}).`);
       }
 
-      // Primary: categories table. Secondary: resource_categories (schema.sql name).
-      let categoriesRows = categoriesResult.error ? [] : (categoriesResult.data || []);
-      let categoriesSourceNote = '';
-      if (!categoriesRows.length) {
-        const altResult = await supabase
-          .from('resource_categories')
-          .select('id, name, slug, active, sort_order')
-          .order('sort_order', { ascending: true })
-          .order('name', { ascending: true });
-        if (!altResult.error && altResult.data?.length) {
-          categoriesRows = altResult.data;
-          categoriesSourceNote = 'resource_categories';
-        }
-      }
+      // resource_categories is the canonical categories table.
+      const categoriesRows = categoriesResult.error ? [] : (categoriesResult.data || []);
       const normalizedCategories = normalizeAdminCategoryRows(categoriesRows);
       const fallbackCategories = deriveAdminCategoryFallback(resourcesResult.data || []);
       const resolvedCategories = normalizedCategories.length ? normalizedCategories : fallbackCategories;
 
-      if (categoriesResult.error && !categoriesSourceNote) {
-        setResourceUpdatesNotice(`Categories table read failed (${categoriesResult.error.message}). Using category hints from live resources.`);
+      if (categoriesResult.error) {
+        setResourceUpdatesNotice(`resource_categories read failed (${categoriesResult.error.message}). Using category hints from live resources.`);
       } else if (!normalizedCategories.length && fallbackCategories.length) {
-        setResourceUpdatesNotice('Categories table is empty — using names derived from resource data. Run the categories population SQL to fix permanently.');
+        setResourceUpdatesNotice('resource_categories table is empty — using names derived from resource data. Populate resource_categories to fix permanently.');
       }
 
       setCategories(resolvedCategories);
@@ -917,7 +903,6 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
           .map(normalizeResourceUpdateRow),
       );
       setWalkUpdates(walkUpdatesResult.data || []);
-      setWalkComments(walkCommentsResult.data || []);
 
       const optionalIssues = [];
       const [viewEventsResult, eventEnquiriesResult] = await Promise.all([
@@ -983,13 +968,13 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       name: categoryDraft.name.trim(),
       slug: slugify(categoryDraft.slug || categoryDraft.name),
       sort_order: Number(categoryDraft.sort_order) || 0,
-      active: Boolean(categoryDraft.active),
+      is_active: Boolean(categoryDraft.active),
     };
 
     await withBusy(async () => {
       const result = categoryDraft.id
-        ? await supabase.from('categories').update(payload).eq('id', categoryDraft.id)
-        : await supabase.from('categories').insert(payload);
+        ? await supabase.from('resource_categories').update(payload).eq('id', categoryDraft.id)
+        : await supabase.from('resource_categories').insert(payload);
       if (result.error) throw result.error;
       setCategoryDraft(emptyCategory);
     }, categoryDraft.id ? 'Category updated.' : 'Category created.');
@@ -1624,8 +1609,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   const approvedResourceUpdatesReady = resourceUpdates.filter((row) => isApprovedStatus(row.status) && !isCreatedSubmission(row));
   const rejectedResourceUpdates = resourceUpdates.filter((row) => isRejectedStatus(row.status) && !isCreatedSubmission(row));
   const pendingWalkUpdates = walkUpdates.filter((row) => isPendingStatus(row.status));
-  const pendingWalkComments = walkComments.filter((row) => isPendingStatus(row.status));
-  const moderationWorkloadCount = pendingClaims.length + pendingResourceUpdates.length + inReviewResourceUpdates.length + approvedResourceUpdatesReady.length + pendingWalkUpdates.length + pendingWalkComments.length;
+  const moderationWorkloadCount = pendingClaims.length + pendingResourceUpdates.length + inReviewResourceUpdates.length + approvedResourceUpdatesReady.length + pendingWalkUpdates.length;
   const tabCounts = {
     overview: 0,
     moderation: moderationWorkloadCount,
@@ -1672,7 +1656,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         <div className="container" style={{ display: 'grid', gap: 14 }}>
           <div className="card" style={{ padding: 22, borderRadius: 20 }}>
             <h1 style={{ fontSize: 36, fontWeight: 800 }}>Admin Dashboard</h1>
-            <p style={{ marginTop: 8, color: 'rgba(26,39,68,0.7)' }}>Live schema mode: categories, resources, organisation_profiles, organisation_events, listing_claims, resource_update_submissions, walk_risk_updates, walk_comments.</p>
+            <p style={{ marginTop: 8, color: 'rgba(26,39,68,0.7)' }}>Live schema mode: resource_categories, resources, organisation_profiles, organisation_events, listing_claims, resource_update_submissions, walk_risk_updates.</p>
             {error ? <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 10, background: 'rgba(244,97,58,0.08)', color: '#A03A2D', fontSize: 13, fontWeight: 600 }}>{error}</div> : null}
             {toast ? <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 10, background: 'rgba(16,185,129,0.08)', color: '#0D7A55', fontSize: 13, fontWeight: 600 }}>{toast}</div> : null}
             {(analyticsNotice || resourceUpdatesNotice) ? (
@@ -1994,12 +1978,6 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                   onUpdateStatus={(id, status) => updateQueueStatus('walk_risk_updates', id, status)}
                   formatRow={(row) => `${row.walk_name || row.walk_id || 'Walk'} · ${row.update_type || 'update'}`}
                 />
-                <QueueCard
-                  title="Walk comments"
-                  rows={pendingWalkComments}
-                  onUpdateStatus={(id, status) => updateQueueStatus('walk_comments', id, status)}
-                  formatRow={(row) => `${row.walk_name || row.walk_id || 'Walk'} · ${row.commenter_name || 'Anonymous'}`}
-                />
               </div>
             </div>
           ) : null}
@@ -2028,7 +2006,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                     <div>{row.name} <span style={{ color: 'rgba(26,39,68,0.55)' }}>({row.slug})</span>{row._derived ? <span style={{ marginLeft: 8, fontSize: 12, color: '#9A6700' }}>derived</span> : null}</div>
                     <div style={{ display: 'flex', gap: 6 }}>
                       <button className="btn btn-ghost btn-sm" onClick={() => setCategoryDraft(row)}>Edit</button>
-                      <button className="btn btn-ghost btn-sm" onClick={() => deleteRow('categories', row.id, 'Category deleted.')}>Delete</button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => deleteRow('resource_categories', row.id, 'Category deleted.')}>Delete</button>
                     </div>
                   </div>
                 ))}

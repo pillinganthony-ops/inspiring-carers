@@ -49,7 +49,7 @@ const insertEventEnquiry = async ({ event, fullName, email, phone, message, spac
 
   const { error: queueError } = await supabase.from('resource_update_submissions').insert({
     resource_id: event.resource?.id || null,
-    resource_name: event.profile?.display_name || event.title || 'Event enquiry',
+    resource_name: event.orgName || event.profile?.display_name || event.title || 'Event enquiry',
     resource_category: 'events',
     update_type: 'event_enquiry',
     description: moderationDescription,
@@ -206,7 +206,7 @@ const EventsPage = ({ onNavigate, session }) => {
       try {
         const [eventsResult, profilesResult, resourcesResult] = await Promise.all([
           supabase.from('organisation_events').select('*').in('status', ['scheduled', 'completed']).order('starts_at', { ascending: true }),
-          supabase.from('organisation_profiles').select('id,resource_id,slug,display_name,verified_status,featured,is_active,email').eq('is_active', true),
+          supabase.from('organisation_profiles').select('id,resource_id,slug,organisation_name,display_name,verified_status,featured,is_active,contact_email,email').eq('is_active', true),
           supabase.from('resources').select('id,slug,town,email,website').eq('is_archived', false),
         ]);
         if (cancelled) return;
@@ -220,7 +220,8 @@ const EventsPage = ({ onNavigate, session }) => {
             ...event,
             profile,
             resource,
-            contact_email: event.contact_email || profile?.email || resource?.email || null,
+            contact_email: event.contact_email || profile?.contact_email || profile?.email || resource?.email || null,
+            orgName: profile?.organisation_name || profile?.display_name || null,
             publicSlug: resource?.slug || profile?.slug || '',
           };
         });
@@ -293,7 +294,7 @@ const EventsPage = ({ onNavigate, session }) => {
                   <div style={{ display: 'grid', gap: 7, marginTop: 14, fontSize: 13.5, color: '#1A2744' }}>
                     <div><strong>When:</strong> {formatDateTime(event.starts_at)}</div>
                     <div><strong>Where:</strong> {event.location || 'Location shared by organiser'}</div>
-                    <div><strong>By:</strong> {event.profile?.display_name || 'Community organisation'}</div>
+                    <div><strong>By:</strong> {event.orgName || 'Community organisation'}</div>
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
                     <button className="btn btn-gold btn-sm" onClick={() => setActiveEvent(event)}>{event.cta_type === 'book' ? 'Book your place' : 'Contact provider'}</button>
