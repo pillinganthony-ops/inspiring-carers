@@ -106,6 +106,9 @@ const ClosingBand = ({ onNavigate }) => (
               letterSpacing: '-0.03em',
               lineHeight: 1.1,
               textWrap: 'balance',
+              color: '#FFFFFF',
+              WebkitTextFillColor: '#FFFFFF',
+              opacity: 1,
             }}
           >
             Your free Inspiring Carers card. No cost, no catch.
