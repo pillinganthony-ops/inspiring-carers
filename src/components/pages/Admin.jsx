@@ -94,7 +94,7 @@ const dedupeAddressCandidates = (candidates) => {
 const getProfileName = (profile, resources = []) => {
   if (!profile) return 'Organisation profile';
   const linkedResource = resources.find((resource) => `${resource.id}` === `${profile.resource_id}`) || null;
-  return `${profile.display_name || profile.name || linkedResource?.name || profile.slug || profile.owner_email || 'Organisation profile'}`.trim();
+  return `${profile.organisation_name || profile.display_name || profile.name || linkedResource?.name || profile.slug || profile.owner_email || 'Organisation profile'}`.trim();
 };
 
 // Extract only the human-written section from the structured buildAdminReason output.
@@ -403,13 +403,82 @@ const CreateListingModal = ({ submission, draft, categories, duplicateMatches, a
   );
 };
 
-const buildCompatibleProfilePayload = (payload) => ({
-  primary: payload,
-  legacy: {
-    ...payload,
-    name: payload.display_name,
-  },
-});
+// Live schema: organisation_name (NOT NULL), individual social URL columns.
+// normalizeProfileRow handles both old and new column names for backwards
+// compatibility when reading legacy rows that pre-date the schema migration.
+const PROFILE_SOCIAL_COLUMNS = ['facebook_url','instagram_url','linkedin_url','youtube_url','tiktok_url','x_url','threads_url','whatsapp_url'];
+const PROFILE_SOCIAL_LABELS = { facebook_url:'Facebook', instagram_url:'Instagram', linkedin_url:'LinkedIn', youtube_url:'YouTube', tiktok_url:'TikTok', x_url:'X / Twitter', threads_url:'Threads', whatsapp_url:'WhatsApp' };
+const PROFILE_SOCIAL_PLACEHOLDERS = { facebook_url:'https://facebook.com/…', instagram_url:'https://instagram.com/…', linkedin_url:'https://linkedin.com/…', youtube_url:'https://youtube.com/@…', tiktok_url:'https://tiktok.com/@…', x_url:'https://x.com/…', threads_url:'https://threads.net/…', whatsapp_url:'+44 7700 000000 or wa.me/…' };
+
+const normalizeProfileRow = (row) => {
+  if (!row) return {};
+  const base = {
+    id: row.id,
+    organisation_name: row.organisation_name || row.display_name || row.name || '',
+    slug: row.slug || '',
+    resource_id: row.resource_id || '',
+    owner_email: row.owner_email || '',
+    contact_email: row.contact_email || row.email || '',
+    contact_phone: row.contact_phone || row.phone || '',
+    website_url: row.website_url || row.website || '',
+    short_bio: row.short_bio || row.bio || '',
+    full_bio: row.full_bio || row.description || '',
+    logo_url: row.logo_url || '',
+    banner_url: row.banner_url || row.cover_image_url || '',
+    package_name: row.package_name || '',
+    entitlement_status: row.entitlement_status || 'inactive',
+    start_date: row.start_date || '',
+    end_date: row.end_date || '',
+    featured_enabled: Boolean(row.featured_enabled),
+    event_quota: Number(row.event_quota) || 0,
+    enquiry_tools_enabled: Boolean(row.enquiry_tools_enabled),
+    analytics_enabled: Boolean(row.analytics_enabled),
+    is_active: row.is_active !== false,
+  };
+  PROFILE_SOCIAL_COLUMNS.forEach((col) => { base[col] = row[col] || ''; });
+  return base;
+};
+
+// Minimal INSERT payload when creating a profile from a resource drawer.
+const buildLiveProfileInsert = (resourceDraft) => {
+  const orgName = `${resourceDraft.name || ''}`.trim();
+  return {
+    resource_id: resourceDraft.id,
+    organisation_name: orgName,
+    slug: `${slugify(orgName)}-${String(resourceDraft.id).slice(-6)}`,
+    short_bio: resourceDraft.summary?.trim() || null,
+    full_bio: resourceDraft.description?.trim() || null,
+    contact_email: resourceDraft.email?.trim() || null,
+    contact_phone: resourceDraft.phone?.trim() || null,
+    website_url: resourceDraft.website?.trim() || null,
+  };
+};
+
+// Full payload for profile CRUD tab save.
+const buildLiveProfilePayload = (profileDraft) => {
+  const payload = {
+    organisation_name: `${profileDraft.organisation_name || ''}`.trim(),
+    slug: slugify(profileDraft.slug || profileDraft.organisation_name),
+    resource_id: profileDraft.resource_id || null,
+    owner_email: profileDraft.owner_email?.trim() || null,
+    contact_email: profileDraft.contact_email?.trim() || null,
+    contact_phone: profileDraft.contact_phone?.trim() || null,
+    website_url: profileDraft.website_url?.trim() || null,
+    short_bio: profileDraft.short_bio?.trim() || null,
+    full_bio: profileDraft.full_bio?.trim() || null,
+    package_name: profileDraft.package_name?.trim() || null,
+    entitlement_status: profileDraft.entitlement_status || 'inactive',
+    start_date: profileDraft.start_date || null,
+    end_date: profileDraft.end_date || null,
+    featured_enabled: Boolean(profileDraft.featured_enabled),
+    event_quota: Math.max(0, Number(profileDraft.event_quota) || 0),
+    enquiry_tools_enabled: Boolean(profileDraft.enquiry_tools_enabled),
+    analytics_enabled: Boolean(profileDraft.analytics_enabled),
+    is_active: Boolean(profileDraft.is_active),
+  };
+  PROFILE_SOCIAL_COLUMNS.forEach((col) => { payload[col] = profileDraft[col]?.trim() || null; });
+  return payload;
+};
 
 /* ─── Category slug → label resolver ─────────────────────── */
 const ADMIN_CAT_LABELS = {
@@ -436,9 +505,28 @@ const resolveAdminCatLabel = (slug) => {
   return ADMIN_CAT_LABELS[s] || '';
 };
 
-/* ─── organisation_profiles compatibility INSERT ─────────── */
-// Retries the insert, stripping one unrecognised column per attempt until
-// either the insert succeeds or there is a non-schema error.
+/* ─── organisation_profiles compatibility INSERT / UPDATE ─── */
+// Retries the operation, stripping one unrecognised column per attempt.
+// Column name cascade for the required name field:
+//   organisation_name (live schema) → name (old schema fallback)
+const _orgProfileColFallback = (missing, attempt) => {
+  if (missing === 'organisation_name' && 'organisation_name' in attempt) {
+    const next = { ...attempt, name: attempt.organisation_name };
+    delete next.organisation_name;
+    return { attempt: next, note: 'organisation_name→name' };
+  }
+  if (missing === 'display_name' && 'display_name' in attempt) {
+    const next = { ...attempt, organisation_name: attempt.display_name };
+    delete next.display_name;
+    return { attempt: next, note: 'display_name→organisation_name' };
+  }
+  if (missing in attempt) {
+    const { [missing]: _removed, ...rest } = attempt;
+    return { attempt: rest, note: missing };
+  }
+  return null;
+};
+
 const insertOrgProfileCompat = async (supabaseClient, payload) => {
   let attempt = { ...payload };
   const stripped = [];
@@ -450,23 +538,13 @@ const insertOrgProfileCompat = async (supabaseClient, payload) => {
       .single();
     if (!result.error) return { data: result.data, stripped };
     const msg = `${result.error?.message || result.error?.details || ''}`;
-    // PostgREST schema-cache error: "Could not find the 'X' column of 'T'"
     const colMatch = msg.match(/find the ['"`]?(\w+)['"`]? column/i)
       || msg.match(/column ['"`]?(\w+)['"`]? of/i);
     if (!colMatch?.[1]) throw result.error;
-    const missing = colMatch[1];
-    if (missing === 'display_name' && 'display_name' in attempt) {
-      // display_name → name compatibility fallback
-      attempt = { ...attempt, name: attempt.display_name };
-      delete attempt.display_name;
-      stripped.push('display_name→name');
-    } else if (missing in attempt) {
-      const { [missing]: _removed, ...rest } = attempt;
-      attempt = rest;
-      stripped.push(missing);
-    } else {
-      throw result.error; // column not in our payload — unexpected error
-    }
+    const fallback = _orgProfileColFallback(colMatch[1], attempt);
+    if (!fallback) throw result.error;
+    attempt = fallback.attempt;
+    stripped.push(fallback.note);
   }
   throw new Error('Too many schema compatibility retries on organisation_profiles insert.');
 };
@@ -484,39 +562,22 @@ const updateOrgProfileCompat = async (supabaseClient, id, payload) => {
     const colMatch = msg.match(/find the ['"`]?(\w+)['"`]? column/i)
       || msg.match(/column ['"`]?(\w+)['"`]? of/i);
     if (!colMatch?.[1]) throw result.error;
-    const missing = colMatch[1];
-    if (missing === 'display_name' && 'display_name' in attempt) {
-      attempt = { ...attempt, name: attempt.display_name };
-      delete attempt.display_name;
-      stripped.push('display_name→name');
-    } else if (missing in attempt) {
-      const { [missing]: _removed, ...rest } = attempt;
-      attempt = rest;
-      stripped.push(missing);
-    } else {
-      throw result.error;
-    }
+    const fallback = _orgProfileColFallback(colMatch[1], attempt);
+    if (!fallback) throw result.error;
+    attempt = fallback.attempt;
+    stripped.push(fallback.note);
   }
   throw new Error('Too many schema compatibility retries on organisation_profiles update.');
 };
 
-/* ─── Social platform helpers ─────────────────────────────── */
-const SOCIAL_KEYS = ['facebook','instagram','tiktok','x','youtube','linkedin','whatsapp','threads','snapchat'];
-const SOCIAL_LABELS = { facebook:'Facebook', instagram:'Instagram', tiktok:'TikTok', x:'X / Twitter', youtube:'YouTube', linkedin:'LinkedIn', whatsapp:'WhatsApp', threads:'Threads', snapchat:'Snapchat' };
-const SOCIAL_PLACEHOLDERS = { facebook:'https://facebook.com/…', instagram:'https://instagram.com/…', tiktok:'https://tiktok.com/@…', x:'https://x.com/…', youtube:'https://youtube.com/@…', linkedin:'https://linkedin.com/…', whatsapp:'+44 7700 000000 or wa.me/…', threads:'https://threads.net/…', snapchat:'https://snapchat.com/…' };
-
-const unpackSocials = (socials) => {
-  const obj = (socials && typeof socials === 'object' && !Array.isArray(socials)) ? socials : {};
-  return Object.fromEntries(SOCIAL_KEYS.map((k) => [`socials_${k}`, obj[k] || '']));
-};
-const packSocials = (draft) => {
-  const out = {};
-  SOCIAL_KEYS.forEach((k) => {
-    const v = `${draft[`socials_${k}`] || ''}`.trim();
-    if (!v) return;
-    out[k] = /^https?:\/\//i.test(v) ? v : `https://${v}`;
+// Build flat social columns payload from a draft (null-ifies empty strings).
+const buildSocialColumnsPayload = (draft) => {
+  const payload = {};
+  PROFILE_SOCIAL_COLUMNS.forEach((col) => {
+    const v = `${draft[col] || ''}`.trim();
+    payload[col] = v ? (/^https?:\/\//i.test(v) ? v : `https://${v}`) : null;
   });
-  return out;
+  return payload;
 };
 
 const emptyCategory = { id: null, name: '', slug: '', sort_order: 0, active: true };
@@ -541,12 +602,15 @@ const emptyResource = {
 };
 const emptyProfile = {
   id: null,
-  display_name: '',
+  organisation_name: '',
   slug: '',
   resource_id: '',
   owner_email: '',
-  email: '',
-  website: '',
+  contact_email: '',
+  contact_phone: '',
+  website_url: '',
+  short_bio: '',
+  full_bio: '',
   package_name: '',
   entitlement_status: 'inactive',
   start_date: '',
@@ -556,7 +620,7 @@ const emptyProfile = {
   enquiry_tools_enabled: false,
   analytics_enabled: false,
   is_active: true,
-  ...Object.fromEntries(SOCIAL_KEYS.map((k) => [`socials_${k}`, ''])),
+  ...Object.fromEntries(PROFILE_SOCIAL_COLUMNS.map((col) => [col, ''])),
 };
 const emptyEvent = {
   id: null,
@@ -924,7 +988,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     // Populate linked profile draft from existing profiles state
     if (row?.id) {
       const linked = profiles.find((p) => String(p.resource_id) === String(row.id)) || null;
-      setLinkedProfileDraft(linked ? { _id: linked.id, ...unpackSocials(linked.socials) } : {});
+      setLinkedProfileDraft(linked ? { _id: linked.id, ...normalizeProfileRow(linked) } : {});
     } else {
       setLinkedProfileDraft({});
     }
@@ -953,20 +1017,11 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     setLinkedProfileBusy(true);
     setLinkedProfileError('');
     try {
-      const { error: updateError } = await supabase
-        .from('organisation_profiles')
-        .update({ socials: packSocials(linkedProfileDraft) })
-        .eq('id', profId);
-      if (updateError) throw updateError;
+      await updateOrgProfileCompat(supabase, profId, buildSocialColumnsPayload(linkedProfileDraft));
       setToast('Social links saved.');
       await loadData();
     } catch (err) {
-      const msg = err?.message || '';
-      setLinkedProfileError(
-        msg.toLowerCase().includes('socials')
-          ? 'The socials column is not yet in the live schema. Run: ALTER TABLE public.organisation_profiles ADD COLUMN IF NOT EXISTS socials jsonb NOT NULL DEFAULT \'{}\'::jsonb;'
-          : msg || 'Failed to save social links.',
-      );
+      setLinkedProfileError(err?.message || 'Failed to save social links.');
     } finally {
       setLinkedProfileBusy(false);
     }
@@ -977,31 +1032,14 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     setLinkedProfileBusy(true);
     setLinkedProfileError('');
     try {
-      const displayName = resourceDraft.name.trim();
-      const profileSlug = `${slugify(displayName)}-${String(resourceDraft.id).slice(-6)}`;
-
-      // Full desired payload — insertOrgProfileCompat strips any column the live
-      // schema doesn't support and retries automatically, so no manual SQL is needed.
-      const payload = {
-        resource_id: resourceDraft.id,
-        display_name: displayName,
-        slug: profileSlug,
-        email: resourceDraft.email?.trim() || null,
-        website: resourceDraft.website?.trim() || null,
-        is_active: true,
-        claim_status: 'unclaimed',
-        verified_status: 'community',
-        socials: {},
-      };
-
-      const { data: newProfile, stripped } = await insertOrgProfileCompat(supabase, payload);
-
-      const strippedNote = stripped.length
-        ? ` (schema skipped: ${stripped.join(', ')})`
-        : '';
+      const { data: newProfile, stripped } = await insertOrgProfileCompat(
+        supabase,
+        buildLiveProfileInsert(resourceDraft),
+      );
+      const strippedNote = stripped.length ? ` (skipped: ${stripped.join(', ')})` : '';
       setToast(`Organisation profile created${strippedNote}.`);
       await loadData();
-      setLinkedProfileDraft({ _id: newProfile.id, ...unpackSocials({}) });
+      setLinkedProfileDraft({ _id: newProfile.id, ...normalizeProfileRow(newProfile) });
     } catch (err) {
       setLinkedProfileError(err?.message || 'Failed to create organisation profile.');
     } finally {
@@ -1044,17 +1082,10 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       // Also persist social links to the linked org profile if one is open
       const profId = linkedProfileDraft._id;
       if (profId) {
-        const { error: socialsErr } = await supabase
-          .from('organisation_profiles')
-          .update({ socials: packSocials(linkedProfileDraft) })
-          .eq('id', profId);
-        if (socialsErr) {
-          const msg = socialsErr.message || '';
-          setLinkedProfileError(
-            msg.toLowerCase().includes('socials')
-              ? 'Social links column not in live schema. Resource saved. To enable socials run: ALTER TABLE public.organisation_profiles ADD COLUMN IF NOT EXISTS socials jsonb NOT NULL DEFAULT \'{}\'::jsonb;'
-              : `Social links save failed: ${msg}`,
-          );
+        try {
+          await updateOrgProfileCompat(supabase, profId, buildSocialColumnsPayload(linkedProfileDraft));
+        } catch (socialsErr) {
+          setLinkedProfileError(`Social links save failed: ${socialsErr?.message || 'unknown error'}`);
         }
       }
       saved = true;
@@ -1099,7 +1130,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       const profile = profiles.find((row) => `${row.id}` === `${match.id}`) || null;
       if (profile) {
         setTab('profiles');
-        setProfileDraft({ ...emptyProfile, ...profile, display_name: profile.display_name || profile.name || '', resource_id: profile.resource_id || '', start_date: profile.start_date || '', end_date: profile.end_date || '' });
+        setProfileDraft({ ...emptyProfile, ...normalizeProfileRow(profile) });
       }
       closeCreateListingModal();
     }
@@ -1239,43 +1270,19 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   };
 
   const saveProfile = async () => {
-    if (!profileDraft.display_name.trim()) {
-      setError('Profile name is required.');
+    if (!profileDraft.organisation_name.trim()) {
+      setError('Organisation name is required.');
       return;
     }
 
-    const payload = {
-      display_name: profileDraft.display_name.trim(),
-      slug: slugify(profileDraft.slug || profileDraft.display_name),
-      resource_id: profileDraft.resource_id || null,
-      owner_email: profileDraft.owner_email?.trim() || null,
-      email: profileDraft.email?.trim() || null,
-      website: profileDraft.website?.trim() || null,
-      package_name: profileDraft.package_name?.trim() || null,
-      entitlement_status: profileDraft.entitlement_status || 'inactive',
-      start_date: profileDraft.start_date || null,
-      end_date: profileDraft.end_date || null,
-      featured_enabled: Boolean(profileDraft.featured_enabled),
-      event_quota: Math.max(0, Number(profileDraft.event_quota) || 0),
-      enquiry_tools_enabled: Boolean(profileDraft.enquiry_tools_enabled),
-      analytics_enabled: Boolean(profileDraft.analytics_enabled),
-      is_active: Boolean(profileDraft.is_active),
-      socials: packSocials(profileDraft),
-      updated_by: session?.user?.id || null,
-    };
-    const compatiblePayload = buildCompatibleProfilePayload(payload);
-    delete compatiblePayload.legacy.display_name;
+    const payload = buildLiveProfilePayload(profileDraft);
 
     await withBusy(async () => {
-      let result = profileDraft.id
-        ? await supabase.from('organisation_profiles').update(compatiblePayload.primary).eq('id', profileDraft.id)
-        : await supabase.from('organisation_profiles').insert({ ...compatiblePayload.primary, created_by: session?.user?.id || null });
-      if (result.error?.message?.includes('display_name')) {
-        result = profileDraft.id
-          ? await supabase.from('organisation_profiles').update(compatiblePayload.legacy).eq('id', profileDraft.id)
-          : await supabase.from('organisation_profiles').insert({ ...compatiblePayload.legacy, created_by: session?.user?.id || null });
+      if (profileDraft.id) {
+        await updateOrgProfileCompat(supabase, profileDraft.id, payload);
+      } else {
+        await insertOrgProfileCompat(supabase, payload);
       }
-      if (result.error) throw result.error;
       setProfileDraft(emptyProfile);
     }, profileDraft.id ? 'Profile updated.' : 'Profile created.');
   };
@@ -1475,11 +1482,9 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
 
       if (existingProfile?.id) {
         await updateOrgProfileCompat(supabase, existingProfile.id, {
-          display_name: displayName,
+          organisation_name: displayName,
           owner_email: ownerEmail,
-          email: ownerEmail,
-          claim_status: 'claimed',
-          verified_status: 'claimed',
+          contact_email: ownerEmail,
           is_active: true,
         });
         return;
@@ -1487,24 +1492,20 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
 
       await insertOrgProfileCompat(supabase, {
         resource_id: claim.listing_id,
-        display_name: displayName,
+        organisation_name: displayName,
         slug: `${slugBase}-${`${claim.listing_id}`.slice(-6)}`,
         owner_email: ownerEmail,
-        email: ownerEmail,
-        claim_status: 'claimed',
-        verified_status: 'claimed',
+        contact_email: ownerEmail,
         is_active: true,
       });
       return;
     }
 
     await insertOrgProfileCompat(supabase, {
-      display_name: displayName,
+      organisation_name: displayName,
       slug: `${slugBase}-${Date.now()}`,
       owner_email: ownerEmail,
-      email: ownerEmail,
-      claim_status: 'claimed',
-      verified_status: 'claimed',
+      contact_email: ownerEmail,
       is_active: true,
     });
   };
@@ -2046,15 +2047,16 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
             <div className="card" style={{ padding: 18 }}>
               <h2 style={{ fontSize: 22, fontWeight: 700 }}>Organisation profile CRUD</h2>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginTop: 10 }}>
-                <input value={profileDraft.display_name} onChange={(e) => setProfileDraft((p) => ({ ...p, display_name: e.target.value }))} placeholder="Profile name" style={inputStyle} />
+                <input value={profileDraft.organisation_name} onChange={(e) => setProfileDraft((p) => ({ ...p, organisation_name: e.target.value }))} placeholder="Organisation name *" style={inputStyle} />
                 <input value={profileDraft.slug} onChange={(e) => setProfileDraft((p) => ({ ...p, slug: e.target.value }))} placeholder="Slug" style={inputStyle} />
                 <select value={profileDraft.resource_id} onChange={(e) => setProfileDraft((p) => ({ ...p, resource_id: e.target.value }))} style={inputStyle}>
                   <option value="">Linked resource</option>
                   {resources.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
                 </select>
                 <input value={profileDraft.owner_email} onChange={(e) => setProfileDraft((p) => ({ ...p, owner_email: e.target.value }))} placeholder="Owner email" style={inputStyle} />
-                <input value={profileDraft.email} onChange={(e) => setProfileDraft((p) => ({ ...p, email: e.target.value }))} placeholder="Profile email" style={inputStyle} />
-                <input value={profileDraft.website} onChange={(e) => setProfileDraft((p) => ({ ...p, website: e.target.value }))} placeholder="Website" style={inputStyle} />
+                <input value={profileDraft.contact_email} onChange={(e) => setProfileDraft((p) => ({ ...p, contact_email: e.target.value }))} placeholder="Contact email" style={inputStyle} />
+                <input value={profileDraft.contact_phone} onChange={(e) => setProfileDraft((p) => ({ ...p, contact_phone: e.target.value }))} placeholder="Contact phone" style={inputStyle} />
+                <input value={profileDraft.website_url} onChange={(e) => setProfileDraft((p) => ({ ...p, website_url: e.target.value }))} placeholder="Website URL" style={inputStyle} />
                 <input value={profileDraft.package_name || ''} onChange={(e) => setProfileDraft((p) => ({ ...p, package_name: e.target.value }))} placeholder="Package name" style={inputStyle} />
                 <select value={profileDraft.entitlement_status || 'inactive'} onChange={(e) => setProfileDraft((p) => ({ ...p, entitlement_status: e.target.value }))} style={inputStyle}>
                   <option value="inactive">Inactive</option>
@@ -2076,8 +2078,8 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
               <div style={{ marginTop: 14 }}>
                 <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.44)', marginBottom: 8 }}>Social media</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
-                  {SOCIAL_KEYS.map((k) => (
-                    <input key={k} value={profileDraft[`socials_${k}`] || ''} onChange={(e) => setProfileDraft((p) => ({ ...p, [`socials_${k}`]: e.target.value }))} placeholder={`${SOCIAL_LABELS[k]}: ${SOCIAL_PLACEHOLDERS[k]}`} style={inputStyle} />
+                  {PROFILE_SOCIAL_COLUMNS.map((col) => (
+                    <input key={col} value={profileDraft[col] || ''} onChange={(e) => setProfileDraft((p) => ({ ...p, [col]: e.target.value }))} placeholder={`${PROFILE_SOCIAL_LABELS[col]}: ${PROFILE_SOCIAL_PLACEHOLDERS[col]}`} style={inputStyle} />
                   ))}
                 </div>
               </div>
@@ -2090,7 +2092,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                   <div key={row.id} style={{ border: '1px solid #E9EEF5', borderRadius: 10, padding: 10, display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
                     <div>{getProfileName(row, resources)} <span style={{ color: 'rgba(26,39,68,0.55)' }}>({row.owner_email || 'No owner email'})</span></div>
                     <div style={{ display: 'flex', gap: 6 }}>
-                      <button className="btn btn-ghost btn-sm" onClick={() => setProfileDraft({ ...emptyProfile, ...row, display_name: row.display_name || row.name || '', resource_id: row.resource_id || '', start_date: row.start_date || '', end_date: row.end_date || '', ...unpackSocials(row.socials) })}>Edit</button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setProfileDraft({ ...emptyProfile, ...normalizeProfileRow(row) })}>Edit</button>
                       <button className="btn btn-ghost btn-sm" onClick={() => deleteRow('organisation_profiles', row.id, 'Profile deleted.')}>Delete</button>
                     </div>
                   </div>
@@ -2434,8 +2436,8 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                     </div>
                     <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.44)', marginBottom: 8 }}>Social media</div>
                     <div style={{ display: 'grid', gap: 7 }}>
-                      {SOCIAL_KEYS.map((k) => (
-                        <input key={k} value={linkedProfileDraft[`socials_${k}`] || ''} onChange={(e) => setLinkedProfileDraft((p) => ({ ...p, [`socials_${k}`]: e.target.value }))} placeholder={`${SOCIAL_LABELS[k]}: ${SOCIAL_PLACEHOLDERS[k]}`} style={{ ...inputStyle, fontSize: 12.5 }} />
+                      {PROFILE_SOCIAL_COLUMNS.map((col) => (
+                        <input key={col} value={linkedProfileDraft[col] || ''} onChange={(e) => setLinkedProfileDraft((p) => ({ ...p, [col]: e.target.value }))} placeholder={`${PROFILE_SOCIAL_LABELS[col]}: ${PROFILE_SOCIAL_PLACEHOLDERS[col]}`} style={{ ...inputStyle, fontSize: 12.5 }} />
                       ))}
                     </div>
                     {linkedProfileError && <div style={{ marginTop: 8, padding: '8px 10px', borderRadius: 8, background: 'rgba(244,97,58,0.08)', color: '#A03A2D', fontSize: 12 }}>{linkedProfileError}</div>}
@@ -2446,7 +2448,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                       {profId && (
                         <button className="btn btn-ghost btn-sm" onClick={() => {
                           const prof = profiles.find((p) => String(p.id) === String(profId));
-                          if (prof) setProfileDraft({ ...emptyProfile, ...prof, display_name: prof.display_name || prof.name || '', resource_id: prof.resource_id || '', start_date: prof.start_date || '', end_date: prof.end_date || '', ...unpackSocials(prof.socials) });
+                          if (prof) setProfileDraft({ ...emptyProfile, ...normalizeProfileRow(prof) });
                           closeResourceEditor();
                           setTab('profiles');
                         }}>
