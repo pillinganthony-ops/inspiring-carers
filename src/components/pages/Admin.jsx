@@ -850,7 +850,12 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       setToast('Social links saved.');
       await loadData();
     } catch (err) {
-      setLinkedProfileError(err?.message || 'Failed to save social links.');
+      const msg = err?.message || '';
+      setLinkedProfileError(
+        msg.toLowerCase().includes('socials')
+          ? 'The socials column is not yet in the live schema. Run: ALTER TABLE public.organisation_profiles ADD COLUMN IF NOT EXISTS socials jsonb NOT NULL DEFAULT \'{}\'::jsonb;'
+          : msg || 'Failed to save social links.',
+      );
     } finally {
       setLinkedProfileBusy(false);
     }
@@ -862,30 +867,62 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     setLinkedProfileError('');
     try {
       const displayName = resourceDraft.name.trim();
-      const baseSlug = slugify(displayName);
-      const profileSlug = `${baseSlug}-${String(resourceDraft.id).slice(-6)}`;
-      const insertPayload = {
+      const profileSlug = `${slugify(displayName)}-${String(resourceDraft.id).slice(-6)}`;
+
+      // Core payload uses ONLY confirmed-live columns — matches applyApprovedClaimOwnership.
+      // bio / website / socials are intentionally absent: they may not exist in the live
+      // organisation_profiles table if it pre-dates the expansion migration.
+      const corePayload = {
         resource_id: resourceDraft.id,
         display_name: displayName,
         slug: profileSlug,
         email: resourceDraft.email?.trim() || null,
-        website: resourceDraft.website?.trim() || null,
-        bio: resourceDraft.summary?.trim() || null,
         is_active: true,
         claim_status: 'unclaimed',
         verified_status: 'community',
-        socials: {},
       };
-      let result = await supabase.from('organisation_profiles').insert(insertPayload).select('id').single();
+
+      let result = await supabase
+        .from('organisation_profiles')
+        .insert(corePayload)
+        .select('id')
+        .single();
+
+      // display_name / name compatibility fallback (same pattern as applyApprovedClaimOwnership)
       if (result.error?.message?.includes('display_name')) {
-        const legacyPayload = { ...insertPayload, name: displayName };
+        const legacyPayload = { ...corePayload, name: displayName };
         delete legacyPayload.display_name;
-        result = await supabase.from('organisation_profiles').insert(legacyPayload).select('id').single();
+        result = await supabase
+          .from('organisation_profiles')
+          .insert(legacyPayload)
+          .select('id')
+          .single();
       }
+
       if (result.error) throw result.error;
+
+      const newProfileId = result.data.id;
+
+      // Optional post-insert: add website and socials if those columns exist live.
+      // If they don't exist the error is swallowed — it does not fail the create.
+      const optionalFields = { socials: {} };
+      if (resourceDraft.website?.trim()) optionalFields.website = resourceDraft.website.trim();
+      const { error: optErr } = await supabase
+        .from('organisation_profiles')
+        .update(optionalFields)
+        .eq('id', newProfileId);
+      if (optErr) {
+        const missing = optErr.message?.match(/column ['"]?(\w+)['"]?/)?.[1] || '';
+        if (missing && !['website', 'socials'].includes(missing)) {
+          // Unexpected column error — surface it as a warning but don't block
+          setLinkedProfileError(`Profile created. Optional fields failed: ${optErr.message}`);
+        }
+        // website/socials missing from live schema is expected — stay silent
+      }
+
       setToast('Organisation profile created.');
       await loadData();
-      setLinkedProfileDraft({ _id: result.data.id, ...unpackSocials({}) });
+      setLinkedProfileDraft({ _id: newProfileId, ...unpackSocials({}) });
     } catch (err) {
       setLinkedProfileError(err?.message || 'Failed to create organisation profile.');
     } finally {
@@ -933,8 +970,12 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
           .update({ socials: packSocials(linkedProfileDraft) })
           .eq('id', profId);
         if (socialsErr) {
-          // Non-blocking: note the issue but do not abort the resource save
-          setLinkedProfileError(`Social links save failed: ${socialsErr.message}`);
+          const msg = socialsErr.message || '';
+          setLinkedProfileError(
+            msg.toLowerCase().includes('socials')
+              ? 'Social links column not in live schema. Resource saved. To enable socials run: ALTER TABLE public.organisation_profiles ADD COLUMN IF NOT EXISTS socials jsonb NOT NULL DEFAULT \'{}\'::jsonb;'
+              : `Social links save failed: ${msg}`,
+          );
         }
       }
       saved = true;
