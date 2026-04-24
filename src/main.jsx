@@ -171,6 +171,97 @@ const ClosingBand = ({ onNavigate }) => (
   </section>
 );
 
+/* ─── Global Enquiry Float ───────────────────────────────── */
+const GlobalEnquiry = ({ visible }) => {
+  const fld = { width: '100%', borderRadius: 12, border: '1px solid #E9EEF5', padding: '11px 14px', fontSize: 14, color: '#1A2744', background: '#FAFBFF', boxSizing: 'border-box', fontFamily: 'inherit' };
+  const [open, setOpen] = React.useState(false);
+  const [form, setForm] = React.useState({ name: '', email: '', org: '', message: '' });
+  const [busy, setBusy] = React.useState(false);
+  const [done, setDone] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
+
+  if (!visible) return null;
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.name.trim() || !form.email.trim()) { setError('Please enter your name and email.'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) { setError('Please enter a valid email address.'); return; }
+    if (!isSupabaseConfigured() || !supabase) { setError('Database unavailable.'); return; }
+    setBusy(true);
+    setError('');
+    try {
+      const { error: dbErr } = await supabase.from('resource_update_submissions').insert({
+        organisation_name: form.org.trim() || null,
+        submitter_name: form.name.trim(),
+        submitter_email: form.email.trim(),
+        reason: form.message.trim() || 'General enquiry submitted via site.',
+        status: 'pending',
+        update_type: 'general_enquiry',
+      });
+      if (dbErr) throw dbErr;
+      setDone(true);
+      setForm({ name: '', email: '', org: '', message: '' });
+    } catch (err) {
+      setError(err.message || 'Something went wrong. Please try again.');
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        onClick={() => { setOpen(true); setDone(false); setError(''); }}
+        style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 200, display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#1A2744,#2D3E6B)', color: 'white', padding: '13px 20px', borderRadius: 999, fontWeight: 700, fontSize: 14.5, border: 'none', cursor: 'pointer', boxShadow: '0 8px 28px rgba(26,39,68,0.32)', transition: 'transform 0.15s,box-shadow 0.15s' }}
+        onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 12px 36px rgba(26,39,68,0.42)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(26,39,68,0.32)'; }}
+      >
+        <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/></svg>
+        Get in touch
+      </button>
+
+      {open && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 500, background: 'rgba(15,23,42,0.52)', display: 'grid', placeItems: 'center', padding: 16 }} onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}>
+          <div style={{ background: 'white', borderRadius: 24, padding: '28px 26px', width: '100%', maxWidth: 460, boxShadow: '0 40px 80px rgba(15,23,42,0.24)', position: 'relative', maxHeight: '90vh', overflowY: 'auto' }}>
+            <button onClick={() => setOpen(false)} style={{ position: 'absolute', right: 18, top: 18, width: 34, height: 34, borderRadius: 999, border: '1px solid #EFF1F7', background: '#FAFBFF', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
+              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#1A2744" strokeWidth={2.5} strokeLinecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+            </button>
+            {done ? (
+              <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                <div style={{ width: 56, height: 56, borderRadius: 999, background: 'rgba(16,185,129,0.1)', display: 'grid', placeItems: 'center', margin: '0 auto 16px', color: '#10B981' }}>
+                  <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="m5 12 5 5L20 7"/></svg>
+                </div>
+                <h3 style={{ fontSize: 22, fontWeight: 800, color: '#1A2744' }}>Message sent</h3>
+                <p style={{ marginTop: 8, color: 'rgba(26,39,68,0.65)', fontSize: 14, lineHeight: 1.6 }}>The Inspiring Carers team will be in touch soon.</p>
+                <button onClick={() => setOpen(false)} style={{ marginTop: 18, padding: '10px 24px', borderRadius: 12, background: '#1A2744', color: 'white', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer' }}>Done</button>
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(26,39,68,0.45)', marginBottom: 6 }}>Contact</div>
+                <h3 style={{ fontSize: 22, fontWeight: 800, color: '#1A2744', marginBottom: 6 }}>Get in touch</h3>
+                <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.62)', lineHeight: 1.55, marginBottom: 18 }}>Questions about the platform, listing your organisation, or joining as a carer? We'll respond quickly.</p>
+                <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 10 }}>
+                  <input value={form.name} onChange={set('name')} required placeholder="Your name *" style={fld} />
+                  <input value={form.email} onChange={set('email')} type="email" required placeholder="Email address *" style={fld} />
+                  <input value={form.org} onChange={set('org')} placeholder="Organisation (optional)" style={fld} />
+                  <textarea value={form.message} onChange={set('message')} rows={4} placeholder="How can we help?" style={{ ...fld, resize: 'vertical' }} />
+                  {error && <div style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(244,97,58,0.08)', color: '#A03A2D', fontSize: 13 }}>{error}</div>}
+                  <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+                    <button type="submit" disabled={busy} style={{ flex: 1, padding: '12px 18px', borderRadius: 12, background: 'linear-gradient(135deg,#F5A623,#D4AF37)', color: '#0F172A', fontSize: 14, fontWeight: 800, border: 'none', cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.75 : 1 }}>
+                      {busy ? 'Sending…' : 'Send message'}
+                    </button>
+                    <button type="button" onClick={() => setOpen(false)} style={{ padding: '12px 16px', borderRadius: 12, background: '#F5F7FB', color: '#1A2744', fontSize: 14, fontWeight: 600, border: '1px solid #E9EEF5', cursor: 'pointer' }}>Cancel</button>
+                  </div>
+                </form>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
 // HomePage component
 const HomePage = ({ onNavigate, tweaks }) => (
   <>
@@ -310,7 +401,12 @@ const App = () => {
     default: content = <HomePage onNavigate={navigate} tweaks={tweaks} />;
   }
 
-  return content;
+  return (
+    <>
+      {content}
+      <GlobalEnquiry visible={!['admin', 'login'].includes(displayPage)} />
+    </>
+  );
 };
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);

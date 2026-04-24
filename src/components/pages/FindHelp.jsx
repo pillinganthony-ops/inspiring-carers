@@ -1432,11 +1432,84 @@ const EventActionModal = ({ listing, event, onClose, onSuccess, onFailure }) => 
   );
 };
 
+/* ─── ListingContactModal ────────────────────────────────── */
+const ListingContactModal = ({ listing, type, onClose, onSuccess }) => {
+  const isCallback = type === 'callback';
+  const fld = { width: '100%', borderRadius: 12, border: '1px solid #E9EEF5', padding: '11px 14px', fontSize: 14, color: '#1A2744', background: '#FAFBFF', boxSizing: 'border-box', fontFamily: 'inherit' };
+  const [form, setForm] = React.useState({ name: '', email: '', phone: '', message: '' });
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
+  const orgName = listing.profile?.organisation_name || listing.title || null;
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.name.trim() || !form.email.trim()) { setError('Please enter your name and email.'); return; }
+    if (isCallback && !form.phone.trim()) { setError('Please enter a phone number for the callback.'); return; }
+    if (!isSupabaseConfigured() || !supabase) { setError('Database unavailable. Please try again later.'); return; }
+    setBusy(true);
+    setError('');
+    try {
+      const { error: dbErr } = await supabase.from('resource_update_submissions').insert({
+        organisation_name: orgName,
+        submitter_name: form.name.trim(),
+        submitter_email: form.email.trim(),
+        submitter_phone: form.phone.trim() || null,
+        reason: form.message.trim() || (isCallback ? 'Callback request.' : 'Message via listing page.'),
+        status: 'pending',
+        update_type: isCallback ? 'callback_request' : 'organisation_message',
+        resource_id: listing.id || null,
+        resource_name: listing.title || null,
+      });
+      if (dbErr) throw dbErr;
+      onSuccess();
+    } catch (err) {
+      setError(err.message || 'Something went wrong. Please try again.');
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 310, background: 'rgba(15,23,42,0.52)', display: 'grid', placeItems: 'center', padding: 16 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: 'white', borderRadius: 24, padding: '28px 26px', width: '100%', maxWidth: 440, boxShadow: '0 40px 80px rgba(15,23,42,0.22)', position: 'relative', maxHeight: '90vh', overflowY: 'auto' }}>
+        <button onClick={onClose} style={{ position: 'absolute', right: 18, top: 18, width: 34, height: 34, borderRadius: 999, border: '1px solid #EFF1F7', background: '#FAFBFF', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
+          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#1A2744" strokeWidth={2.5} strokeLinecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+        <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#2D9CDB', marginBottom: 6 }}>
+          {isCallback ? 'Request callback' : 'Send message'}
+        </div>
+        <h3 style={{ fontSize: 20, fontWeight: 800, color: '#1A2744', marginBottom: 6 }}>
+          {isCallback ? 'Request a callback' : 'Message this organisation'}
+        </h3>
+        <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.6)', lineHeight: 1.55, marginBottom: 18 }}>
+          {isCallback
+            ? `Leave your number and ${orgName || 'the team'} will call you back.`
+            : `Your message will reach the community team and ${orgName || 'this organisation'}.`}
+        </p>
+        <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 10 }}>
+          <input value={form.name} onChange={set('name')} required placeholder="Your name *" style={fld} />
+          <input value={form.email} onChange={set('email')} type="email" required placeholder="Email address *" style={fld} />
+          {isCallback && <input value={form.phone} onChange={set('phone')} type="tel" required placeholder="Phone number *" style={fld} />}
+          <textarea value={form.message} onChange={set('message')} rows={3} placeholder={isCallback ? 'Best time to call (optional)' : 'Your message (optional)'} style={{ ...fld, resize: 'vertical' }} />
+          {error && <div style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(244,97,58,0.08)', color: '#A03A2D', fontSize: 13 }}>{error}</div>}
+          <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+            <button type="submit" disabled={busy} style={{ flex: 1, padding: '12px 18px', borderRadius: 12, background: 'linear-gradient(135deg,#1A2744,#2D3E6B)', color: 'white', fontSize: 14, fontWeight: 800, border: 'none', cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.75 : 1 }}>
+              {busy ? 'Sending…' : (isCallback ? 'Request callback' : 'Send message')}
+            </button>
+            <button type="button" onClick={onClose} style={{ padding: '12px 16px', borderRadius: 12, background: '#F5F7FB', color: '#1A2744', fontSize: 14, fontWeight: 600, border: '1px solid #E9EEF5', cursor: 'pointer' }}>Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 /* ─── ResourceDetail ─────────────────────────────────────── */
 const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds, onToggleSave, onOpenResource, onNotify, onNavigate, session }) => {
   const [shareOpen, setShareOpen] = React.useState(false);
   const [mobileShareOpen, setMobileShareOpen] = React.useState(false);
   const [claimOpen, setClaimOpen] = React.useState(false);
+  const [contactModal, setContactModal] = React.useState(null); // null | 'message' | 'callback'
   const [claimSuccess, setClaimSuccess] = React.useState(null);
   const [activeEvent, setActiveEvent] = React.useState(null);
   const isMobile = useIsMobile();
@@ -1823,6 +1896,22 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
               </div>
             </div>
 
+            {/* Contact actions — prominent, above claim */}
+            <div style={{ background: 'linear-gradient(180deg, #0F172A 0%, #1A2744 100%)', borderRadius: 22, padding: 20, border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'white', marginBottom: 4 }}>Get in touch</div>
+              <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.62)', lineHeight: 1.55, marginBottom: 14 }}>
+                Send a direct message or request a callback from this organisation.
+              </p>
+              <div style={{ display: 'grid', gap: 8 }}>
+                <button onClick={() => setContactModal('message')} style={{ width: '100%', padding: '12px 16px', borderRadius: 14, background: 'linear-gradient(135deg,#F5A623,#D4AF37)', color: '#0F172A', fontWeight: 800, fontSize: 14, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 8px 24px rgba(245,166,35,0.3)' }}>
+                  <IMail s={16} /> Message this organisation
+                </button>
+                <button onClick={() => setContactModal('callback')} style={{ width: '100%', padding: '12px 16px', borderRadius: 14, background: 'rgba(255,255,255,0.1)', color: 'white', fontWeight: 700, fontSize: 14, border: '1.5px solid rgba(255,255,255,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <IPhone s={16} /> Request callback
+                </button>
+              </div>
+            </div>
+
             {/* Claim listing */}
             {!SUPPORTS_CLAIMS ? (
               <div style={{ background: 'white', borderRadius: 22, padding: 18, border: '1px solid #EFF1F7' }}>
@@ -1934,6 +2023,21 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
       )}
 
       {mobileShareOpen && <MobileShareSheet listing={listing} onAction={onShareAction} onClose={() => setMobileShareOpen(false)} />}
+
+      {/* Contact / callback modal */}
+      {contactModal && (
+        <ListingContactModal
+          listing={listing}
+          type={contactModal}
+          onClose={() => setContactModal(null)}
+          onSuccess={() => {
+            setContactModal(null);
+            onNotify?.(contactModal === 'callback'
+              ? 'Callback request sent — the team will follow up shortly.'
+              : 'Message sent — the team will pass it on to the organisation.');
+          }}
+        />
+      )}
 
       {/* Claim modal */}
       {SUPPORTS_CLAIMS && claimOpen && (

@@ -3,42 +3,42 @@ import Icons from '../Icons.jsx';
 const { IDot, ICard, IPin, IArrow, ISparkle, IDiscount, IReward, IRecognition, IChevron, IconTile, BloomMark } = Icons;
 
 const Hero = ({ headline, onNavigate }) => (
-  <section style={{ paddingTop: 100, paddingBottom: 90, position: 'relative', overflow: 'hidden', background: 'linear-gradient(180deg, #FEFEFE 0%, #FFFBF3 100%)' }}>
-    <div style={{ position: 'absolute', right: -140, top: -100, width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle at 35% 35%, rgba(245,166,35,0.12), rgba(212,175,55,0.08), transparent 70%)', filter: 'blur(20px)', pointerEvents: 'none' }} />
-    <div style={{ position: 'absolute', left: -160, bottom: -180, width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle at 50% 50%, rgba(45,156,219,0.14), rgba(16,185,129,0.06), transparent 75%)', filter: 'blur(18px)', pointerEvents: 'none' }} />
+  <section style={{ paddingTop: 100, paddingBottom: 90, position: 'relative', overflow: 'hidden', background: 'linear-gradient(145deg, #0F172A 0%, #1A2744 55%, #1E3A5F 100%)' }}>
+    <div style={{ position: 'absolute', right: -140, top: -100, width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle at 35% 35%, rgba(245,166,35,0.22), rgba(212,175,55,0.1), transparent 70%)', filter: 'blur(20px)', pointerEvents: 'none' }} />
+    <div style={{ position: 'absolute', left: -160, bottom: -180, width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle at 50% 50%, rgba(45,156,219,0.24), rgba(16,185,129,0.1), transparent 75%)', filter: 'blur(18px)', pointerEvents: 'none' }} />
 
     <div className="container" style={{ position: 'relative' }}>
       <div className="hero-grid">
         <div>
           {/* Badge */}
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 28, background: 'rgba(245,166,35,0.1)', border: '1px solid rgba(245,166,35,0.22)', borderRadius: 999, padding: '7px 16px', fontSize: 13.5, fontWeight: 700, color: '#8B5A00' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 28, background: 'rgba(245,166,35,0.15)', border: '1px solid rgba(245,166,35,0.3)', borderRadius: 999, padding: '7px 16px', fontSize: 13.5, fontWeight: 700, color: '#F5A623' }}>
             <div style={{ width: 6, height: 6, borderRadius: 999, background: '#F5A623', flexShrink: 0 }} />
             Free community platform for carers
           </div>
 
-          {/* Headline */}
-          <h1 style={{ fontSize: 'clamp(42px, 5.5vw, 68px)', lineHeight: 1.06, fontWeight: 800, letterSpacing: '-0.04em', color: '#1A2744', marginBottom: 22 }}>
+          {/* Headline — white on dark navy */}
+          <h1 style={{ fontSize: 'clamp(42px, 5.5vw, 68px)', lineHeight: 1.06, fontWeight: 800, letterSpacing: '-0.04em', color: '#FFFFFF', marginBottom: 22 }}>
             Support for carers.<br />
-            <span style={{ color: '#2D9CDB' }}>Opportunities for organisations.</span>
+            <span style={{ color: '#7CC8F8' }}>Opportunities for organisations.</span>
           </h1>
 
-          {/* Subtext */}
-          <p style={{ fontSize: 18, lineHeight: 1.7, color: 'rgba(26,39,68,0.72)', maxWidth: 500, fontWeight: 500, marginBottom: 36, fontFamily: 'Inter, sans-serif' }}>
+          {/* Subtext — high contrast on dark */}
+          <p style={{ fontSize: 18, lineHeight: 1.7, color: 'rgba(255,255,255,0.78)', maxWidth: 500, fontWeight: 500, marginBottom: 36, fontFamily: 'Inter, sans-serif' }}>
             Discover help, walks, events, discounts and trusted local services across Cornwall.
           </p>
 
           {/* CTAs */}
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-            <button className="btn btn-gold btn-lg" onClick={() => onNavigate?.('benefits')} style={{ fontSize: 17, padding: '18px 34px', fontWeight: 700, boxShadow: '0 14px 40px rgba(212,175,55,0.3)', background: 'linear-gradient(135deg, #F5A623 0%, #D4AF37 100%)' }}>
+            <button className="btn btn-gold btn-lg" onClick={() => onNavigate?.('benefits')} style={{ fontSize: 17, padding: '18px 34px', fontWeight: 700, boxShadow: '0 14px 40px rgba(212,175,55,0.4)', background: 'linear-gradient(135deg, #F5A623 0%, #D4AF37 100%)' }}>
               <ICard s={20} /> Get your free card
             </button>
-            <button className="btn btn-ghost btn-lg" onClick={() => onNavigate?.('profile')} style={{ fontSize: 17, padding: '18px 34px', fontWeight: 700 }}>
+            <button className="btn btn-lg" onClick={() => onNavigate?.('profile')} style={{ fontSize: 17, padding: '18px 34px', fontWeight: 700, background: 'rgba(255,255,255,0.1)', color: 'white', border: '1.5px solid rgba(255,255,255,0.25)', borderRadius: 16 }}>
               List your organisation <IArrow s={18} />
             </button>
           </div>
 
-          {/* Subtle trust signals — no hype numbers */}
-          <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', marginTop: 28, fontSize: 13, color: 'rgba(26,39,68,0.52)', fontWeight: 600 }}>
+          {/* Trust signals — white on dark */}
+          <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', marginTop: 28, fontSize: 13, color: 'rgba(255,255,255,0.52)', fontWeight: 600 }}>
             {['Free to join', 'Cornwall focused', 'Walks, events & support', 'Growing community'].map((sig) => (
               <span key={sig} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                 <span style={{ width: 5, height: 5, borderRadius: 999, background: '#10B981', flexShrink: 0 }} />

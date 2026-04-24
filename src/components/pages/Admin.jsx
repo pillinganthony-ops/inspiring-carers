@@ -1647,14 +1647,15 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
 
   const pendingClaims = claims.filter((row) => isPendingStatus(row.status));
   const createdResourceUpdates = resourceUpdates.filter((row) => isCreatedSubmission(row));
-  const commercialLeads = resourceUpdates.filter((row) => row._queueType === 'upgrade_enquiry');
-  const pendingResourceUpdates = resourceUpdates.filter((row) => isExactPendingStatus(row.status) && !isCreatedSubmission(row) && row._queueType !== 'upgrade_enquiry');
+  const CONTACT_TYPES = ['upgrade_enquiry', 'general_enquiry', 'organisation_message', 'callback_request'];
+  const contactLeads = resourceUpdates.filter((row) => CONTACT_TYPES.includes(row._queueType));
+  const pendingResourceUpdates = resourceUpdates.filter((row) => isExactPendingStatus(row.status) && !isCreatedSubmission(row) && !CONTACT_TYPES.includes(row._queueType));
   const inReviewResourceUpdates = resourceUpdates.filter((row) => isInReviewStatus(row.status) && !isCreatedSubmission(row));
   const approvedResourceUpdatesReady = resourceUpdates.filter((row) => isApprovedStatus(row.status) && !isCreatedSubmission(row));
   const rejectedResourceUpdates = resourceUpdates.filter((row) => isRejectedStatus(row.status) && !isCreatedSubmission(row));
   const pendingWalkUpdates = walkUpdates.filter((row) => isPendingStatus(row.status));
   const pendingWalkComments = walkComments.filter((row) => isPendingStatus(row.status));
-  const moderationWorkloadCount = pendingClaims.length + pendingResourceUpdates.length + inReviewResourceUpdates.length + approvedResourceUpdatesReady.length + pendingWalkUpdates.length + pendingWalkComments.length + commercialLeads.length;
+  const moderationWorkloadCount = pendingClaims.length + pendingResourceUpdates.length + inReviewResourceUpdates.length + approvedResourceUpdatesReady.length + pendingWalkUpdates.length + pendingWalkComments.length + contactLeads.length;
   const tabCounts = {
     overview: 0,
     moderation: moderationWorkloadCount,
@@ -1721,13 +1722,14 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                 ['Events', events.length, null],
                 ['Pending claims', pendingClaims.length, pendingClaims.length > 0 ? '#F5A623' : null],
                 ['Pending subs', pendingResourceUpdates.length, pendingResourceUpdates.length > 0 ? '#F5A623' : null],
-                ['Comm. leads', commercialLeads.length, commercialLeads.length > 0 ? '#7B5CF5' : null],
+                ['Contacts', contactLeads.length, contactLeads.length > 0 ? '#7B5CF5' : null, () => { setTab('moderation'); setTimeout(() => document.getElementById('admin-contacts-section')?.scrollIntoView({ behavior: 'smooth' }), 120); }],
                 ['Profile views', ownerPerformanceSummary.totalViews, null],
                 ['Enquiries', ownerPerformanceSummary.totalEnquiries, null],
-              ].map(([label, value, accent]) => (
-                <div key={label} className="card" style={{ padding: '12px 14px', borderRadius: 14, borderLeft: accent ? `3px solid ${accent}` : undefined }}>
+              ].map(([label, value, accent, onClick]) => (
+                <div key={label} className="card" onClick={onClick || undefined} style={{ padding: '12px 14px', borderRadius: 14, borderLeft: accent ? `3px solid ${accent}` : undefined, cursor: onClick ? 'pointer' : undefined, transition: onClick ? 'box-shadow 0.15s' : undefined }} onMouseEnter={onClick ? (e) => { e.currentTarget.style.boxShadow = '0 4px 16px rgba(26,39,68,0.14)'; } : undefined} onMouseLeave={onClick ? (e) => { e.currentTarget.style.boxShadow = ''; } : undefined}>
                   <div style={{ fontSize: 11, color: 'rgba(26,39,68,0.52)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em' }}>{label}</div>
                   <div style={{ marginTop: 5, fontSize: 26, fontWeight: 800, color: accent || '#1A2744' }}>{value}</div>
+                  {onClick && <div style={{ marginTop: 3, fontSize: 10, color: 'rgba(26,39,68,0.38)', fontWeight: 600 }}>Click to view →</div>}
                 </div>
               ))}
             </div>
@@ -1845,43 +1847,60 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                 </div>
               ) : null}
 
-              {commercialLeads.length > 0 && (
-                <div className="card" style={{ padding: 22, borderRadius: 22 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
-                    <div>
-                      <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#5f3dc4' }}>Commercial</div>
-                      <h3 style={{ marginTop: 6, fontSize: 22, fontWeight: 800, color: '#1A2744' }}>Upgrade Enquiries</h3>
-                      <p style={{ marginTop: 4, fontSize: 13, color: 'rgba(26,39,68,0.62)', lineHeight: 1.55 }}>Organisations that expressed interest in featured listings, analytics, or discovery calls.</p>
-                    </div>
-                    <div style={{ padding: '8px 14px', borderRadius: 999, background: 'rgba(123,92,245,0.1)', color: '#5f3dc4', fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap' }}>{commercialLeads.length} lead{commercialLeads.length !== 1 ? 's' : ''}</div>
+              <div id="admin-contacts-section" className="card" style={{ padding: 22, borderRadius: 22 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+                  <div>
+                    <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#5f3dc4' }}>CRM</div>
+                    <h3 style={{ marginTop: 6, fontSize: 22, fontWeight: 800, color: '#1A2744' }}>Messages & Enquiries</h3>
+                    <p style={{ marginTop: 4, fontSize: 13, color: 'rgba(26,39,68,0.62)', lineHeight: 1.55 }}>All contact submissions — general enquiries, upgrade requests, org messages, and callback requests.</p>
                   </div>
+                  <div style={{ padding: '8px 14px', borderRadius: 999, background: contactLeads.length > 0 ? 'rgba(123,92,245,0.1)' : 'rgba(26,39,68,0.06)', color: contactLeads.length > 0 ? '#5f3dc4' : 'rgba(26,39,68,0.5)', fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap' }}>{contactLeads.length} contact{contactLeads.length !== 1 ? 's' : ''}</div>
+                </div>
+                {contactLeads.length === 0 ? (
+                  <div style={{ padding: '20px 16px', borderRadius: 12, background: '#F8FAFE', border: '1px dashed #D8E4F0', textAlign: 'center', color: 'rgba(26,39,68,0.45)', fontSize: 13.5 }}>No messages or enquiries yet. They will appear here when visitors submit the contact form.</div>
+                ) : (
                   <div style={{ display: 'grid', gap: 10 }}>
-                    {commercialLeads.map((lead) => {
+                    {contactLeads.map((lead) => {
+                      const typeMap = {
+                        upgrade_enquiry:     { label: 'Upgrade',     bg: 'rgba(123,92,245,0.1)',  color: '#5f3dc4' },
+                        general_enquiry:     { label: 'General',     bg: 'rgba(45,156,219,0.1)',  color: '#1c78b5' },
+                        organisation_message:{ label: 'Org message', bg: 'rgba(16,185,129,0.1)',  color: '#0D7A55' },
+                        callback_request:    { label: 'Callback',    bg: 'rgba(245,166,35,0.12)', color: '#8a5a0b' },
+                      };
+                      const typeMeta = typeMap[lead._queueType] || { label: lead._queueType || 'Enquiry', bg: 'rgba(26,39,68,0.08)', color: '#1A2744' };
+                      const statusMeta = { pending: { label: 'New', bg: 'rgba(245,166,35,0.12)', color: '#8a5a0b' }, contacted: { label: 'Contacted', bg: 'rgba(45,156,219,0.1)', color: '#1c78b5' }, closed: { label: 'Closed', bg: 'rgba(26,39,68,0.08)', color: 'rgba(26,39,68,0.5)' } };
+                      const st = statusMeta[`${lead.status || 'pending'}`.toLowerCase()] || statusMeta.pending;
                       const reasonText = `${lead.reason || ''}`;
-                      const [interestLine, ...msgParts] = reasonText.split('\n\n');
-                      const interest = interestLine.replace(/^Upgrade enquiry:\s*/i, '').trim() || 'Upgrade enquiry';
-                      const message = msgParts.join('\n\n').trim();
+                      const [firstLine, ...restLines] = reasonText.split('\n\n');
+                      const parsedTitle = firstLine.replace(/^(Upgrade enquiry:|Message via listing page\.|Callback request\.|General enquiry submitted via site\.)/i, '').trim();
+                      const messageBody = restLines.join('\n\n').trim() || (parsedTitle !== reasonText ? parsedTitle : '');
                       return (
                         <div key={lead.id} style={{ padding: '14px 16px', borderRadius: 14, background: '#FAFBFF', border: '1px solid #E9EEF5' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
-                            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                               <span style={{ fontSize: 14, fontWeight: 700, color: '#1A2744' }}>{lead.submitter_name || lead._queueSubmitter || 'Unknown'}</span>
-                              {(lead.organisation_name || lead._queueTitle) && <span style={{ fontSize: 13, color: 'rgba(26,39,68,0.62)' }}>{lead.organisation_name || lead._queueTitle}</span>}
+                              {(lead.organisation_name || lead._queueTitle) && <span style={{ fontSize: 13, color: 'rgba(26,39,68,0.6)' }}>{lead.organisation_name || lead._queueTitle}</span>}
                               {lead.submitter_email && <a href={`mailto:${lead.submitter_email}`} style={{ fontSize: 13, color: '#2D9CDB', textDecoration: 'none', fontWeight: 600 }}>{lead.submitter_email}</a>}
+                              {lead.submitter_phone && <span style={{ fontSize: 13, color: 'rgba(26,39,68,0.6)' }}>{lead.submitter_phone}</span>}
                             </div>
-                            <div style={{ display: 'flex', gap: 7, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
-                              <span style={{ padding: '3px 9px', borderRadius: 8, background: 'rgba(123,92,245,0.1)', color: '#5f3dc4', fontSize: 11.5, fontWeight: 700 }}>{interest}</span>
-                              <span style={{ padding: '3px 9px', borderRadius: 8, background: 'rgba(245,166,35,0.12)', color: '#8a5a0b', fontSize: 11.5, fontWeight: 700 }}>New</span>
-                              <span style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.42)', fontWeight: 600 }}>{formatAdminDate(lead.created_at)}</span>
+                            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
+                              <span style={{ padding: '3px 9px', borderRadius: 8, background: typeMeta.bg, color: typeMeta.color, fontSize: 11.5, fontWeight: 700 }}>{typeMeta.label}</span>
+                              <span style={{ padding: '3px 9px', borderRadius: 8, background: st.bg, color: st.color, fontSize: 11.5, fontWeight: 700 }}>{st.label}</span>
+                              <span style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.4)', fontWeight: 600 }}>{formatAdminDate(lead.created_at)}</span>
                             </div>
                           </div>
-                          {message && <p style={{ marginTop: 8, fontSize: 13, color: 'rgba(26,39,68,0.65)', lineHeight: 1.5, margin: '8px 0 0' }}>{message}</p>}
+                          {messageBody && <p style={{ margin: '8px 0 0', fontSize: 13, color: 'rgba(26,39,68,0.7)', lineHeight: 1.55, background: 'white', padding: '8px 10px', borderRadius: 8, border: '1px solid #EEF2FA' }}>{messageBody}</p>}
+                          <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+                            {lead.status !== 'contacted' && <button className="btn btn-ghost btn-sm" onClick={() => updateQueueStatus('resource_update_submissions', lead.id, 'contacted')}>Mark contacted</button>}
+                            {lead.status !== 'closed' && <button className="btn btn-ghost btn-sm" onClick={() => updateQueueStatus('resource_update_submissions', lead.id, 'closed')}>Close</button>}
+                            {lead.status !== 'pending' && <button className="btn btn-ghost btn-sm" onClick={() => updateQueueStatus('resource_update_submissions', lead.id, 'pending')}>Reopen</button>}
+                          </div>
                         </div>
                       );
                     })}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14 }}>
               <QueueCard
