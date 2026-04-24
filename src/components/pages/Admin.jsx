@@ -1288,14 +1288,12 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       const { error: updateError } = await supabase.from(table).update({ status }).eq('id', id);
       if (updateError) throw updateError;
 
-      // Fire ownership provisioning for any claim approval regardless of source table
-      const isClaimApproval = status === 'approved' &&
-        (table === 'listing_claims' || table === 'resource_update_submissions');
-      if (isClaimApproval) {
-        const claim = claims.find((row) => `${row.id}` === `${id}`) || null;
-        if (claim) await applyApprovedClaimOwnership(claim);
+      // Fire ownership provisioning only when the approved row is actually a claim
+      const claimRow = claims.find((row) => `${row.id}` === `${id}`) || null;
+      if (status === 'approved' && claimRow) {
+        await applyApprovedClaimOwnership(claimRow);
       }
-    }, status === 'approved' && (table === 'listing_claims' || table === 'resource_update_submissions')
+    }, claims.some((r) => `${r.id}` === `${id}`) && status === 'approved'
       ? 'Claim approved and owner access provisioned.'
       : 'Status updated.');
   };
