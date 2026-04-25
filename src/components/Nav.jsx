@@ -124,9 +124,9 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp 
     { label: 'My Organisation',   key: 'profile-org',        isActive: activePage === 'profile-org' },
     { label: 'My Posts',          key: 'profile-posts',      isActive: activePage === 'profile-posts' },
     { label: 'My Enquiries',      key: 'profile-enquiries',  isActive: activePage === 'profile-enquiries' },
-    { label: 'Settings',          key: 'profile',            isActive: false },
+    { label: 'Settings',          key: 'profile-settings',   isActive: activePage === 'profile-settings' },
   ];
-  const isAccountPage = ['profile', 'profile-org', 'profile-posts', 'profile-enquiries'].includes(activePage);
+  const isAccountPage = ['profile', 'profile-org', 'profile-posts', 'profile-enquiries', 'profile-settings'].includes(activePage);
 
   const isAdmin = Boolean(session?.user?.email && ADMIN_EMAIL_ALLOWLIST.includes(session.user.email.toLowerCase()));
 

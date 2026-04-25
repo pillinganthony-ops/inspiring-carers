@@ -212,12 +212,22 @@ const ProfileDashboard = ({ onNavigate, session, section = 'dashboard' }) => {
 
   const userEmail = `${session?.user?.email || ''}`.trim().toLowerCase();
 
+  // Admin check — same allowlist as Nav and main.jsx
+  const PD_ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAIL_ALLOWLIST || 'pillinganthony@gmail.com')
+    .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+  const isAdmin = Boolean(userEmail && PD_ADMIN_EMAILS.includes(userEmail));
+
   // Section routing
-  const activeNavPage = { dashboard: 'profile', organisation: 'profile-org', posts: 'profile-posts', enquiries: 'profile-enquiries' }[section] || 'profile';
+  const activeNavPage = { dashboard: 'profile', organisation: 'profile-org', posts: 'profile-posts', enquiries: 'profile-enquiries', settings: 'profile-settings' }[section] || 'profile';
   const showAll = section === 'dashboard';
   const showOrg = showAll || section === 'organisation';
   const showPosts = showAll || section === 'posts';
   const showEnquiries = showAll || section === 'enquiries';
+
+  const handleLogout = async () => {
+    if (supabase) await supabase.auth.signOut();
+    onNavigate('home');
+  };
 
   const loadData = React.useCallback(async () => {
     if (!session || !supabase || !isSupabaseConfigured()) {
@@ -662,6 +672,7 @@ const ProfileDashboard = ({ onNavigate, session, section = 'dashboard' }) => {
               { key: 'profile-org',        label: 'My Organisation' },
               { key: 'profile-posts',      label: 'My Posts' },
               { key: 'profile-enquiries',  label: 'My Enquiries' },
+              { key: 'profile-settings',   label: 'Settings' },
             ].map(({ key, label }) => (
               <button
                 key={key}
@@ -932,8 +943,37 @@ const ProfileDashboard = ({ onNavigate, session, section = 'dashboard' }) => {
             <div className="card" style={{ padding: 20 }}>Loading account data…</div>
           ) : (
             <>
+              {/* Settings section */}
+              {section === 'settings' && (
+                <div className="card" style={{ padding: 28, borderRadius: 20 }}>
+                  <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.46)', marginBottom: 8 }}>Account Settings</div>
+                  <h2 style={{ fontSize: 26, fontWeight: 800, color: '#1A2744', marginBottom: 20 }}>Your account</h2>
+                  <div style={{ display: 'grid', gap: 10, marginBottom: 22 }}>
+                    {[
+                      ['Email address', userEmail || '—'],
+                      ['Account type', isAdmin ? 'Administrator' : profiles.length > 0 ? 'Organisation owner' : 'Standard member'],
+                      ['Organisations connected', String(profiles.length || 0)],
+                    ].map(([label, value]) => (
+                      <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 16px', borderRadius: 14, border: '1px solid #E9EEF5', background: '#FAFBFF' }}>
+                        <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.52)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
+                        <div style={{ fontSize: 14.5, fontWeight: 600, color: '#1A2744' }}>{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ padding: '14px 16px', borderRadius: 14, border: '1px dashed rgba(26,39,68,0.15)', background: '#FAFBFF', fontSize: 13.5, color: 'rgba(26,39,68,0.55)', lineHeight: 1.6, marginBottom: 22 }}>
+                    Advanced settings — notification preferences, password changes, and two-factor authentication — are coming in the next phase.
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    style={{ padding: '11px 24px', borderRadius: 12, background: 'rgba(160,58,45,0.07)', color: '#A03A2D', fontWeight: 700, fontSize: 14, border: '1px solid rgba(160,58,45,0.18)', cursor: 'pointer' }}
+                  >
+                    Sign out
+                  </button>
+                </div>
+              )}
+
               {/* No-org guidance for focused sections */}
-              {!showAll && profiles.length === 0 && (
+              {!showAll && section !== 'settings' && profiles.length === 0 && (
                 <div className="card" style={{ padding: 32, borderRadius: 20, textAlign: 'center' }}>
                   <div style={{ fontSize: 40, marginBottom: 14 }}>🏢</div>
                   <h2 style={{ fontSize: 22, fontWeight: 800, color: '#1A2744', marginBottom: 8 }}>No organisation connected yet</h2>

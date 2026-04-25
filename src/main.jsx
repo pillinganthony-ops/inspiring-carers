@@ -292,6 +292,11 @@ const RouteLoading = () => (
   </section>
 );
 
+// Admin email allowlist — single source of truth for access control.
+const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAIL_ALLOWLIST || 'pillinganthony@gmail.com')
+  .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+const isAdminEmail = (email) => Boolean(email && ADMIN_EMAILS.includes(`${email}`.trim().toLowerCase()));
+
 // County-aware routing constants
 const COUNTY_PAGES = new Set(['find-help', 'activities', 'training', 'events', 'for-you']);
 const COUNTY_SLUGS = ['cornwall', 'devon', 'dorset', 'somerset'];
@@ -305,9 +310,9 @@ const App = () => {
 
     if (!segs.length) return { page: 'home', county: null };
 
-    // Profile sub-routes — /profile/organisation, /profile/posts, /profile/enquiries
+    // Profile sub-routes
     if (segs[0] === 'profile') {
-      const PROFILE_SUBS = { organisation: 'profile-org', posts: 'profile-posts', enquiries: 'profile-enquiries' };
+      const PROFILE_SUBS = { organisation: 'profile-org', posts: 'profile-posts', enquiries: 'profile-enquiries', settings: 'profile-settings' };
       return { page: PROFILE_SUBS[segs[1]] || 'profile', county: null };
     }
 
@@ -386,10 +391,20 @@ const App = () => {
   }, []);
 
   React.useEffect(() => {
-    // Protect only /admin. Public routes remain open regardless of auth state.
-    if (page === 'admin' && !sessionLoading && !session && Date.now() > authRouteGraceUntil) {
-      setPage('login');
-      window.history.replaceState({ page: 'login' }, '', '/login');
+    if (page !== 'admin' || sessionLoading) return;
+    if (!session) {
+      // No session — redirect to login unless within post-login grace window.
+      if (Date.now() > authRouteGraceUntil) {
+        setPage('login');
+        window.history.replaceState({ page: 'login' }, '', '/login');
+        window.scrollTo({ top: 0, behavior: 'instant' });
+      }
+      return;
+    }
+    // Session exists but email is not on the admin allowlist → access denied.
+    if (!isAdminEmail(session.user?.email)) {
+      setPage('profile');
+      window.history.replaceState({ page: 'profile' }, '', '/profile');
       window.scrollTo({ top: 0, behavior: 'instant' });
     }
   }, [page, sessionLoading, session, authRouteGraceUntil]);
@@ -398,13 +413,22 @@ const App = () => {
     // Normalise legacy page keys so internal links don't need updating.
     if (key === 'benefits') key = 'for-you';
 
-    // Admin guard — unchanged logic.
-    if (key === 'admin' && !sessionLoading && !session) {
-      if (page === 'login') {
-        setAuthRouteGraceUntil(Date.now() + 15000);
-      } else {
-        setPage('login');
-        window.history.pushState({ page: 'login' }, '', '/login');
+    // Admin guard: must be authenticated AND on the admin email allowlist.
+    if (key === 'admin') {
+      if (!sessionLoading && !session) {
+        // Not authenticated — handle post-login grace period for session hydration.
+        if (page === 'login') {
+          setAuthRouteGraceUntil(Date.now() + 15000);
+        } else {
+          setPage('login');
+          window.history.pushState({ page: 'login' }, '', '/login');
+          window.scrollTo({ top: 0, behavior: 'instant' });
+          return;
+        }
+      } else if (session && !isAdminEmail(session.user?.email)) {
+        // Authenticated but not on admin allowlist — redirect to account.
+        setPage('profile');
+        window.history.pushState({ page: 'profile' }, '', '/profile');
         window.scrollTo({ top: 0, behavior: 'instant' });
         return;
       }
@@ -413,7 +437,7 @@ const App = () => {
     const isCountyPage = COUNTY_PAGES.has(key);
     const effectiveCounty = explicitCounty || county || COUNTY_DEFAULT;
 
-    const PROFILE_URLS = { 'profile-org': '/profile/organisation', 'profile-posts': '/profile/posts', 'profile-enquiries': '/profile/enquiries' };
+    const PROFILE_URLS = { 'profile-org': '/profile/organisation', 'profile-posts': '/profile/posts', 'profile-enquiries': '/profile/enquiries', 'profile-settings': '/profile/settings' };
     const path = key === 'home'
       ? '/'
       : PROFILE_URLS[key]
@@ -448,6 +472,7 @@ const App = () => {
     case 'profile-org': content = <React.Suspense fallback={<RouteLoading />}><ProfileDashboardPage section="organisation" onNavigate={navigate} session={session} /></React.Suspense>; break;
     case 'profile-posts': content = <React.Suspense fallback={<RouteLoading />}><ProfileDashboardPage section="posts" onNavigate={navigate} session={session} /></React.Suspense>; break;
     case 'profile-enquiries': content = <React.Suspense fallback={<RouteLoading />}><ProfileDashboardPage section="enquiries" onNavigate={navigate} session={session} /></React.Suspense>; break;
+    case 'profile-settings': content = <React.Suspense fallback={<RouteLoading />}><ProfileDashboardPage section="settings" onNavigate={navigate} session={session} /></React.Suspense>; break;
     case 'recognition': content = <Placeholder title="Recognition & awards" activePage="recognition" onNavigate={navigate} session={session} note="Carer of the Month, stories, nominations and community recognition — coming in the next round. Preview lives in the homepage Recognition section." />; break;
     case 'business': content = <Placeholder title="For businesses" activePage="business" onNavigate={navigate} session={session} note="Submit offers, see the why-carers-matter statement, badge tiers and featured partner placements — next round." />; break;
     case 'about': content = <Placeholder title="About inspiring carers" activePage="about" onNavigate={navigate} session={session} note="Mission, the two-tier model, and the local-first national vision — next round." />; break;
