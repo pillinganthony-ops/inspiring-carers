@@ -764,7 +764,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   const [error, setError] = React.useState('');
   const [toast, setToast] = React.useState('');
 
-  const [tab, setTab] = React.useState('overview');
+  const [tab, setTab] = React.useState('dashboard');
 
   const [categories, setCategories] = React.useState([]);
   const [resources, setResources] = React.useState([]);
@@ -1215,7 +1215,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     if (match.type === 'profile') {
       const profile = profiles.find((row) => `${row.id}` === `${match.id}`) || null;
       if (profile) {
-        setTab('profiles');
+        setTab('organisations');
         setProfileDraft({ ...emptyProfile, ...normalizeProfileRow(profile) });
       }
       closeCreateListingModal();
@@ -1924,13 +1924,17 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   const pendingWalkComments = walkComments.filter((row) => isPendingStatus(row.status));
   // Workload = actionable items only. Closed contacts and completed submissions excluded.
   const moderationWorkloadCount = pendingClaims.length + pendingResourceUpdates.length + inReviewResourceUpdates.length + approvedResourceUpdatesReady.length + pendingWalkUpdates.length + pendingWalkComments.length + contactLeads.length;
+  const activeSubmissionsCount = pendingResourceUpdates.length + inReviewResourceUpdates.length + approvedResourceUpdatesReady.length;
   const tabCounts = {
-    overview: 0,
-    moderation: moderationWorkloadCount,
-    categories: categories.length,
+    dashboard: 0,
+    moderation: activeSubmissionsCount,
+    organisations: profiles.length,
+    claims: pendingClaims.length,
     resources: resources.length,
-    profiles: profiles.length,
     events: events.length,
+    contacts: contactLeads.length,
+    'content-review': pendingWalkUpdates.length + pendingWalkComments.length,
+    settings: 0,
   };
   const ownerPerformanceRows = profiles.map((profile) => {
     const profileEvents = events.filter((event) => `${event.organisation_profile_id}` === `${profile.id}`);
@@ -1990,7 +1994,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                 ['Events', events.length, null],
                 ['Pending claims', pendingClaims.length, pendingClaims.length > 0 ? '#F5A623' : null],
                 ['Pending subs', pendingResourceUpdates.length, pendingResourceUpdates.length > 0 ? '#F5A623' : null],
-                ['Contacts', contactLeads.length, contactLeads.length > 0 ? '#7B5CF5' : null, () => { setTab('moderation'); setTimeout(() => document.getElementById('admin-contacts-section')?.scrollIntoView({ behavior: 'smooth' }), 120); }],
+                ['Contacts', contactLeads.length, contactLeads.length > 0 ? '#7B5CF5' : null, () => { setTab('contacts'); }],
                 ['Profile views', ownerPerformanceSummary.totalViews, null],
                 ['Enquiries', ownerPerformanceSummary.totalEnquiries, null],
               ].map(([label, value, accent, onClick]) => (
@@ -2005,12 +2009,15 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
 
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {[
-              ['overview', 'Overview'],
+              ['dashboard', 'Dashboard'],
               ['moderation', 'Moderation'],
-              ['categories', 'Categories'],
+              ['organisations', 'Organisations'],
+              ['claims', 'Claims & Ownership'],
               ['resources', 'Resources'],
-              ['profiles', 'Profiles'],
               ['events', 'Events'],
+              ['contacts', 'Contacts'],
+              ['content-review', 'Content Review'],
+              ['settings', 'Settings'],
             ].map(([key, label]) => (
               <button
                 key={key}
@@ -2036,7 +2043,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
             <button className="btn btn-ghost btn-sm" disabled={busy || loading} onClick={loadData}>Refresh</button>
           </div>
 
-          {!loading && (tab === 'overview' || tab === 'profiles') ? (
+          {!loading && (tab === 'dashboard' || tab === 'organisations') ? (
             <div className="card" style={{ padding: 16, borderRadius: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                 <div>
@@ -2061,7 +2068,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
 
           {loading ? <div className="card" style={{ padding: 20 }}>Loading dashboard...</div> : null}
 
-          {!loading && tab === 'overview' ? (
+          {!loading && tab === 'dashboard' ? (
             <div className="card" style={{ padding: 18, borderRadius: 18 }}>
               <h2 style={{ fontSize: 22, fontWeight: 700 }}>Owner performance visibility</h2>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, marginTop: 12 }}>
@@ -2091,7 +2098,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                   </div>
                   <div style={{ minWidth: 80, borderRadius: 18, padding: '14px 16px', background: '#EEF4FF', color: '#1A2744' }}>
                     <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', color: 'rgba(26,39,68,0.56)' }}>Workload</div>
-                    <div style={{ marginTop: 6, fontSize: 28, fontWeight: 800 }}>{moderationWorkloadCount}</div>
+                    <div style={{ marginTop: 6, fontSize: 28, fontWeight: 800 }}>{activeSubmissionsCount}</div>
                   </div>
                 </div>
               </div>
@@ -2114,88 +2121,6 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                   </div>
                 </div>
               ) : null}
-
-              <div id="admin-contacts-section" className="card" style={{ padding: 22, borderRadius: 22 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
-                  <div>
-                    <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#5f3dc4' }}>CRM</div>
-                    <h3 style={{ marginTop: 6, fontSize: 22, fontWeight: 800, color: '#1A2744' }}>Messages & Enquiries</h3>
-                    <p style={{ marginTop: 4, fontSize: 13, color: 'rgba(26,39,68,0.62)', lineHeight: 1.55 }}>All contact submissions — general enquiries, upgrade requests, org messages, and callback requests.</p>
-                  </div>
-                  <div style={{ padding: '8px 14px', borderRadius: 999, background: contactLeads.length > 0 ? 'rgba(123,92,245,0.1)' : 'rgba(26,39,68,0.06)', color: contactLeads.length > 0 ? '#5f3dc4' : 'rgba(26,39,68,0.5)', fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap' }}>{contactLeads.length} contact{contactLeads.length !== 1 ? 's' : ''}</div>
-                </div>
-                {contactLeads.length === 0 ? (
-                  <div style={{ padding: '20px 16px', borderRadius: 12, background: '#F8FAFE', border: '1px dashed #D8E4F0', textAlign: 'center', color: 'rgba(26,39,68,0.45)', fontSize: 13.5 }}>No messages or enquiries yet. They will appear here when visitors submit the contact form.</div>
-                ) : (
-                  <div style={{ display: 'grid', gap: 10 }}>
-                    {contactLeads.map((lead) => {
-                      const typeMap = {
-                        upgrade_enquiry:     { label: 'Upgrade',     bg: 'rgba(123,92,245,0.1)',  color: '#5f3dc4' },
-                        general_enquiry:     { label: 'General',     bg: 'rgba(45,156,219,0.1)',  color: '#1c78b5' },
-                        organisation_message:{ label: 'Org message', bg: 'rgba(16,185,129,0.1)',  color: '#0D7A55' },
-                        callback_request:    { label: 'Callback',    bg: 'rgba(245,166,35,0.12)', color: '#8a5a0b' },
-                      };
-                      const typeMeta = typeMap[lead._queueType] || { label: lead._queueType || 'Enquiry', bg: 'rgba(26,39,68,0.08)', color: '#1A2744' };
-                      const statusMeta = { pending: { label: 'New', bg: 'rgba(245,166,35,0.12)', color: '#8a5a0b' }, contacted: { label: 'Contacted', bg: 'rgba(45,156,219,0.1)', color: '#1c78b5' }, closed: { label: 'Closed', bg: 'rgba(26,39,68,0.08)', color: 'rgba(26,39,68,0.5)' } };
-                      const st = statusMeta[`${lead.status || 'pending'}`.toLowerCase()] || statusMeta.pending;
-                      const reasonText = `${lead.reason || ''}`;
-                      const [firstLine, ...restLines] = reasonText.split('\n\n');
-                      const parsedTitle = firstLine.replace(/^(Upgrade enquiry:|Message via listing page\.|Callback request\.|General enquiry submitted via site\.)/i, '').trim();
-                      const messageBody = restLines.join('\n\n').trim() || (parsedTitle !== reasonText ? parsedTitle : '');
-                      return (
-                        <div key={lead.id} style={{ padding: '14px 16px', borderRadius: 14, background: '#FAFBFF', border: '1px solid #E9EEF5' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
-                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                              <span style={{ fontSize: 14, fontWeight: 700, color: '#1A2744' }}>{lead.submitter_name || lead._queueSubmitter || 'Unknown'}</span>
-                              {(lead.organisation_name || lead._queueTitle) && <span style={{ fontSize: 13, color: 'rgba(26,39,68,0.6)' }}>{lead.organisation_name || lead._queueTitle}</span>}
-                              {lead.submitter_email && <a href={`mailto:${lead.submitter_email}`} style={{ fontSize: 13, color: '#2D9CDB', textDecoration: 'none', fontWeight: 600 }}>{lead.submitter_email}</a>}
-                              {lead.submitter_phone && <span style={{ fontSize: 13, color: 'rgba(26,39,68,0.6)' }}>{lead.submitter_phone}</span>}
-                            </div>
-                            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
-                              <span style={{ padding: '3px 9px', borderRadius: 8, background: typeMeta.bg, color: typeMeta.color, fontSize: 11.5, fontWeight: 700 }}>{typeMeta.label}</span>
-                              <span style={{ padding: '3px 9px', borderRadius: 8, background: st.bg, color: st.color, fontSize: 11.5, fontWeight: 700 }}>{st.label}</span>
-                              <span style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.4)', fontWeight: 600 }}>{formatAdminDate(lead.created_at)}</span>
-                            </div>
-                          </div>
-                          {messageBody && <p style={{ margin: '8px 0 0', fontSize: 13, color: 'rgba(26,39,68,0.7)', lineHeight: 1.55, background: 'white', padding: '8px 10px', borderRadius: 8, border: '1px solid #EEF2FA' }}>{messageBody}</p>}
-                          <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
-                            {lead.status !== 'contacted' && <button className="btn btn-ghost btn-sm" onClick={() => updateQueueStatus('resource_update_submissions', lead.id, 'contacted')}>Mark contacted</button>}
-                            {lead.status !== 'closed' && <button className="btn btn-ghost btn-sm" onClick={() => updateQueueStatus('resource_update_submissions', lead.id, 'closed')}>Close</button>}
-                            {lead.status !== 'pending' && <button className="btn btn-ghost btn-sm" onClick={() => updateQueueStatus('resource_update_submissions', lead.id, 'pending')}>Reopen</button>}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {closedContactLeads.length > 0 && (
-                  <div style={{ marginTop: 12 }}>
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => setShowClosedContacts((v) => !v)}
-                      style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.45)', fontWeight: 600 }}
-                    >
-                      {showClosedContacts ? '▲ Hide' : '▼ Show'} {closedContactLeads.length} closed contact{closedContactLeads.length !== 1 ? 's' : ''}
-                    </button>
-                    {showClosedContacts && (
-                      <div style={{ marginTop: 8, display: 'grid', gap: 8 }}>
-                        {closedContactLeads.map((lead) => (
-                          <div key={lead.id} style={{ padding: '10px 14px', borderRadius: 12, background: '#F8FAFE', border: '1px solid #E9EEF5', opacity: 0.72 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                              <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(26,39,68,0.65)' }}>{lead.submitter_name || lead._queueSubmitter || 'Unknown'}</span>
-                              {lead.submitter_email && <a href={`mailto:${lead.submitter_email}`} style={{ fontSize: 12.5, color: '#2D9CDB', textDecoration: 'none' }}>{lead.submitter_email}</a>}
-                              <span style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.38)', fontWeight: 600 }}>{formatAdminDate(lead.created_at)}</span>
-                            </div>
-                            <div style={{ marginTop: 6 }}>
-                              <button className="btn btn-ghost btn-sm" onClick={() => updateQueueStatus('resource_update_submissions', lead.id, 'pending')}>Reopen</button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14 }}>
               <QueueCard
@@ -2342,6 +2267,15 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                 </div>
               )}
 
+            </div>
+          ) : null}
+
+          {!loading && tab === 'claims' ? (
+            <div style={{ display: 'grid', gap: 16 }}>
+              <div className="card" style={{ padding: 20, borderRadius: 22 }}>
+                <h2 style={{ fontSize: 24, fontWeight: 800, color: '#1A2744' }}>Claims &amp; Ownership</h2>
+                <p style={{ marginTop: 6, color: 'rgba(26,39,68,0.7)', fontSize: 13.5, lineHeight: 1.6 }}>Pending claims waiting for approval. Repair tools for existing profiles are in the Organisations tab.</p>
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14 }}>
                 <QueueCard
                   title="Pending claims"
@@ -2391,6 +2325,103 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                   rejectLabel="Reject claim"
                   reviewLabel="Hold for review"
                 />
+              </div>
+            </div>
+          ) : null}
+
+          {!loading && tab === 'contacts' ? (
+            <div style={{ display: 'grid', gap: 16 }}>
+              <div id="admin-contacts-section" className="card" style={{ padding: 22, borderRadius: 22 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+                  <div>
+                    <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#5f3dc4' }}>CRM</div>
+                    <h3 style={{ marginTop: 6, fontSize: 22, fontWeight: 800, color: '#1A2744' }}>Messages &amp; Enquiries</h3>
+                    <p style={{ marginTop: 4, fontSize: 13, color: 'rgba(26,39,68,0.62)', lineHeight: 1.55 }}>All contact submissions — general enquiries, upgrade requests, org messages, and callback requests.</p>
+                  </div>
+                  <div style={{ padding: '8px 14px', borderRadius: 999, background: contactLeads.length > 0 ? 'rgba(123,92,245,0.1)' : 'rgba(26,39,68,0.06)', color: contactLeads.length > 0 ? '#5f3dc4' : 'rgba(26,39,68,0.5)', fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap' }}>{contactLeads.length} contact{contactLeads.length !== 1 ? 's' : ''}</div>
+                </div>
+                {contactLeads.length === 0 ? (
+                  <div style={{ padding: '20px 16px', borderRadius: 12, background: '#F8FAFE', border: '1px dashed #D8E4F0', textAlign: 'center', color: 'rgba(26,39,68,0.45)', fontSize: 13.5 }}>No messages or enquiries yet. They will appear here when visitors submit the contact form.</div>
+                ) : (
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    {contactLeads.map((lead) => {
+                      const typeMap = {
+                        upgrade_enquiry:     { label: 'Upgrade',     bg: 'rgba(123,92,245,0.1)',  color: '#5f3dc4' },
+                        general_enquiry:     { label: 'General',     bg: 'rgba(45,156,219,0.1)',  color: '#1c78b5' },
+                        organisation_message:{ label: 'Org message', bg: 'rgba(16,185,129,0.1)',  color: '#0D7A55' },
+                        callback_request:    { label: 'Callback',    bg: 'rgba(245,166,35,0.12)', color: '#8a5a0b' },
+                      };
+                      const typeMeta = typeMap[lead._queueType] || { label: lead._queueType || 'Enquiry', bg: 'rgba(26,39,68,0.08)', color: '#1A2744' };
+                      const statusMeta = { pending: { label: 'New', bg: 'rgba(245,166,35,0.12)', color: '#8a5a0b' }, contacted: { label: 'Contacted', bg: 'rgba(45,156,219,0.1)', color: '#1c78b5' }, closed: { label: 'Closed', bg: 'rgba(26,39,68,0.08)', color: 'rgba(26,39,68,0.5)' } };
+                      const st = statusMeta[`${lead.status || 'pending'}`.toLowerCase()] || statusMeta.pending;
+                      const reasonText = `${lead.reason || ''}`;
+                      const [firstLine, ...restLines] = reasonText.split('\n\n');
+                      const parsedTitle = firstLine.replace(/^(Upgrade enquiry:|Message via listing page\.|Callback request\.|General enquiry submitted via site\.)/i, '').trim();
+                      const messageBody = restLines.join('\n\n').trim() || (parsedTitle !== reasonText ? parsedTitle : '');
+                      return (
+                        <div key={lead.id} style={{ padding: '14px 16px', borderRadius: 14, background: '#FAFBFF', border: '1px solid #E9EEF5' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: 14, fontWeight: 700, color: '#1A2744' }}>{lead.submitter_name || lead._queueSubmitter || 'Unknown'}</span>
+                              {(lead.organisation_name || lead._queueTitle) && <span style={{ fontSize: 13, color: 'rgba(26,39,68,0.6)' }}>{lead.organisation_name || lead._queueTitle}</span>}
+                              {lead.submitter_email && <a href={`mailto:${lead.submitter_email}`} style={{ fontSize: 13, color: '#2D9CDB', textDecoration: 'none', fontWeight: 600 }}>{lead.submitter_email}</a>}
+                              {lead.submitter_phone && <span style={{ fontSize: 13, color: 'rgba(26,39,68,0.6)' }}>{lead.submitter_phone}</span>}
+                            </div>
+                            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
+                              <span style={{ padding: '3px 9px', borderRadius: 8, background: typeMeta.bg, color: typeMeta.color, fontSize: 11.5, fontWeight: 700 }}>{typeMeta.label}</span>
+                              <span style={{ padding: '3px 9px', borderRadius: 8, background: st.bg, color: st.color, fontSize: 11.5, fontWeight: 700 }}>{st.label}</span>
+                              <span style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.4)', fontWeight: 600 }}>{formatAdminDate(lead.created_at)}</span>
+                            </div>
+                          </div>
+                          {messageBody && <p style={{ margin: '8px 0 0', fontSize: 13, color: 'rgba(26,39,68,0.7)', lineHeight: 1.55, background: 'white', padding: '8px 10px', borderRadius: 8, border: '1px solid #EEF2FA' }}>{messageBody}</p>}
+                          <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+                            {lead.status !== 'contacted' && <button className="btn btn-ghost btn-sm" onClick={() => updateQueueStatus('resource_update_submissions', lead.id, 'contacted')}>Mark contacted</button>}
+                            {lead.status !== 'closed' && <button className="btn btn-ghost btn-sm" onClick={() => updateQueueStatus('resource_update_submissions', lead.id, 'closed')}>Close</button>}
+                            {lead.status !== 'pending' && <button className="btn btn-ghost btn-sm" onClick={() => updateQueueStatus('resource_update_submissions', lead.id, 'pending')}>Reopen</button>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {closedContactLeads.length > 0 && (
+                  <div style={{ marginTop: 12 }}>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setShowClosedContacts((v) => !v)}
+                      style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.45)', fontWeight: 600 }}
+                    >
+                      {showClosedContacts ? '▲ Hide' : '▼ Show'} {closedContactLeads.length} closed contact{closedContactLeads.length !== 1 ? 's' : ''}
+                    </button>
+                    {showClosedContacts && (
+                      <div style={{ marginTop: 8, display: 'grid', gap: 8 }}>
+                        {closedContactLeads.map((lead) => (
+                          <div key={lead.id} style={{ padding: '10px 14px', borderRadius: 12, background: '#F8FAFE', border: '1px solid #E9EEF5', opacity: 0.72 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                              <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(26,39,68,0.65)' }}>{lead.submitter_name || lead._queueSubmitter || 'Unknown'}</span>
+                              {lead.submitter_email && <a href={`mailto:${lead.submitter_email}`} style={{ fontSize: 12.5, color: '#2D9CDB', textDecoration: 'none' }}>{lead.submitter_email}</a>}
+                              <span style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.38)', fontWeight: 600 }}>{formatAdminDate(lead.created_at)}</span>
+                            </div>
+                            <div style={{ marginTop: 6 }}>
+                              <button className="btn btn-ghost btn-sm" onClick={() => updateQueueStatus('resource_update_submissions', lead.id, 'pending')}>Reopen</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
+
+          {!loading && tab === 'content-review' ? (
+            <div style={{ display: 'grid', gap: 16 }}>
+              <div className="card" style={{ padding: 20, borderRadius: 22 }}>
+                <h2 style={{ fontSize: 24, fontWeight: 800, color: '#1A2744' }}>Content Review</h2>
+                <p style={{ marginTop: 6, color: 'rgba(26,39,68,0.7)', fontSize: 13.5, lineHeight: 1.6 }}>Walk risk updates and comments submitted by the public, pending admin moderation.</p>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14 }}>
                 <QueueCard
                   title="Walk risk updates"
                   rows={pendingWalkUpdates}
@@ -2407,7 +2438,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
             </div>
           ) : null}
 
-          {!loading && tab === 'categories' ? (
+          {!loading && tab === 'resources' ? ( // categories management — shown below main resources section
             <div className="card" style={{ padding: 18 }}>
               <h2 style={{ fontSize: 22, fontWeight: 700 }}>Category CRUD</h2>
               <div style={{ marginTop: 8, fontSize: 13, color: 'rgba(26,39,68,0.66)' }}>
@@ -2499,7 +2530,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
             </div>
           ) : null}
 
-          {!loading && tab === 'profiles' ? (
+          {!loading && tab === 'organisations' ? (
             <div className="card" style={{ padding: 18 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
                 <h2 style={{ fontSize: 22, fontWeight: 700 }}>Organisation Profiles <span style={{ fontSize: 15, fontWeight: 500, color: 'rgba(26,39,68,0.5)' }}>({profiles.length})</span></h2>
@@ -2643,6 +2674,30 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
               </div>
             </div>
           ) : null}
+
+          {!loading && tab === 'settings' ? (
+            <div style={{ display: 'grid', gap: 16 }}>
+              <div className="card" style={{ padding: 22, borderRadius: 22 }}>
+                <h2 style={{ fontSize: 24, fontWeight: 800, color: '#1A2744', marginBottom: 8 }}>Settings &amp; System</h2>
+                <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.7)', lineHeight: 1.6 }}>Admin configuration, live schema status, and system notices.</p>
+              </div>
+              <div className="card" style={{ padding: 20, borderRadius: 20 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#1A2744', marginBottom: 10 }}>Live schema mode</div>
+                <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.7)', lineHeight: 1.6, marginBottom: 10 }}>
+                  Live tables: categories, resources, organisation_profiles, organisation_events, listing_claims, resource_update_submissions, walk_risk_updates, walk_comments.
+                </p>
+                {(analyticsNotice || resourceUpdatesNotice) ? (
+                  <div style={{ display: 'grid', gap: 6 }}>
+                    {analyticsNotice && <div style={{ padding: '8px 12px', borderRadius: 10, background: 'rgba(245,166,35,0.10)', color: '#8a5a0b', fontSize: 12.5, fontWeight: 600 }}>{analyticsNotice}</div>}
+                    {resourceUpdatesNotice && <div style={{ padding: '8px 12px', borderRadius: 10, background: 'rgba(245,166,35,0.10)', color: '#8a5a0b', fontSize: 12.5, fontWeight: 600 }}>{resourceUpdatesNotice}</div>}
+                  </div>
+                ) : (
+                  <div style={{ padding: '8px 12px', borderRadius: 10, background: 'rgba(16,185,129,0.08)', color: '#0D7A55', fontSize: 12.5, fontWeight: 600 }}>No schema warnings.</div>
+                )}
+              </div>
+            </div>
+          ) : null}
+
         </div>
       </section>
       <CreateListingModal
@@ -2915,7 +2970,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                           const prof = profiles.find((p) => String(p.id) === String(profId));
                           if (prof) setProfileDraft({ ...emptyProfile, ...normalizeProfileRow(prof) });
                           closeResourceEditor();
-                          setTab('profiles');
+                          setTab('organisations');
                         }}>
                           Open full profile editor
                         </button>
