@@ -1519,6 +1519,55 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     }
   };
 
+  const revokeOwnership = async (profile) => {
+    if (!profile?.id || !supabase) return;
+    const orgName = getProfileName(profile, resources);
+    const linkedResource = resources.find((r) => `${r.id}` === `${profile.resource_id}`);
+    const listingName = linkedResource?.name || (profile.resource_id ? `Resource ID ${profile.resource_id}` : 'No linked listing');
+
+    const confirmMsg = [
+      `Revoke owner access for "${orgName}"?`,
+      '',
+      `Directory listing: ${listingName}`,
+      'The listing will remain live in Find Help.',
+      'The organisation profile will be kept but will have no owner.',
+      'Admin can approve a new claim to re-assign ownership.',
+    ].join('\n');
+
+    if (!window.confirm(confirmMsg)) return;
+
+    await withBusy(async () => {
+      // 1. Clear owner on the org profile (revokes RLS access in ProfileDashboard)
+      const { error: profileErr } = await supabase
+        .from('organisation_profiles')
+        .update({ created_by: null })
+        .eq('id', profile.id);
+      if (profileErr) throw profileErr;
+
+      // 2. Deactivate member access records (secondary ownership path)
+      await supabase
+        .from('organisation_profile_members')
+        .update({ status: 'revoked' })
+        .eq('organisation_profile_id', profile.id);
+      // Non-fatal if the table has no rows for this profile
+
+      // 3. Mark any approved claims for this resource as 'revoked' so
+      //    admin can re-approve a new claim for the same listing
+      if (profile.resource_id) {
+        await supabase.from('listing_claims')
+          .update({ status: 'revoked' })
+          .eq('listing_id', profile.resource_id)
+          .eq('status', 'approved');
+
+        await supabase.from('resource_update_submissions')
+          .update({ status: 'revoked' })
+          .eq('resource_id', profile.resource_id)
+          .eq('update_type', 'claim_request')
+          .eq('status', 'approved');
+      }
+    }, `Ownership revoked for "${orgName}". Directory listing remains live.`);
+  };
+
   const sendPasswordReset = async (targetEmail) => {
     if (!targetEmail || !supabase) return;
     if (!window.confirm(`Send a password reset link to ${targetEmail}?`)) return;
@@ -2240,21 +2289,60 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                 <button className="btn btn-gold" disabled={busy} onClick={saveProfile}>{profileDraft.id ? 'Update' : 'Create'} profile</button>
                 {profileDraft.id ? <button className="btn btn-ghost" onClick={() => setProfileDraft(emptyProfile)}>Cancel</button> : null}
               </div>
-              <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
-                {profiles.map((row) => (
-                  <div key={row.id} style={{ border: '1px solid #E9EEF5', borderRadius: 10, padding: 10, display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
-                    <div>{getProfileName(row, resources)} <span style={{ color: 'rgba(26,39,68,0.55)' }}>({row.contact_email || 'No contact email'})</span></div>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      <button className="btn btn-ghost btn-sm" onClick={() => setProfileDraft({ ...emptyProfile, ...normalizeProfileRow(row) })}>Edit</button>
-                      <button className="btn btn-ghost btn-sm" onClick={() => deleteRow('organisation_profiles', row.id, 'Profile deleted.')}>Delete</button>
-                      {row.contact_email && (
-                        <button className="btn btn-ghost btn-sm" onClick={() => sendPasswordReset(row.contact_email)} title={`Send reset link to ${row.contact_email}`}>
-                          Send password reset
-                        </button>
-                      )}
+              <div style={{ marginTop: 12, display: 'grid', gap: 10 }}>
+                {profiles.map((row) => {
+                  const hasOwner = Boolean(row.created_by);
+                  const linkedListing = resources.find((r) => `${r.id}` === `${row.resource_id}`);
+                  return (
+                    <div key={row.id} style={{ border: '1px solid #E9EEF5', borderRadius: 14, padding: 14, background: '#FAFBFF' }}>
+                      {/* Labels */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 12 }}>
+                        <div>
+                          <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.4)', marginBottom: 3 }}>Organisation Profile</div>
+                          <div style={{ fontWeight: 700, fontSize: 13.5, color: '#1A2744' }}>{getProfileName(row, resources) || '—'}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.4)', marginBottom: 3 }}>Directory Listing</div>
+                          <div style={{ fontSize: 13, color: '#1A2744' }}>
+                            {linkedListing?.name || (row.resource_id ? `ID ${row.resource_id}` : '— Not linked')}
+                          </div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.4)', marginBottom: 3 }}>Owner Email</div>
+                          <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.7)' }}>{row.contact_email || '—'}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.4)', marginBottom: 3 }}>Ownership Status</div>
+                          <span style={{ display: 'inline-block', padding: '2px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: hasOwner ? 'rgba(16,185,129,0.1)' : 'rgba(26,39,68,0.07)', color: hasOwner ? '#0D7A55' : 'rgba(26,39,68,0.5)' }}>
+                            {hasOwner ? 'Has owner' : 'No owner'}
+                          </span>
+                          {row.claim_status && (
+                            <span style={{ marginLeft: 6, display: 'inline-block', padding: '2px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: 'rgba(45,156,219,0.1)', color: '#1c78b5' }}>
+                              Claim: {row.claim_status}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {/* Actions */}
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <button className="btn btn-ghost btn-sm" onClick={() => setProfileDraft({ ...emptyProfile, ...normalizeProfileRow(row) })}>Edit</button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => deleteRow('organisation_profiles', row.id, 'Profile deleted.')}>Delete</button>
+                        {row.contact_email && (
+                          <button className="btn btn-ghost btn-sm" onClick={() => sendPasswordReset(row.contact_email)}>Send password reset</button>
+                        )}
+                        {hasOwner && (
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => revokeOwnership(row)}
+                            style={{ color: '#A03A2D', borderColor: 'rgba(160,58,45,0.2)', background: 'rgba(160,58,45,0.04)' }}
+                          >
+                            Revoke ownership
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div style={{ marginTop: 18, borderTop: '1px solid #E9EEF5', paddingTop: 18 }}>
