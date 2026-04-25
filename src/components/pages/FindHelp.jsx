@@ -2503,69 +2503,87 @@ const DirectoryMap = ({ listings, selectedId, onSelect, onOpenResource, isMobile
               onZoomChanged={() => { shouldAutoFitRef.current = false; }}
               options={{ mapTypeControl: false, streetViewControl: false, fullscreenControl: false, gestureHandling: 'greedy', styles: [{ featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }, { featureType: 'transit', stylers: [{ visibility: 'off' }] }] }}
             >
-              {selected && (
-                <InfoWindowF position={{ lat: selected.lat, lng: selected.lng }} onCloseClick={() => onSelect('')}>
-                  <div style={{ fontFamily: 'Inter, sans-serif', width: 320, padding: '4px 2px 2px', background: '#fff' }}>
-                    {/* Top row: category badge + trust badges */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 9px', borderRadius: 999, background: `${toneMapColor(selected.tone).fg}14`, color: toneMapColor(selected.tone).fg, fontSize: 10.5, fontWeight: 700 }}>{selected.categoryLabel}</span>
-                      {Boolean(selected.profile?.featured) && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '3px 8px', borderRadius: 999, background: 'rgba(245,166,35,0.12)', color: '#8a5a0b', fontSize: 10, fontWeight: 700 }}>★ Featured</span>}
-                      {Boolean(selected.profile && ['claimed','pending'].includes(`${selected.profile?.claim_status||''}`.toLowerCase())) && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '3px 8px', borderRadius: 999, background: 'rgba(123,92,245,0.1)', color: '#5B35C5', fontSize: 10, fontWeight: 700 }}>✓ Claimed</span>}
-                    </div>
+              {selected && (() => {
+                const popAccent = toneMapColor(selected.tone).fg;
+                const popDomain = getDomain(selected.website);
+                const popFeatured = Boolean(selected.profile?.featured);
+                const popClaimed = Boolean(selected.profile && ['claimed','pending'].includes(`${selected.profile?.claim_status||''}`.toLowerCase()));
+                const popDesc = selected.desc || '';
+                const popShowDirections = (!selected.serviceFootprintModel || selected.serviceFootprintModel === 'physical_venue' || selected.serviceFootprintModel === 'hq_only') && selected.lat !== null;
+                return (
+                  <InfoWindowF position={{ lat: selected.lat, lng: selected.lng }} onCloseClick={() => onSelect('')} options={{ maxWidth: 360, disableAutoPan: false }}>
+                    <div style={{ fontFamily: 'Inter, sans-serif', width: 340, paddingRight: 20, paddingTop: 2 }}>
 
-                    {/* Avatar + title block */}
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 12 }}>
-                      <div style={{ flexShrink: 0 }}>
-                        {Boolean(selected.profile) ? <OrgAvatar listing={selected} size={50} /> : <IconTile tone={selected.tone} size={48} radius={13}>{selected.icon}</IconTile>}
+                      {/* Accent stripe */}
+                      <div style={{ height: 3, background: `linear-gradient(90deg, ${popAccent} 0%, ${popAccent}66 100%)`, borderRadius: 2, marginBottom: 12, marginRight: -20 }} />
+
+                      {/* Category pill + optional Featured chip */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+                        <span style={{ padding: '3px 10px', borderRadius: 999, background: `${popAccent}18`, color: popAccent, fontSize: 11, fontWeight: 800 }}>{selected.categoryLabel}</span>
+                        {popFeatured && <span style={{ padding: '3px 9px', borderRadius: 999, background: 'rgba(245,166,35,0.14)', color: '#7a4d08', fontSize: 11, fontWeight: 800 }}>★ Featured</span>}
+                        {popClaimed && !popFeatured && <span style={{ padding: '3px 9px', borderRadius: 999, background: 'rgba(123,92,245,0.1)', color: '#5B35C5', fontSize: 11, fontWeight: 700 }}>✓ Claimed</span>}
                       </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontFamily: 'Sora, sans-serif', fontWeight: 800, fontSize: 15, lineHeight: 1.3, color: '#1A2744', marginBottom: 5 }}>{selected.title}</div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'rgba(26,39,68,0.6)' }}>
-                          <IPin s={11} />
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selected.locationLabel}</span>
-                          {selected.footprintBadge && (
-                            <span style={{ flexShrink: 0, padding: '1px 6px', borderRadius: 999, background: selected.footprintBadge.bg, color: selected.footprintBadge.color, fontSize: 9.5, fontWeight: 700 }}>{selected.footprintBadge.label}</span>
+
+                      {/* Avatar + title */}
+                      <div style={{ display: 'flex', gap: 13, alignItems: 'flex-start', marginBottom: 10 }}>
+                        <div style={{ flexShrink: 0 }}>
+                          {Boolean(selected.profile)
+                            ? <OrgAvatar listing={selected} size={54} />
+                            : <IconTile tone={selected.tone} size={52} radius={14}>{selected.icon}</IconTile>}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontFamily: 'Sora, sans-serif', fontWeight: 800, fontSize: 16, color: '#1A2744', lineHeight: 1.22, marginBottom: 6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                            {selected.title}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'rgba(26,39,68,0.58)', flexWrap: 'nowrap', overflow: 'hidden' }}>
+                            <IPin s={11} />
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selected.locationLabel}</span>
+                            {selected.footprintBadge && (
+                              <span style={{ flexShrink: 0, padding: '1px 6px', borderRadius: 999, background: selected.footprintBadge.bg, color: selected.footprintBadge.color, fontSize: 9.5, fontWeight: 700 }}>{selected.footprintBadge.label}</span>
+                            )}
+                          </div>
+                          {popDomain && (
+                            <div style={{ marginTop: 4, fontSize: 11.5, color: '#2D9CDB', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {popDomain}
+                            </div>
                           )}
                         </div>
-                        {selected.website && (
-                          <div style={{ marginTop: 4, fontSize: 11.5, color: '#2D9CDB', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {selected.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
-                          </div>
-                        )}
                       </div>
-                    </div>
 
-                    {/* Description */}
-                    {selected.desc && (
-                      <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.68)', lineHeight: 1.6, marginBottom: 14, borderTop: '1px solid #EEF1F8', paddingTop: 12 }}>
-                        {selected.desc.length > 120 ? `${selected.desc.slice(0, 117)}…` : selected.desc}
-                      </div>
-                    )}
+                      {/* Description */}
+                      {popDesc && (
+                        <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.65)', lineHeight: 1.6, marginBottom: 14, paddingTop: 10, borderTop: '1px solid #EEF2FA', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                          {popDesc}
+                        </div>
+                      )}
 
-                    {/* CTAs */}
-                    <div style={{ display: 'flex', gap: 8, marginTop: selected.desc ? 0 : 4 }}>
+                      {/* Primary CTA */}
                       <button
                         onClick={() => onOpenResource(selected)}
-                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, height: 38, borderRadius: 11, background: 'linear-gradient(135deg, #2D9CDB 0%, #1A7FC0 100%)', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13, boxShadow: '0 3px 10px rgba(45,156,219,0.28)' }}
+                        style={{ width: '100%', padding: '10px 14px', borderRadius: 11, background: 'linear-gradient(135deg, #1A2744 0%, #2D3E6B 100%)', color: '#fff', fontWeight: 800, fontSize: 13.5, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, boxShadow: '0 4px 16px rgba(26,39,68,0.22)', marginBottom: popShowDirections ? 8 : 0 }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'linear-gradient(135deg, #263659 0%, #1A2744 100%)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'linear-gradient(135deg, #1A2744 0%, #2D3E6B 100%)'; }}
                       >
-                        View profile <IArrow s={13} />
+                        View full profile <IArrow s={14} />
                       </button>
-                      {(!selected.serviceFootprintModel || selected.serviceFootprintModel === 'physical_venue' || selected.serviceFootprintModel === 'hq_only') && selected.lat !== null && (
+
+                      {/* Directions secondary */}
+                      {popShowDirections && (
                         <a
                           href={getMapsDirectionsUrl(selected)}
                           target="_blank"
                           rel="noreferrer"
                           onClick={e => e.stopPropagation()}
-                          style={{ width: 38, height: 38, borderRadius: 11, border: '1.5px solid #E0E8F5', background: '#FAFBFF', color: 'rgba(26,39,68,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', flexShrink: 0 }}
-                          title="Get directions"
+                          style={{ width: '100%', padding: '8px 14px', borderRadius: 11, border: '1.5px solid #E0E8F5', background: '#FAFBFF', color: 'rgba(26,39,68,0.65)', fontWeight: 700, fontSize: 12.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, textDecoration: 'none', boxSizing: 'border-box' }}
                         >
-                          <IDirections s={16} />
+                          <IDirections s={14} /> Get directions
                         </a>
                       )}
+
                     </div>
-                  </div>
-                </InfoWindowF>
-              )}
+                  </InfoWindowF>
+                );
+              })()}
             </GoogleMap>
           ) : (
             <div style={{ display: 'grid', placeItems: 'center', minHeight: isMobile ? 420 : 640, color: 'rgba(26,39,68,0.65)', fontSize: 14 }}>Loading interactive map…</div>
