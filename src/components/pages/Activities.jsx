@@ -417,7 +417,7 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
   const allPins = [...walkPins, ...samplePins];
 
   const Fallback = () => (
-    <div style={{ height: 400, borderRadius: 20, background: 'linear-gradient(160deg, #E8F5E4 0%, #EEF7FF 100%)', border: '1px solid #DEE8F4', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, textAlign: 'center', padding: 32 }}>
+    <div style={{ height: 'clamp(340px, calc(30vw + 200px), 560px)', borderRadius: 20, background: 'linear-gradient(160deg, #E8F5E4 0%, #EEF7FF 100%)', border: '1px solid #DEE8F4', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, textAlign: 'center', padding: 32 }}>
       <div style={{ fontSize: 32, marginBottom: 4 }}>📍</div>
       <div style={{ fontSize: 15, fontWeight: 700, color: '#1A2744' }}>Activity map loading</div>
       <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)', maxWidth: 280, lineHeight: 1.6 }}>Explore walks, groups, days out, attractions and wellbeing activities by location.</div>
@@ -429,7 +429,7 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
 
   if (loadError) return <Fallback />;
   if (!isLoaded || geoLoading) return (
-    <div style={{ height: 400, borderRadius: 20, background: '#F0F5FB', border: '1px solid #DEE8F4', display: 'grid', placeItems: 'center' }}>
+    <div style={{ height: 'clamp(340px, calc(30vw + 200px), 560px)', borderRadius: 20, background: '#F0F5FB', border: '1px solid #DEE8F4', display: 'grid', placeItems: 'center' }}>
       <div style={{ textAlign: 'center', color: 'rgba(26,39,68,0.5)', fontSize: 14 }}>
         <div style={{ fontSize: 28, marginBottom: 8 }}>🗺️</div>
         {geoLoading ? 'Locating activities…' : 'Loading map…'}
@@ -445,7 +445,7 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
     <div>
       <div style={{ borderRadius: 20, overflow: 'hidden', boxShadow: '0 8px 32px rgba(26,39,68,0.10)', border: '1px solid #EEF1F7' }}>
         <GoogleMap
-          mapContainerStyle={{ width: '100%', height: '400px' }}
+          mapContainerStyle={{ width: '100%', height: 'clamp(340px, calc(30vw + 200px), 560px)' }}
           center={{ lat, lng }}
           zoom={zoom}
           options={{ streetViewControl: false, mapTypeControl: false, fullscreenControl: false, zoomControl: true, gestureHandling: 'greedy' }}
@@ -688,7 +688,7 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
       </section>
 
       {/* ── Filters ──────────────────────────────────────────────── */}
-      <section style={{ background: '#FFFFFF', borderBottom: '1px solid #EEF1F7', paddingTop: 14, paddingBottom: 14, position: 'sticky', top: 72, zIndex: 40 }}>
+      <section id="act-filters" style={{ background: '#FFFFFF', borderBottom: '1px solid #EEF1F7', paddingTop: 14, paddingBottom: 14, position: 'sticky', top: 72, zIndex: 40 }}>
         <div className="container">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, alignItems: 'center' }}>
             <select value={localCounty} onChange={handleCountyChange} style={{ ...iStyle, fontWeight: 700, flex: '1 1 130px' }}>
@@ -711,72 +711,88 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
         </div>
       </section>
 
-      {/* ── Discovery map ────────────────────────────────────────── */}
-      <section id="act-map" style={{ paddingTop: 56, paddingBottom: 52, background: '#FFFFFF' }}>
+      {/* ── Discovery map — full width ───────────────────────────── */}
+      <section id="act-map" style={{ paddingTop: 36, paddingBottom: 0, background: '#FFFFFF' }}>
         <div className="container">
-          <div style={{ marginBottom: 8 }}>
-            <div className="eyebrow" style={{ marginBottom: 5 }}>Explore nearby</div>
-            <h2 style={{ fontSize: 'clamp(20px, 2.8vw, 28px)', fontWeight: 800, color: '#1A2744', margin: '0 0 6px' }}>
-              Explore the activity map
-            </h2>
-            <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.52)', margin: 0 }}>
-              Showing activities for: {localCounty ? countyLabel : 'All counties'}
-            </p>
+
+          {/* Compact map header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
+            <div>
+              <div className="eyebrow" style={{ marginBottom: 4 }}>Explore nearby</div>
+              <h2 style={{ fontSize: 'clamp(18px, 2.5vw, 24px)', fontWeight: 800, color: '#1A2744', margin: '0 0 3px' }}>
+                Explore the activity map
+              </h2>
+              <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.50)', margin: 0 }}>
+                Showing activities for: <strong style={{ color: '#1A2744', fontWeight: 700 }}>{localCounty ? countyLabel : 'All counties'}</strong>
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                onClick={() => document.getElementById('act-filters')?.scrollIntoView({ behavior: 'smooth' })}
+                style={{ fontSize: 12.5, fontWeight: 700, padding: '8px 14px', borderRadius: 10, background: '#F0F5FB', border: '1px solid #DEE8F4', color: '#1A2744', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}
+              >
+                <ISearch s={12} /> Search this area
+              </button>
+              <button onClick={() => goToWalks(localCounty)} className="btn btn-gold btn-sm">
+                Full walks map <IArrow s={11} />
+              </button>
+            </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18, marginTop: 20, alignItems: 'start' }}>
-            {/* Map — passes all filter state for category/county control */}
-            <ActivitiesMap
-              localCounty={localCounty}
-              activityType={activityType}
-              cost={cost}
-              accessibility={accessibility}
-              onNavigate={onNavigate}
-            />
+          {/* Full-width map */}
+          <ActivitiesMap
+            localCounty={localCounty}
+            activityType={activityType}
+            cost={cost}
+            accessibility={accessibility}
+            onNavigate={onNavigate}
+          />
 
-            {/* Featured nearby panel — non-walk markers → find-help */}
-            <div>
-              <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.40)', marginBottom: 12 }}>
-                {countyLabel ? `Featured in ${countyLabel}` : 'Featured activities'}
-              </div>
-              <div style={{ display: 'grid', gap: 10 }}>
-                {[
-                  { title: 'Accessible coastal walk', type: 'walks',    location: 'St Ives',  tags: ['Wheelchair', 'Free'],   accent: '#5BC94A', grad: 'linear-gradient(135deg, #D8F0CC, #C4E8B4)', dest: () => goToWalks(localCounty) },
-                  { title: 'Carer coffee morning',    type: 'groups',   location: 'Truro',    tags: ['All welcome', 'Free'],  accent: '#2D9CDB', grad: 'linear-gradient(135deg, #C8E4F8, #B4D8F4)', dest: null },
-                  { title: 'Family-friendly day out', type: 'days-out', location: 'Falmouth', tags: ['Family', 'Free entry'], accent: '#F5A623', grad: 'linear-gradient(135deg, #FDE8C4, #FDDCA8)', dest: null },
-                  { title: 'Wellbeing swim session',  type: 'wellbeing',location: 'Penzance', tags: ['Low mobility', 'Free'], accent: '#F4613A', grad: 'linear-gradient(135deg, #FADCD4, #F8C8BC)', dest: null },
-                ].filter((c) => !activityType || c.type === activityType).map((card) => (
-                  <div key={card.title} className="card" style={{ padding: 0, overflow: 'hidden', borderRadius: 16, borderLeft: `3px solid ${card.accent}` }}>
-                    <div style={{ height: 26, background: card.grad }} />
-                    <div style={{ padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
-                          <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: card.accent }}>{ACTIVITY_TYPE_OPTIONS.find((o) => o.value === card.type)?.label || card.type}</span>
-                          <span style={{ fontSize: 10.5, color: 'rgba(26,39,68,0.40)' }}>· {card.location}</span>
-                        </div>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>{card.title}</div>
-                        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                          {card.tags.map((t) => <span key={t} style={{ fontSize: 10.5, fontWeight: 600, padding: '2px 7px', borderRadius: 5, background: `${card.accent}18`, color: card.accent }}>{t}</span>)}
-                        </div>
-                      </div>
-                      {card.dest
-                        ? <button onClick={card.dest} style={{ fontSize: 11.5, fontWeight: 700, color: card.accent, background: `${card.accent}14`, padding: '5px 10px', borderRadius: 7, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>View →</button>
-                        : <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(26,39,68,0.35)', flexShrink: 0, whiteSpace: 'nowrap' }}>Details coming soon</span>
-                      }
+        </div>
+      </section>
+
+      {/* ── Featured activities below map ────────────────────────── */}
+      <section style={{ paddingTop: 28, paddingBottom: 36, background: '#FFFFFF', borderTop: '1px solid #F0F4FA' }}>
+        <div className="container">
+          <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.40)', marginBottom: 14 }}>
+            {countyLabel ? `Featured in ${countyLabel}` : 'Featured activities'}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
+            {[
+              { title: 'Accessible coastal walk', type: 'walks',    location: 'St Ives',  tags: ['Wheelchair', 'Free'],   accent: '#5BC94A', grad: 'linear-gradient(135deg, #D8F0CC, #C4E8B4)', dest: () => goToWalks(localCounty) },
+              { title: 'Carer coffee morning',    type: 'groups',   location: 'Truro',    tags: ['All welcome', 'Free'],  accent: '#2D9CDB', grad: 'linear-gradient(135deg, #C8E4F8, #B4D8F4)', dest: null },
+              { title: 'Family-friendly day out', type: 'days-out', location: 'Falmouth', tags: ['Family', 'Free entry'], accent: '#F5A623', grad: 'linear-gradient(135deg, #FDE8C4, #FDDCA8)', dest: null },
+              { title: 'Wellbeing swim session',  type: 'wellbeing',location: 'Penzance', tags: ['Low mobility', 'Free'], accent: '#F4613A', grad: 'linear-gradient(135deg, #FADCD4, #F8C8BC)', dest: null },
+            ].filter((c) => !activityType || c.type === activityType).map((card) => (
+              <div key={card.title} className="card" style={{ padding: 0, overflow: 'hidden', borderRadius: 16, borderLeft: `3px solid ${card.accent}` }}>
+                <div style={{ height: 24, background: card.grad }} />
+                <div style={{ padding: '11px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
+                      <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: card.accent }}>{ACTIVITY_TYPE_OPTIONS.find((o) => o.value === card.type)?.label || card.type}</span>
+                      <span style={{ fontSize: 10.5, color: 'rgba(26,39,68,0.40)' }}>· {card.location}</span>
+                    </div>
+                    <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1A2744', marginBottom: 5 }}>{card.title}</div>
+                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                      {card.tags.map((t) => <span key={t} style={{ fontSize: 10.5, fontWeight: 600, padding: '2px 7px', borderRadius: 5, background: `${card.accent}18`, color: card.accent }}>{t}</span>)}
                     </div>
                   </div>
-                ))}
-                {/* Native sponsor slot — routes to login, never walks */}
-                <div className="card" style={{ padding: '11px 14px', borderRadius: 14, border: '1px dashed rgba(245,166,35,0.35)', background: 'rgba(245,166,35,0.03)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                  <div>
-                    <div style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'rgba(26,39,68,0.36)', marginBottom: 2 }}>Featured partner slot available</div>
-                    <div style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(26,39,68,0.55)' }}>Your venue or activity here.</div>
-                  </div>
-                  <button onClick={() => onNavigate('login')} style={{ fontSize: 11, fontWeight: 700, color: '#B45309', background: 'rgba(245,166,35,0.10)', padding: '4px 10px', borderRadius: 7, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                    Promote →
-                  </button>
+                  {card.dest
+                    ? <button onClick={card.dest} style={{ fontSize: 11.5, fontWeight: 700, color: card.accent, background: `${card.accent}14`, padding: '5px 10px', borderRadius: 7, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>View →</button>
+                    : <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(26,39,68,0.35)', flexShrink: 0, whiteSpace: 'nowrap' }}>Details coming soon</span>
+                  }
                 </div>
               </div>
+            ))}
+            {/* Native sponsor slot */}
+            <div className="card" style={{ padding: '13px 16px', borderRadius: 14, border: '1px dashed rgba(245,166,35,0.35)', background: 'rgba(245,166,35,0.03)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+              <div>
+                <div style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'rgba(26,39,68,0.36)', marginBottom: 2 }}>Featured partner slot</div>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(26,39,68,0.55)' }}>Your venue or activity here.</div>
+              </div>
+              <button onClick={() => onNavigate('login')} style={{ fontSize: 11, fontWeight: 700, color: '#B45309', background: 'rgba(245,166,35,0.10)', padding: '4px 10px', borderRadius: 7, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                Promote →
+              </button>
             </div>
           </div>
         </div>
