@@ -209,6 +209,8 @@ const ProfileDashboard = ({ onNavigate, session, section = 'dashboard' }) => {
   const [resourceSlugMap, setResourceSlugMap] = React.useState({});
   const [eventDraft, setEventDraft] = React.useState(emptyEvent);
   const [analyticsWindow, setAnalyticsWindow] = React.useState('30d');
+  const SECTION_TO_TAB = { dashboard: 'overview', organisation: 'profile', posts: 'events', enquiries: 'enquiries', settings: 'settings' };
+  const [activeTab, setActiveTab] = React.useState(() => SECTION_TO_TAB[section] || 'overview');
 
   const userEmail = `${session?.user?.email || ''}`.trim().toLowerCase();
 
@@ -689,489 +691,409 @@ const ProfileDashboard = ({ onNavigate, session, section = 'dashboard' }) => {
     );
   }
 
+  const isClaimed = activeProfile?.claim_status === 'claimed' || profileStatus.claimStatus === 'claimed';
+
   return (
     <>
       <Nav activePage={activeNavPage} onNavigate={onNavigate} session={session} />
       <section style={{ paddingTop: 40, paddingBottom: 74, background: 'linear-gradient(180deg, #EEF7FF 0%, #FAFBFF 100%)' }}>
-        <div className="container" style={{ display: 'grid', gap: 18 }}>
+        <div className="container" style={{ display: 'grid', gap: 16 }}>
+
+          {/* ── Welcome header ─────────────────────────── */}
           <div className="card" style={{ padding: 22, borderRadius: 20 }}>
-            <h1 style={{ fontSize: 34, fontWeight: 800 }}>Account Dashboard</h1>
-            <p style={{ marginTop: 8, color: 'rgba(26,39,68,0.7)' }}>Signed in as {session.user.email}.</p>
-            {error ? <div style={{ marginTop: 10, color: '#A03A2D', fontWeight: 600 }}>{error}</div> : null}
-            {toast ? <div style={{ marginTop: 10, color: '#2D6B1F', fontWeight: 600 }}>{toast}</div> : null}
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+              <div>
+                <div className="eyebrow" style={{ color: '#2D9CDB', marginBottom: 8 }}>Account Dashboard</div>
+                <h1 style={{ fontSize: 26, fontWeight: 800, color: '#1A2744', margin: 0 }}>
+                  {activeProfile ? (getProfileDisplayName(activeProfile) || 'Your organisation') : 'Account Dashboard'}
+                </h1>
+                {isClaimed
+                  ? <p style={{ marginTop: 6, color: '#0D7A55', fontSize: 14, fontWeight: 600, margin: '6px 0 0' }}>✓ Your organisation access is active. Complete your profile to improve visibility.</p>
+                  : profiles.length > 0
+                    ? <p style={{ marginTop: 6, color: 'rgba(26,39,68,0.65)', fontSize: 14, margin: '6px 0 0' }}>Signed in as {session.user.email}.</p>
+                    : <p style={{ marginTop: 6, color: 'rgba(26,39,68,0.65)', fontSize: 14, margin: '6px 0 0' }}>Signed in as {session.user.email}. Claim a listing to get started.</p>}
+              </div>
+              {profiles.length > 1 && (
+                <select value={activeProfileId} onChange={(e) => setActiveProfileId(e.target.value)} style={{ ...inputStyle, minWidth: 200 }}>
+                  {profiles.map((p) => <option key={p.id} value={p.id}>{getProfileDisplayName(p) || 'Organisation'}</option>)}
+                </select>
+              )}
+            </div>
+            {error ? <div style={{ marginTop: 10, color: '#A03A2D', fontWeight: 600, fontSize: 13.5 }}>{error}</div> : null}
+            {toast ? <div style={{ marginTop: 10, color: '#2D6B1F', fontWeight: 600, fontSize: 13.5 }}>{toast}</div> : null}
           </div>
 
-          {/* Section sub-navigation */}
+          {/* ── Primary action card ─────────────────────── */}
+          {!loading && activeProfile && (
+            <div className="card" style={{ padding: 22, borderRadius: 20, border: '1px solid rgba(45,156,219,0.2)', background: 'linear-gradient(145deg, rgba(45,156,219,0.04) 0%, #FAFBFF 100%)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                <div style={{ flex: '1 1 280px' }}>
+                  <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: isClaimed ? '#0D7A55' : '#8a5a0b', marginBottom: 6 }}>
+                    {isClaimed ? '✓ Organisation access active' : titleCase(profileStatus.claimStatus)}
+                  </div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: '#1A2744', marginBottom: 10 }}>Complete your organisation profile</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                    <div style={{ flex: 1, height: 8, borderRadius: 999, background: '#E9EEF5', overflow: 'hidden' }}>
+                      <div style={{ width: `${onboardingChecklist.score}%`, height: '100%', background: 'linear-gradient(90deg, #2D9CDB 0%, #10B981 100%)', transition: 'width .3s' }} />
+                    </div>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: '#1A2744', whiteSpace: 'nowrap' }}>{onboardingChecklist.score}%</span>
+                  </div>
+                  <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.58)' }}>{onboardingChecklist.completed} of {onboardingChecklist.total} steps complete</div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignSelf: 'flex-end' }}>
+                  <button className="btn btn-gold" onClick={() => setActiveTab('profile')}>Edit profile</button>
+                  <button className="btn btn-ghost" onClick={() => setActiveTab('events')}>Add event</button>
+                  {activeProfile.resource_id && resourceSlugMap[activeProfile.resource_id] && (
+                    <a href={`/find-help/${resourceSlugMap[activeProfile.resource_id]}`} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}>View listing ↗</a>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Stats row ───────────────────────────────── */}
+          {!loading && activeProfile && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
+              {[
+                ['Profile views', dashboardKpis.profileViews, 'number'],
+                ['Enquiries', dashboardKpis.enquiryCount, 'number'],
+                ['Active events', dashboardKpis.activeEvents, 'number'],
+                ['Claim status', titleCase(profileStatus.claimStatus), 'text'],
+              ].map(([label, value, type]) => (
+                <div key={label} className="card" style={{ padding: 14, borderRadius: 14 }}>
+                  <div style={{ fontSize: 11, color: 'rgba(26,39,68,0.6)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em' }}>{label}</div>
+                  <div style={{ marginTop: 6, fontSize: type === 'number' ? 26 : 16, fontWeight: 800, color: '#1A2744' }}>{value}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── Internal tab bar ────────────────────────── */}
           <div style={{ display: 'flex', gap: 2, padding: 4, background: '#EFF2F8', borderRadius: 14, width: 'fit-content', flexWrap: 'wrap' }}>
             {[
-              { key: 'profile',            label: 'Dashboard' },
-              { key: 'profile-org',        label: 'My Organisation' },
-              { key: 'profile-posts',      label: 'My Posts' },
-              { key: 'profile-enquiries',  label: 'My Enquiries' },
-              { key: 'profile-settings',   label: 'Settings' },
+              { key: 'overview',   label: 'Overview' },
+              { key: 'profile',    label: 'Profile' },
+              { key: 'events',     label: 'Events' },
+              { key: 'enquiries',  label: 'Enquiries' },
+              { key: 'plan',       label: 'Plan' },
+              { key: 'settings',   label: 'Settings' },
             ].map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => onNavigate(key)}
-                style={{
-                  padding: '7px 15px', borderRadius: 10, fontSize: 13.5, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all .12s',
-                  fontWeight: activeNavPage === key ? 700 : 500,
-                  background: activeNavPage === key ? 'white' : 'transparent',
-                  color: activeNavPage === key ? '#1A2744' : 'rgba(26,39,68,0.58)',
-                  boxShadow: activeNavPage === key ? '0 1px 4px rgba(26,39,68,0.1)' : 'none',
-                }}
-              >
+              <button key={key} onClick={() => setActiveTab(key)} style={{ padding: '7px 15px', borderRadius: 10, fontSize: 13.5, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all .12s', fontWeight: activeTab === key ? 700 : 500, background: activeTab === key ? 'white' : 'transparent', color: activeTab === key ? '#1A2744' : 'rgba(26,39,68,0.58)', boxShadow: activeTab === key ? '0 1px 4px rgba(26,39,68,0.1)' : 'none' }}>
                 {label}
               </button>
             ))}
           </div>
 
-          {showAll && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
-            {[
-              ['Profiles', dashboardKpis.profiles],
-              ['Events', dashboardKpis.events],
-              ['Upcoming', dashboardKpis.upcoming],
-              ['Completed', dashboardKpis.completed],
-              ['Claims pending', dashboardKpis.pendingClaims],
-              ['Claims approved', dashboardKpis.approvedClaims],
-            ].map(([label, value]) => (
-              <div key={label} className="card" style={{ padding: 14, borderRadius: 14 }}>
-                <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.6)', textTransform: 'uppercase' }}>{label}</div>
-                <div style={{ marginTop: 6, fontSize: 26, fontWeight: 800 }}>{value}</div>
-              </div>
-            ))}
-          </div>}
+          {loading && <div className="card" style={{ padding: 20 }}>Loading account data…</div>}
 
-          {showAll && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
-            <div className="card" style={{ gridColumn: '1 / -1', padding: 16, borderRadius: 16, background: '#FFFFFF' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                <div>
-                  <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.6)', textTransform: 'uppercase' }}>Analytics window</div>
-                  <div style={{ marginTop: 6, fontSize: 13.5, color: 'rgba(26,39,68,0.68)' }}>Views and enquiries use historical activity. Active events use the matching forward-looking window.</div>
-                </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {ANALYTICS_WINDOWS.map((windowOption) => (
-                    <button
-                      key={windowOption.key}
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => setAnalyticsWindow(windowOption.key)}
-                      style={{ borderColor: analyticsWindow === windowOption.key ? '#1A2744' : undefined, fontWeight: analyticsWindow === windowOption.key ? 700 : 600 }}
-                    >
-                      {windowOption.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-            {hasAnalyticsAccess ? analyticsCards.map(([label, value]) => (
-              <div key={label} className="card" style={{ padding: 16, borderRadius: 16, background: '#FFFFFF' }}>
-                <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.6)', textTransform: 'uppercase' }}>{label}</div>
-                <div style={{ marginTop: 8, fontSize: 28, fontWeight: 800, color: '#1A2744' }}>{value}{label.includes('%') ? '%' : ''}</div>
-                <div style={{ marginTop: 6, fontSize: 12.5, color: 'rgba(26,39,68,0.58)' }}>
-                  {label === 'Profile views' ? 'Directory interest recorded from resource view events.' : null}
-                  {label === 'Event enquiries' ? 'Live demand captured from organiser enquiry records.' : null}
-                  {label === 'Active events' ? 'Scheduled events currently available to book or contact.' : null}
-                  {label === 'Profile completion %' ? 'Readiness score for conversion and premium upgrades.' : null}
-                </div>
-              </div>
-            )) : (
-              <div className="card" style={{ gridColumn: '1 / -1', padding: 18, borderRadius: 16, background: '#FFFFFF' }}>
-                <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.6)', textTransform: 'uppercase' }}>Analytics locked</div>
-                <div style={{ marginTop: 8, fontSize: 22, fontWeight: 800, color: '#1A2744' }}>Analytics are disabled for this entitlement</div>
-                <div style={{ marginTop: 8, fontSize: 13.5, color: 'rgba(26,39,68,0.62)', lineHeight: 1.65 }}>Profile views, enquiry totals and time-window reporting become visible when `analytics_enabled` is switched on by admin.</div>
-              </div>
-            )}
-          </div>}
-
-          {showAll && <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.6fr) minmax(280px, 1fr)', gap: 14 }}>
-            <div className="card" style={{ padding: 22, borderRadius: 20, background: 'linear-gradient(145deg, rgba(26,39,68,0.98) 0%, rgba(34,70,110,0.96) 100%)', color: '#FFFFFF' }}>
-              <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(255,255,255,0.7)' }}>Your owner dashboard</div>
-              <h2 style={{ marginTop: 10, fontSize: 28, fontWeight: 800 }}>
-                {dashboardKpis.approvedClaims ? 'Your listing is live — grow your reach' : 'Dashboard is live while your claim is reviewed'}
-              </h2>
-              <p style={{ marginTop: 10, color: 'rgba(255,255,255,0.82)', lineHeight: 1.7 }}>
-                {dashboardKpis.pendingClaims
-                  ? 'Complete your profile now so your listing is ready the moment admin approves your claim.'
-                  : dashboardKpis.approvedClaims
-                    ? 'Your claim is approved. Add events, update your profile, and explore premium upgrades to turn directory traffic into enquiries.'
-                    : 'Build your organisation profile and submit a claim to connect it to your listing.'}
-              </p>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }}>
-                <div style={{ padding: '10px 12px', borderRadius: 14, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.16)' }}>
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.72)' }}>Claim status</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4 }}>{titleCase(profileStatus.claimStatus)}</div>
-                </div>
-                <div style={{ padding: '10px 12px', borderRadius: 14, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.16)' }}>
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.72)' }}>Verification</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4 }}>{titleCase(profileStatus.verificationStatus)}</div>
-                </div>
-                <div style={{ padding: '10px 12px', borderRadius: 14, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.16)' }}>
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.72)' }}>Completion score</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4 }}>{onboardingChecklist.score}%</div>
-                </div>
-                <div style={{ padding: '10px 12px', borderRadius: 14, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.16)' }}>
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.72)' }}>Featured access</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4 }}>{hasFeaturedAccess ? 'Enabled' : 'Locked'}</div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
-                <button
-                  onClick={() => document.getElementById('pd-profile-section')?.scrollIntoView({ behavior: 'smooth' })}
-                  style={{ padding: '9px 18px', borderRadius: 10, background: 'rgba(255,255,255,0.15)', color: 'white', border: '1.5px solid rgba(255,255,255,0.28)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer' }}
-                >
-                  Complete your profile →
-                </button>
-                <button onClick={() => setUpgradeEnquiryTarget('Discovery call')} style={{ padding: '9px 18px', borderRadius: 10, background: 'rgba(245,166,35,0.22)', color: '#FFD980', border: '1.5px solid rgba(245,166,35,0.35)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer' }}>
-                  Book a discovery call
-                </button>
-              </div>
-              {latestClaim ? (
-                <div style={{ marginTop: 14, padding: '12px 14px', borderRadius: 16, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.12)' }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.78)' }}>Latest claim</div>
-                  <div style={{ marginTop: 4, fontSize: 16, fontWeight: 700 }}>{latestClaim.listing_title || latestClaim.org_name || 'Claim request'}</div>
-                  <div style={{ marginTop: 4, fontSize: 12.5, color: 'rgba(255,255,255,0.74)' }}>Current review state: {titleCase(latestClaim.status || 'pending')}.</div>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="card" style={{ padding: 22, borderRadius: 20 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
-                <div>
-                  <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.46)' }}>Onboarding checklist</div>
-                  <h2 style={{ marginTop: 8, fontSize: 24, fontWeight: 800 }}>Complete your profile to unlock enquiries</h2>
-                </div>
-                <div style={{ fontSize: 24, fontWeight: 800, color: '#1A2744' }}>{onboardingChecklist.score}%</div>
-              </div>
-              <div style={{ marginTop: 14, height: 10, borderRadius: 999, background: '#E9EEF5', overflow: 'hidden' }}>
-                <div style={{ width: `${onboardingChecklist.score}%`, height: '100%', background: 'linear-gradient(90deg, #2D9CDB 0%, #10B981 100%)' }} />
-              </div>
-              <div style={{ marginTop: 14, display: 'grid', gap: 9 }}>
-                {onboardingChecklist.checks.map((item) => (
-                  <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14, background: item.done ? 'rgba(16,185,129,0.08)' : '#FAFBFF', border: `1px solid ${item.done ? 'rgba(16,185,129,0.18)' : '#E9EEF5'}` }}>
-                    <div style={{ fontSize: 13.5, color: '#1A2744', fontWeight: 600 }}>{item.label}</div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: item.done ? '#0D7A55' : 'rgba(26,39,68,0.52)' }}>{item.done ? 'Done' : 'Next'}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>}
-
-          {showAll && <div className="card" style={{ padding: 22, borderRadius: 20, border: '1px solid #E7D8B9', background: 'linear-gradient(180deg, #FFF9ED 0%, #FFFFFF 100%)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
-              <div>
-                <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.46)' }}>Grow your listing</div>
-                <h2 style={{ marginTop: 8, fontSize: 24, fontWeight: 800 }}>Boost your reach and capture more enquiries</h2>
-                <p style={{ marginTop: 8, color: 'rgba(26,39,68,0.68)', lineHeight: 1.65, maxWidth: 760 }}>Select any upgrade to enquire — the team will follow up within 48 hours to discuss options and pricing.</p>
-              </div>
-              <div style={{ padding: '8px 10px', borderRadius: 999, background: hasFeaturedAccess ? 'rgba(16,185,129,0.12)' : 'rgba(245,166,35,0.14)', color: hasFeaturedAccess ? '#0D7A55' : '#9A5A00', fontSize: 12, fontWeight: 700 }}>{hasFeaturedAccess ? 'Featured active' : 'Standard listing'}</div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 10, marginTop: 14 }}>
-              {[
-                ['Featured listing', 'Appear at the top of relevant searches and highlighted in map results — putting your organisation in front of people who need you most.', hasFeaturedAccess],
-                ['Enquiry capture', 'Receive direct enquiries from your listing — phone, email, and form contacts tracked and managed in one place.', hasEnquiryToolsAccess],
-                ['Event promotion', 'Promote your sessions, groups, and events to people actively searching for support nearby.', false],
-                ['Listing analytics', 'See exactly how many people viewed and engaged with your listing, so you can grow with confidence.', hasAnalyticsAccess],
-              ].map(([title, description, active]) => (
-                <div key={title} style={{ border: active ? '1.5px solid rgba(16,185,129,0.3)' : '1px solid #F0E3C5', borderRadius: 16, padding: 14, background: active ? 'rgba(16,185,129,0.04)' : '#FFFFFF' }}>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: '#1A2744' }}>{title}</div>
-                  <div style={{ marginTop: 6, fontSize: 13, color: 'rgba(26,39,68,0.64)', lineHeight: 1.6 }}>{description}</div>
-                  <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                    <span style={{ fontSize: 11.5, fontWeight: 700, color: active ? '#0D7A55' : 'rgba(26,39,68,0.5)' }}>{active ? '✓ Active on your plan' : 'Not yet active'}</span>
-                    {!active && (
-                      <button onClick={() => setUpgradeEnquiryTarget(title)} style={{ fontSize: 11.5, fontWeight: 800, color: '#B45309', background: 'rgba(245,166,35,0.12)', padding: '3px 9px', borderRadius: 8, border: '1px solid rgba(245,166,35,0.25)', whiteSpace: 'nowrap', cursor: 'pointer' }}>
-                        Enquire →
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>}
-
-          {showAll && <div className="card" style={{ padding: 22, borderRadius: 20 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-              <div>
-                <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.46)' }}>Account plan</div>
-                <h2 style={{ marginTop: 8, fontSize: 24, fontWeight: 800 }}>Your current plan</h2>
-              </div>
-              <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.56)' }}>{entitlementState.packageName !== 'No package assigned' ? entitlementState.packageName : 'Standard listing'}</div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10, marginTop: 14 }}>
-              {[
-                ['Package', entitlementState.packageName],
-                ['Status', titleCase(entitlementState.status)],
-                ['Start date', entitlementState.startDate || 'Not set'],
-                ['End date', entitlementState.endDate || 'Not set'],
-              ].map(([label, value]) => (
-                <div key={label} style={{ border: '1px solid #E9EEF5', borderRadius: 14, padding: 14, background: '#FAFBFF' }}>
-                  <div style={{ fontSize: 12, textTransform: 'uppercase', color: 'rgba(26,39,68,0.52)', fontWeight: 800 }}>{label}</div>
-                  <div style={{ marginTop: 6, fontSize: 16, fontWeight: 700, color: '#1A2744' }}>{value}</div>
-                </div>
-              ))}
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10, marginTop: 12 }}>
-              {[
-                ['Featured enabled', entitlementState.featuredEnabled ? 'Yes' : 'No'],
-                ['Event quota', `${entitlementState.eventQuota}`],
-                ['Enquiry tools', entitlementState.enquiryToolsEnabled ? 'Enabled' : 'Disabled'],
-                ['Analytics', entitlementState.analyticsEnabled ? 'Enabled' : 'Disabled'],
-              ].map(([label, value]) => (
-                <div key={label} style={{ border: '1px solid #E9EEF5', borderRadius: 14, padding: 14, background: '#FFFFFF' }}>
-                  <div style={{ fontSize: 12, textTransform: 'uppercase', color: 'rgba(26,39,68,0.52)', fontWeight: 800 }}>{label}</div>
-                  <div style={{ marginTop: 6, fontSize: 16, fontWeight: 700, color: '#1A2744' }}>{value}</div>
-                </div>
-              ))}
-            </div>
-          </div>}
-
-          {showEnquiries && <div className="card" style={{ padding: 22, borderRadius: 20 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-              <div>
-                <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.46)' }}>Enquiry pipeline</div>
-                <h2 style={{ marginTop: 8, fontSize: 24, fontWeight: 800 }}>Track response value before monetisation</h2>
-              </div>
-              <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.56)' }}>{activeProfileEnquiries.length} enquiries on this profile</div>
-            </div>
-            {hasEnquiryToolsAccess ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginTop: 14 }}>
-                {[
-                  ['new', enquiryPipeline.new],
-                  ['contacted', enquiryPipeline.contacted],
-                  ['resolved', enquiryPipeline.resolved],
-                ].map(([state, rows]) => (
-                  <div key={state} style={{ border: '1px solid #E9EEF5', borderRadius: 16, padding: 14, background: '#FAFBFF' }}>
-                    <div style={{ fontSize: 12, textTransform: 'uppercase', color: 'rgba(26,39,68,0.52)', fontWeight: 800 }}>{state}</div>
-                    <div style={{ marginTop: 6, fontSize: 28, fontWeight: 800, color: '#1A2744' }}>{rows.length}</div>
-                    <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
-                      {rows.length ? rows.slice(0, 4).map((entry) => (
-                        <div key={entry.id} style={{ padding: '10px 12px', borderRadius: 12, border: '1px solid #E3EAF4', background: '#FFFFFF' }}>
-                          <div style={{ fontWeight: 700, fontSize: 13.5, color: '#1A2744' }}>{entry.full_name}</div>
-                          <div style={{ marginTop: 4, fontSize: 12, color: 'rgba(26,39,68,0.6)' }}>{entry.email}</div>
-                          <div style={{ marginTop: 4, fontSize: 12, color: 'rgba(26,39,68,0.56)' }}>{entry.spaces_requested ? `${entry.spaces_requested} spaces requested` : 'No space count supplied'}</div>
-                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
-                            {['new', 'contacted', 'resolved'].map((nextState) => (
-                              <button
-                                key={nextState}
-                                className="btn btn-ghost btn-sm"
-                                disabled={saving || nextState === state}
-                                onClick={() => updateEnquiryStatus(entry.id, nextState)}
-                              >
-                                Mark {nextState}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )) : <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.56)' }}>No enquiries in this state.</div>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ marginTop: 14, border: '1px solid #E9EEF5', borderRadius: 16, padding: 18, background: '#FAFBFF' }}>
-                <div style={{ fontSize: 12, textTransform: 'uppercase', color: 'rgba(26,39,68,0.52)', fontWeight: 800 }}>Enquiry tools locked</div>
-                <div style={{ marginTop: 8, fontSize: 18, fontWeight: 800, color: '#1A2744' }}>This organisation cannot manage enquiry pipeline states yet</div>
-                <div style={{ marginTop: 8, fontSize: 13.5, color: 'rgba(26,39,68,0.62)', lineHeight: 1.65 }}>Switch `enquiry_tools_enabled` on in admin to unlock pipeline management and response tracking.</div>
-              </div>
-            )}
-          </div>}
-
-          {loading ? (
-            <div className="card" style={{ padding: 20 }}>Loading account data…</div>
-          ) : (
+          {/* ── OVERVIEW TAB ─────────────────────────────── */}
+          {!loading && activeTab === 'overview' && (
             <>
-              {/* Settings section */}
-              {section === 'settings' && (
-                <div className="card" style={{ padding: 28, borderRadius: 20 }}>
-                  <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.46)', marginBottom: 8 }}>Account Settings</div>
-                  <h2 style={{ fontSize: 26, fontWeight: 800, color: '#1A2744', marginBottom: 20 }}>Your account</h2>
-                  <div style={{ display: 'grid', gap: 10, marginBottom: 22 }}>
-                    {[
-                      ['Email address', userEmail || '—'],
-                      ['Account type', isAdmin ? 'Administrator' : profiles.length > 0 ? 'Organisation owner' : 'Account holder'],
-                      ['Organisations connected', String(profiles.length || 0)],
-                    ].map(([label, value]) => (
-                      <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 16px', borderRadius: 14, border: '1px solid #E9EEF5', background: '#FAFBFF' }}>
-                        <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.52)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
-                        <div style={{ fontSize: 14.5, fontWeight: 600, color: '#1A2744' }}>{value}</div>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ padding: '14px 16px', borderRadius: 14, border: '1px dashed rgba(26,39,68,0.15)', background: '#FAFBFF', fontSize: 13.5, color: 'rgba(26,39,68,0.55)', lineHeight: 1.6, marginBottom: 22 }}>
-                    Advanced settings — notification preferences, password changes, and two-factor authentication — are coming in the next phase.
-                  </div>
-                  <button
-                    onClick={handleLogout}
-                    style={{ padding: '11px 24px', borderRadius: 12, background: 'rgba(160,58,45,0.07)', color: '#A03A2D', fontWeight: 700, fontSize: 14, border: '1px solid rgba(160,58,45,0.18)', cursor: 'pointer' }}
-                  >
-                    Sign out
-                  </button>
-                </div>
-              )}
-
-              {/* No-org guidance for focused sections */}
-              {!showAll && section !== 'settings' && profiles.length === 0 && (
+              {profiles.length === 0 && (
                 <div className="card" style={{ padding: 32, borderRadius: 20, textAlign: 'center' }}>
                   <div style={{ fontSize: 40, marginBottom: 14 }}>🏢</div>
                   <h2 style={{ fontSize: 22, fontWeight: 800, color: '#1A2744', marginBottom: 8 }}>No organisation connected yet</h2>
-                  <p style={{ color: 'rgba(26,39,68,0.65)', lineHeight: 1.65, maxWidth: 480, margin: '0 auto 16px' }}>
-                    Browse the Find Help directory and click "Claim this listing" on any listing that belongs to your organisation. Once approved, your organisation will appear here.
-                  </p>
+                  <p style={{ color: 'rgba(26,39,68,0.65)', lineHeight: 1.65, maxWidth: 480, margin: '0 auto 16px' }}>Browse the Find Help directory and click "Claim this listing" on any listing that belongs to your organisation. Once approved, your organisation will appear here.</p>
                   {claims.length > 0 && (
                     <div style={{ marginBottom: 16, padding: '10px 16px', borderRadius: 12, background: 'rgba(245,166,35,0.1)', color: '#8a5a0b', fontSize: 13.5, fontWeight: 700, display: 'inline-block' }}>
-                      {claims.length} claim{claims.length !== 1 ? 's' : ''} pending review — check your Dashboard for status
+                      {claims.length} claim{claims.length !== 1 ? 's' : ''} submitted — awaiting admin review
                     </div>
                   )}
                   <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
                     <button className="btn btn-gold" onClick={() => onNavigate('find-help')}>Browse the directory →</button>
-                    <button className="btn btn-ghost" onClick={() => onNavigate('profile')}>Go to Dashboard</button>
                   </div>
                 </div>
               )}
-
-              {showOrg && <div id="pd-profile-section" className="card" style={{ padding: 22, borderRadius: 20 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                  <h2 style={{ fontSize: 22, fontWeight: 700 }}>Your organisation profiles</h2>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                    {activeProfile && resourceSlugMap[activeProfile.resource_id] && (
-                      <a
-                        href={`/find-help/${resourceSlugMap[activeProfile.resource_id]}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="btn btn-ghost btn-sm"
-                        style={{ textDecoration: 'none' }}
-                      >
-                        View live listing ↗
-                      </a>
-                    )}
-                    <select value={activeProfileId} onChange={(event) => setActiveProfileId(event.target.value)} style={inputStyle}>
-                      <option value="">Select profile</option>
-                      {profiles.map((profile) => <option key={profile.id} value={profile.id}>{getProfileDisplayName(profile) || 'Organisation profile'}</option>)}
-                    </select>
-                    <button className="btn btn-ghost" onClick={() => { setActiveProfileId(''); setProfileDraft({ ...emptyProfile, contact_email: userEmail }); }}>New profile</button>
+              {activeProfile && (
+                <div className="card" style={{ padding: 22, borderRadius: 20 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, marginBottom: 14 }}>
+                    <div>
+                      <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.46)' }}>Onboarding checklist</div>
+                      <h2 style={{ marginTop: 6, fontSize: 20, fontWeight: 800 }}>Complete your profile to unlock enquiries</h2>
+                    </div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: '#1A2744' }}>{onboardingChecklist.score}%</div>
                   </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 14 }}>
-                  <input value={profileDraft.organisation_name || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, organisation_name: event.target.value }))} placeholder="Organisation name *" style={inputStyle} />
-                  <input value={profileDraft.slug || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, slug: event.target.value }))} placeholder="Slug" style={inputStyle} />
-                  <input value={profileDraft.logo_url || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, logo_url: event.target.value }))} placeholder="Logo URL (https://…)" style={inputStyle} />
-                  <input value={profileDraft.banner_url || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, banner_url: event.target.value }))} placeholder="Cover / banner image URL (https://…)" style={inputStyle} />
-                  <input value={profileDraft.contact_email || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, contact_email: event.target.value }))} placeholder="Contact email" style={inputStyle} />
-                  <input value={profileDraft.contact_phone || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, contact_phone: event.target.value }))} placeholder="Contact phone" style={inputStyle} />
-                  <input value={profileDraft.website_url || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, website_url: event.target.value }))} placeholder="Website URL" style={inputStyle} />
-                  <input value={profileDraft.resource_id || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, resource_id: event.target.value }))} placeholder="Linked resource id (set by admin)" style={{ ...inputStyle, color: 'rgba(26,39,68,0.5)' }} readOnly />
-                </div>
-                <textarea value={profileDraft.short_bio || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, short_bio: event.target.value }))} placeholder="Short description (shown on public listing)" rows={2} style={{ ...inputStyle, marginTop: 10, resize: 'vertical' }} />
-                <textarea value={profileDraft.full_bio || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, full_bio: event.target.value }))} placeholder="Full description (shown on profile detail)" rows={3} style={{ ...inputStyle, marginTop: 8, resize: 'vertical' }} />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
-                  <input value={profileDraft.service_categories_text || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, service_categories_text: event.target.value }))} placeholder="Service categories (comma-separated)" style={inputStyle} />
-                  <input value={profileDraft.areas_covered_text || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, areas_covered_text: event.target.value }))} placeholder="Areas covered (comma-separated)" style={inputStyle} />
-                </div>
-                <div style={{ marginTop: 14 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'rgba(26,39,68,0.45)', marginBottom: 8 }}>Social media</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                    {PD_SOCIAL_COLUMNS.map((col) => (
-                      <input key={col} value={profileDraft[col] || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, [col]: event.target.value }))} placeholder={`${PD_SOCIAL_LABELS[col]}: ${PD_SOCIAL_PLACEHOLDERS[col]}`} style={inputStyle} />
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    {onboardingChecklist.checks.map((item) => (
+                      <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 12, background: item.done ? 'rgba(16,185,129,0.08)' : '#FAFBFF', border: `1px solid ${item.done ? 'rgba(16,185,129,0.18)' : '#E9EEF5'}` }}>
+                        <div style={{ fontSize: 13.5, color: '#1A2744', fontWeight: 600 }}>{item.label}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: item.done ? '#0D7A55' : 'rgba(26,39,68,0.4)' }}>{item.done ? '✓' : '—'}</div>
+                      </div>
                     ))}
                   </div>
+                  <div style={{ marginTop: 14 }}>
+                    <button className="btn btn-gold btn-sm" onClick={() => setActiveTab('profile')}>Edit profile →</button>
+                  </div>
                 </div>
-                <label style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                  <input type="checkbox" checked={Boolean(profileDraft.is_active)} onChange={(event) => setProfileDraft((prev) => ({ ...prev, is_active: event.target.checked }))} />
-                  Active profile
-                </label>
-                <div style={{ marginTop: 12 }}>
-                  <button className="btn btn-gold" disabled={saving} onClick={saveProfile}>{saving ? 'Saving...' : 'Save profile'}</button>
+              )}
+              {claims.length > 0 && (
+                <div className="card" style={{ padding: 22, borderRadius: 20 }}>
+                  <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.46)', marginBottom: 12 }}>Your listing claims</div>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    {claims.map((claim) => {
+                      const st = (claim.status || 'pending').toLowerCase();
+                      const statusColor = st === 'approved' ? '#0D7A55' : st === 'rejected' ? '#A03A2D' : st === 'in_review' ? '#1c78b5' : '#8a5a0b';
+                      const statusBg = st === 'approved' ? 'rgba(16,185,129,0.10)' : st === 'rejected' ? 'rgba(244,97,58,0.10)' : st === 'in_review' ? 'rgba(45,156,219,0.10)' : 'rgba(245,166,35,0.12)';
+                      return (
+                        <div key={claim.id} style={{ border: `1px solid ${statusColor}28`, borderRadius: 12, padding: 12, background: '#FAFBFF', display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                          <div style={{ fontWeight: 700, fontSize: 14, color: '#1A2744' }}>{claim.listing_title || claim.org_name || 'Claim request'}</div>
+                          <span style={{ padding: '3px 9px', borderRadius: 999, background: statusBg, color: statusColor, fontSize: 11, fontWeight: 700 }}>{titleCase(claim.status || 'pending')}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>}
-
-              {showPosts && <div className="card" style={{ padding: 22, borderRadius: 20 }}>
-                <h2 style={{ fontSize: 22, fontWeight: 700 }}>My Posts</h2>
-                {!activeProfileId ? <div style={{ marginTop: 8, color: 'rgba(26,39,68,0.65)' }}>Select or create a profile to manage events.</div> : null}
-                {activeProfileId ? (
-                  <>
-                    <div style={{ marginTop: 12, padding: '12px 14px', borderRadius: 14, border: '1px solid #E9EEF5', background: '#FAFBFF', display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                      <div style={{ fontSize: 13.5, color: '#1A2744', fontWeight: 700 }}>Event quota used: {eventQuotaUsed} / {entitlementState.eventQuota}</div>
-                      <div style={{ fontSize: 12.5, color: remainingEventQuota > 0 ? '#0D7A55' : '#A03A2D' }}>{remainingEventQuota > 0 ? `${remainingEventQuota} remaining` : 'Quota reached'}</div>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 12 }}>
-                      <input value={eventDraft.title} onChange={(event) => setEventDraft((prev) => ({ ...prev, title: event.target.value }))} placeholder="Event title" style={inputStyle} />
-                      <input value={eventDraft.slug} onChange={(event) => setEventDraft((prev) => ({ ...prev, slug: event.target.value }))} placeholder="Event slug" style={inputStyle} />
-                      <input value={eventDraft.event_type} onChange={(event) => setEventDraft((prev) => ({ ...prev, event_type: event.target.value }))} placeholder="Event type" style={inputStyle} />
-                      <input value={eventDraft.location} onChange={(event) => setEventDraft((prev) => ({ ...prev, location: event.target.value }))} placeholder="Location" style={inputStyle} />
-                      <input type="datetime-local" value={eventDraft.starts_at} onChange={(event) => setEventDraft((prev) => ({ ...prev, starts_at: event.target.value }))} style={inputStyle} />
-                      <input type="datetime-local" value={eventDraft.ends_at} onChange={(event) => setEventDraft((prev) => ({ ...prev, ends_at: event.target.value }))} style={inputStyle} />
-                      <select value={eventDraft.cta_type} onChange={(event) => setEventDraft((prev) => ({ ...prev, cta_type: event.target.value }))} style={inputStyle}>
-                        <option value="contact">Contact</option>
-                        <option value="book">Book</option>
-                      </select>
-                      <select value={eventDraft.status} onChange={(event) => setEventDraft((prev) => ({ ...prev, status: event.target.value }))} style={inputStyle}>
-                        <option value="scheduled">Scheduled</option>
-                        <option value="completed">Completed</option>
-                        <option value="cancelled">Cancelled</option>
-                      </select>
-                      <input value={eventDraft.booking_url} onChange={(event) => setEventDraft((prev) => ({ ...prev, booking_url: event.target.value }))} placeholder="Booking URL" style={inputStyle} />
-                      <input value={eventDraft.contact_email} onChange={(event) => setEventDraft((prev) => ({ ...prev, contact_email: event.target.value }))} placeholder="Contact email" style={inputStyle} />
-                    </div>
-                    <textarea value={eventDraft.description} onChange={(event) => setEventDraft((prev) => ({ ...prev, description: event.target.value }))} placeholder="Description" rows={3} style={{ ...inputStyle, marginTop: 10, resize: 'vertical' }} />
-                    <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
-                      <button className="btn btn-gold" disabled={saving || eventQuotaReached} onClick={saveEvent}>{saving ? 'Saving...' : (eventDraft.id ? 'Update event' : 'Create event')}</button>
-                      {eventDraft.id ? <button className="btn btn-ghost" onClick={() => setEventDraft(emptyEvent)}>Cancel edit</button> : null}
-                    </div>
-                    {eventQuotaReached ? <div style={{ marginTop: 8, fontSize: 12.5, color: '#A03A2D' }}>Event creation is disabled because this entitlement has reached its quota.</div> : null}
-
-                    <div style={{ marginTop: 14, display: 'grid', gap: 8 }}>
-                      {activeEvents.length ? activeEvents.map((eventRow) => (
-                        <div key={eventRow.id} style={{ border: '1px solid #E9EEF5', borderRadius: 12, padding: 12, background: '#FFFFFF' }}>
-                          <div style={{ fontWeight: 700 }}>{eventRow.title}</div>
-                          <div style={{ marginTop: 4, fontSize: 13, color: 'rgba(26,39,68,0.65)' }}>{eventRow.starts_at ? new Date(eventRow.starts_at).toLocaleString('en-GB') : 'No start date'} · {eventRow.status}</div>
-                          <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
-                            <button className="btn btn-ghost btn-sm" onClick={() => editEvent(eventRow)}>Edit</button>
-                            <button className="btn btn-ghost btn-sm" onClick={() => deleteEvent(eventRow.id)}>Delete</button>
-                          </div>
-                        </div>
-                      )) : <div style={{ color: 'rgba(26,39,68,0.65)' }}>No events for this profile yet.</div>}
-                    </div>
-                  </>
-                ) : null}
-              </div>}
-
-              {showOrg && <div className="card" style={{ padding: 22, borderRadius: 20 }}>
-                <h2 style={{ fontSize: 22, fontWeight: 700 }}>Your listing claims</h2>
-                <div style={{ marginTop: 10, display: 'grid', gap: 10 }}>
-                  {claims.length ? claims.map((claim) => {
-                    const st = (claim.status || 'pending').toLowerCase();
-                    const statusColor = st === 'approved' ? '#0D7A55' : st === 'rejected' ? '#A03A2D' : st === 'in_review' ? '#1c78b5' : '#8a5a0b';
-                    const statusBg = st === 'approved' ? 'rgba(16,185,129,0.10)' : st === 'rejected' ? 'rgba(244,97,58,0.10)' : st === 'in_review' ? 'rgba(45,156,219,0.10)' : 'rgba(245,166,35,0.12)';
-                    return (
-                      <div key={claim.id} style={{ border: `1px solid ${statusColor}28`, borderRadius: 14, padding: 14, background: '#FAFBFF' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-                          <div style={{ fontWeight: 700, fontSize: 15, color: '#1A2744' }}>{claim.listing_title || claim.org_name || 'Claim request'}</div>
-                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                            <span style={{ padding: '3px 9px', borderRadius: 999, background: statusBg, color: statusColor, fontSize: 11, fontWeight: 700 }}>{titleCase(claim.status || 'pending')}</span>
-                            {claim._source === 'resource_update_submissions' && (
-                              <span style={{ padding: '3px 9px', borderRadius: 999, background: 'rgba(245,166,35,0.10)', color: '#8a5a0b', fontSize: 11, fontWeight: 700 }}>Fallback queue</span>
-                            )}
-                          </div>
-                        </div>
-                        <div style={{ marginTop: 8, fontSize: 13, color: 'rgba(26,39,68,0.62)', lineHeight: 1.55 }}>
-                          {st === 'approved'
-                            ? 'Claim approved. Finish your organisation profile and publish your first event to start converting directory traffic.'
-                            : st === 'rejected'
-                            ? 'This claim was not approved. Contact the admin team if you believe this is an error.'
-                            : st === 'in_review'
-                            ? 'Your claim is being reviewed. Complete your profile now so approval converts immediately.'
-                            : 'Awaiting admin review. Complete your profile onboarding in the meantime.'}
-                        </div>
-                      </div>
-                    );
-                  }) : <div style={{ color: 'rgba(26,39,68,0.65)', fontSize: 13.5 }}>No listing claims found for your email yet. Submit a claim from any listing in the Find Help directory.</div>}
-                </div>
-              </div>}
+              )}
             </>
           )}
+
+          {/* ── PROFILE TAB ──────────────────────────────── */}
+          {!loading && activeTab === 'profile' && (
+            <>
+              {profiles.length === 0 && (
+                <div className="card" style={{ padding: 28, borderRadius: 20, textAlign: 'center' }}>
+                  <p style={{ color: 'rgba(26,39,68,0.65)' }}>No organisation connected. Browse Find Help to claim your listing.</p>
+                  <button className="btn btn-gold" style={{ marginTop: 12 }} onClick={() => onNavigate('find-help')}>Browse the directory</button>
+                </div>
+              )}
+              {profiles.length > 0 && (
+                <div id="pd-profile-section" className="card" style={{ padding: 22, borderRadius: 20 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                    <h2 style={{ fontSize: 22, fontWeight: 700 }}>Your organisation profile</h2>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                      {activeProfile && resourceSlugMap[activeProfile.resource_id] && (
+                        <a href={`/find-help/${resourceSlugMap[activeProfile.resource_id]}`} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}>View live listing ↗</a>
+                      )}
+                      <select value={activeProfileId} onChange={(e) => setActiveProfileId(e.target.value)} style={inputStyle}>
+                        <option value="">Select profile</option>
+                        {profiles.map((p) => <option key={p.id} value={p.id}>{getProfileDisplayName(p) || 'Organisation profile'}</option>)}
+                      </select>
+                      {!profiles.some((p) => p.claim_status === 'claimed') && (
+                        <button className="btn btn-ghost" onClick={() => { setActiveProfileId(''); setProfileDraft({ ...emptyProfile, contact_email: userEmail }); }}>New profile</button>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 14 }}>
+                    <input value={profileDraft.organisation_name || ''} onChange={(e) => setProfileDraft((p) => ({ ...p, organisation_name: e.target.value }))} placeholder="Organisation name *" style={inputStyle} />
+                    <input value={profileDraft.slug || ''} onChange={(e) => setProfileDraft((p) => ({ ...p, slug: e.target.value }))} placeholder="Slug" style={inputStyle} />
+                    <input value={profileDraft.logo_url || ''} onChange={(e) => setProfileDraft((p) => ({ ...p, logo_url: e.target.value }))} placeholder="Logo URL (https://…)" style={inputStyle} />
+                    <input value={profileDraft.banner_url || ''} onChange={(e) => setProfileDraft((p) => ({ ...p, banner_url: e.target.value }))} placeholder="Cover / banner image URL (https://…)" style={inputStyle} />
+                    <input value={profileDraft.contact_email || ''} onChange={(e) => setProfileDraft((p) => ({ ...p, contact_email: e.target.value }))} placeholder="Contact email" style={inputStyle} />
+                    <input value={profileDraft.contact_phone || ''} onChange={(e) => setProfileDraft((p) => ({ ...p, contact_phone: e.target.value }))} placeholder="Contact phone" style={inputStyle} />
+                    <input value={profileDraft.website_url || ''} onChange={(e) => setProfileDraft((p) => ({ ...p, website_url: e.target.value }))} placeholder="Website URL" style={inputStyle} />
+                    <input value={profileDraft.resource_id || ''} onChange={(e) => setProfileDraft((p) => ({ ...p, resource_id: e.target.value }))} placeholder="Linked resource id (set by admin)" style={{ ...inputStyle, color: 'rgba(26,39,68,0.5)' }} readOnly />
+                  </div>
+                  <textarea value={profileDraft.short_bio || ''} onChange={(e) => setProfileDraft((p) => ({ ...p, short_bio: e.target.value }))} placeholder="Short description (shown on public listing)" rows={2} style={{ ...inputStyle, marginTop: 10, resize: 'vertical' }} />
+                  <textarea value={profileDraft.full_bio || ''} onChange={(e) => setProfileDraft((p) => ({ ...p, full_bio: e.target.value }))} placeholder="Full description (shown on profile detail)" rows={3} style={{ ...inputStyle, marginTop: 8, resize: 'vertical' }} />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
+                    <input value={profileDraft.service_categories_text || ''} onChange={(e) => setProfileDraft((p) => ({ ...p, service_categories_text: e.target.value }))} placeholder="Service categories (comma-separated)" style={inputStyle} />
+                    <input value={profileDraft.areas_covered_text || ''} onChange={(e) => setProfileDraft((p) => ({ ...p, areas_covered_text: e.target.value }))} placeholder="Areas covered (comma-separated)" style={inputStyle} />
+                  </div>
+                  <div style={{ marginTop: 14 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'rgba(26,39,68,0.45)', marginBottom: 8 }}>Social media</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      {PD_SOCIAL_COLUMNS.map((col) => (
+                        <input key={col} value={profileDraft[col] || ''} onChange={(e) => setProfileDraft((p) => ({ ...p, [col]: e.target.value }))} placeholder={`${PD_SOCIAL_LABELS[col]}: ${PD_SOCIAL_PLACEHOLDERS[col]}`} style={inputStyle} />
+                      ))}
+                    </div>
+                  </div>
+                  <label style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    <input type="checkbox" checked={Boolean(profileDraft.is_active)} onChange={(e) => setProfileDraft((p) => ({ ...p, is_active: e.target.checked }))} />
+                    Active profile
+                  </label>
+                  <div style={{ marginTop: 12 }}>
+                    <button className="btn btn-gold" disabled={saving} onClick={saveProfile}>{saving ? 'Saving...' : 'Save profile'}</button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ── EVENTS TAB ───────────────────────────────── */}
+          {!loading && activeTab === 'events' && (
+            <div className="card" style={{ padding: 22, borderRadius: 20 }}>
+              <h2 style={{ fontSize: 22, fontWeight: 700 }}>Events</h2>
+              {!activeProfileId ? <div style={{ marginTop: 8, color: 'rgba(26,39,68,0.65)' }}>Select a profile first to manage events.</div> : null}
+              {activeProfileId ? (
+                <>
+                  <div style={{ marginTop: 12, padding: '12px 14px', borderRadius: 14, border: '1px solid #E9EEF5', background: '#FAFBFF', display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                    <div style={{ fontSize: 13.5, color: '#1A2744', fontWeight: 700 }}>Event quota used: {eventQuotaUsed} / {entitlementState.eventQuota}</div>
+                    <div style={{ fontSize: 12.5, color: remainingEventQuota > 0 ? '#0D7A55' : '#A03A2D' }}>{remainingEventQuota > 0 ? `${remainingEventQuota} remaining` : 'Quota reached'}</div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 12 }}>
+                    <input value={eventDraft.title} onChange={(e) => setEventDraft((p) => ({ ...p, title: e.target.value }))} placeholder="Event title" style={inputStyle} />
+                    <input value={eventDraft.slug} onChange={(e) => setEventDraft((p) => ({ ...p, slug: e.target.value }))} placeholder="Event slug" style={inputStyle} />
+                    <input value={eventDraft.event_type} onChange={(e) => setEventDraft((p) => ({ ...p, event_type: e.target.value }))} placeholder="Event type" style={inputStyle} />
+                    <input value={eventDraft.location} onChange={(e) => setEventDraft((p) => ({ ...p, location: e.target.value }))} placeholder="Location" style={inputStyle} />
+                    <input type="datetime-local" value={eventDraft.starts_at} onChange={(e) => setEventDraft((p) => ({ ...p, starts_at: e.target.value }))} style={inputStyle} />
+                    <input type="datetime-local" value={eventDraft.ends_at} onChange={(e) => setEventDraft((p) => ({ ...p, ends_at: e.target.value }))} style={inputStyle} />
+                    <select value={eventDraft.cta_type} onChange={(e) => setEventDraft((p) => ({ ...p, cta_type: e.target.value }))} style={inputStyle}>
+                      <option value="contact">Contact</option>
+                      <option value="book">Book</option>
+                    </select>
+                    <select value={eventDraft.status} onChange={(e) => setEventDraft((p) => ({ ...p, status: e.target.value }))} style={inputStyle}>
+                      <option value="scheduled">Scheduled</option>
+                      <option value="completed">Completed</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
+                    <input value={eventDraft.booking_url} onChange={(e) => setEventDraft((p) => ({ ...p, booking_url: e.target.value }))} placeholder="Booking URL" style={inputStyle} />
+                    <input value={eventDraft.contact_email} onChange={(e) => setEventDraft((p) => ({ ...p, contact_email: e.target.value }))} placeholder="Contact email" style={inputStyle} />
+                  </div>
+                  <textarea value={eventDraft.description} onChange={(e) => setEventDraft((p) => ({ ...p, description: e.target.value }))} placeholder="Description" rows={3} style={{ ...inputStyle, marginTop: 10, resize: 'vertical' }} />
+                  <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
+                    <button className="btn btn-gold" disabled={saving || eventQuotaReached} onClick={saveEvent}>{saving ? 'Saving...' : (eventDraft.id ? 'Update event' : 'Create event')}</button>
+                    {eventDraft.id ? <button className="btn btn-ghost" onClick={() => setEventDraft(emptyEvent)}>Cancel edit</button> : null}
+                  </div>
+                  {eventQuotaReached ? <div style={{ marginTop: 8, fontSize: 12.5, color: '#A03A2D' }}>Event creation is disabled because this entitlement has reached its quota.</div> : null}
+                  <div style={{ marginTop: 14, display: 'grid', gap: 8 }}>
+                    {activeEvents.length ? activeEvents.map((ev) => (
+                      <div key={ev.id} style={{ border: '1px solid #E9EEF5', borderRadius: 12, padding: 12, background: '#FFFFFF' }}>
+                        <div style={{ fontWeight: 700 }}>{ev.title}</div>
+                        <div style={{ marginTop: 4, fontSize: 13, color: 'rgba(26,39,68,0.65)' }}>{ev.starts_at ? new Date(ev.starts_at).toLocaleString('en-GB') : 'No start date'} · {ev.status}</div>
+                        <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+                          <button className="btn btn-ghost btn-sm" onClick={() => editEvent(ev)}>Edit</button>
+                          <button className="btn btn-ghost btn-sm" onClick={() => deleteEvent(ev.id)}>Delete</button>
+                        </div>
+                      </div>
+                    )) : <div style={{ color: 'rgba(26,39,68,0.65)' }}>No events for this profile yet.</div>}
+                  </div>
+                </>
+              ) : null}
+            </div>
+          )}
+
+          {/* ── ENQUIRIES TAB ────────────────────────────── */}
+          {!loading && activeTab === 'enquiries' && (
+            <div className="card" style={{ padding: 22, borderRadius: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.46)' }}>Enquiry pipeline</div>
+                  <h2 style={{ marginTop: 8, fontSize: 22, fontWeight: 800 }}>Track response value before monetisation</h2>
+                </div>
+                <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.56)' }}>{activeProfileEnquiries.length} enquiries on this profile</div>
+              </div>
+              {hasEnquiryToolsAccess ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginTop: 14 }}>
+                  {[['new', enquiryPipeline.new], ['contacted', enquiryPipeline.contacted], ['resolved', enquiryPipeline.resolved]].map(([state, rows]) => (
+                    <div key={state} style={{ border: '1px solid #E9EEF5', borderRadius: 16, padding: 14, background: '#FAFBFF' }}>
+                      <div style={{ fontSize: 12, textTransform: 'uppercase', color: 'rgba(26,39,68,0.52)', fontWeight: 800 }}>{state}</div>
+                      <div style={{ marginTop: 6, fontSize: 28, fontWeight: 800, color: '#1A2744' }}>{rows.length}</div>
+                      <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
+                        {rows.length ? rows.slice(0, 4).map((entry) => (
+                          <div key={entry.id} style={{ padding: '10px 12px', borderRadius: 12, border: '1px solid #E3EAF4', background: '#FFFFFF' }}>
+                            <div style={{ fontWeight: 700, fontSize: 13.5, color: '#1A2744' }}>{entry.full_name}</div>
+                            <div style={{ marginTop: 4, fontSize: 12, color: 'rgba(26,39,68,0.6)' }}>{entry.email}</div>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                              {['new', 'contacted', 'resolved'].map((nextState) => (
+                                <button key={nextState} className="btn btn-ghost btn-sm" disabled={saving || nextState === state} onClick={() => updateEnquiryStatus(entry.id, nextState)}>Mark {nextState}</button>
+                              ))}
+                            </div>
+                          </div>
+                        )) : <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.56)' }}>No enquiries in this state.</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ marginTop: 14, border: '1px solid #E9EEF5', borderRadius: 16, padding: 18, background: '#FAFBFF' }}>
+                  <div style={{ fontSize: 12, textTransform: 'uppercase', color: 'rgba(26,39,68,0.52)', fontWeight: 800 }}>Enquiry tools locked</div>
+                  <div style={{ marginTop: 8, fontSize: 18, fontWeight: 800, color: '#1A2744' }}>Enquiry pipeline is not yet enabled for this profile</div>
+                  <div style={{ marginTop: 8, fontSize: 13.5, color: 'rgba(26,39,68,0.62)', lineHeight: 1.65 }}>Contact the Inspiring Carers team to discuss enabling enquiry tools for your organisation.</div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── PLAN TAB ─────────────────────────────────── */}
+          {!loading && activeTab === 'plan' && (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+                <div className="card" style={{ gridColumn: '1 / -1', padding: 16, borderRadius: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                    <div>
+                      <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.6)', textTransform: 'uppercase' }}>Analytics window</div>
+                      <div style={{ marginTop: 4, fontSize: 13, color: 'rgba(26,39,68,0.65)' }}>Views and enquiries use historical activity.</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {ANALYTICS_WINDOWS.map((w) => (
+                        <button key={w.key} className="btn btn-ghost btn-sm" onClick={() => setAnalyticsWindow(w.key)} style={{ borderColor: analyticsWindow === w.key ? '#1A2744' : undefined, fontWeight: analyticsWindow === w.key ? 700 : 600 }}>{w.label}</button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                {hasAnalyticsAccess ? analyticsCards.map(([label, value]) => (
+                  <div key={label} className="card" style={{ padding: 16 }}>
+                    <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.6)', textTransform: 'uppercase' }}>{label}</div>
+                    <div style={{ marginTop: 8, fontSize: 28, fontWeight: 800, color: '#1A2744' }}>{value}{label.includes('%') ? '%' : ''}</div>
+                  </div>
+                )) : (
+                  <div className="card" style={{ gridColumn: '1 / -1', padding: 18 }}>
+                    <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.6)', textTransform: 'uppercase' }}>Analytics locked</div>
+                    <div style={{ marginTop: 8, fontSize: 18, fontWeight: 800 }}>Analytics are disabled for this entitlement</div>
+                    <div style={{ marginTop: 6, fontSize: 13.5, color: 'rgba(26,39,68,0.62)', lineHeight: 1.65 }}>Contact the team to enable analytics for your profile.</div>
+                  </div>
+                )}
+              </div>
+              <div className="card" style={{ padding: 22, borderRadius: 20, border: '1px solid #E7D8B9', background: 'linear-gradient(180deg, #FFF9ED 0%, #FFFFFF 100%)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
+                  <div>
+                    <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.46)' }}>Grow your listing</div>
+                    <h2 style={{ marginTop: 8, fontSize: 22, fontWeight: 800 }}>Boost your reach and capture more enquiries</h2>
+                  </div>
+                  <div style={{ padding: '8px 10px', borderRadius: 999, background: hasFeaturedAccess ? 'rgba(16,185,129,0.12)' : 'rgba(245,166,35,0.14)', color: hasFeaturedAccess ? '#0D7A55' : '#9A5A00', fontSize: 12, fontWeight: 700 }}>{hasFeaturedAccess ? 'Featured active' : 'Standard listing'}</div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 10, marginTop: 14 }}>
+                  {[['Featured listing', 'Appear at the top of relevant searches, highlighted in map results.', hasFeaturedAccess], ['Enquiry capture', 'Receive direct enquiries from your listing — managed in one place.', hasEnquiryToolsAccess], ['Event promotion', 'Promote your sessions, groups, and events to people searching for support.', false], ['Listing analytics', 'See how many people viewed and engaged with your listing.', hasAnalyticsAccess]].map(([title, description, active]) => (
+                    <div key={title} style={{ border: active ? '1.5px solid rgba(16,185,129,0.3)' : '1px solid #F0E3C5', borderRadius: 16, padding: 14, background: active ? 'rgba(16,185,129,0.04)' : '#FFFFFF' }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: '#1A2744' }}>{title}</div>
+                      <div style={{ marginTop: 6, fontSize: 13, color: 'rgba(26,39,68,0.64)', lineHeight: 1.6 }}>{description}</div>
+                      <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                        <span style={{ fontSize: 11.5, fontWeight: 700, color: active ? '#0D7A55' : 'rgba(26,39,68,0.5)' }}>{active ? '✓ Active' : 'Not yet active'}</span>
+                        {!active && <button onClick={() => setUpgradeEnquiryTarget(title)} style={{ fontSize: 11.5, fontWeight: 800, color: '#B45309', background: 'rgba(245,166,35,0.12)', padding: '3px 9px', borderRadius: 8, border: '1px solid rgba(245,166,35,0.25)', cursor: 'pointer' }}>Enquire →</button>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="card" style={{ padding: 22, borderRadius: 20 }}>
+                <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.46)', marginBottom: 8 }}>Account plan</div>
+                <h2 style={{ fontSize: 22, fontWeight: 800 }}>Your current plan</h2>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginTop: 14 }}>
+                  {[['Package', entitlementState.packageName], ['Status', titleCase(entitlementState.status)], ['Start date', entitlementState.startDate || 'Not set'], ['End date', entitlementState.endDate || 'Not set'], ['Featured', entitlementState.featuredEnabled ? 'Yes' : 'No'], ['Event quota', `${entitlementState.eventQuota}`], ['Enquiry tools', entitlementState.enquiryToolsEnabled ? 'Enabled' : 'Disabled'], ['Analytics', entitlementState.analyticsEnabled ? 'Enabled' : 'Disabled']].map(([label, value]) => (
+                    <div key={label} style={{ border: '1px solid #E9EEF5', borderRadius: 14, padding: 14, background: '#FAFBFF' }}>
+                      <div style={{ fontSize: 11, textTransform: 'uppercase', color: 'rgba(26,39,68,0.52)', fontWeight: 800 }}>{label}</div>
+                      <div style={{ marginTop: 6, fontSize: 15, fontWeight: 700, color: '#1A2744' }}>{value}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ── SETTINGS TAB ─────────────────────────────── */}
+          {!loading && activeTab === 'settings' && (
+            <div className="card" style={{ padding: 28, borderRadius: 20 }}>
+              <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.46)', marginBottom: 8 }}>Account Settings</div>
+              <h2 style={{ fontSize: 26, fontWeight: 800, color: '#1A2744', marginBottom: 20 }}>Your account</h2>
+              <div style={{ display: 'grid', gap: 10, marginBottom: 22 }}>
+                {[['Email address', userEmail || '—'], ['Account type', isAdmin ? 'Administrator' : profiles.length > 0 ? 'Organisation owner' : 'Account holder'], ['Organisations connected', String(profiles.length || 0)]].map(([label, value]) => (
+                  <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 16px', borderRadius: 14, border: '1px solid #E9EEF5', background: '#FAFBFF' }}>
+                    <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.52)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
+                    <div style={{ fontSize: 14.5, fontWeight: 600, color: '#1A2744' }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ padding: '14px 16px', borderRadius: 14, border: '1px dashed rgba(26,39,68,0.15)', background: '#FAFBFF', fontSize: 13.5, color: 'rgba(26,39,68,0.55)', lineHeight: 1.6, marginBottom: 22 }}>
+                Advanced settings — notification preferences, password changes, and two-factor authentication — are coming in the next phase.
+              </div>
+              <button onClick={handleLogout} style={{ padding: '11px 24px', borderRadius: 12, background: 'rgba(160,58,45,0.07)', color: '#A03A2D', fontWeight: 700, fontSize: 14, border: '1px solid rgba(160,58,45,0.18)', cursor: 'pointer' }}>Sign out</button>
+            </div>
+          )}
+
         </div>
       </section>
-      {upgradeEnquiryTarget && (
+
+          {upgradeEnquiryTarget && (
         <UpgradeEnquiryModal
           upgradeTitle={upgradeEnquiryTarget}
           orgName={activeProfile?.organisation_name || ''}
