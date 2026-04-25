@@ -63,7 +63,7 @@ const BenefitsPage = ({ onNavigate, session }) => {
                 Businesses saying thank you, <span style={{ color: '#F5A623' }}>in your postcode.</span>
               </h1>
               <p style={{ marginTop: 16, fontSize: 17, color: 'rgba(26,39,68,0.72)', maxWidth: 560 }}>
-                Over 1,240 local and national partners have opened their doors to UK carers. Show your card. Save favourites. Pick up your rewards.
+                Over 1,240 local and national partners support participating organisations and their teams. Show your card. Save favourites. Pick up your rewards.
               </p>
 
               <div style={{ display: 'flex', gap: 28, marginTop: 32, flexWrap: 'wrap' }}>
@@ -96,7 +96,7 @@ const BenefitsPage = ({ onNavigate, session }) => {
                       inspiring carers
                     </div>
                     <div style={{ fontFamily: 'Sora, sans-serif', fontSize: 13, fontWeight: 600, marginTop: 2, opacity: 0.75 }}>
-                      member card · gold tier
+                      staff benefits card · gold tier
                     </div>
                   </div>
                   <BloomMark size={40} showRing={false} />
@@ -220,7 +220,7 @@ const BenefitsPage = ({ onNavigate, session }) => {
                 </h2>
                 <p style={{ marginTop: 14, color: 'rgba(255,255,255,0.72)', fontSize: 15.5, lineHeight: 1.55 }}>
                   Carer of the Month wins rewards nominated by real businesses.
-                  Every member unlocks one pick-me-up per month — on us.
+                  Every cardholder unlocks one pick-me-up per month — on us.
                 </p>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>

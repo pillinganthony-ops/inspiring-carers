@@ -57,7 +57,7 @@ const Footer = ({ onNavigate = () => {} }) => {
           <div style={{ color: 'white' }}>
             {col('For you', [
               ['Benefits & offers', 'benefits'],
-              ['Membership card', 'card'],
+              ['Team Benefits', 'card'],
               ['Rewards', 'benefits'],
               ['Recognition', 'recognition'],
               ['Carer perks', 'benefits'],
@@ -76,7 +76,7 @@ const Footer = ({ onNavigate = () => {} }) => {
             {col('Platform', [
               ['About', 'about'],
               ['For businesses', 'business'],
-              ['Get your free card', 'card'],
+              ['Apply for benefits', 'card'],
               ['Community hubs', 'find-help'],
               ['Carer of the month', 'recognition'],
             ])}

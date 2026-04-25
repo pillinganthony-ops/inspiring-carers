@@ -20,7 +20,7 @@ const Businesses = () => {
               Local businesses who support carers.
             </h2>
             <p style={{ marginTop: 20, color: 'rgba(26,39,68,0.75)', fontSize: 17, lineHeight: 1.65, fontWeight: 500 }}>
-              Restaurants, gyms, gardens, cafés—they all offer discounts and perks to carers. Show your free card and save money every day.
+              Restaurants, gyms, gardens, cafés—they all offer discounts and perks to cardholders. Show your staff benefits card and save every day.
             </p>
 
             <div style={{

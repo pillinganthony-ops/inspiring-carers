@@ -30,7 +30,7 @@ const Hero = ({ headline, onNavigate }) => (
           {/* CTAs */}
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
             <button className="btn btn-gold btn-lg" onClick={() => onNavigate?.('benefits')} style={{ fontSize: 17, padding: '18px 34px', fontWeight: 700, boxShadow: '0 14px 40px rgba(212,175,55,0.4)', background: 'linear-gradient(135deg, #F5A623 0%, #D4AF37 100%)' }}>
-              <ICard s={20} /> Get your free card
+              <ICard s={20} /> Team Benefits
             </button>
             <button className="btn btn-lg" onClick={() => onNavigate?.('profile')} style={{ fontSize: 17, padding: '18px 34px', fontWeight: 700, background: 'rgba(255,255,255,0.1)', color: 'white', border: '1.5px solid rgba(255,255,255,0.25)', borderRadius: 16 }}>
               List your organisation <IArrow s={18} />
@@ -39,7 +39,7 @@ const Hero = ({ headline, onNavigate }) => (
 
           {/* Trust signals — white on dark */}
           <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', marginTop: 28, fontSize: 13, color: 'rgba(255,255,255,0.82)', fontWeight: 600 }}>
-            {['Free to join', 'Cornwall focused', 'Walks, events & support', 'Growing community'].map((sig) => (
+            {['Free to list', 'Cornwall focused', 'Walks, events & support', 'Growing community'].map((sig) => (
               <span key={sig} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                 <span style={{ width: 5, height: 5, borderRadius: 999, background: '#10B981', flexShrink: 0 }} />
                 {sig}

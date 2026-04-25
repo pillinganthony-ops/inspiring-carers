@@ -83,19 +83,19 @@ const ClosingBand = () => (
           <BloomMark size={260} showRing={false} />
         </div>
         <div style={{ position: 'relative', maxWidth: 620 }}>
-          <div className="eyebrow" style={{ color: '#F5A623' }}>Free · forever</div>
+          <div className="eyebrow" style={{ color: '#F5A623' }}>Workforce perks</div>
           <h2 style={{ fontSize: 'clamp(32px, 3.6vw, 52px)', marginTop: 14, fontWeight: 700, letterSpacing: '-0.03em', color: 'white', textWrap: 'balance' }}>
-            Your free member card. Both sides of the platform, unlocked.
+            Access staff benefits through your organisation.
           </h2>
           <p style={{ marginTop: 18, fontSize: 16, color: 'rgba(255,255,255,0.75)', lineHeight: 1.6 }}>
-            Three minutes. A PDF and a physical card in the post. Then show it anywhere you see the bloom.
+            Approved organisations can apply for workforce benefit cards — giving your staff access to local discounts, partner perks and wellbeing support.
           </p>
           <div style={{ display: 'flex', gap: 12, marginTop: 28, flexWrap: 'wrap' }}>
             <button className="btn btn-gold btn-lg">
-              Get your free card <IArrow s={18} />
+              Apply for team benefits <IArrow s={18} />
             </button>
             <button className="btn btn-lg" style={{ color: 'white', border: '1.5px solid rgba(255,255,255,0.3)' }}>
-              I already have one
+              Sign in to your account
             </button>
           </div>
         </div>

@@ -247,7 +247,7 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp 
           )}
 
           <button className="btn btn-gold btn-sm" onClick={() => handleNavigate('card')} style={{ whiteSpace: 'nowrap' }}>
-            Get your free card <IArrow s={15} />
+            Team Benefits
           </button>
 
           {/* Mobile hamburger */}
@@ -337,7 +337,7 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp 
                 )}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 4 }}>
                   <button className="btn btn-gold btn-sm" onClick={() => handleNavigate('card')} style={{ justifyContent: 'center' }}>
-                    Get free card
+                    Team Benefits
                   </button>
                   <button
                     onClick={handleLogout}

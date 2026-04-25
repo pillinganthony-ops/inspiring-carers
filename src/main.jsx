@@ -111,7 +111,7 @@ const ClosingBand = ({ onNavigate }) => (
               opacity: 1,
             }}
           >
-            Your free Inspiring Carers card. No cost, no catch.
+            Bring staff benefits to your team.
           </h2>
 
           <p
@@ -124,7 +124,7 @@ const ClosingBand = ({ onNavigate }) => (
               fontWeight: 500,
             }}
           >
-            Connect with local groups, events, walks, and support services across Cornwall. Physical card, PDF backup — free now and always.
+            Approved organisations can apply for workforce benefit cards — giving your staff access to local discounts, wellbeing perks and partner rewards across Cornwall.
           </p>
 
           <div
@@ -140,8 +140,8 @@ const ClosingBand = ({ onNavigate }) => (
               padding: '22px 36px',
               fontWeight: 700,
               boxShadow: '0 16px 40px rgba(245,166,35,0.35)',
-            }} onClick={() => onNavigate('find-help')}>
-              Get my free card <IArrow s={20} />
+            }} onClick={() => onNavigate('for-you')}>
+              Apply for team benefits <IArrow s={20} />
             </button>
 
             <button
@@ -158,7 +158,7 @@ const ClosingBand = ({ onNavigate }) => (
               Sign in to your account
             </button>
           </div>
-          
+
           <p style={{
             marginTop: 20,
             fontSize: 13,
@@ -168,7 +168,7 @@ const ClosingBand = ({ onNavigate }) => (
             fontWeight: 700,
             letterSpacing: '0.02em',
           }}>
-            ✓ Trusted by local providers · ✓ Carer-first approach · ✓ Free to join
+            ✓ For approved organisations · ✓ Staff and workforce perks · ✓ Local and national partners
           </p>
         </div>
       </div>
@@ -476,7 +476,7 @@ const App = () => {
     case 'recognition': content = <Placeholder title="Recognition & awards" activePage="recognition" onNavigate={navigate} session={session} note="Carer of the Month, stories, nominations and community recognition — coming in the next round. Preview lives in the homepage Recognition section." />; break;
     case 'business': content = <Placeholder title="For businesses" activePage="business" onNavigate={navigate} session={session} note="Submit offers, see the why-carers-matter statement, badge tiers and featured partner placements — next round." />; break;
     case 'about': content = <Placeholder title="About inspiring carers" activePage="about" onNavigate={navigate} session={session} note="Mission, the two-tier model, and the local-first national vision — next round." />; break;
-    case 'card': content = <Placeholder title="Get your free card" activePage="card" onNavigate={navigate} session={session} note="Three-minute sign-up flow with PDF + physical card in the post — next round." />; break;
+    case 'card': content = <Placeholder title="Team Benefits" activePage="card" onNavigate={navigate} session={session} note="Approved organisations can apply for workforce benefit cards for eligible staff teams — organisation account required." />; break;
     default: content = <HomePage onNavigate={navigate} tweaks={tweaks} />;
   }
 
