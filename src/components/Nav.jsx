@@ -115,9 +115,10 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp 
     { key: 'for-you',    label: 'For you',     accent: '#F5A623' },
   ];
 
-  // Activities sub-pages — Walks is live; others are in the roadmap.
+  // Activities sub-pages — Walks and Places to Visit are live.
   const activitiesItems = [
-    { key: 'walks', label: 'Walks', note: 'Trails and routes' },
+    { key: 'walks',           label: 'Walks',           note: 'Trails and routes'     },
+    { key: 'places-to-visit', label: 'Places to Visit', note: 'Attractions & days out' },
   ];
   const isActivitiesPage = activitiesItems.some((i) => i.key === activePage) || activePage === 'activities';
 
