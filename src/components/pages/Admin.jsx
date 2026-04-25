@@ -1781,16 +1781,49 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     await withBusy(async () => {
       const { error: updateError } = await supabase.from(table).update({ status }).eq('id', id);
       if (updateError) throw updateError;
+    }, 'Status updated.');
+  };
 
-      // Fire ownership provisioning only when the approved row is actually a claim
-      const claimRow = claims.find((row) => `${row.id}` === `${id}`) || null;
-      if (status === 'approved' && claimRow) {
+  // Dedicated approval path for claim rows — handles source table routing,
+  // ownership provisioning, data refresh, toast, and email in the correct order.
+  const approveClaim = async (claimRow) => {
+    if (!claimRow || !supabase) return;
+    const table = claimRow._source === 'resource_update_submissions'
+      ? 'resource_update_submissions'
+      : 'listing_claims';
+
+    setBusy(true);
+    setError('');
+    try {
+      // 1. Mark approved in the correct source table
+      const { error: statusErr } = await supabase
+        .from(table)
+        .update({ status: 'approved' })
+        .eq('id', claimRow.id);
+      if (statusErr) throw new Error(`Status update failed: ${statusErr.message}`);
+
+      // 2. Apply ownership — best-effort; failure appends a warning but does not block
+      let ownershipWarning = '';
+      try {
         await applyApprovedClaimOwnership(claimRow);
-        composeApprovalEmail(claimRow);
+      } catch (ownershipErr) {
+        ownershipWarning = ` Ownership provisioning failed: ${ownershipErr?.message || 'unknown error'} — use Repair From Claim to retry.`;
       }
-    }, claims.some((r) => `${r.id}` === `${id}`) && status === 'approved'
-      ? 'Claim approved. Approval email template opened — send from your email client.'
-      : 'Status updated.');
+
+      // 3. Always refresh so claim leaves Pending Claims
+      await loadData();
+
+      // 4. Visible success feedback
+      setToast(`Claim approved and owner access granted.${ownershipWarning}`);
+
+      // 5. Open email template last — after all DB work is done
+      composeApprovalEmail(claimRow);
+    } catch (err) {
+      setError(err?.message || 'Approval failed.');
+      try { await loadData(); } catch (_) {}
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (!session) {
@@ -2233,7 +2266,14 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                   rows={pendingClaims}
                   onUpdateStatus={(id, status) => {
                     const claimRow = claims.find((r) => `${r.id}` === `${id}`);
-                    updateQueueStatus(claimRow?._source || 'listing_claims', id, status);
+                    if (status === 'approved' && claimRow) {
+                      approveClaim(claimRow);
+                      return;
+                    }
+                    const table = claimRow?._source === 'resource_update_submissions'
+                      ? 'resource_update_submissions'
+                      : 'listing_claims';
+                    updateQueueStatus(table, id, status);
                   }}
                   formatRow={(row) => `${row.listing_title || row.org_name || 'Claim'} · ${row.full_name || row.email || 'Unknown'}`}
                   renderMeta={(row) => {
