@@ -1308,28 +1308,63 @@ const WalkDetailModal = ({ walk, onClose }) => {
           </div>
         </div>
 
-        <div style={{ marginTop: 24, borderTop: '1px solid #EFF1F7', paddingTop: 20 }}>
-          <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 12 }}>Share</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
-            {showNativeShare ? (
-              <button onClick={handleNativeShare} className="btn btn-sky btn-sm">Share via device</button>
-            ) : null}
-            <a href={shareLinks.facebook} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">Facebook</a>
-            <a href={shareLinks.whatsapp} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">WhatsApp</a>
-            <a href={shareLinks.twitter} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">X / Twitter</a>
-            <a href={shareLinks.linkedin} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">LinkedIn</a>
-            <button onClick={handleCopyLink} className="btn btn-ghost btn-sm">Copy Link</button>
+        {/* ── Share this walk ─────────────────────────────────────────── */}
+        <div style={{ marginTop: 28, paddingTop: 24, borderTop: '1px solid #EEF2FA' }}>
+          <div style={{ marginBottom: 5, fontSize: 16, fontWeight: 800, color: '#1A2744' }}>Share this walk</div>
+          <div style={{ marginBottom: 16, fontSize: 13.5, color: 'rgba(26,39,68,0.55)', lineHeight: 1.55 }}>
+            Send this route to a carer, colleague or family member.
           </div>
-          {copySuccess ? <div style={{ marginTop: 10, fontSize: 13, color: '#1A2744' }}>{copySuccess}</div> : null}
+          <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
+            {showNativeShare && (
+              <button
+                onClick={handleNativeShare}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 15px', borderRadius: 14, background: 'rgba(45,156,219,0.07)', border: '1.5px solid rgba(45,156,219,0.22)', color: '#1054A0', fontSize: 13.5, fontWeight: 700, cursor: 'pointer' }}
+                onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(45,156,219,0.2)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
+              >
+                <span style={{ width: 20, height: 20, borderRadius: 5, background: '#2D9CDB', color: 'white', display: 'inline-grid', placeItems: 'center', fontSize: 11, fontWeight: 900, flexShrink: 0 }}>↗</span>
+                Share via device
+              </button>
+            )}
+            {[
+              { href: shareLinks.facebook,  label: 'Facebook',  init: 'f',  bg: '#1877F2', tint: 'rgba(24,119,242,0.07)',  border: 'rgba(24,119,242,0.22)',  text: '#1050B0' },
+              { href: shareLinks.whatsapp,  label: 'WhatsApp',  init: 'W',  bg: '#25D366', tint: 'rgba(37,211,102,0.07)',  border: 'rgba(37,211,102,0.22)',  text: '#1A7040' },
+              { href: shareLinks.twitter,   label: 'X',         init: 'X',  bg: '#1A1A1A', tint: 'rgba(0,0,0,0.05)',       border: 'rgba(0,0,0,0.14)',       text: '#1A1A1A' },
+              { href: shareLinks.linkedin,  label: 'LinkedIn',  init: 'in', bg: '#0A66C2', tint: 'rgba(10,102,194,0.07)',  border: 'rgba(10,102,194,0.22)',  text: '#08509C' },
+            ].map(({ href, label, init, bg, tint, border, text }) => (
+              <a
+                key={label}
+                href={href}
+                target="_blank"
+                rel="noreferrer"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 15px', borderRadius: 14, background: tint, border: `1.5px solid ${border}`, color: text, fontSize: 13.5, fontWeight: 700, textDecoration: 'none', transition: 'transform 0.15s, box-shadow 0.15s' }}
+                onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = `0 6px 18px ${bg}33`; }}
+                onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
+              >
+                <span style={{ width: 20, height: 20, borderRadius: 5, background: bg, color: 'white', display: 'inline-grid', placeItems: 'center', fontSize: init === 'in' ? 9 : 11, fontWeight: 900, flexShrink: 0 }}>{init}</span>
+                {label}
+              </a>
+            ))}
+            <button
+              onClick={handleCopyLink}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 15px', borderRadius: 14, background: copySuccess ? 'rgba(16,185,129,0.08)' : 'rgba(26,39,68,0.05)', border: `1.5px solid ${copySuccess ? 'rgba(16,185,129,0.3)' : 'rgba(26,39,68,0.14)'}`, color: copySuccess ? '#0D7A55' : '#1A2744', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', transition: 'background 0.2s, border-color 0.2s, color 0.2s' }}
+              onMouseEnter={(e) => { if (!copySuccess) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(26,39,68,0.12)'; } }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
+            >
+              <span style={{ width: 20, height: 20, borderRadius: 5, background: copySuccess ? '#10B981' : '#1A2744', color: 'white', display: 'inline-grid', placeItems: 'center', fontSize: 11, fontWeight: 900, flexShrink: 0 }}>{copySuccess ? '✓' : '⎘'}</span>
+              {copySuccess ? 'Link copied!' : 'Copy link'}
+            </button>
+          </div>
         </div>
 
-        <div style={{ marginTop: 24, borderTop: '1px solid #EFF1F7', paddingTop: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-            <div style={{ fontSize: 17, fontWeight: 700 }}>Comments / Community Notes</div>
-            {SUPPORTS_WALK_UPDATES ? <button className="btn btn-sky btn-sm" onClick={() => setShowCommentForm((open) => !open)}>Leave a comment</button> : null}
+        {/* ── Community notes ──────────────────────────────────────────── */}
+        <div style={{ marginTop: 28, paddingTop: 24, borderTop: '1px solid #EEF2FA' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 8 }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: '#1A2744' }}>Community notes</div>
+            {SUPPORTS_WALK_UPDATES ? <button className="btn btn-sky btn-sm" onClick={() => setShowCommentForm((open) => !open)}>Leave a note</button> : null}
           </div>
-          <div style={{ marginTop: 8, fontSize: 13, color: 'rgba(26,39,68,0.72)' }}>
-            {SUPPORTS_WALK_UPDATES ? 'Comments may be reviewed before appearing.' : 'Comment submissions are disabled on the current live schema.'}
+          <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.55)', lineHeight: 1.55, marginBottom: 4 }}>
+            {SUPPORTS_WALK_UPDATES ? 'Notes are reviewed before appearing.' : 'Community notes are currently unavailable.'}
           </div>
 
           {existingComments.length > 0 ? (
@@ -1381,8 +1416,8 @@ const WalkDetailModal = ({ walk, onClose }) => {
         </div>
 
         {SUPPORTS_WALK_UPDATES && showUpdateForm ? (
-          <div style={{ marginTop: 24, borderTop: '1px solid #EFF1F7', paddingTop: 20 }}>
-            <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 12 }}>Submit an update</div>
+          <div style={{ marginTop: 28, borderTop: '1px solid #EEF2FA', paddingTop: 24 }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: '#1A2744', marginBottom: 14 }}>Submit a route update</div>
             <form onSubmit={handleSubmitUpdate} style={{ border: '1px solid #E9EEF5', borderRadius: 18, padding: 16, display: 'grid', gap: 12 }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
                 <input value={updateForm.walkName} readOnly style={{ width: '100%', borderRadius: 12, border: '1px solid #E9EEF5', padding: '12px 14px', fontSize: 14, background: '#F8FAFD' }} />
