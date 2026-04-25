@@ -1537,10 +1537,10 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     if (!window.confirm(confirmMsg)) return;
 
     await withBusy(async () => {
-      // 1. Clear owner on the org profile (revokes RLS access in ProfileDashboard)
+      // 1. Clear owner fields on the org profile
       const { error: profileErr } = await supabase
         .from('organisation_profiles')
-        .update({ created_by: null })
+        .update({ created_by: null, claim_status: null })
         .eq('id', profile.id);
       if (profileErr) throw profileErr;
 
@@ -1566,6 +1566,25 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
           .eq('status', 'approved');
       }
     }, `Ownership revoked for "${orgName}". Directory listing remains live.`);
+  };
+
+  const repairOwnership = async (profile) => {
+    if (!profile?.id || !supabase || !session?.user?.id) return;
+    const orgName = getProfileName(profile, resources);
+    if (!window.confirm(
+      `Assign your admin account as owner of "${orgName}"?\n\n` +
+      `Your account (${session.user.email}) will be set as the profile owner.\n` +
+      `Use this to test the owner dashboard flow.\n\n` +
+      `For production: the real owner should log in and re-submit a claim to receive proper ownership.`
+    )) return;
+    await withBusy(async () => {
+      const { error } = await supabase
+        .from('organisation_profiles')
+        .update({ created_by: session.user.id, claim_status: 'claimed' })
+        .eq('id', profile.id);
+      if (error) throw error;
+      await ensureProfileMemberAccess(supabase, profile.id, session.user.email);
+    }, `Ownership repaired: "${orgName}" assigned to admin account.`);
   };
 
   const sendPasswordReset = async (targetEmail) => {
@@ -1649,8 +1668,8 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
           organisation_name: displayName,
           contact_email: contactEmail,
           is_active: true,
+          claim_status: 'claimed',    // always mark as claimed so badge works even without created_by
         };
-        // Only update created_by if claimant has a known user id
         if (claimantUserId) updateFields.created_by = claimantUserId;
         await updateOrgProfileCompat(supabase, existingProfile.id, updateFields);
         await ensureProfileMemberAccess(supabase, existingProfile.id, contactEmail);
@@ -1663,6 +1682,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         slug: `${slugBase}-${`${claim.listing_id}`.slice(-6)}`,
         contact_email: contactEmail,
         is_active: true,
+        claim_status: 'claimed',
         created_by: claimantUserId,
       };
       const { data: createdProfile } = await insertOrgProfileCompat(supabase, insertFields);
@@ -1675,6 +1695,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       slug: `${slugBase}-${Date.now()}`,
       contact_email: contactEmail,
       is_active: true,
+      claim_status: 'claimed',
       created_by: claimantUserId,
     };
     const { data: createdProfileFallback } = await insertOrgProfileCompat(supabase, fallbackInsertFields);
@@ -2326,7 +2347,10 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
               </div>
               <div style={{ marginTop: 12, display: 'grid', gap: 10 }}>
                 {profiles.map((row) => {
-                  const hasOwner = Boolean(row.created_by);
+                  // Has owner if created_by is set (RLS path) OR claim_status is 'claimed'
+                  // (member-access path — handles claims submitted without a prior session).
+                  const hasOwner = Boolean(row.created_by) || row.claim_status === 'claimed';
+                  const needsRepair = row.claim_status === 'claimed' && !row.created_by;
                   const linkedListing = resources.find((r) => `${r.id}` === `${row.resource_id}`);
                   return (
                     <div key={row.id} style={{ border: '1px solid #E9EEF5', borderRadius: 14, padding: 14, background: '#FAFBFF' }}>
@@ -2371,6 +2395,16 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                             style={{ color: '#A03A2D', borderColor: 'rgba(160,58,45,0.2)', background: 'rgba(160,58,45,0.04)' }}
                           >
                             Revoke ownership
+                          </button>
+                        )}
+                        {needsRepair && (
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => repairOwnership(row)}
+                            style={{ color: '#8a5a0b', borderColor: 'rgba(245,166,35,0.3)', background: 'rgba(245,166,35,0.06)' }}
+                            title="Claim exists but no user ID linked — assign admin account for testing"
+                          >
+                            Repair ownership
                           </button>
                         )}
                         <button
