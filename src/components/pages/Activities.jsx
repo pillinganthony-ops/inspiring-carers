@@ -185,7 +185,7 @@ const ActivitiesMap = ({ localCounty, onNavigate }) => {
       <div style={{ fontSize: 32, marginBottom: 4 }}>📍</div>
       <div style={{ fontSize: 15, fontWeight: 700, color: '#1A2744' }}>{msg}</div>
       <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)', maxWidth: 280, lineHeight: 1.6 }}>Explore walks, coastal paths and local activities by location.</div>
-      <button className="btn btn-gold btn-sm" onClick={() => onNavigate('walks', localCounty || 'cornwall')} style={{ marginTop: 4 }}>
+      <button className="btn btn-gold btn-sm" onClick={() => onNavigate('walks', localCounty || null)} style={{ marginTop: 4 }}>
         Explore walks map <IArrow s={12} />
       </button>
     </div>
@@ -216,7 +216,7 @@ const ActivitiesMap = ({ localCounty, onNavigate }) => {
               position={{ lat: pin.lat, lng: pin.lng }}
               title={`${pin.title} · ${pin.area}`}
               label={{ text: 'W', color: 'white', fontWeight: '800', fontSize: '11px' }}
-              onClick={() => onNavigate('walks', 'cornwall')}
+              onClick={() => onNavigate('walks', localCounty || null)}
             />
           ))}
         </GoogleMap>
@@ -266,8 +266,10 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
   const chipIsActive = (chip) =>
     activityType === chip.type && cost === chip.cost && accessibility === chip.access;
 
-  // Helper: navigate to walks, using localCounty for county-aware routing
-  const goToWalks = (county) => onNavigate('walks', county || 'cornwall');
+  // Helper: navigate to walks.
+  // county='' or falsy → navigate('walks', null) → /walks (all-county hub)
+  // county='cornwall' etc → navigate('walks', 'cornwall') → /cornwall/walks
+  const goToWalks = (county) => onNavigate('walks', county || null);
 
   return (
     <>

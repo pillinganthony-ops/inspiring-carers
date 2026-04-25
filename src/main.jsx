@@ -332,6 +332,10 @@ const App = () => {
     // Activities hub — county-optional: /activities loads hub; /{county}/activities loads county view
     if (segs[0] === 'activities') return { page: 'activities', county: null };
 
+    // Walks hub — /walks loads all walks; /{county}/walks loads county view (via COUNTY_SLUGS above)
+    // WalksPage does not filter by county so content is identical — but URL matters for clarity
+    if (segs[0] === 'walks' && segs.length === 1) return { page: 'walks', county: null };
+
     // County-prefixed routes: /cornwall/find-help or /cornwall
     if (COUNTY_SLUGS.includes(segs[0])) {
       return { page: segs[1] || 'home', county: segs[0] };
@@ -449,6 +453,15 @@ const App = () => {
         window.scrollTo({ top: 0, behavior: 'instant' });
         return;
       }
+    }
+
+    // navigate('walks', null) — explicit all-county intent → /walks (county-agnostic hub)
+    // navigate('walks') or navigate('walks', 'cornwall') → /{county}/walks as normal
+    if (key === 'walks' && explicitCounty === null) {
+      setPage('walks');
+      window.history.pushState({ page: 'walks', county: null }, '', '/walks');
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      return;
     }
 
     const isCountyPage = COUNTY_PAGES.has(key);
