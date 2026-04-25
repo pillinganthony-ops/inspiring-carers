@@ -21,6 +21,7 @@ const EventsPage = React.lazy(() => import('./components/pages/Events.jsx'));
 const AdminPage = React.lazy(() => import('./components/pages/Admin.jsx'));
 const LoginPage = React.lazy(() => import('./components/pages/Login.jsx'));
 const ProfileDashboardPage = React.lazy(() => import('./components/pages/ProfileDashboard.jsx'));
+const ResetPasswordPage = React.lazy(() => import('./components/pages/ResetPassword.jsx'));
 
 // Make icons global for JSX
 window.IDot = Icons.IDot;
@@ -316,11 +317,11 @@ const App = () => {
       return { page: PROFILE_SUBS[segs[1]] || 'profile', county: null };
     }
 
-    // Login sub-route — /login/reset-password
-    if (segs[0] === 'login') {
-      if (segs[1] === 'reset-password') return { page: 'login-reset', county: null };
-      return { page: 'login', county: null };
-    }
+    // Dedicated password reset completion page — isolated from all auth logic.
+    if (segs[0] === 'reset-password') return { page: 'reset-password', county: null };
+
+    // Login
+    if (segs[0] === 'login') return { page: 'login', county: null };
 
     // Global pages — no county prefix
     const GLOBAL = ['admin', 'recognition', 'business', 'about', 'card'];
@@ -370,7 +371,7 @@ const App = () => {
     // hasn't re-authenticated yet and must complete the password reset first.
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
-      const isResetRoute = window.location.pathname.toLowerCase().includes('/login/reset-password');
+      const isResetRoute = window.location.pathname.toLowerCase().includes('/reset-password');
       if (!isResetRoute) setSession(data.session ?? null);
       setSessionLoading(false);
     });
@@ -381,7 +382,7 @@ const App = () => {
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!mounted) return;
       if (_event === 'PASSWORD_RECOVERY') return;
-      if (window.location.pathname.toLowerCase().includes('/login/reset-password')) return;
+      if (window.location.pathname.toLowerCase().includes('/reset-password')) return;
       setSession(nextSession ?? null);
     });
 
@@ -448,7 +449,7 @@ const App = () => {
     const isCountyPage = COUNTY_PAGES.has(key);
     const effectiveCounty = explicitCounty || county || COUNTY_DEFAULT;
 
-    const PROFILE_URLS = { 'profile-org': '/profile/organisation', 'profile-posts': '/profile/posts', 'profile-enquiries': '/profile/enquiries', 'profile-settings': '/profile/settings', 'login-reset': '/login/reset-password' };
+    const PROFILE_URLS = { 'profile-org': '/profile/organisation', 'profile-posts': '/profile/posts', 'profile-enquiries': '/profile/enquiries', 'profile-settings': '/profile/settings' };
     const path = key === 'home'
       ? '/'
       : PROFILE_URLS[key]
@@ -471,7 +472,7 @@ const App = () => {
   let content;
   switch (displayPage) {
     case 'login': content = <React.Suspense fallback={<RouteLoading />}><LoginPage onNavigate={navigate} session={session} /></React.Suspense>; break;
-    case 'login-reset': content = <React.Suspense fallback={<RouteLoading />}><LoginPage onNavigate={navigate} session={session} resetPasswordMode={true} /></React.Suspense>; break;
+    case 'reset-password': content = <React.Suspense fallback={<RouteLoading />}><ResetPasswordPage onNavigate={navigate} /></React.Suspense>; break;
     case 'find-help': content = <React.Suspense fallback={<RouteLoading />}><FindHelpPage onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;
     case 'events': content = <React.Suspense fallback={<RouteLoading />}><EventsPage onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;
     case 'for-you':
@@ -495,7 +496,7 @@ const App = () => {
   return (
     <>
       {content}
-      <GlobalEnquiry visible={!['admin', 'login'].includes(displayPage)} />
+      <GlobalEnquiry visible={!['admin', 'login', 'reset-password'].includes(displayPage)} />
     </>
   );
 };
