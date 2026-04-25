@@ -790,6 +790,9 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   const [resourceEditorOpen, setResourceEditorOpen] = React.useState(false);
   const [resourceSearch, setResourceSearch] = React.useState('');
   const [profileDraft, setProfileDraft] = React.useState(emptyProfile);
+  const [profileModal, setProfileModal] = React.useState(null);
+  // { type: 'edit'|'revoke'|'reset'|'delete'|'repair'|'repair-claim', profile: {} }
+  const closeProfileModal = React.useCallback(() => { setProfileModal(null); setError(''); }, []);
   const [eventDraft, setEventDraft] = React.useState(emptyEvent);
   const [postcodeBusy, setPostcodeBusy] = React.useState(false);
   const [postcodeError, setPostcodeError] = React.useState('');
@@ -968,6 +971,13 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     return () => clearTimeout(timer);
   }, [toast]);
 
+  React.useEffect(() => {
+    if (!profileModal) return;
+    const onKey = (e) => { if (e.key === 'Escape') closeProfileModal(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [profileModal, closeProfileModal]);
+
   const withBusy = async (action, successMessage) => {
     setBusy(true);
     setError('');
@@ -975,8 +985,10 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       await action();
       if (successMessage) setToast(successMessage);
       await loadData();
+      return true;
     } catch (actionError) {
       setError(actionError?.message || 'Action failed.');
+      return false;
     } finally {
       setBusy(false);
     }
@@ -1344,12 +1356,10 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   const saveProfile = async () => {
     if (!profileDraft.organisation_name.trim()) {
       setError('Organisation name is required.');
-      return;
+      return false;
     }
-
     const payload = buildLiveProfilePayload(profileDraft);
-
-    await withBusy(async () => {
+    return await withBusy(async () => {
       if (profileDraft.id) {
         await updateOrgProfileCompat(supabase, profileDraft.id, payload);
       } else {
@@ -1520,23 +1530,9 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   };
 
   const revokeOwnership = async (profile) => {
-    if (!profile?.id || !supabase) return;
+    if (!profile?.id || !supabase) return false;
     const orgName = getProfileName(profile, resources);
-    const linkedResource = resources.find((r) => `${r.id}` === `${profile.resource_id}`);
-    const listingName = linkedResource?.name || (profile.resource_id ? `Resource ID ${profile.resource_id}` : 'No linked listing');
-
-    const confirmMsg = [
-      `Revoke owner access for "${orgName}"?`,
-      '',
-      `Directory listing: ${listingName}`,
-      'The listing will remain live in Find Help.',
-      'The organisation profile will be kept but will have no owner.',
-      'Admin can approve a new claim to re-assign ownership.',
-    ].join('\n');
-
-    if (!window.confirm(confirmMsg)) return;
-
-    await withBusy(async () => {
+    return await withBusy(async () => {
       // 1. Clear owner fields on the org profile
       const { error: profileErr } = await supabase
         .from('organisation_profiles')
@@ -1569,15 +1565,8 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   };
 
   const repairOwnership = async (profile) => {
-    if (!profile?.id || !supabase || !session?.user?.id) return;
-    const orgName = getProfileName(profile, resources);
-    if (!window.confirm(
-      `Assign your admin account as owner of "${orgName}"?\n\n` +
-      `Your account (${session.user.email}) will be set as the profile owner.\n` +
-      `Use this to test the owner dashboard flow.\n\n` +
-      `For production: the real owner should log in and re-submit a claim to receive proper ownership.`
-    )) return;
-    await withBusy(async () => {
+    if (!profile?.id || !supabase || !session?.user?.id) return false;
+    return await withBusy(async () => {
       const { error } = await supabase
         .from('organisation_profiles')
         .update({ created_by: session.user.id, claim_status: 'claimed' })
@@ -1637,7 +1626,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
 
       if (!approvedClaim) {
         setToast('No approved claim found for this profile.');
-        return;
+        return false;
       }
 
       // Apply repair
@@ -1660,29 +1649,31 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         (didLinkUser ? ' User ID linked.' : ' No user ID in claim — use Repair Ownership to link a user account.')
       );
       await loadData();
+      return true;
     } catch (err) {
       setToast(`Repair failed: ${err?.message || 'Unknown error.'}`);
+      return false;
     } finally {
       setBusy(false);
     }
   };
 
   const sendPasswordReset = async (targetEmail) => {
-    if (!targetEmail || !supabase) return;
-    if (!window.confirm(`Send a password reset link to ${targetEmail}?`)) return;
+    if (!targetEmail || !supabase) return false;
     try {
       await supabase.auth.resetPasswordForEmail(targetEmail.trim(), {
         redirectTo: `${window.location.origin}/reset-password`,
       });
-      // Always show the same message — never confirm whether an email exists.
       setToast(`Password reset link sent to ${targetEmail} if an account exists.`);
+      return true;
     } catch {
       setToast('Could not send reset link. Check Supabase configuration.');
+      return false;
     }
   };
 
   const deleteRow = async (table, id, message) => {
-    await withBusy(async () => {
+    return await withBusy(async () => {
       const { error: deleteError } = await supabase.from(table).delete().eq('id', id);
       if (deleteError) throw deleteError;
     }, message);
@@ -1690,13 +1681,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
 
   const deleteOrgProfile = async (profile) => {
     const orgName = getProfileName(profile, resources);
-    if (!window.confirm(
-      `Delete "${orgName}" permanently?\n\n` +
-      `This removes the organisation profile and all its data (events, member records).\n` +
-      `The Find Help directory listing will NOT be deleted.\n\n` +
-      `This cannot be undone. Use "Revoke ownership" to remove access while keeping the profile.`
-    )) return;
-    await deleteRow('organisation_profiles', profile.id, `"${orgName}" deleted permanently.`);
+    return await deleteRow('organisation_profiles', profile.id, `"${orgName}" deleted permanently.`);
   };
 
   // Compose a pre-filled mailto approval notification for the admin to send.
@@ -2384,46 +2369,9 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
 
           {!loading && tab === 'profiles' ? (
             <div className="card" style={{ padding: 18 }}>
-              <h2 style={{ fontSize: 22, fontWeight: 700 }}>Organisation profile CRUD</h2>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginTop: 10 }}>
-                <input value={profileDraft.organisation_name} onChange={(e) => setProfileDraft((p) => ({ ...p, organisation_name: e.target.value }))} placeholder="Organisation name *" style={inputStyle} />
-                <input value={profileDraft.slug} onChange={(e) => setProfileDraft((p) => ({ ...p, slug: e.target.value }))} placeholder="Slug" style={inputStyle} />
-                <select value={profileDraft.resource_id} onChange={(e) => setProfileDraft((p) => ({ ...p, resource_id: e.target.value }))} style={inputStyle}>
-                  <option value="">Linked resource</option>
-                  {resources.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
-                </select>
-                <input value={profileDraft.contact_email} onChange={(e) => setProfileDraft((p) => ({ ...p, contact_email: e.target.value }))} placeholder="Contact email (public)" style={inputStyle} />
-                <input value={profileDraft.contact_phone} onChange={(e) => setProfileDraft((p) => ({ ...p, contact_phone: e.target.value }))} placeholder="Contact phone" style={inputStyle} />
-                <input value={profileDraft.website_url} onChange={(e) => setProfileDraft((p) => ({ ...p, website_url: e.target.value }))} placeholder="Website URL" style={inputStyle} />
-                <input value={profileDraft.package_name || ''} onChange={(e) => setProfileDraft((p) => ({ ...p, package_name: e.target.value }))} placeholder="Package name" style={inputStyle} />
-                <select value={profileDraft.entitlement_status || 'inactive'} onChange={(e) => setProfileDraft((p) => ({ ...p, entitlement_status: e.target.value }))} style={inputStyle}>
-                  <option value="inactive">Inactive</option>
-                  <option value="trial">Trial</option>
-                  <option value="active">Active</option>
-                  <option value="paused">Paused</option>
-                  <option value="expired">Expired</option>
-                </select>
-                <input type="date" value={profileDraft.start_date || ''} onChange={(e) => setProfileDraft((p) => ({ ...p, start_date: e.target.value }))} style={inputStyle} />
-                <input type="date" value={profileDraft.end_date || ''} onChange={(e) => setProfileDraft((p) => ({ ...p, end_date: e.target.value }))} style={inputStyle} />
-                <input type="number" min="0" value={profileDraft.event_quota ?? 0} onChange={(e) => setProfileDraft((p) => ({ ...p, event_quota: e.target.value }))} placeholder="Event quota" style={inputStyle} />
-              </div>
-              <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                <label><input type="checkbox" checked={Boolean(profileDraft.is_active)} onChange={(e) => setProfileDraft((p) => ({ ...p, is_active: e.target.checked }))} /> Active</label>
-                <label><input type="checkbox" checked={Boolean(profileDraft.featured_enabled)} onChange={(e) => setProfileDraft((p) => ({ ...p, featured_enabled: e.target.checked }))} /> Featured enabled</label>
-                <label><input type="checkbox" checked={Boolean(profileDraft.enquiry_tools_enabled)} onChange={(e) => setProfileDraft((p) => ({ ...p, enquiry_tools_enabled: e.target.checked }))} /> Enquiry tools enabled</label>
-                <label><input type="checkbox" checked={Boolean(profileDraft.analytics_enabled)} onChange={(e) => setProfileDraft((p) => ({ ...p, analytics_enabled: e.target.checked }))} /> Analytics enabled</label>
-              </div>
-              <div style={{ marginTop: 14 }}>
-                <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.44)', marginBottom: 8 }}>Social media</div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
-                  {PROFILE_SOCIAL_COLUMNS.map((col) => (
-                    <input key={col} value={profileDraft[col] || ''} onChange={(e) => setProfileDraft((p) => ({ ...p, [col]: e.target.value }))} placeholder={`${PROFILE_SOCIAL_LABELS[col]}: ${PROFILE_SOCIAL_PLACEHOLDERS[col]}`} style={inputStyle} />
-                  ))}
-                </div>
-              </div>
-              <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
-                <button className="btn btn-gold" disabled={busy} onClick={saveProfile}>{profileDraft.id ? 'Update' : 'Create'} profile</button>
-                {profileDraft.id ? <button className="btn btn-ghost" onClick={() => setProfileDraft(emptyProfile)}>Cancel</button> : null}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+                <h2 style={{ fontSize: 22, fontWeight: 700 }}>Organisation Profiles <span style={{ fontSize: 15, fontWeight: 500, color: 'rgba(26,39,68,0.5)' }}>({profiles.length})</span></h2>
+                <button className="btn btn-gold" onClick={() => { setProfileDraft(emptyProfile); setProfileModal({ type: 'edit', profile: null }); }}>+ New profile</button>
               </div>
               <div style={{ marginTop: 12, display: 'grid', gap: 10 }}>
                 {profiles.map((row) => {
@@ -2462,49 +2410,22 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                           )}
                         </div>
                       </div>
-                      {/* Actions */}
+                      {/* Actions — all open modals, no page-jumping */}
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        <button className="btn btn-ghost btn-sm" onClick={() => setProfileDraft({ ...emptyProfile, ...normalizeProfileRow(row) })}>Edit</button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => { setProfileDraft({ ...emptyProfile, ...normalizeProfileRow(row) }); setProfileModal({ type: 'edit', profile: row }); }}>Edit</button>
                         {row.contact_email && (
-                          <button className="btn btn-ghost btn-sm" onClick={() => sendPasswordReset(row.contact_email)}>Send password reset</button>
+                          <button className="btn btn-ghost btn-sm" onClick={() => setProfileModal({ type: 'reset', profile: row })}>Send password reset</button>
                         )}
                         {hasOwner && (
-                          <button
-                            className="btn btn-ghost btn-sm"
-                            onClick={() => revokeOwnership(row)}
-                            style={{ color: '#A03A2D', borderColor: 'rgba(160,58,45,0.2)', background: 'rgba(160,58,45,0.04)' }}
-                          >
-                            Revoke ownership
-                          </button>
+                          <button className="btn btn-ghost btn-sm" onClick={() => setProfileModal({ type: 'revoke', profile: row })} style={{ color: '#A03A2D', borderColor: 'rgba(160,58,45,0.2)', background: 'rgba(160,58,45,0.04)' }}>Revoke ownership</button>
                         )}
                         {needsRepair && (
-                          <button
-                            className="btn btn-ghost btn-sm"
-                            onClick={() => repairOwnership(row)}
-                            style={{ color: '#8a5a0b', borderColor: 'rgba(245,166,35,0.3)', background: 'rgba(245,166,35,0.06)' }}
-                            title="Claim exists but no user ID linked — assign admin account for testing"
-                          >
-                            Repair ownership
-                          </button>
+                          <button className="btn btn-ghost btn-sm" onClick={() => setProfileModal({ type: 'repair', profile: row })} style={{ color: '#8a5a0b', borderColor: 'rgba(245,166,35,0.3)', background: 'rgba(245,166,35,0.06)' }}>Repair ownership</button>
                         )}
                         {!hasOwner && row.contact_email && row.resource_id && (
-                          <button
-                            className="btn btn-ghost btn-sm"
-                            onClick={() => repairFromApprovedClaim(row)}
-                            style={{ color: '#1054A0', borderColor: 'rgba(45,156,219,0.3)', background: 'rgba(45,156,219,0.06)' }}
-                            title="Look up an approved claim for this listing and apply ownership fields"
-                          >
-                            Repair from approved claim
-                          </button>
+                          <button className="btn btn-ghost btn-sm" onClick={() => setProfileModal({ type: 'repair-claim', profile: row })} style={{ color: '#1054A0', borderColor: 'rgba(45,156,219,0.3)', background: 'rgba(45,156,219,0.06)' }}>Repair from approved claim</button>
                         )}
-                        <button
-                          className="btn btn-ghost btn-sm"
-                          onClick={() => deleteOrgProfile(row)}
-                          style={{ color: '#A03A2D', fontSize: 11.5, opacity: 0.7 }}
-                          title="Permanently deletes the organisation profile. The directory listing is preserved."
-                        >
-                          Delete permanently
-                        </button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => setProfileModal({ type: 'delete', profile: row })} style={{ color: '#A03A2D', fontSize: 11.5, opacity: 0.7 }}>Delete permanently</button>
                       </div>
                     </div>
                   );
@@ -2888,6 +2809,226 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       )}
 
       <Footer onNavigate={onNavigate} />
+
+      {/* ── Profile action modals ────────────────────────────── */}
+      {profileModal && (() => {
+        const { type, profile } = profileModal;
+        const orgName = profile ? getProfileName(profile, resources) : 'New profile';
+        const linkedListing = profile ? resources.find((r) => `${r.id}` === `${profile?.resource_id}`) : null;
+
+        const backdrop = {
+          position: 'fixed', inset: 0, zIndex: 400,
+          background: 'rgba(15,23,42,0.55)',
+          display: 'grid', placeItems: 'center',
+          padding: '20px 16px',
+          overflowY: 'auto',
+        };
+        const card = (wide) => ({
+          background: '#fff', borderRadius: 24, position: 'relative',
+          width: '100%', maxWidth: wide ? 720 : 480,
+          padding: '32px 28px',
+          boxShadow: '0 40px 80px rgba(15,23,42,0.24)',
+          maxHeight: 'calc(100vh - 40px)',
+          overflowY: 'auto',
+        });
+        const closeBtn = (
+          <button
+            onClick={closeProfileModal}
+            style={{ position: 'absolute', top: 16, right: 16, width: 34, height: 34, borderRadius: 999, border: '1px solid #EFF1F7', background: '#F8FAFF', cursor: 'pointer', display: 'grid', placeItems: 'center', fontSize: 16, color: 'rgba(26,39,68,0.6)' }}
+            aria-label="Close"
+          >✕</button>
+        );
+        const eyebrow = (text, color = '#2D9CDB') => (
+          <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color, marginBottom: 4 }}>{text}</div>
+        );
+        const actionRow = (children) => (
+          <div style={{ display: 'flex', gap: 10, marginTop: 24, flexWrap: 'wrap' }}>{children}</div>
+        );
+        const fld = inputStyle;
+
+        /* ── EDIT ─────────────────────────────────────────── */
+        if (type === 'edit') return (
+          <div style={backdrop} onClick={(e) => { if (e.target === e.currentTarget) closeProfileModal(); }}>
+            <div style={card(true)}>
+              {closeBtn}
+              {eyebrow('Organisation profile')}
+              <h2 style={{ fontSize: 22, fontWeight: 800, color: '#1A2744', marginBottom: 20 }}>
+                {profile?.id ? 'Edit Organisation Profile' : 'New Organisation Profile'}
+              </h2>
+              {error && <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 12, background: 'rgba(244,97,58,0.06)', border: '1px solid rgba(244,97,58,0.2)', color: '#A03A2D', fontSize: 13.5, fontWeight: 600 }}>{error}</div>}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
+                <input value={profileDraft.organisation_name} onChange={(e) => setProfileDraft((p) => ({ ...p, organisation_name: e.target.value }))} placeholder="Organisation name *" style={fld} />
+                <input value={profileDraft.slug} onChange={(e) => setProfileDraft((p) => ({ ...p, slug: e.target.value }))} placeholder="Slug" style={fld} />
+                <select value={profileDraft.resource_id} onChange={(e) => setProfileDraft((p) => ({ ...p, resource_id: e.target.value }))} style={fld}>
+                  <option value="">Linked resource</option>
+                  {resources.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                </select>
+                <input value={profileDraft.contact_email} onChange={(e) => setProfileDraft((p) => ({ ...p, contact_email: e.target.value }))} placeholder="Contact email (public)" style={fld} />
+                <input value={profileDraft.contact_phone} onChange={(e) => setProfileDraft((p) => ({ ...p, contact_phone: e.target.value }))} placeholder="Contact phone" style={fld} />
+                <input value={profileDraft.website_url} onChange={(e) => setProfileDraft((p) => ({ ...p, website_url: e.target.value }))} placeholder="Website URL" style={fld} />
+                <input value={profileDraft.package_name || ''} onChange={(e) => setProfileDraft((p) => ({ ...p, package_name: e.target.value }))} placeholder="Package name" style={fld} />
+                <select value={profileDraft.entitlement_status || 'inactive'} onChange={(e) => setProfileDraft((p) => ({ ...p, entitlement_status: e.target.value }))} style={fld}>
+                  <option value="inactive">Inactive</option>
+                  <option value="trial">Trial</option>
+                  <option value="active">Active</option>
+                  <option value="paused">Paused</option>
+                  <option value="expired">Expired</option>
+                </select>
+                <input type="number" min="0" value={profileDraft.event_quota ?? 0} onChange={(e) => setProfileDraft((p) => ({ ...p, event_quota: e.target.value }))} placeholder="Event quota" style={fld} />
+                <input type="date" value={profileDraft.start_date || ''} onChange={(e) => setProfileDraft((p) => ({ ...p, start_date: e.target.value }))} style={fld} />
+                <input type="date" value={profileDraft.end_date || ''} onChange={(e) => setProfileDraft((p) => ({ ...p, end_date: e.target.value }))} style={fld} />
+              </div>
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 12 }}>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13.5 }}><input type="checkbox" checked={Boolean(profileDraft.is_active)} onChange={(e) => setProfileDraft((p) => ({ ...p, is_active: e.target.checked }))} /> Active</label>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13.5 }}><input type="checkbox" checked={Boolean(profileDraft.featured_enabled)} onChange={(e) => setProfileDraft((p) => ({ ...p, featured_enabled: e.target.checked }))} /> Featured enabled</label>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13.5 }}><input type="checkbox" checked={Boolean(profileDraft.enquiry_tools_enabled)} onChange={(e) => setProfileDraft((p) => ({ ...p, enquiry_tools_enabled: e.target.checked }))} /> Enquiry tools</label>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13.5 }}><input type="checkbox" checked={Boolean(profileDraft.analytics_enabled)} onChange={(e) => setProfileDraft((p) => ({ ...p, analytics_enabled: e.target.checked }))} /> Analytics</label>
+              </div>
+              <div style={{ marginTop: 16 }}>
+                <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.44)', marginBottom: 8 }}>Social media</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+                  {PROFILE_SOCIAL_COLUMNS.map((col) => (
+                    <input key={col} value={profileDraft[col] || ''} onChange={(e) => setProfileDraft((p) => ({ ...p, [col]: e.target.value }))} placeholder={`${PROFILE_SOCIAL_LABELS[col]}: ${PROFILE_SOCIAL_PLACEHOLDERS[col]}`} style={fld} />
+                  ))}
+                </div>
+              </div>
+              {actionRow(<>
+                <button className="btn btn-gold" disabled={busy} onClick={async () => { const ok = await saveProfile(); if (ok) closeProfileModal(); }}>
+                  {busy ? 'Saving…' : (profile?.id ? 'Update profile' : 'Create profile')}
+                </button>
+                <button className="btn btn-ghost" onClick={closeProfileModal}>Cancel</button>
+              </>)}
+            </div>
+          </div>
+        );
+
+        /* ── REVOKE ───────────────────────────────────────── */
+        if (type === 'revoke') return (
+          <div style={backdrop} onClick={(e) => { if (e.target === e.currentTarget) closeProfileModal(); }}>
+            <div style={card(false)}>
+              {closeBtn}
+              {eyebrow('Revoke ownership', '#A03A2D')}
+              <h2 style={{ fontSize: 20, fontWeight: 800, color: '#1A2744', marginBottom: 12 }}>Revoke access for "{orgName}"?</h2>
+              <div style={{ fontSize: 14, color: 'rgba(26,39,68,0.7)', lineHeight: 1.6, marginBottom: 8 }}>
+                This will remove owner access from the organisation profile.
+              </div>
+              <div style={{ padding: '12px 14px', borderRadius: 12, border: '1px solid rgba(16,185,129,0.2)', background: 'rgba(16,185,129,0.05)', fontSize: 13.5, color: '#0D7A55', fontWeight: 600 }}>
+                ✓ Directory listing: <strong>{linkedListing?.name || 'Stays live'}</strong> — remains visible in Find Help.
+              </div>
+              <div style={{ marginTop: 10, fontSize: 13, color: 'rgba(26,39,68,0.6)', lineHeight: 1.55 }}>
+                The organisation profile is kept. Admin can re-approve a new claim to re-assign ownership.
+              </div>
+              {error && <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 12, background: 'rgba(244,97,58,0.06)', color: '#A03A2D', fontSize: 13.5, fontWeight: 600 }}>{error}</div>}
+              {actionRow(<>
+                <button className="btn btn-ghost btn-sm" disabled={busy} onClick={async () => { const ok = await revokeOwnership(profile); if (ok) closeProfileModal(); }} style={{ color: '#A03A2D', borderColor: 'rgba(160,58,45,0.25)', background: 'rgba(160,58,45,0.05)' }}>
+                  {busy ? 'Revoking…' : 'Revoke Ownership'}
+                </button>
+                <button className="btn btn-ghost" onClick={closeProfileModal}>Cancel</button>
+              </>)}
+            </div>
+          </div>
+        );
+
+        /* ── SEND RESET ───────────────────────────────────── */
+        if (type === 'reset') return (
+          <div style={backdrop} onClick={(e) => { if (e.target === e.currentTarget) closeProfileModal(); }}>
+            <div style={card(false)}>
+              {closeBtn}
+              {eyebrow('Password reset')}
+              <h2 style={{ fontSize: 20, fontWeight: 800, color: '#1A2744', marginBottom: 12 }}>Send a password reset link?</h2>
+              <div style={{ padding: '12px 14px', borderRadius: 12, border: '1px solid #E9EEF5', background: '#FAFBFF', fontSize: 14, color: '#1A2744', marginBottom: 12 }}>
+                <span style={{ color: 'rgba(26,39,68,0.55)', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Send to</span>
+                <div style={{ marginTop: 4, fontWeight: 700 }}>{profile?.contact_email}</div>
+              </div>
+              <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.6)', lineHeight: 1.55 }}>
+                A secure reset link will be sent. The response is the same whether or not an account exists at this address.
+              </div>
+              {error && <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 12, background: 'rgba(244,97,58,0.06)', color: '#A03A2D', fontSize: 13.5, fontWeight: 600 }}>{error}</div>}
+              {actionRow(<>
+                <button className="btn btn-gold" disabled={busy} onClick={async () => { const ok = await sendPasswordReset(profile.contact_email); if (ok) closeProfileModal(); }}>
+                  {busy ? 'Sending…' : 'Send Reset Link'}
+                </button>
+                <button className="btn btn-ghost" onClick={closeProfileModal}>Cancel</button>
+              </>)}
+            </div>
+          </div>
+        );
+
+        /* ── DELETE ───────────────────────────────────────── */
+        if (type === 'delete') return (
+          <div style={backdrop} onClick={(e) => { if (e.target === e.currentTarget) closeProfileModal(); }}>
+            <div style={card(false)}>
+              {closeBtn}
+              {eyebrow('Danger zone', '#A03A2D')}
+              <h2 style={{ fontSize: 20, fontWeight: 800, color: '#1A2744', marginBottom: 12 }}>Delete "{orgName}" permanently?</h2>
+              <div style={{ padding: '12px 14px', borderRadius: 12, border: '1px solid rgba(244,97,58,0.2)', background: 'rgba(244,97,58,0.04)', fontSize: 13.5, color: '#A03A2D', fontWeight: 600, marginBottom: 12 }}>
+                This permanently removes the organisation profile, events, and member records. This cannot be undone.
+              </div>
+              <div style={{ padding: '12px 14px', borderRadius: 12, border: '1px solid rgba(16,185,129,0.2)', background: 'rgba(16,185,129,0.05)', fontSize: 13.5, color: '#0D7A55', fontWeight: 600 }}>
+                ✓ Directory listing: <strong>{linkedListing?.name || 'Not linked'}</strong> — will NOT be deleted.
+              </div>
+              <div style={{ marginTop: 10, fontSize: 13, color: 'rgba(26,39,68,0.6)' }}>Use "Revoke ownership" to remove access while keeping the profile intact.</div>
+              {error && <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 12, background: 'rgba(244,97,58,0.06)', color: '#A03A2D', fontSize: 13.5, fontWeight: 600 }}>{error}</div>}
+              {actionRow(<>
+                <button disabled={busy} onClick={async () => { const ok = await deleteOrgProfile(profile); if (ok) closeProfileModal(); }} style={{ padding: '10px 22px', borderRadius: 12, background: busy ? '#F0E8E8' : 'linear-gradient(135deg, #A03A2D 0%, #C44B3A 100%)', color: '#fff', fontWeight: 800, fontSize: 14, border: 'none', cursor: busy ? 'wait' : 'pointer', boxShadow: busy ? 'none' : '0 4px 14px rgba(160,58,45,0.28)' }}>
+                  {busy ? 'Deleting…' : 'Delete Permanently'}
+                </button>
+                <button className="btn btn-ghost" onClick={closeProfileModal}>Cancel</button>
+              </>)}
+            </div>
+          </div>
+        );
+
+        /* ── REPAIR OWNERSHIP ─────────────────────────────── */
+        if (type === 'repair') return (
+          <div style={backdrop} onClick={(e) => { if (e.target === e.currentTarget) closeProfileModal(); }}>
+            <div style={card(false)}>
+              {closeBtn}
+              {eyebrow('Repair ownership', '#8a5a0b')}
+              <h2 style={{ fontSize: 20, fontWeight: 800, color: '#1A2744', marginBottom: 12 }}>Assign admin as owner of "{orgName}"?</h2>
+              <div style={{ fontSize: 14, color: 'rgba(26,39,68,0.7)', lineHeight: 1.6, marginBottom: 12 }}>
+                Your admin account (<strong>{session?.user?.email}</strong>) will be set as the profile owner. Use this to test the owner dashboard flow.
+              </div>
+              <div style={{ padding: '10px 14px', borderRadius: 12, border: '1px solid rgba(245,166,35,0.25)', background: 'rgba(245,166,35,0.06)', fontSize: 13, color: '#7A4B00', lineHeight: 1.55 }}>
+                For production: the real owner should log in and re-submit a claim to receive proper ownership.
+              </div>
+              {error && <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 12, background: 'rgba(244,97,58,0.06)', color: '#A03A2D', fontSize: 13.5, fontWeight: 600 }}>{error}</div>}
+              {actionRow(<>
+                <button className="btn btn-gold" disabled={busy} onClick={async () => { const ok = await repairOwnership(profile); if (ok) closeProfileModal(); }}>
+                  {busy ? 'Applying…' : 'Run Repair'}
+                </button>
+                <button className="btn btn-ghost" onClick={closeProfileModal}>Cancel</button>
+              </>)}
+            </div>
+          </div>
+        );
+
+        /* ── REPAIR FROM APPROVED CLAIM ───────────────────── */
+        if (type === 'repair-claim') return (
+          <div style={backdrop} onClick={(e) => { if (e.target === e.currentTarget) closeProfileModal(); }}>
+            <div style={card(false)}>
+              {closeBtn}
+              {eyebrow('Repair from claim', '#1054A0')}
+              <h2 style={{ fontSize: 20, fontWeight: 800, color: '#1A2744', marginBottom: 12 }}>Repair ownership for "{orgName}"?</h2>
+              <div style={{ fontSize: 14, color: 'rgba(26,39,68,0.7)', lineHeight: 1.6, marginBottom: 12 }}>
+                This looks up an approved claim for the linked directory listing and applies the ownership fields (<code>claim_status</code>, <code>created_by</code> if available).
+              </div>
+              <div style={{ padding: '10px 14px', borderRadius: 12, border: '1px solid rgba(45,156,219,0.2)', background: 'rgba(45,156,219,0.05)', fontSize: 13, color: '#1054A0', lineHeight: 1.55 }}>
+                Searches: listing_claims by resource ID, then by slug, then the resource_update_submissions fallback queue. If no approved claim is found, nothing changes.
+              </div>
+              {error && <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 12, background: 'rgba(244,97,58,0.06)', color: '#A03A2D', fontSize: 13.5, fontWeight: 600 }}>{error}</div>}
+              {actionRow(<>
+                <button className="btn btn-gold" disabled={busy} onClick={async () => { const ok = await repairFromApprovedClaim(profile); if (ok) closeProfileModal(); }}>
+                  {busy ? 'Searching…' : 'Run Repair'}
+                </button>
+                <button className="btn btn-ghost" onClick={closeProfileModal}>Cancel</button>
+              </>)}
+            </div>
+          </div>
+        );
+
+        return null;
+      })()}
     </>
   );
 };
