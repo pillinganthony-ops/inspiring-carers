@@ -803,6 +803,8 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   const [linkedProfileDraft, setLinkedProfileDraft] = React.useState({});
   const [linkedProfileBusy, setLinkedProfileBusy] = React.useState(false);
   const [linkedProfileError, setLinkedProfileError] = React.useState('');
+  const [showCompletedSubmissions, setShowCompletedSubmissions] = React.useState(false);
+  const [showClosedContacts, setShowClosedContacts] = React.useState(false);
 
   const canAccessAdmin = React.useMemo(() => {
     const email = `${session?.user?.email || ''}`.trim().toLowerCase();
@@ -1906,16 +1908,21 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     );
   }
 
+  const CONTACT_TYPES = ['upgrade_enquiry', 'general_enquiry', 'organisation_message', 'callback_request'];
   const pendingClaims = claims.filter((row) => isPendingStatus(row.status));
   const createdResourceUpdates = resourceUpdates.filter((row) => isCreatedSubmission(row));
-  const CONTACT_TYPES = ['upgrade_enquiry', 'general_enquiry', 'organisation_message', 'callback_request'];
-  const contactLeads = resourceUpdates.filter((row) => CONTACT_TYPES.includes(row._queueType));
+  const allContactLeads = resourceUpdates.filter((row) => CONTACT_TYPES.includes(row._queueType));
+  // Active = pending + contacted. Closed leaves the active board.
+  const contactLeads = allContactLeads.filter((row) => `${row.status || ''}`.toLowerCase() !== 'closed');
+  const closedContactLeads = allContactLeads.filter((row) => `${row.status || ''}`.toLowerCase() === 'closed');
   const pendingResourceUpdates = resourceUpdates.filter((row) => isExactPendingStatus(row.status) && !isCreatedSubmission(row) && !CONTACT_TYPES.includes(row._queueType));
   const inReviewResourceUpdates = resourceUpdates.filter((row) => isInReviewStatus(row.status) && !isCreatedSubmission(row));
   const approvedResourceUpdatesReady = resourceUpdates.filter((row) => isApprovedStatus(row.status) && !isCreatedSubmission(row));
   const rejectedResourceUpdates = resourceUpdates.filter((row) => isRejectedStatus(row.status) && !isCreatedSubmission(row));
+  const completedSubmissionsCount = createdResourceUpdates.length + rejectedResourceUpdates.length;
   const pendingWalkUpdates = walkUpdates.filter((row) => isPendingStatus(row.status));
   const pendingWalkComments = walkComments.filter((row) => isPendingStatus(row.status));
+  // Workload = actionable items only. Closed contacts and completed submissions excluded.
   const moderationWorkloadCount = pendingClaims.length + pendingResourceUpdates.length + inReviewResourceUpdates.length + approvedResourceUpdatesReady.length + pendingWalkUpdates.length + pendingWalkComments.length + contactLeads.length;
   const tabCounts = {
     overview: 0,
@@ -2161,6 +2168,33 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                     })}
                   </div>
                 )}
+                {closedContactLeads.length > 0 && (
+                  <div style={{ marginTop: 12 }}>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setShowClosedContacts((v) => !v)}
+                      style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.45)', fontWeight: 600 }}
+                    >
+                      {showClosedContacts ? '▲ Hide' : '▼ Show'} {closedContactLeads.length} closed contact{closedContactLeads.length !== 1 ? 's' : ''}
+                    </button>
+                    {showClosedContacts && (
+                      <div style={{ marginTop: 8, display: 'grid', gap: 8 }}>
+                        {closedContactLeads.map((lead) => (
+                          <div key={lead.id} style={{ padding: '10px 14px', borderRadius: 12, background: '#F8FAFE', border: '1px solid #E9EEF5', opacity: 0.72 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                              <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(26,39,68,0.65)' }}>{lead.submitter_name || lead._queueSubmitter || 'Unknown'}</span>
+                              {lead.submitter_email && <a href={`mailto:${lead.submitter_email}`} style={{ fontSize: 12.5, color: '#2D9CDB', textDecoration: 'none' }}>{lead.submitter_email}</a>}
+                              <span style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.38)', fontWeight: 600 }}>{formatAdminDate(lead.created_at)}</span>
+                            </div>
+                            <div style={{ marginTop: 6 }}>
+                              <button className="btn btn-ghost btn-sm" onClick={() => updateQueueStatus('resource_update_submissions', lead.id, 'pending')}>Reopen</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14 }}>
@@ -2240,59 +2274,73 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                   }) : <div style={{ color: 'rgba(26,39,68,0.65)' }}>No approved submissions waiting for listing creation.</div>}
                 </div>
               </div>
-              <QueueCard
-                title="Live listings created"
-                rows={createdResourceUpdates}
-                onUpdateStatus={(id, status) => updateQueueStatus('resource_update_submissions', id, status)}
-                formatRow={(row) => `${row.organisation_name || row._queueTitle || 'Created listing'} · ${row.submitter_name || row._queueSubmitter || 'Unknown'}`}
-                renderMeta={(row) => {
-                  const linkedResourceId = extractSubmissionResourceId(row);
-                  const linkedResource = resources.find((resource) => `${resource.id}` === `${linkedResourceId}`) || null;
-                  return (
-                    <div style={{ display: 'grid', gap: 4, fontSize: 12, color: 'rgba(26,39,68,0.72)' }}>
-                      <div>Organisation: {row.organisation_name || row._queueTitle || 'Submission'}</div>
-                      <div>Submitter: {row.submitter_name || row._queueSubmitter || 'Unknown'}</div>
-                      <div>Created date: {formatAdminDate(row.created_at)}</div>
-                      <div>Linked resource id: {linkedResourceId || 'Not linked in submission row'}</div>
-                      {row.admin_notes ? <div>Admin notes: {row.admin_notes}</div> : null}
-                      {!linkedResourceId ? <div>Listing was marked created but the resource id could not be resolved from the submission row.</div> : null}
-                    </div>
-                  );
-                }}
-                renderActions={(row) => {
-                  const linkedResourceId = extractSubmissionResourceId(row);
-                  const linkedResource = resources.find((resource) => `${resource.id}` === `${linkedResourceId}`) || null;
-                  return (
-                    <>
-                      <button className="btn btn-gold btn-sm" disabled={!linkedResourceId && !linkedResource?.slug} onClick={() => openLiveListing(linkedResourceId, linkedResource?.slug || '')}>View live listing</button>
-                      <button className="btn btn-ghost btn-sm" disabled={!linkedResourceId} onClick={() => openResourceInAdmin(linkedResourceId)}>Open resource in admin</button>
-                    </>
-                  );
-                }}
-                emptyMessage="No processed submissions yet."
-              />
-              <QueueCard
-                title="Rejected"
-                rows={rejectedResourceUpdates}
-                onUpdateStatus={(id, status) => updateQueueStatus('resource_update_submissions', id, status)}
-                formatRow={(row) => `${row.organisation_name || row._queueTitle || 'Rejected submission'} · ${row.submitter_name || row._queueSubmitter || 'Unknown'}`}
-                renderMeta={(row) => (
-                  <div style={{ display: 'grid', gap: 4, fontSize: 12, color: 'rgba(26,39,68,0.72)' }}>
-                    <div>Organisation: {row.organisation_name || row._queueTitle || 'Submission'}</div>
-                    <div>Submitter: {row.submitter_name || row._queueSubmitter || 'Unknown'}</div>
-                    <div>Email: {row.submitter_email || row.email || 'Unknown'}</div>
-                    <div>Reason: {`${row.reason || row._queueSummary || 'No description provided.'}`.split('\n')[0]}</div>
-                  </div>
-                )}
-                renderActions={(row) => (
-                  <>
-                    <button className="btn btn-ghost btn-sm" onClick={() => updateQueueStatus('resource_update_submissions', row.id, 'in_review')}>Return to review</button>
-                    <button className="btn btn-ghost btn-sm" onClick={() => updateQueueStatus('resource_update_submissions', row.id, 'approved')}>Approve later</button>
-                  </>
-                )}
-                emptyMessage="No rejected submissions."
-              />
               </div>
+              {completedSubmissionsCount > 0 && (
+                <div>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => setShowCompletedSubmissions((v) => !v)}
+                    style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.45)', fontWeight: 600 }}
+                  >
+                    {showCompletedSubmissions ? '▲ Hide' : '▼ Show'} {completedSubmissionsCount} completed submission{completedSubmissionsCount !== 1 ? 's' : ''} (live listings &amp; rejected)
+                  </button>
+                  {showCompletedSubmissions && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14, marginTop: 10 }}>
+                      <QueueCard
+                        title="Live listings created"
+                        rows={createdResourceUpdates}
+                        onUpdateStatus={(id, status) => updateQueueStatus('resource_update_submissions', id, status)}
+                        formatRow={(row) => `${row.organisation_name || row._queueTitle || 'Created listing'} · ${row.submitter_name || row._queueSubmitter || 'Unknown'}`}
+                        renderMeta={(row) => {
+                          const linkedResourceId = extractSubmissionResourceId(row);
+                          const linkedResource = resources.find((resource) => `${resource.id}` === `${linkedResourceId}`) || null;
+                          return (
+                            <div style={{ display: 'grid', gap: 4, fontSize: 12, color: 'rgba(26,39,68,0.72)' }}>
+                              <div>Organisation: {row.organisation_name || row._queueTitle || 'Submission'}</div>
+                              <div>Submitter: {row.submitter_name || row._queueSubmitter || 'Unknown'}</div>
+                              <div>Created date: {formatAdminDate(row.created_at)}</div>
+                              <div>Linked resource id: {linkedResourceId || 'Not linked in submission row'}</div>
+                              {row.admin_notes ? <div>Admin notes: {row.admin_notes}</div> : null}
+                            </div>
+                          );
+                        }}
+                        renderActions={(row) => {
+                          const linkedResourceId = extractSubmissionResourceId(row);
+                          const linkedResource = resources.find((resource) => `${resource.id}` === `${linkedResourceId}`) || null;
+                          return (
+                            <>
+                              <button className="btn btn-gold btn-sm" disabled={!linkedResourceId && !linkedResource?.slug} onClick={() => openLiveListing(linkedResourceId, linkedResource?.slug || '')}>View live listing</button>
+                              <button className="btn btn-ghost btn-sm" disabled={!linkedResourceId} onClick={() => openResourceInAdmin(linkedResourceId)}>Open resource in admin</button>
+                            </>
+                          );
+                        }}
+                        emptyMessage="No processed submissions yet."
+                      />
+                      <QueueCard
+                        title="Rejected"
+                        rows={rejectedResourceUpdates}
+                        onUpdateStatus={(id, status) => updateQueueStatus('resource_update_submissions', id, status)}
+                        formatRow={(row) => `${row.organisation_name || row._queueTitle || 'Rejected submission'} · ${row.submitter_name || row._queueSubmitter || 'Unknown'}`}
+                        renderMeta={(row) => (
+                          <div style={{ display: 'grid', gap: 4, fontSize: 12, color: 'rgba(26,39,68,0.72)' }}>
+                            <div>Organisation: {row.organisation_name || row._queueTitle || 'Submission'}</div>
+                            <div>Submitter: {row.submitter_name || row._queueSubmitter || 'Unknown'}</div>
+                            <div>Email: {row.submitter_email || row.email || 'Unknown'}</div>
+                            <div>Reason: {`${row.reason || row._queueSummary || 'No description provided.'}`.split('\n')[0]}</div>
+                          </div>
+                        )}
+                        renderActions={(row) => (
+                          <>
+                            <button className="btn btn-ghost btn-sm" onClick={() => updateQueueStatus('resource_update_submissions', row.id, 'in_review')}>Return to review</button>
+                            <button className="btn btn-ghost btn-sm" onClick={() => updateQueueStatus('resource_update_submissions', row.id, 'approved')}>Approve later</button>
+                          </>
+                        )}
+                        emptyMessage="No rejected submissions."
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14 }}>
                 <QueueCard
