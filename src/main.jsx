@@ -365,19 +365,24 @@ const App = () => {
 
     let mounted = true;
 
-    // Check current session
-    supabase.auth.getSession().then(({ data, error }) => {
-      if (mounted) {
-        setSession(data.session ?? null);
-        setSessionLoading(false);
-      }
+    // Check current session.
+    // Guard: do NOT apply a recovery session as app-wide auth — the user
+    // hasn't re-authenticated yet and must complete the password reset first.
+    supabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return;
+      const isResetRoute = window.location.pathname.toLowerCase().includes('/login/reset-password');
+      if (!isResetRoute) setSession(data.session ?? null);
+      setSessionLoading(false);
     });
 
-    // Subscribe to auth state changes
+    // Subscribe to auth state changes.
+    // PASSWORD_RECOVERY is a temporary session grant — do NOT activate app auth.
+    // Also skip any event arriving while the user is on the reset-password route.
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      if (mounted) {
-        setSession(nextSession ?? null);
-      }
+      if (!mounted) return;
+      if (_event === 'PASSWORD_RECOVERY') return;
+      if (window.location.pathname.toLowerCase().includes('/login/reset-password')) return;
+      setSession(nextSession ?? null);
     });
 
     return () => {

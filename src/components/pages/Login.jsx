@@ -101,9 +101,11 @@ const LoginPage = ({ onNavigate, resetPasswordMode = false }) => {
     try {
       const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
       if (updateError) throw updateError;
-      setPasswordSuccess(true);
       setNewPassword('');
       setConfirmPassword('');
+      // Sign out the recovery session — user must re-authenticate with their new password.
+      await supabase.auth.signOut();
+      setPasswordSuccess(true);
     } catch (err) {
       setPasswordError(err?.message || 'Could not update password. Please try again.');
     } finally {
