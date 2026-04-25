@@ -251,15 +251,29 @@ const ACTIVITY_CATEGORIES = [
     accent: '#F4613A', bg: 'rgba(244,97,58,0.08)', border: 'rgba(244,97,58,0.14)', Icon: IWellbeing },
 ];
 
-// Sample walks — one per unique area, geocoded at runtime
-const SAMPLE_WALKS = (() => {
-  const seenAreas = new Set();
-  return walksData.filter((w) => {
-    if (!w.postcode || !w.area || seenAreas.has(w.area)) return false;
-    seenAreas.add(w.area);
-    return seenAreas.size <= 16;
-  });
+// Module-level geocode cache — persists across component re-mounts
+const _geoCache = {};
+const _geoCacheAttempted = new Set(); // tracks attempted postcodes, avoids re-fetch on failed lookups
+
+// Deduplicated walk postcodes, capped at 150 for initial load
+const WALK_POSTCODES = (() => {
+  const seen = new Set();
+  const result = [];
+  for (const w of walksData) {
+    if (w.postcode && !seen.has(w.postcode)) {
+      seen.add(w.postcode);
+      result.push(w.postcode);
+      if (result.length >= 150) break;
+    }
+  }
+  return result;
 })();
+
+// Walk data indexed by postcode for O(1) pin assembly
+const WALK_BY_POSTCODE = walksData.reduce((acc, w) => {
+  if (w.postcode && !acc[w.postcode]) acc[w.postcode] = w;
+  return acc;
+}, {});
 
 const POPULAR_CHIPS = [
   { label: 'Free activities',    sub: 'No cost',       icon: '🆓', type: '',           cost: 'free',       access: '' },
@@ -312,30 +326,39 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
 
   const [walkCoords,  setWalkCoords]  = React.useState({});
   const [geoLoading,  setGeoLoading]  = React.useState(false);
-  const [activePin,   setActivePin]   = React.useState(null); // InfoWindow
+  const [activePin,   setActivePin]   = React.useState(null);
 
-  // Geocode sample walk postcodes once — Cornwall data only, same as Walks.jsx pattern
+  // Geocode up to 150 unique walk postcodes — batched, non-blocking, module-level cached
   React.useEffect(() => {
-    const postcodes = SAMPLE_WALKS.map((w) => w.postcode).filter(Boolean);
-    if (!postcodes.length) return;
+    const uncached = WALK_POSTCODES.filter((pc) => !_geoCacheAttempted.has(pc));
+    if (!uncached.length) {
+      setWalkCoords({ ..._geoCache });
+      return;
+    }
     let cancelled = false;
     setGeoLoading(true);
     (async () => {
       try {
-        const resp = await fetch('https://api.postcodes.io/postcodes', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ postcodes }),
-        });
-        const data = await resp.json();
-        const coords = {};
-        (data.result || []).forEach(({ query, result }) => {
-          if (result?.latitude && result?.longitude) {
-            coords[query] = { lat: result.latitude, lng: result.longitude };
-          }
-        });
-        if (!cancelled) { setWalkCoords(coords); setGeoLoading(false); }
+        const BATCH = 100; // postcodes.io bulk limit
+        for (let i = 0; i < uncached.length && !cancelled; i += BATCH) {
+          const chunk = uncached.slice(i, i + BATCH);
+          chunk.forEach((pc) => _geoCacheAttempted.add(pc));
+          const resp = await fetch('https://api.postcodes.io/postcodes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ postcodes: chunk }),
+          });
+          const data = await resp.json();
+          (data.result || []).forEach(({ query, result }) => {
+            if (result?.latitude && result?.longitude) {
+              _geoCache[query] = { lat: result.latitude, lng: result.longitude };
+            }
+          });
+        }
+        if (!cancelled) setWalkCoords({ ..._geoCache });
       } catch {
+        if (!cancelled) setWalkCoords({ ..._geoCache });
+      } finally {
         if (!cancelled) setGeoLoading(false);
       }
     })();
@@ -343,25 +366,28 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
   }, []);
 
   const { lat, lng, zoom } = COUNTY_CENTERS[localCounty] || COUNTY_CENTERS[''];
-  const isCornwallOrAll = !localCounty || localCounty === 'cornwall';
 
-  // Walk pins — geocoded from walks.json, Cornwall only
+  // Walk pins — geocoded from walks.json (Cornwall data); shown for Cornwall or all-counties view
   const showWalks = !activityType || activityType === 'walks';
-  const walkPins = showWalks && isCornwallOrAll
-    ? SAMPLE_WALKS
-        .filter((w) => walkCoords[w.postcode])
-        .filter((w) => !cost || cost === 'free') // walks.json are all free walks
-        .map((w) => ({
-          id: `walk-${w.id || w.name}`,
-          lat: walkCoords[w.postcode].lat,
-          lng: walkCoords[w.postcode].lng,
-          title: w.name,
-          category: 'walks',
-          area: w.area,
-          cost: 'free',
-          description: `${w.distanceMiles} miles · ${w.difficulty} · ${w.area}`,
-          action: () => onNavigate('walks', localCounty || null),
-        }))
+  const showWalksForCounty = showWalks && (!localCounty || localCounty === 'cornwall');
+  const walkPins = showWalksForCounty
+    ? WALK_POSTCODES
+        .filter((pc) => walkCoords[pc])
+        .filter(() => !cost || cost === 'free')
+        .map((pc) => {
+          const w = WALK_BY_POSTCODE[pc];
+          return {
+            id: `walk-${pc}`,
+            lat: walkCoords[pc].lat,
+            lng: walkCoords[pc].lng,
+            title: w.name,
+            category: 'walks',
+            area: w.area,
+            cost: 'free',
+            description: `${w.distanceMiles} miles · ${w.difficulty} · ${w.area}`,
+            action: () => onNavigate('walks', localCounty || null),
+          };
+        })
     : [];
 
   // Sample activity pins — filtered by county, category, cost, accessibility
@@ -422,7 +448,7 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
           mapContainerStyle={{ width: '100%', height: '400px' }}
           center={{ lat, lng }}
           zoom={zoom}
-          options={{ streetViewControl: false, mapTypeControl: false, fullscreenControl: false, zoomControl: true, gestureHandling: 'cooperative' }}
+          options={{ streetViewControl: false, mapTypeControl: false, fullscreenControl: false, zoomControl: true, gestureHandling: 'greedy' }}
           onClick={() => setActivePin(null)}
         >
           {allPins.map((pin) => {
@@ -432,7 +458,15 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
                 key={pin.id}
                 position={{ lat: pin.lat, lng: pin.lng }}
                 title={pin.title}
-                label={{ text: cfg.label, color: 'white', fontWeight: '800', fontSize: '11px' }}
+                icon={{
+                  path: 0, // google.maps.SymbolPath.CIRCLE
+                  fillColor: cfg.accent,
+                  fillOpacity: 1,
+                  strokeColor: '#ffffff',
+                  strokeWeight: 2.5,
+                  scale: 12,
+                }}
+                label={{ text: cfg.label, color: 'white', fontWeight: '900', fontSize: '11px' }}
                 onClick={() => setActivePin(activePin?.id === pin.id ? null : pin)}
               />
             );
@@ -464,29 +498,25 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
         </GoogleMap>
       </div>
 
-      {/* Map legend */}
-      <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {Object.entries(CAT_CONFIG).map(([cat, cfg]) => (
-            <span key={cat} style={{ fontSize: 11, fontWeight: 600, color: 'rgba(26,39,68,0.55)', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ width: 16, height: 16, borderRadius: 3, background: cfg.accent, display: 'grid', placeItems: 'center', color: 'white', fontSize: 9, fontWeight: 800 }}>{cfg.label}</span>
-              {ACTIVITY_TYPE_OPTIONS.find((o) => o.value === cat)?.label || cat}
-            </span>
-          ))}
+      {/* Map legend + note */}
+      <div style={{ marginTop: 12 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {Object.entries(CAT_CONFIG).map(([cat, cfg]) => (
+              <span key={cat} style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px 3px 6px', borderRadius: 999, background: `${cfg.accent}18`, color: cfg.accent, border: `1px solid ${cfg.accent}33`, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: cfg.accent, flexShrink: 0 }} />
+                {ACTIVITY_TYPE_OPTIONS.find((o) => o.value === cat)?.label || cat}
+              </span>
+            ))}
+          </div>
+          <button onClick={() => onNavigate('walks', localCounty || null)} style={{ fontSize: 11.5, fontWeight: 700, color: '#5BC94A', background: 'none', border: 'none', cursor: 'pointer', padding: 0, whiteSpace: 'nowrap' }}>
+            Full walks map →
+          </button>
         </div>
-        <button onClick={() => onNavigate('walks', localCounty || null)} style={{ fontSize: 12, fontWeight: 700, color: '#5BC94A', background: 'none', border: 'none', cursor: 'pointer', padding: 0, whiteSpace: 'nowrap' }}>
-          Full walks map →
-        </button>
+        <div style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.40)', fontStyle: 'italic' }}>
+          Showing mapped walk start points and activity locations{emptyCats.length > 0 && !activityType ? ' · More listings being added' : ''}
+        </div>
       </div>
-
-      {/* "More being added" notes for empty categories */}
-      {emptyCats.length > 0 && !activityType && (
-        <div style={{ marginTop: 8, fontSize: 12, color: 'rgba(26,39,68,0.45)', fontStyle: 'italic' }}>
-          {emptyCats.length === 1
-            ? `More ${ACTIVITY_TYPE_OPTIONS.find((o) => o.value === emptyCats[0])?.label || emptyCats[0]} listings are being added in this county.`
-            : `Activities map is growing — more listings being added for all categories.`}
-        </div>
-      )}
     </div>
   );
 };
@@ -574,8 +604,8 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
                     <button className="btn btn-gold" onClick={() => document.getElementById('act-map')?.scrollIntoView({ behavior: 'smooth' })} style={{ flex: 1, justifyContent: 'center', fontSize: 14 }}>
                       <IPin s={13} /> Explore map
                     </button>
-                    <button onClick={() => goToWalks(localCounty)} style={{ padding: '10px 16px', borderRadius: 12, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
-                      <IWalks s={13} /> Walks
+                    <button onClick={() => onNavigate('find-help')} style={{ padding: '10px 16px', borderRadius: 12, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+                      <ISparkle s={13} /> Suggest an activity
                     </button>
                   </div>
                 </div>
@@ -617,25 +647,31 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
                 ))}
               </div>
 
-              {/* Featured preview cards — walk is clickable, others show "Coming soon" */}
+              {/* Featured preview cards — richer mini cards */}
               <div style={{ display: 'grid', gap: 8 }}>
                 {HERO_FEATURED.map((item) => (
                   <div key={item.title}
                     onClick={item.dest === 'walks' ? () => goToWalks(localCounty) : undefined}
-                    style={{ borderRadius: 13, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.10)', cursor: item.dest === 'walks' ? 'pointer' : 'default', transition: 'box-shadow .15s' }}
-                    onMouseEnter={item.dest === 'walks' ? (e) => { e.currentTarget.style.boxShadow = '0 6px 18px rgba(0,0,0,0.22)'; } : undefined}
-                    onMouseLeave={item.dest === 'walks' ? (e) => { e.currentTarget.style.boxShadow = ''; } : undefined}
+                    style={{ borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.12)', cursor: item.dest === 'walks' ? 'pointer' : 'default', transition: 'box-shadow .15s, transform .15s' }}
+                    onMouseEnter={item.dest === 'walks' ? (e) => { e.currentTarget.style.boxShadow = '0 8px 22px rgba(0,0,0,0.28)'; e.currentTarget.style.transform = 'translateY(-1px)'; } : undefined}
+                    onMouseLeave={item.dest === 'walks' ? (e) => { e.currentTarget.style.boxShadow = ''; e.currentTarget.style.transform = ''; } : undefined}
                   >
-                    <div style={{ height: 26, background: item.grad }} />
+                    {/* Gradient strip with category badge */}
+                    <div style={{ height: 36, background: item.grad, display: 'flex', alignItems: 'center', padding: '0 10px', gap: 7 }}>
+                      <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '2px 8px', borderRadius: 999, background: 'rgba(255,255,255,0.85)', color: item.accent }}>
+                        {item.type}
+                      </span>
+                      {item.dest === 'walks' && (
+                        <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.75)', marginLeft: 'auto' }}>Live now</span>
+                      )}
+                    </div>
                     <div style={{ padding: '9px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.05)' }}>
                       <div>
                         <div style={{ fontSize: 12.5, fontWeight: 700, color: 'rgba(255,255,255,0.90)', marginBottom: 2 }}>{item.title}</div>
-                        <div style={{ fontSize: 10.5, fontWeight: 600, color: item.accent, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                          {item.type} · {item.tag}
-                        </div>
+                        <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.48)' }}>{item.tag}</div>
                       </div>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: item.dest === 'walks' ? item.accent : 'rgba(255,255,255,0.30)', flexShrink: 0, whiteSpace: 'nowrap' }}>
-                        {item.dest === 'walks' ? 'View →' : 'Coming soon'}
+                      <span style={{ fontSize: 11, fontWeight: 700, color: item.dest === 'walks' ? item.accent : 'rgba(255,255,255,0.26)', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                        {item.dest === 'walks' ? 'View →' : 'Details coming soon'}
                       </span>
                     </div>
                   </div>
@@ -705,10 +741,10 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
               </div>
               <div style={{ display: 'grid', gap: 10 }}>
                 {[
-                  { title: 'Accessible coastal walk', type: 'walks',    location: 'St Ives',  tags: ['Wheelchair', 'Free'],    accent: '#5BC94A', grad: 'linear-gradient(135deg, #D8F0CC, #C4E8B4)', dest: () => goToWalks(localCounty || 'cornwall') },
-                  { title: 'Carer coffee morning',    type: 'groups',   location: 'Truro',    tags: ['All welcome', 'Free'],   accent: '#2D9CDB', grad: 'linear-gradient(135deg, #C8E4F8, #B4D8F4)', dest: () => onNavigate('find-help') },
-                  { title: 'Family-friendly day out', type: 'days-out', location: 'Falmouth', tags: ['Family', 'Free entry'],  accent: '#F5A623', grad: 'linear-gradient(135deg, #FDE8C4, #FDDCA8)', dest: () => onNavigate('find-help') },
-                  { title: 'Wellbeing swim session',  type: 'wellbeing',location: 'Penzance', tags: ['Low mobility', 'Free'],  accent: '#F4613A', grad: 'linear-gradient(135deg, #FADCD4, #F8C8BC)', dest: () => onNavigate('find-help') },
+                  { title: 'Accessible coastal walk', type: 'walks',    location: 'St Ives',  tags: ['Wheelchair', 'Free'],   accent: '#5BC94A', grad: 'linear-gradient(135deg, #D8F0CC, #C4E8B4)', dest: () => goToWalks(localCounty) },
+                  { title: 'Carer coffee morning',    type: 'groups',   location: 'Truro',    tags: ['All welcome', 'Free'],  accent: '#2D9CDB', grad: 'linear-gradient(135deg, #C8E4F8, #B4D8F4)', dest: null },
+                  { title: 'Family-friendly day out', type: 'days-out', location: 'Falmouth', tags: ['Family', 'Free entry'], accent: '#F5A623', grad: 'linear-gradient(135deg, #FDE8C4, #FDDCA8)', dest: null },
+                  { title: 'Wellbeing swim session',  type: 'wellbeing',location: 'Penzance', tags: ['Low mobility', 'Free'], accent: '#F4613A', grad: 'linear-gradient(135deg, #FADCD4, #F8C8BC)', dest: null },
                 ].filter((c) => !activityType || c.type === activityType).map((card) => (
                   <div key={card.title} className="card" style={{ padding: 0, overflow: 'hidden', borderRadius: 16, borderLeft: `3px solid ${card.accent}` }}>
                     <div style={{ height: 26, background: card.grad }} />
@@ -723,9 +759,10 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
                           {card.tags.map((t) => <span key={t} style={{ fontSize: 10.5, fontWeight: 600, padding: '2px 7px', borderRadius: 5, background: `${card.accent}18`, color: card.accent }}>{t}</span>)}
                         </div>
                       </div>
-                      <button onClick={card.dest} style={{ fontSize: 11.5, fontWeight: 700, color: card.accent, background: `${card.accent}14`, padding: '5px 10px', borderRadius: 7, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                        View →
-                      </button>
+                      {card.dest
+                        ? <button onClick={card.dest} style={{ fontSize: 11.5, fontWeight: 700, color: card.accent, background: `${card.accent}14`, padding: '5px 10px', borderRadius: 7, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>View →</button>
+                        : <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(26,39,68,0.35)', flexShrink: 0, whiteSpace: 'nowrap' }}>Details coming soon</span>
+                      }
                     </div>
                   </div>
                 ))}
