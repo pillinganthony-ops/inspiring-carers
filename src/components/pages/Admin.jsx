@@ -784,6 +784,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState('');
   const [toast, setToast] = React.useState('');
+  const [linkSentTo, setLinkSentTo] = React.useState('');
 
   const [tab, setTab] = React.useState('dashboard');
 
@@ -813,7 +814,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   const [profileDraft, setProfileDraft] = React.useState(emptyProfile);
   const [profileModal, setProfileModal] = React.useState(null);
   // { type: 'edit'|'revoke'|'reset'|'delete'|'repair'|'repair-claim', profile: {} }
-  const closeProfileModal = React.useCallback(() => { setProfileModal(null); setError(''); }, []);
+  const closeProfileModal = React.useCallback(() => { setProfileModal(null); setError(''); setLinkSentTo(''); }, []);
   const [eventDraft, setEventDraft] = React.useState(emptyEvent);
   const [postcodeBusy, setPostcodeBusy] = React.useState(false);
   const [postcodeError, setPostcodeError] = React.useState('');
@@ -1733,19 +1734,21 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   };
 
   // Magic link: creates auth account if none exists, then sends one-click login.
-  // Works for all new and existing owners — no service role key needed.
+  // emailRedirectTo must be whitelisted in Supabase Auth → URL Configuration → Redirect URLs.
   const sendOwnerLoginLink = async (targetEmail) => {
     if (!targetEmail || !supabase) { setError('No email address on this profile.'); return false; }
     const email = targetEmail.trim();
     setBusy(true);
     setError('');
+    setLinkSentTo('');
     try {
+      const redirectTo = `${window.location.origin}/profile`;
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email,
-        options: { shouldCreateUser: true, emailRedirectTo: window.location.origin },
+        options: { shouldCreateUser: true, emailRedirectTo: redirectTo },
       });
       if (otpError) throw otpError;
-      setToast(`Magic login link sent to ${email}. Owner clicks it to access their dashboard.`);
+      setLinkSentTo(email);
       return true;
     } catch (err) {
       setError(`Could not send login link: ${err?.message || 'Unknown error.'}`);
@@ -3184,21 +3187,52 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                 <span style={{ color: 'rgba(26,39,68,0.55)', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Send to</span>
                 <div style={{ marginTop: 4, fontWeight: 700 }}>{profile?.contact_email}</div>
               </div>
-              <div style={{ padding: '10px 14px', borderRadius: 12, border: '1px solid rgba(45,156,219,0.22)', background: 'rgba(45,156,219,0.05)', fontSize: 13, color: '#1054A0', lineHeight: 1.6, marginBottom: 10 }}>
-                <strong>Magic login link</strong> — creates a Supabase account if one doesn't exist yet, then sends a one-click login. Use this for all new owners.
-              </div>
-              <div style={{ padding: '10px 14px', borderRadius: 12, border: '1px solid #E9EEF5', background: '#FAFBFF', fontSize: 12.5, color: 'rgba(26,39,68,0.58)', lineHeight: 1.55, marginBottom: 4 }}>
-                <strong>Password reset</strong> only works if the owner already has a Supabase auth account. If the reset email doesn't arrive, use the magic link instead.
-              </div>
-              {error && <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 12, background: 'rgba(244,97,58,0.06)', color: '#A03A2D', fontSize: 13.5, fontWeight: 600 }}>{error}</div>}
+
+              {/* Diagnostic success panel — stays visible so admin can verify delivery */}
+              {linkSentTo && (
+                <div style={{ padding: '12px 14px', borderRadius: 12, border: '1px solid rgba(16,185,129,0.28)', background: 'rgba(16,185,129,0.06)', fontSize: 13, color: '#0D7A55', lineHeight: 1.6, marginBottom: 12 }}>
+                  <div style={{ fontWeight: 800, fontSize: 13.5, marginBottom: 6 }}>✓ Magic link request sent to Supabase for {linkSentTo}</div>
+                  <div style={{ marginBottom: 4 }}>Redirect: <code style={{ fontSize: 12, background: 'rgba(0,0,0,0.06)', padding: '1px 5px', borderRadius: 4 }}>{window.location.origin}/profile</code></div>
+                  <div style={{ fontWeight: 600 }}>If the email doesn't arrive within 2 minutes:</div>
+                  <ul style={{ margin: '6px 0 0 16px', padding: 0, fontSize: 12.5 }}>
+                    <li>Check Supabase Dashboard → Authentication → Logs</li>
+                    <li>Verify the live domain is in Auth → URL Config → Redirect URLs</li>
+                    <li>Confirm an SMTP provider or Supabase managed email is enabled</li>
+                    <li>Check the owner's spam folder</li>
+                    <li>Free plan limit: 3 emails/hour — wait if recently tested</li>
+                  </ul>
+                </div>
+              )}
+
+              {!linkSentTo && (
+                <>
+                  <div style={{ padding: '10px 14px', borderRadius: 12, border: '1px solid rgba(45,156,219,0.22)', background: 'rgba(45,156,219,0.05)', fontSize: 13, color: '#1054A0', lineHeight: 1.6, marginBottom: 10 }}>
+                    <strong>Magic login link</strong> — creates a Supabase account if one doesn't exist yet, then sends a one-click login. Use this for all new owners.
+                  </div>
+                  <div style={{ padding: '10px 14px', borderRadius: 12, border: '1px solid #E9EEF5', background: '#FAFBFF', fontSize: 12.5, color: 'rgba(26,39,68,0.58)', lineHeight: 1.55, marginBottom: 4 }}>
+                    <strong>Password reset</strong> only works if the owner already has a Supabase auth account.
+                  </div>
+                </>
+              )}
+
+              {error && <div style={{ marginTop: 8, padding: '10px 14px', borderRadius: 12, background: 'rgba(244,97,58,0.06)', color: '#A03A2D', fontSize: 13.5, fontWeight: 600 }}>{error}</div>}
               {actionRow(<>
-                <button className="btn btn-gold" disabled={busy} onClick={async () => { const ok = await sendOwnerLoginLink(profile.contact_email); if (ok) closeProfileModal(); }}>
-                  {busy ? 'Sending…' : 'Send magic login link'}
-                </button>
-                <button className="btn btn-ghost btn-sm" disabled={busy} onClick={async () => { const ok = await sendPasswordReset(profile.contact_email); if (ok) closeProfileModal(); }}>
-                  Send password reset instead
-                </button>
-                <button className="btn btn-ghost" onClick={closeProfileModal}>Cancel</button>
+                {!linkSentTo && (
+                  <button className="btn btn-gold" disabled={busy} onClick={() => sendOwnerLoginLink(profile.contact_email)}>
+                    {busy ? 'Sending…' : 'Send magic login link'}
+                  </button>
+                )}
+                {!linkSentTo && (
+                  <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => sendPasswordReset(profile.contact_email)}>
+                    Send password reset instead
+                  </button>
+                )}
+                {linkSentTo && (
+                  <button className="btn btn-gold btn-sm" disabled={busy} onClick={() => sendOwnerLoginLink(profile.contact_email)}>
+                    {busy ? 'Sending…' : 'Resend'}
+                  </button>
+                )}
+                <button className="btn btn-ghost" onClick={closeProfileModal}>{linkSentTo ? 'Done' : 'Cancel'}</button>
               </>)}
             </div>
           </div>
