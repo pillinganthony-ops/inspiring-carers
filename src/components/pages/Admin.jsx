@@ -1524,7 +1524,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     if (!window.confirm(`Send a password reset link to ${targetEmail}?`)) return;
     try {
       await supabase.auth.resetPasswordForEmail(targetEmail.trim(), {
-        redirectTo: `${window.location.origin}/login`,
+        redirectTo: `${window.location.origin}/login/reset-password`,
       });
       // Always show the same message — never confirm whether an email exists.
       setToast(`Password reset link sent to ${targetEmail} if an account exists.`);

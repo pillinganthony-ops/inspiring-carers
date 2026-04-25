@@ -316,8 +316,14 @@ const App = () => {
       return { page: PROFILE_SUBS[segs[1]] || 'profile', county: null };
     }
 
+    // Login sub-route — /login/reset-password
+    if (segs[0] === 'login') {
+      if (segs[1] === 'reset-password') return { page: 'login-reset', county: null };
+      return { page: 'login', county: null };
+    }
+
     // Global pages — no county prefix
-    const GLOBAL = ['login', 'admin', 'recognition', 'business', 'about', 'card'];
+    const GLOBAL = ['admin', 'recognition', 'business', 'about', 'card'];
     if (GLOBAL.includes(segs[0])) return { page: segs[0], county: null };
 
     // County-prefixed routes: /cornwall/find-help or /cornwall
@@ -437,7 +443,7 @@ const App = () => {
     const isCountyPage = COUNTY_PAGES.has(key);
     const effectiveCounty = explicitCounty || county || COUNTY_DEFAULT;
 
-    const PROFILE_URLS = { 'profile-org': '/profile/organisation', 'profile-posts': '/profile/posts', 'profile-enquiries': '/profile/enquiries', 'profile-settings': '/profile/settings' };
+    const PROFILE_URLS = { 'profile-org': '/profile/organisation', 'profile-posts': '/profile/posts', 'profile-enquiries': '/profile/enquiries', 'profile-settings': '/profile/settings', 'login-reset': '/login/reset-password' };
     const path = key === 'home'
       ? '/'
       : PROFILE_URLS[key]
@@ -460,6 +466,7 @@ const App = () => {
   let content;
   switch (displayPage) {
     case 'login': content = <React.Suspense fallback={<RouteLoading />}><LoginPage onNavigate={navigate} session={session} /></React.Suspense>; break;
+    case 'login-reset': content = <React.Suspense fallback={<RouteLoading />}><LoginPage onNavigate={navigate} session={session} resetPasswordMode={true} /></React.Suspense>; break;
     case 'find-help': content = <React.Suspense fallback={<RouteLoading />}><FindHelpPage onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;
     case 'events': content = <React.Suspense fallback={<RouteLoading />}><EventsPage onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;
     case 'for-you':

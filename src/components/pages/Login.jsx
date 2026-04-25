@@ -12,7 +12,7 @@ const ADMIN_EMAIL_ALLOWLIST = (import.meta.env.VITE_ADMIN_EMAIL_ALLOWLIST || 'pi
   .map((item) => item.trim().toLowerCase())
   .filter(Boolean);
 
-const LoginPage = ({ onNavigate }) => {
+const LoginPage = ({ onNavigate, resetPasswordMode = false }) => {
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [loading, setLoading] = React.useState(false);
@@ -21,8 +21,8 @@ const LoginPage = ({ onNavigate }) => {
   const [resetting, setResetting] = React.useState(false);
   const [resetSent, setResetSent] = React.useState(false);
 
-  // Password reset completion
-  const [recoveryMode, setRecoveryMode] = React.useState(false);
+  // Password reset completion — prop is the primary trigger; hash/event are backup
+  const [recoveryMode, setRecoveryMode] = React.useState(resetPasswordMode);
   const [newPassword, setNewPassword] = React.useState('');
   const [confirmPassword, setConfirmPassword] = React.useState('');
   const [passwordLoading, setPasswordLoading] = React.useState(false);
@@ -126,7 +126,7 @@ const LoginPage = ({ onNavigate }) => {
     setResetSent(false);
     try {
       await supabase.auth.resetPasswordForEmail(trimmedEmail, {
-        redirectTo: `${window.location.origin}/login`,
+        redirectTo: `${window.location.origin}/login/reset-password`,
       });
     } finally {
       // Always show the same message — never confirm whether an email exists.
@@ -159,7 +159,7 @@ const LoginPage = ({ onNavigate }) => {
                     <div style={{ color: 'rgba(26,39,68,0.72)', fontSize: 14, lineHeight: 1.6 }}>Your password has been updated. You can now sign in with your new password.</div>
                   </div>
                   <button
-                    onClick={() => { setRecoveryMode(false); setPasswordSuccess(false); }}
+                    onClick={() => onNavigate('login')}
                     className="btn btn-gold btn-lg"
                     style={{ width: '100%' }}
                   >
