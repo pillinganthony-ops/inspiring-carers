@@ -1565,15 +1565,49 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   };
 
   const repairOwnership = async (profile) => {
-    if (!profile?.id || !supabase || !session?.user?.id) return false;
-    return await withBusy(async () => {
-      const { error } = await supabase
+    if (!profile?.id) { setError('Repair failed: missing profile ID.'); return false; }
+    if (!supabase) { setError('Repair failed: database client not available.'); return false; }
+    if (!session?.user?.id) { setError('Repair failed: no admin session — sign in again.'); return false; }
+
+    const orgName = getProfileName(profile, resources);
+    console.info('[repairOwnership] started', profile.id);
+
+    setBusy(true);
+    setError('');
+    try {
+      // 1. Set admin as owner on the profile row
+      const { error: profileErr } = await supabase
         .from('organisation_profiles')
         .update({ created_by: session.user.id, claim_status: 'claimed' })
         .eq('id', profile.id);
-      if (error) throw error;
-      await ensureProfileMemberAccess(supabase, profile.id, session.user.email);
-    }, `Ownership repaired: "${orgName}" assigned to admin account.`);
+      if (profileErr) throw new Error(`organisation_profiles update failed: ${profileErr.message}`);
+
+      // 2. Upsert active member row for admin email
+      const { error: memberErr } = await supabase
+        .from('organisation_profile_members')
+        .upsert(
+          {
+            organisation_profile_id: profile.id,
+            owner_email: `${session.user.email}`.toLowerCase(),
+            role_label: 'owner',
+            status: 'active',
+          },
+          { onConflict: 'organisation_profile_id,owner_email' },
+        );
+      if (memberErr) throw new Error(`organisation_profile_members upsert failed: ${memberErr.message}`);
+
+      // 3. Refresh so profile row reflects new ownership state
+      await loadData();
+
+      setToast(`Ownership repaired: "${orgName}" assigned to admin account.`);
+      console.info('[repairOwnership] success', profile.id);
+      return true;
+    } catch (err) {
+      setError(err?.message || 'Repair failed — unknown error.');
+      return false;
+    } finally {
+      setBusy(false);
+    }
   };
 
   const repairFromApprovedClaim = async (profile) => {
