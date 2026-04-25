@@ -9,6 +9,7 @@ import Nav from '../Nav.jsx';
 import Footer from '../Footer.jsx';
 import Icons from '../Icons.jsx';
 import ClaimModal from '../ClaimModal.jsx';
+import VenueProfile from './VenueProfile.jsx';
 
 const { IArrow, ISearch, IPin } = Icons;
 
@@ -79,7 +80,7 @@ const tagPill = (color) => ({
 
 // ── Venue card ─────────────────────────────────────────────────────────────
 
-const VenueCard = ({ venue, onClaim }) => {
+const VenueCard = ({ venue, onClaim, onViewProfile }) => {
   const accent = CAT_ACCENT[venue.category] || '#7B5CF5';
 
   const tags = [];
@@ -116,8 +117,13 @@ const VenueCard = ({ venue, onClaim }) => {
           )}
         </div>
 
-        {/* Name */}
-        <div style={{ fontSize: 15, fontWeight: 800, color: '#1A2744', lineHeight: 1.3 }}>
+        {/* Name — clickable to profile */}
+        <div
+          onClick={() => onViewProfile(venue.slug)}
+          style={{ fontSize: 15, fontWeight: 800, color: '#1A2744', lineHeight: 1.3, cursor: 'pointer' }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = accent; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = '#1A2744'; }}
+        >
           {venue.name}
         </div>
 
@@ -144,27 +150,30 @@ const VenueCard = ({ venue, onClaim }) => {
           </div>
         )}
 
-        {/* Website CTA — pushed to bottom */}
-        <div style={{ marginTop: 'auto', paddingTop: 10 }}>
-          {venue.website ? (
+        {/* CTAs — pushed to bottom */}
+        <div style={{ marginTop: 'auto', paddingTop: 10, display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center' }}>
+          <button
+            onClick={() => onViewProfile(venue.slug)}
+            style={{ fontSize: 12.5, fontWeight: 700, color: accent, background: `${accent}14`, padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer' }}
+          >
+            View profile →
+          </button>
+          {venue.website && (
             <a
               href={venue.website} target="_blank" rel="noopener noreferrer"
-              style={{ fontSize: 12.5, fontWeight: 700, color: accent, background: `${accent}14`, padding: '6px 12px', borderRadius: 8, textDecoration: 'none', display: 'inline-block' }}
+              onClick={(e) => e.stopPropagation()}
+              style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(26,39,68,0.50)', background: 'rgba(26,39,68,0.05)', padding: '6px 12px', borderRadius: 8, textDecoration: 'none', display: 'inline-block' }}
             >
-              Visit website →
+              Website ↗
             </a>
-          ) : (
-            <span style={{ fontSize: 12, color: 'rgba(26,39,68,0.30)', fontStyle: 'italic' }}>
-              No website listed
-            </span>
           )}
         </div>
 
         {/* Claim CTA */}
-        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #F0F4FA', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+        <div style={{ marginTop: 8, paddingTop: 9, borderTop: '1px solid #F0F4FA', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.40)' }}>Own or manage this place?</span>
           <button
-            onClick={() => onClaim(venue)}
+            onClick={(e) => { e.stopPropagation(); onClaim(venue); }}
             style={{ fontSize: 11.5, fontWeight: 700, color: '#1A2744', background: 'rgba(26,39,68,0.05)', border: '1px solid rgba(26,39,68,0.12)', padding: '4px 10px', borderRadius: 7, cursor: 'pointer', whiteSpace: 'nowrap' }}
           >
             Claim listing
@@ -190,7 +199,20 @@ const SkeletonCard = () => (
 
 // ── Page component ─────────────────────────────────────────────────────────
 
-const PlacesToVisitPage = ({ onNavigate, session, county }) => {
+const PlacesToVisitPage = ({ onNavigate, session, county, venueSlug }) => {
+  // Show venue profile if a slug is active
+  if (venueSlug) {
+    return (
+      <VenueProfile
+        slug={venueSlug}
+        county={county}
+        backPage="places-to-visit"
+        onNavigate={onNavigate}
+        session={session}
+      />
+    );
+  }
+
   const dbCounty    = COUNTY_DB[county]    || 'Cornwall';
   const countyLabel = COUNTY_LABELS[county] || 'Cornwall';
 
@@ -433,7 +455,12 @@ const PlacesToVisitPage = ({ onNavigate, session, county }) => {
           {!loading && !error && filtered.length > 0 && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
               {filtered.map((venue) => (
-                <VenueCard key={venue.id} venue={venue} onClaim={setClaimVenue} />
+                <VenueCard
+                  key={venue.id}
+                  venue={venue}
+                  onClaim={setClaimVenue}
+                  onViewProfile={(slug) => onNavigate('places-to-visit', county || 'cornwall', slug)}
+                />
               ))}
             </div>
           )}

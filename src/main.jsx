@@ -25,6 +25,7 @@ const ProfileDashboardPage = React.lazy(() => import('./components/pages/Profile
 const ResetPasswordPage = React.lazy(() => import('./components/pages/ResetPassword.jsx'));
 const PlacesToVisitPage    = React.lazy(() => import('./components/pages/PlacesToVisit.jsx'));
 const WellbeingSupportPage = React.lazy(() => import('./components/pages/WellbeingSupport.jsx'));
+const VenueProfilePage     = React.lazy(() => import('./components/pages/VenueProfile.jsx'));
 
 // Make icons global for JSX
 window.IDot = Icons.IDot;
@@ -338,9 +339,9 @@ const App = () => {
     // WalksPage does not filter by county so content is identical — but URL matters for clarity
     if (segs[0] === 'walks' && segs.length === 1) return { page: 'walks', county: null };
 
-    // County-prefixed routes: /cornwall/find-help or /cornwall
+    // County-prefixed routes: /cornwall/find-help, /cornwall, or /cornwall/places-to-visit/some-slug
     if (COUNTY_SLUGS.includes(segs[0])) {
-      return { page: segs[1] || 'home', county: segs[0] };
+      return { page: segs[1] || 'home', county: segs[0], slug: segs[2] || null };
     }
 
     // Legacy flat routes — silently redirect and return new page/county
@@ -360,6 +361,7 @@ const App = () => {
     const { county: urlCounty } = parseRoute(window.location.pathname);
     try { return urlCounty || localStorage.getItem('ic_county') || null; } catch { return urlCounty || null; }
   });
+  const [venueSlug, setVenueSlug] = React.useState(() => parseRoute(window.location.pathname).slug || null);
   const [authRouteGraceUntil, setAuthRouteGraceUntil] = React.useState(0);
   const [session, setSession] = React.useState(null);
   const [sessionLoading, setSessionLoading] = React.useState(true);
@@ -405,9 +407,10 @@ const App = () => {
 
   React.useEffect(() => {
     const onPop = () => {
-      const { page: pg, county: co } = parseRoute(window.location.pathname);
+      const { page: pg, county: co, slug: sl } = parseRoute(window.location.pathname);
       setPage(pg);
       if (co) setCounty(co);
+      setVenueSlug(sl || null);
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
@@ -432,7 +435,7 @@ const App = () => {
     }
   }, [page, sessionLoading, session, authRouteGraceUntil]);
 
-  const navigate = (key, explicitCounty) => {
+  const navigate = (key, explicitCounty, slug) => {
     // Normalise legacy page keys so internal links don't need updating.
     if (key === 'benefits') key = 'for-you';
 
@@ -461,6 +464,7 @@ const App = () => {
     // navigate('walks') or navigate('walks', 'cornwall') → /{county}/walks as normal
     if (key === 'walks' && explicitCounty === null) {
       setPage('walks');
+      setVenueSlug(null);
       window.history.pushState({ page: 'walks', county: null }, '', '/walks');
       window.scrollTo({ top: 0, behavior: 'instant' });
       return;
@@ -475,15 +479,16 @@ const App = () => {
       : PROFILE_URLS[key]
         ? PROFILE_URLS[key]
         : isCountyPage
-          ? `/${effectiveCounty}/${key}`
+          ? (slug ? `/${effectiveCounty}/${key}/${slug}` : `/${effectiveCounty}/${key}`)
           : `/${key}`;
 
     setPage(key);
+    setVenueSlug(slug || null);
     if (isCountyPage) {
       setCounty(effectiveCounty);
       try { localStorage.setItem('ic_county', effectiveCounty); } catch {}
     }
-    window.history.pushState({ page: key, county: isCountyPage ? effectiveCounty : null }, '', path);
+    window.history.pushState({ page: key, county: isCountyPage ? effectiveCounty : null, slug: slug || null }, '', path);
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
@@ -499,8 +504,8 @@ const App = () => {
     case 'benefits': content = <React.Suspense fallback={<RouteLoading />}><BenefitsPage onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;
     case 'walks': content = <React.Suspense fallback={<RouteLoading />}><WalksPage onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;
     case 'activities': content = <React.Suspense fallback={<RouteLoading />}><ActivitiesPage onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;
-    case 'places-to-visit': content = <React.Suspense fallback={<RouteLoading />}><PlacesToVisitPage    onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;
-    case 'wellbeing':       content = <React.Suspense fallback={<RouteLoading />}><WellbeingSupportPage onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;
+    case 'places-to-visit': content = <React.Suspense fallback={<RouteLoading />}><PlacesToVisitPage    onNavigate={navigate} session={session} county={county} venueSlug={venueSlug} /></React.Suspense>; break;
+    case 'wellbeing':       content = <React.Suspense fallback={<RouteLoading />}><WellbeingSupportPage onNavigate={navigate} session={session} county={county} venueSlug={venueSlug} /></React.Suspense>; break;
     case 'training': content = <Placeholder title="Training" activePage="training" onNavigate={navigate} session={session} note="Carer training, CPD, professional development and awareness sessions across Cornwall — coming in the next round." />; break;
     case 'admin': content = <React.Suspense fallback={<RouteLoading />}><AdminPage onNavigate={navigate} session={session} sessionLoading={sessionLoading} /></React.Suspense>; break;
     case 'profile': content = <React.Suspense fallback={<RouteLoading />}><ProfileDashboardPage section="dashboard" onNavigate={navigate} session={session} /></React.Suspense>; break;
