@@ -192,15 +192,41 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp 
             <NavItem key={item.key} label={item.label} accent={item.accent} active={activePage === item.key} onClick={() => handleNavigate(item.key)} />
           ))}
 
-          {/* Activities ▾ — dropdown with Walks as primary entry */}
-          <div ref={activitiesRef} style={{ position: 'relative' }}>
-            <NavItem
-              label="Activities"
-              accent="#5BC94A"
-              hasCaret
-              active={isActivitiesPage}
+          {/* Activities — split button: label navigates to hub, caret opens dropdown */}
+          <div ref={activitiesRef} style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+            <button
+              onClick={() => handleNavigate('activities')}
+              style={{
+                padding: '8px 8px 8px 14px', borderRadius: '999px 0 0 999px',
+                fontSize: 14, fontWeight: isActivitiesPage ? 700 : 600,
+                color: isActivitiesPage ? '#1A2744' : 'rgba(26,39,68,0.68)',
+                background: isActivitiesPage ? 'rgba(26,39,68,0.07)' : 'transparent',
+                border: 'none', cursor: 'pointer',
+                display: 'inline-flex', alignItems: 'center', gap: 7,
+                transition: 'background .15s, color .15s',
+              }}
+              onMouseEnter={e => { if (!isActivitiesPage) { e.currentTarget.style.background = 'rgba(26,39,68,0.04)'; e.currentTarget.style.color = '#1A2744'; }}}
+              onMouseLeave={e => { if (!isActivitiesPage) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(26,39,68,0.68)'; }}}
+            >
+              <span style={{ width: 7, height: 7, borderRadius: 2, background: '#5BC94A', display: 'inline-block', flexShrink: 0 }} />
+              Activities
+            </button>
+            <button
               onClick={() => setActivitiesOpen((o) => !o)}
-            />
+              style={{
+                padding: '8px 10px 8px 4px', borderRadius: '0 999px 999px 0',
+                fontSize: 14, fontWeight: 600,
+                color: isActivitiesPage ? '#1A2744' : 'rgba(26,39,68,0.68)',
+                background: isActivitiesPage ? 'rgba(26,39,68,0.07)' : 'transparent',
+                border: 'none', cursor: 'pointer',
+                display: 'inline-flex', alignItems: 'center',
+                transition: 'background .15s, color .15s',
+              }}
+              onMouseEnter={e => { if (!isActivitiesPage) { e.currentTarget.style.background = 'rgba(26,39,68,0.04)'; e.currentTarget.style.color = '#1A2744'; }}}
+              onMouseLeave={e => { if (!isActivitiesPage) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(26,39,68,0.68)'; }}}
+            >
+              <IChevron s={13} />
+            </button>
             {activitiesOpen && (
               <div style={{ ...dropCard, left: '50%', transform: 'translateX(-50%)', minWidth: 200 }}>
                 {activitiesItems.map((item) => (

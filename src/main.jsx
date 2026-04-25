@@ -17,6 +17,7 @@ import { supabase, isSupabaseConfigured } from './lib/supabaseClient.js';
 const FindHelpPage = React.lazy(() => import('./components/pages/FindHelp.jsx'));
 const BenefitsPage = React.lazy(() => import('./components/pages/Benefits.jsx'));
 const WalksPage = React.lazy(() => import('./components/pages/Walks.jsx'));
+const ActivitiesPage = React.lazy(() => import('./components/pages/Activities.jsx'));
 const EventsPage = React.lazy(() => import('./components/pages/Events.jsx'));
 const AdminPage = React.lazy(() => import('./components/pages/Admin.jsx'));
 const LoginPage = React.lazy(() => import('./components/pages/Login.jsx'));
@@ -478,7 +479,7 @@ const App = () => {
     case 'for-you':
     case 'benefits': content = <React.Suspense fallback={<RouteLoading />}><BenefitsPage onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;
     case 'walks': content = <React.Suspense fallback={<RouteLoading />}><WalksPage onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;
-    case 'activities': content = <Placeholder title="Activities" activePage="activities" onNavigate={navigate} session={session} note="Walks, outdoor activities, attractions and wellbeing places for carers across Cornwall — coming in the next round." />; break;
+    case 'activities': content = <React.Suspense fallback={<RouteLoading />}><ActivitiesPage onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;
     case 'training': content = <Placeholder title="Training" activePage="training" onNavigate={navigate} session={session} note="Carer training, CPD, professional development and awareness sessions across Cornwall — coming in the next round." />; break;
     case 'admin': content = <React.Suspense fallback={<RouteLoading />}><AdminPage onNavigate={navigate} session={session} sessionLoading={sessionLoading} /></React.Suspense>; break;
     case 'profile': content = <React.Suspense fallback={<RouteLoading />}><ProfileDashboardPage section="dashboard" onNavigate={navigate} session={session} /></React.Suspense>; break;
