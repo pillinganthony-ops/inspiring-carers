@@ -588,20 +588,41 @@ const SOCIAL_SELECT_COLS = 'id, organisation_name, facebook_url, instagram_url, 
 // Non-fatal — profile access via created_by still works if this fails.
 const ensureProfileMemberAccess = async (supabaseClient, profileId, ownerEmail) => {
   if (!profileId || !ownerEmail) return;
-  const { error } = await supabaseClient
+  const email = ownerEmail.toLowerCase();
+
+  // Fast path: upsert via UNIQUE constraint uq_org_profile_member_email
+  // (requires plain UNIQUE constraint — see SQL in onboarding notes).
+  const { error: upsertErr } = await supabaseClient
     .from('organisation_profile_members')
     .upsert(
-      {
-        organisation_profile_id: profileId,
-        owner_email: ownerEmail.toLowerCase(),
-        role_label: 'owner',
-        status: 'active',
-      },
+      { organisation_profile_id: profileId, owner_email: email, role_label: 'owner', status: 'active' },
       { onConflict: 'organisation_profile_id,owner_email' },
     );
-  if (error) {
-    console.warn('[Admin] ensureProfileMemberAccess failed (non-fatal):', error.message);
+  if (!upsertErr) return;
+
+  console.warn('[ensureProfileMemberAccess] upsert failed, trying fallback:', upsertErr.message);
+
+  // Fallback: check-then-update-or-insert (works even without the UNIQUE constraint)
+  const { data: existing } = await supabaseClient
+    .from('organisation_profile_members')
+    .select('id')
+    .eq('organisation_profile_id', profileId)
+    .eq('owner_email', email)
+    .maybeSingle();
+
+  if (existing?.id) {
+    const { error: updateErr } = await supabaseClient
+      .from('organisation_profile_members')
+      .update({ status: 'active', role_label: 'owner' })
+      .eq('id', existing.id);
+    if (updateErr) throw new Error(`Member row update failed: ${updateErr.message}`);
+    return;
   }
+
+  const { error: insertErr } = await supabaseClient
+    .from('organisation_profile_members')
+    .insert({ organisation_profile_id: profileId, owner_email: email, role_label: 'owner', status: 'active' });
+  if (insertErr) throw new Error(`Member row insert failed: ${insertErr.message}`);
 };
 
 // Build flat social columns payload from a draft (null-ifies empty strings).
@@ -1763,7 +1784,8 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   const applyApprovedClaimOwnership = async (claim) => {
     if (!claim || !supabase) return;
     const contactEmail = `${claim.email || ''}`.trim().toLowerCase();
-    if (!contactEmail) return;
+    if (!contactEmail) { console.warn('[applyApprovedClaimOwnership] no contact email — skipping'); return; }
+    console.info('[applyApprovedClaimOwnership] started — email:', contactEmail, 'listing_id:', claim.listing_id, 'source:', claim._source);
 
     const linkedResource = resources.find((resource) => `${resource.id}` === `${claim.listing_id}`) || null;
     const displayName = `${claim.org_name || claim.listing_title || linkedResource?.name || 'Claimed organisation'}`.trim();
@@ -1778,6 +1800,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       if (profileLookupError) throw profileLookupError;
 
       if (existingProfile?.id) {
+        console.info('[applyApprovedClaimOwnership] updating existing profile', existingProfile.id);
         const updateFields = {
           organisation_name: displayName,
           contact_email: contactEmail,
@@ -1786,9 +1809,11 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         };
         await updateOrgProfileCompat(supabase, existingProfile.id, updateFields);
         await ensureProfileMemberAccess(supabase, existingProfile.id, contactEmail);
+        console.info('[applyApprovedClaimOwnership] done — existing profile updated, member row ensured');
         return;
       }
 
+      console.info('[applyApprovedClaimOwnership] no existing profile — creating new one');
       const insertFields = {
         resource_id: claim.listing_id,
         organisation_name: displayName,
@@ -1799,6 +1824,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       };
       const { data: createdProfile } = await insertOrgProfileCompat(supabase, insertFields);
       await ensureProfileMemberAccess(supabase, createdProfile.id, contactEmail);
+      console.info('[applyApprovedClaimOwnership] done — new profile created', createdProfile?.id);
       return;
     }
 

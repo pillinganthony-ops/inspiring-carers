@@ -240,18 +240,51 @@ const ProfileDashboard = ({ onNavigate, session, section = 'dashboard' }) => {
     setAnalyticsNotice('');
 
     try {
-      const [profilesResult, claimsResult, fallbackClaimsResult] = await Promise.all([
-        // Ownership = created_by. No owner_email column on organisation_profiles.
+      const [profilesResult, membershipResult, claimsResult, fallbackClaimsResult] = await Promise.all([
+        // Primary path: profiles where this user's auth ID is the owner
         supabase.from('organisation_profiles').select('*').eq('created_by', session.user.id),
+        // Secondary path: profiles linked via claim approval (organisation_profile_members)
+        supabase.from('organisation_profile_members')
+          .select('organisation_profile_id')
+          .eq('owner_email', userEmail)
+          .eq('status', 'active'),
         supabase.from('listing_claims').select('*').eq('email', userEmail).order('created_at', { ascending: false }),
         // Also load fallback claims that landed in resource_update_submissions
         supabase.from('resource_update_submissions').select('id, organisation_name, status, created_at, update_type, resource_id')
           .eq('submitter_email', userEmail).eq('update_type', 'claim_request').order('created_at', { ascending: false }),
       ]);
 
+      // Load profiles found via member access that are not already in the created_by result
+      const memberProfileIds = (membershipResult.data || [])
+        .map((r) => r.organisation_profile_id).filter(Boolean);
+      let memberProfiles = [];
+      if (memberProfileIds.length) {
+        const { data: memberProfileData } = await supabase
+          .from('organisation_profiles').select('*').in('id', memberProfileIds);
+        memberProfiles = memberProfileData || [];
+      }
+
+      const ownedById = new Set((profilesResult.data || []).map((p) => p.id));
+      const allOwnedProfiles = [
+        ...(profilesResult.data || []),
+        ...memberProfiles.filter((p) => !ownedById.has(p.id)),
+      ];
       const uniqueProfiles = Array.from(
-        new Map((profilesResult.data || []).map((item) => [item.id, item])).values(),
+        new Map(allOwnedProfiles.map((item) => [item.id, item])).values(),
       );
+
+      // Self-link created_by for profiles found via member access but not yet linked.
+      // Enables RLS for any write that checks auth.uid() = created_by directly.
+      const needsLink = uniqueProfiles.filter((p) => !p.created_by && memberProfileIds.includes(p.id));
+      if (needsLink.length && session?.user?.id) {
+        await Promise.all(
+          needsLink.map((p) =>
+            supabase.from('organisation_profiles').update({ created_by: session.user.id }).eq('id', p.id),
+          ),
+        );
+        needsLink.forEach((p) => { p.created_by = session.user.id; });
+        console.info('[ProfileDashboard] self-linked created_by for', needsLink.length, 'profile(s)');
+      }
       const initialProfileId = uniqueProfiles[0]?.id || '';
 
       let eventRows = [];
