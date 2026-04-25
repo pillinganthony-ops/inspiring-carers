@@ -299,7 +299,7 @@ const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAIL_ALLOWLIST || 'pillinganth
 const isAdminEmail = (email) => Boolean(email && ADMIN_EMAILS.includes(`${email}`.trim().toLowerCase()));
 
 // County-aware routing constants
-const COUNTY_PAGES = new Set(['find-help', 'activities', 'training', 'events', 'for-you']);
+const COUNTY_PAGES = new Set(['find-help', 'activities', 'training', 'events', 'for-you', 'walks']);
 const COUNTY_SLUGS = ['cornwall', 'devon', 'dorset', 'somerset'];
 const COUNTY_DEFAULT = 'cornwall';
 
