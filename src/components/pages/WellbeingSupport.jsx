@@ -8,6 +8,7 @@ import supabase, { isSupabaseConfigured } from '../../lib/supabaseClient.js';
 import Nav from '../Nav.jsx';
 import Footer from '../Footer.jsx';
 import Icons from '../Icons.jsx';
+import ClaimModal from '../ClaimModal.jsx';
 
 const { ISearch, IPin } = Icons;
 
@@ -71,7 +72,7 @@ const tagPill = (color) => ({
 
 // ── Venue card ─────────────────────────────────────────────────────────────
 
-const WellbeingCard = ({ venue }) => {
+const WellbeingCard = ({ venue, onClaim }) => {
   const accent = WELLBEING_ACCENT;
 
   const tags = [];
@@ -158,6 +159,17 @@ const WellbeingCard = ({ venue }) => {
             </span>
           )}
         </div>
+
+        {/* Claim CTA */}
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #EEF6F6', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.40)' }}>Own or manage this place?</span>
+          <button
+            onClick={() => onClaim(venue)}
+            style={{ fontSize: 11.5, fontWeight: 700, color: '#1A2744', background: 'rgba(26,39,68,0.05)', border: '1px solid rgba(26,39,68,0.12)', padding: '4px 10px', borderRadius: 7, cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            Claim listing
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -182,9 +194,10 @@ const WellbeingSupportPage = ({ onNavigate, session, county }) => {
   const dbCounty    = COUNTY_DB[county]    || 'Cornwall';
   const countyLabel = COUNTY_LABELS[county] || 'Cornwall';
 
-  const [venues,  setVenues]  = React.useState([]);
-  const [loading, setLoading] = React.useState(true);
-  const [error,   setError]   = React.useState(null);
+  const [venues,     setVenues]     = React.useState([]);
+  const [loading,    setLoading]    = React.useState(true);
+  const [error,      setError]      = React.useState(null);
+  const [claimVenue, setClaimVenue] = React.useState(null); // venue being claimed (null = modal closed)
 
   // Filter state
   const [search,           setSearch]           = React.useState('');
@@ -423,13 +436,18 @@ const WellbeingSupportPage = ({ onNavigate, session, county }) => {
           {!loading && !error && filtered.length > 0 && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
               {filtered.map((venue) => (
-                <WellbeingCard key={venue.id} venue={venue} />
+                <WellbeingCard key={venue.id} venue={venue} onClaim={setClaimVenue} />
               ))}
             </div>
           )}
 
         </div>
       </section>
+
+      {/* Claim modal — rendered at page level so only one exists at a time */}
+      {claimVenue && (
+        <ClaimModal venue={claimVenue} onClose={() => setClaimVenue(null)} />
+      )}
 
       <Footer onNavigate={onNavigate} />
     </>
