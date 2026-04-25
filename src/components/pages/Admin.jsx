@@ -1592,7 +1592,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         searched.push(`listing_claims by resource_id (${profile.resource_id})`);
         const { data, error: qErr } = await supabase
           .from('listing_claims')
-          .select('id, email, submitted_by_user_id, listing_title')
+          .select('id, email, listing_title')
           .eq('listing_id', profile.resource_id)
           .eq('status', 'approved')
           .order('created_at', { ascending: false })
@@ -1609,7 +1609,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         searched.push(`listing_claims by slug (${profile.slug})`);
         const { data, error: qErr } = await supabase
           .from('listing_claims')
-          .select('id, email, submitted_by_user_id, listing_title')
+          .select('id, email, listing_title')
           .eq('listing_slug', profile.slug)
           .eq('status', 'approved')
           .order('created_at', { ascending: false })
@@ -1644,24 +1644,24 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         return false;
       }
 
-      // Apply repair
-      const updateFields = { claim_status: 'claimed' };
-      if (approvedClaim.submitted_by_user_id) {
-        updateFields.created_by = approvedClaim.submitted_by_user_id;
+      // Resolve owner email before writing anything — fail early if none available
+      const ownerEmail = approvedClaim.email || profile.contact_email;
+      if (!ownerEmail) {
+        setError('Approved claim found, but no owner email was available. Set the contact email on the profile first, then retry.');
+        return false;
       }
+
+      // Apply repair — mark as claimed (no user_id in live listing_claims schema; use Repair Ownership to link a user account)
       const { error: updateErr } = await supabase
         .from('organisation_profiles')
-        .update(updateFields)
+        .update({ claim_status: 'claimed' })
         .eq('id', profile.id);
       if (updateErr) throw new Error(`Profile update failed: ${updateErr.message}`);
 
-      const ownerEmail = approvedClaim.email || profile.contact_email;
-      if (ownerEmail) await ensureProfileMemberAccess(supabase, profile.id, ownerEmail);
+      await ensureProfileMemberAccess(supabase, profile.id, ownerEmail);
 
-      const didLinkUser = Boolean(approvedClaim.submitted_by_user_id);
       setToast(
-        `"${orgName}" repaired from approved claim (${approvedClaim._source}).` +
-        (didLinkUser ? ' User ID linked.' : ' No user ID in claim — use Repair Ownership to link a user account.')
+        `"${orgName}" repaired from approved claim (${approvedClaim._source}). Member access granted to ${ownerEmail}.`
       );
       await loadData();
       return true;
