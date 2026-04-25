@@ -1582,6 +1582,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
 
     setBusy(true);
     setError('');
+    console.info('[repairFromApprovedClaim] E8242DE_SCHEMA_SAFE_RUNNING');
     try {
       // Track what was searched so we can show a meaningful "not found" message
       const searched = [];
@@ -1728,10 +1729,6 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     const contactEmail = `${claim.email || ''}`.trim().toLowerCase();
     if (!contactEmail) return;
 
-    // submitted_by_user_id is populated when the claimant was authenticated.
-    // If present, use it as created_by so the owner can access via RLS.
-    const claimantUserId = claim.submitted_by_user_id || null;
-
     const linkedResource = resources.find((resource) => `${resource.id}` === `${claim.listing_id}`) || null;
     const displayName = `${claim.org_name || claim.listing_title || linkedResource?.name || 'Claimed organisation'}`.trim();
     const slugBase = slugify(claim.listing_slug || displayName) || `claimed-${Date.now()}`;
@@ -1749,9 +1746,8 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
           organisation_name: displayName,
           contact_email: contactEmail,
           is_active: true,
-          claim_status: 'claimed',    // always mark as claimed so badge works even without created_by
+          claim_status: 'claimed',
         };
-        if (claimantUserId) updateFields.created_by = claimantUserId;
         await updateOrgProfileCompat(supabase, existingProfile.id, updateFields);
         await ensureProfileMemberAccess(supabase, existingProfile.id, contactEmail);
         return;
@@ -1764,7 +1760,6 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         contact_email: contactEmail,
         is_active: true,
         claim_status: 'claimed',
-        created_by: claimantUserId,
       };
       const { data: createdProfile } = await insertOrgProfileCompat(supabase, insertFields);
       await ensureProfileMemberAccess(supabase, createdProfile.id, contactEmail);
@@ -1777,7 +1772,6 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       contact_email: contactEmail,
       is_active: true,
       claim_status: 'claimed',
-      created_by: claimantUserId,
     };
     const { data: createdProfileFallback } = await insertOrgProfileCompat(supabase, fallbackInsertFields);
     await ensureProfileMemberAccess(supabase, createdProfileFallback.id, contactEmail);
@@ -3030,7 +3024,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                 This looks up an approved claim for the linked directory listing and applies the ownership fields (<code>claim_status</code>, <code>created_by</code> if available).
               </div>
               <div style={{ padding: '10px 14px', borderRadius: 12, border: '1px solid rgba(45,156,219,0.2)', background: 'rgba(45,156,219,0.05)', fontSize: 13, color: '#1054A0', lineHeight: 1.55 }}>
-                Searches: listing_claims by resource ID, then by slug, then the resource_update_submissions fallback queue. If no approved claim is found, nothing changes.
+                Schema-safe repair version active. Searches listing_claims (id, email) then resource_update_submissions. No user ID linkage — use Repair Ownership for that.
               </div>
               {error && <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 12, background: 'rgba(244,97,58,0.06)', color: '#A03A2D', fontSize: 13.5, fontWeight: 600 }}>{error}</div>}
               {actionRow(<>
