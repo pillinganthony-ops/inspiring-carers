@@ -281,14 +281,28 @@ const WalkMapView = ({ walks: mapWalks, onSelectWalk }) => {
         options={{ mapTypeId: 'roadmap', mapTypeControl: false, streetViewControl: false, fullscreenControl: true }}
         onClick={() => setActiveWalk(null)}
       >
-        {pinWalks.map((walk) => (
-          <MarkerF
-            key={walk.id}
-            position={coords[walk.postcode]}
-            title={walk.name}
-            onClick={() => setActiveWalk(walk)}
-          />
-        ))}
+        {pinWalks.map((walk) => {
+          const pinDiff  = normalizeDifficultyLabel(walk.difficulty);
+          const pinColor = DIFF_ACCENT[pinDiff] || DIFF_ACCENT.Moderate;
+          const isActive = activeWalk?.id === walk.id;
+          return (
+            <MarkerF
+              key={walk.id}
+              position={coords[walk.postcode]}
+              title={walk.name}
+              onClick={() => setActiveWalk(walk)}
+              zIndex={isActive ? 999 : 1}
+              icon={{
+                path: window.google.maps.SymbolPath.CIRCLE,
+                fillColor: pinColor,
+                fillOpacity: 1,
+                strokeColor: '#ffffff',
+                strokeWeight: isActive ? 3.5 : 2.5,
+                scale: isActive ? 12 : 8,
+              }}
+            />
+          );
+        })}
         {activeWalk && coords[activeWalk.postcode] && (() => {
           const diff    = normalizeDifficultyLabel(activeWalk.difficulty);
           const accent  = DIFF_ACCENT[diff] || DIFF_ACCENT.Moderate;

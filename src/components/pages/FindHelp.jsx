@@ -2512,71 +2512,71 @@ const DirectoryMap = ({ listings, selectedId, onSelect, onOpenResource, isMobile
                 const popShowDirections = (!selected.serviceFootprintModel || selected.serviceFootprintModel === 'physical_venue' || selected.serviceFootprintModel === 'hq_only') && selected.lat !== null;
                 return (
                   <InfoWindowF position={{ lat: selected.lat, lng: selected.lng }} onCloseClick={() => onSelect('')} options={{ maxWidth: 360, disableAutoPan: false }}>
-                    <div style={{ fontFamily: 'Inter, sans-serif', width: 340, paddingRight: 20, paddingTop: 2 }}>
+                    <div style={{ fontFamily: 'Inter, sans-serif', width: 320, paddingRight: 20, paddingTop: 2 }}>
 
-                      {/* Accent stripe */}
-                      <div style={{ height: 3, background: `linear-gradient(90deg, ${popAccent} 0%, ${popAccent}66 100%)`, borderRadius: 2, marginBottom: 12, marginRight: -20 }} />
+                      {/* Accent stripe — full bleed to the close button edge */}
+                      <div style={{ height: 3, background: `linear-gradient(90deg, ${popAccent} 0%, ${popAccent}66 100%)`, borderRadius: 2, marginBottom: 11, marginRight: -20 }} />
 
-                      {/* Category pill + optional Featured chip */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
-                        <span style={{ padding: '3px 10px', borderRadius: 999, background: `${popAccent}18`, color: popAccent, fontSize: 11, fontWeight: 800 }}>{selected.categoryLabel}</span>
-                        {popFeatured && <span style={{ padding: '3px 9px', borderRadius: 999, background: 'rgba(245,166,35,0.14)', color: '#7a4d08', fontSize: 11, fontWeight: 800 }}>★ Featured</span>}
-                        {popClaimed && !popFeatured && <span style={{ padding: '3px 9px', borderRadius: 999, background: 'rgba(123,92,245,0.1)', color: '#5B35C5', fontSize: 11, fontWeight: 700 }}>✓ Claimed</span>}
-                      </div>
-
-                      {/* Avatar + title */}
-                      <div style={{ display: 'flex', gap: 13, alignItems: 'flex-start', marginBottom: 10 }}>
-                        <div style={{ flexShrink: 0 }}>
+                      {/* Badge row: small avatar inline + solid-colour category pill + trust chip */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10, flexWrap: 'wrap' }}>
+                        <div style={{ flexShrink: 0, lineHeight: 0 }}>
                           {Boolean(selected.profile)
-                            ? <OrgAvatar listing={selected} size={54} />
-                            : <IconTile tone={selected.tone} size={52} radius={14}>{selected.icon}</IconTile>}
+                            ? <OrgAvatar listing={selected} size={30} />
+                            : <IconTile tone={selected.tone} size={28} radius={7}>{selected.icon}</IconTile>}
                         </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontFamily: 'Sora, sans-serif', fontWeight: 800, fontSize: 16, color: '#1A2744', lineHeight: 1.22, marginBottom: 6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                            {selected.title}
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'rgba(26,39,68,0.58)', flexWrap: 'nowrap', overflow: 'hidden' }}>
-                            <IPin s={11} />
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selected.locationLabel}</span>
-                            {selected.footprintBadge && (
-                              <span style={{ flexShrink: 0, padding: '1px 6px', borderRadius: 999, background: selected.footprintBadge.bg, color: selected.footprintBadge.color, fontSize: 9.5, fontWeight: 700 }}>{selected.footprintBadge.label}</span>
-                            )}
-                          </div>
-                          {popDomain && (
-                            <div style={{ marginTop: 4, fontSize: 11.5, color: '#2D9CDB', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {popDomain}
-                            </div>
-                          )}
-                        </div>
+                        <span style={{ padding: '3px 10px', borderRadius: 999, background: popAccent, color: '#fff', fontSize: 10.5, fontWeight: 800, flexShrink: 0 }}>{selected.categoryLabel}</span>
+                        {popFeatured && <span style={{ padding: '3px 8px', borderRadius: 999, background: 'rgba(245,166,35,0.15)', color: '#7a4d08', fontSize: 10.5, fontWeight: 800 }}>★ Featured</span>}
+                        {popClaimed && !popFeatured && <span style={{ padding: '3px 8px', borderRadius: 999, background: 'rgba(123,92,245,0.1)', color: '#5B35C5', fontSize: 10.5, fontWeight: 700 }}>✓ Claimed</span>}
                       </div>
 
-                      {/* Description */}
+                      {/* Title — full width, 2-line clamp */}
+                      <div style={{ fontFamily: 'Sora, sans-serif', fontWeight: 800, fontSize: 15, color: '#1A2744', lineHeight: 1.22, marginBottom: 7, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        {selected.title}
+                      </div>
+
+                      {/* Location */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'rgba(26,39,68,0.56)', marginBottom: popDomain ? 3 : 10 }}>
+                        <IPin s={11} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selected.locationLabel}</span>
+                        {selected.footprintBadge && (
+                          <span style={{ flexShrink: 0, padding: '1px 6px', borderRadius: 999, background: selected.footprintBadge.bg, color: selected.footprintBadge.color, fontSize: 9.5, fontWeight: 700 }}>{selected.footprintBadge.label}</span>
+                        )}
+                      </div>
+
+                      {/* Domain */}
+                      {popDomain && (
+                        <div style={{ fontSize: 11.5, color: '#2D9CDB', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 10 }}>
+                          {popDomain}
+                        </div>
+                      )}
+
+                      {/* Description — 2-line clamp, only when meaningful */}
                       {popDesc && (
-                        <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.65)', lineHeight: 1.6, marginBottom: 14, paddingTop: 10, borderTop: '1px solid #EEF2FA', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.65)', lineHeight: 1.6, paddingTop: 9, borderTop: '1px solid #EEF2FA', marginBottom: 14, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                           {popDesc}
                         </div>
                       )}
 
-                      {/* Primary CTA */}
+                      {/* Primary CTA — dark navy, full width, hover */}
                       <button
                         onClick={() => onOpenResource(selected)}
-                        style={{ width: '100%', padding: '10px 14px', borderRadius: 11, background: 'linear-gradient(135deg, #1A2744 0%, #2D3E6B 100%)', color: '#fff', fontWeight: 800, fontSize: 13.5, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, boxShadow: '0 4px 16px rgba(26,39,68,0.22)', marginBottom: popShowDirections ? 8 : 0 }}
-                        onMouseEnter={e => { e.currentTarget.style.background = 'linear-gradient(135deg, #263659 0%, #1A2744 100%)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'linear-gradient(135deg, #1A2744 0%, #2D3E6B 100%)'; }}
+                        style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'linear-gradient(135deg,#1A2744,#2D3E6B)', color: '#fff', fontWeight: 800, fontSize: 13, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, boxShadow: '0 4px 16px rgba(26,39,68,0.22)', marginBottom: popShowDirections ? 7 : 0 }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'linear-gradient(135deg,#263659,#1A2744)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'linear-gradient(135deg,#1A2744,#2D3E6B)'; }}
                       >
-                        View full profile <IArrow s={14} />
+                        View full profile <IArrow s={13} />
                       </button>
 
-                      {/* Directions secondary */}
+                      {/* Directions secondary — labelled text, not icon-only */}
                       {popShowDirections && (
                         <a
                           href={getMapsDirectionsUrl(selected)}
                           target="_blank"
                           rel="noreferrer"
                           onClick={e => e.stopPropagation()}
-                          style={{ width: '100%', padding: '8px 14px', borderRadius: 11, border: '1.5px solid #E0E8F5', background: '#FAFBFF', color: 'rgba(26,39,68,0.65)', fontWeight: 700, fontSize: 12.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, textDecoration: 'none', boxSizing: 'border-box' }}
+                          style={{ width: '100%', padding: '8px 14px', borderRadius: 10, border: '1.5px solid #E0E8F5', background: '#FAFBFF', color: 'rgba(26,39,68,0.62)', fontWeight: 700, fontSize: 12.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, textDecoration: 'none', boxSizing: 'border-box' }}
                         >
-                          <IDirections s={14} /> Get directions
+                          <IDirections s={13} /> Get directions
                         </a>
                       )}
 
