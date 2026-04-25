@@ -2582,8 +2582,123 @@ const StateCard = ({ title, subtitle = 'Try another category or area filter, or 
   </div>
 );
 
+/* ─── County Entrance ─────────────────────────────────────── */
+const COUNTIES = [
+  { slug: 'cornwall', label: 'Cornwall', active: true, description: 'Explore trusted local support across Cornwall.' },
+  { slug: 'devon',    label: 'Devon',    active: false },
+  { slug: 'dorset',   label: 'Dorset',   active: false },
+  { slug: 'somerset', label: 'Somerset', active: false },
+];
+
+const CountyEntrance = ({ onSelectCounty, onNavigate, session }) => {
+  const isMobile = useIsMobile();
+  return (
+    <>
+      <Nav activePage="find-help" onNavigate={onNavigate} session={session} />
+
+      {/* Hero */}
+      <section style={{ paddingTop: 56, paddingBottom: 52, background: 'linear-gradient(180deg, #E7F3FB 0%, #FAFBFF 100%)' }}>
+        <div className="container" style={{ maxWidth: 780 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'rgba(26,39,68,0.5)', fontSize: 13, marginBottom: 20 }}>
+            <button onClick={() => onNavigate('home')} style={{ color: 'inherit', background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit' }}>Home</button>
+            <IChevron s={12} />
+            <span style={{ color: '#1A2744', fontWeight: 600 }}>Find help near you</span>
+          </div>
+          <div className="eyebrow" style={{ color: '#2D9CDB', marginBottom: 10 }}>Local support directory</div>
+          <h1 style={{ fontSize: 'clamp(32px, 4vw, 52px)', letterSpacing: '-0.03em', fontWeight: 700, textWrap: 'balance', marginBottom: 14 }}>
+            Find trusted local support<br />near you.
+          </h1>
+          <p style={{ fontSize: 17, color: 'rgba(26,39,68,0.7)', maxWidth: 560 }}>
+            Select your county to browse verified organisations, groups, and services for carers and the people they support.
+          </p>
+        </div>
+      </section>
+
+      {/* County grid */}
+      <section style={{ paddingTop: 48, paddingBottom: 80 }}>
+        <div className="container" style={{ maxWidth: 860 }}>
+          <div style={{ marginBottom: 32 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>Choose your county</h2>
+            <p style={{ fontSize: 14, color: 'rgba(26,39,68,0.55)' }}>More counties launching soon — Cornwall is live now.</p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 18 }}>
+            {COUNTIES.map(county => {
+              const active = county.active;
+              return (
+                <button
+                  key={county.slug}
+                  onClick={() => active && onSelectCounty(county.slug)}
+                  disabled={!active}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 20,
+                    padding: '24px 28px',
+                    borderRadius: 20,
+                    border: active ? '2px solid rgba(45,156,219,0.25)' : '2px solid #E9EEF5',
+                    background: active
+                      ? 'linear-gradient(135deg, #FFFFFF 0%, rgba(231,243,251,0.6) 100%)'
+                      : 'rgba(244,246,251,0.7)',
+                    cursor: active ? 'pointer' : 'default',
+                    textAlign: 'left',
+                    transition: 'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease',
+                    boxShadow: active ? '0 2px 16px rgba(26,39,68,0.07)' : 'none',
+                    opacity: active ? 1 : 0.65,
+                  }}
+                  onMouseEnter={e => { if (active) { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(26,39,68,0.12)'; e.currentTarget.style.borderColor = 'rgba(45,156,219,0.5)'; }}}
+                  onMouseLeave={e => { if (active) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 16px rgba(26,39,68,0.07)'; e.currentTarget.style.borderColor = 'rgba(45,156,219,0.25)'; }}}
+                >
+                  {/* Icon tile */}
+                  <div style={{
+                    width: 52, height: 52, borderRadius: 16, flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: active ? 'linear-gradient(135deg, #2D9CDB 0%, #1A7FC0 100%)' : '#CBD5E1',
+                    color: '#fff',
+                    boxShadow: active ? '0 4px 14px rgba(45,156,219,0.35)' : 'none',
+                  }}>
+                    <IPin s={22} />
+                  </div>
+
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontFamily: 'Sora, sans-serif', fontWeight: 700, fontSize: 18, color: active ? '#1A2744' : 'rgba(26,39,68,0.45)' }}>
+                        {county.label}
+                      </span>
+                      {active ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(91,201,74,0.12)', color: '#1E6B10', borderRadius: 20, padding: '2px 10px', fontSize: 11, fontWeight: 700, letterSpacing: '0.04em' }}>
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#5BC94A', display: 'inline-block' }} />
+                          LIVE
+                        </span>
+                      ) : (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', background: 'rgba(26,39,68,0.08)', color: 'rgba(26,39,68,0.45)', borderRadius: 20, padding: '2px 10px', fontSize: 11, fontWeight: 700, letterSpacing: '0.04em' }}>
+                          COMING SOON
+                        </span>
+                      )}
+                    </div>
+                    {active && county.description && (
+                      <p style={{ margin: 0, fontSize: 13, color: 'rgba(26,39,68,0.6)', lineHeight: 1.5 }}>{county.description}</p>
+                    )}
+                  </div>
+
+                  {active && (
+                    <div style={{ color: '#2D9CDB', flexShrink: 0 }}>
+                      <IArrow s={20} />
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <Footer onNavigate={onNavigate} />
+    </>
+  );
+};
+
 const FindHelpV2 = ({ onNavigate, session }) => {
   const isMobile = useIsMobile();
+  const [selectedCounty, setSelectedCounty] = React.useState(null);
   const [view, setView] = React.useState('list');
   const [activeCat, setActiveCat] = React.useState('all');
   const [savedIds, setSavedIds] = React.useState(new Set());
@@ -2932,6 +3047,10 @@ const FindHelpV2 = ({ onNavigate, session }) => {
     }
   };
 
+  if (selectedCounty === null) {
+    return <CountyEntrance onSelectCounty={setSelectedCounty} onNavigate={onNavigate} session={session} />;
+  }
+
   return (
     <>
       <Nav activePage="find-help" onNavigate={onNavigate} session={session} />
@@ -2939,9 +3058,11 @@ const FindHelpV2 = ({ onNavigate, session }) => {
       <section style={{ paddingTop: 40, paddingBottom: 36, background: 'linear-gradient(180deg, #E7F3FB 0%, #FAFBFF 100%)' }}>
         <div className="container">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'rgba(26,39,68,0.5)', fontSize: 13, marginBottom: 16 }}>
-            <button onClick={() => onNavigate('home')} style={{ color: 'inherit' }}>Home</button>
+            <button onClick={() => onNavigate('home')} style={{ color: 'inherit', background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit' }}>Home</button>
             <IChevron s={12} />
-            <span style={{ color: '#1A2744', fontWeight: 600 }}>{detailSlug ? (selectedResource?.title || 'Resource detail') : 'Find help near you'}</span>
+            <button onClick={() => setSelectedCounty(null)} style={{ color: 'inherit', background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit' }}>Find help near you</button>
+            <IChevron s={12} />
+            <span style={{ color: '#1A2744', fontWeight: 600 }}>{detailSlug ? (selectedResource?.title || 'Resource detail') : 'Cornwall'}</span>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: isMobile ? 20 : 40, alignItems: 'end' }}>
