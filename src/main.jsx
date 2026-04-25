@@ -52,9 +52,9 @@ window.BloomMark = Icons.BloomMark;
 window.IconTile = Icons.IconTile;
 
 // Placeholder component
-const Placeholder = ({ title, onNavigate, note }) => (
+const Placeholder = ({ title, onNavigate, note, activePage, session }) => (
   <>
-    <Nav onNavigate={onNavigate} />
+    <Nav activePage={activePage} onNavigate={onNavigate} session={session} />
     <section style={{ minHeight: '60vh' }}>
       <div className="container" style={{ textAlign: 'center', paddingTop: 80 }}>
         <div className="eyebrow">Coming next</div>
@@ -292,27 +292,44 @@ const RouteLoading = () => (
   </section>
 );
 
+// County-aware routing constants
+const COUNTY_PAGES = new Set(['find-help', 'activities', 'training', 'events', 'for-you']);
+const COUNTY_SLUGS = ['cornwall', 'devon', 'dorset', 'somerset'];
+const COUNTY_DEFAULT = 'cornwall';
+
 // App component
 const App = () => {
   const parseRoute = (path) => {
-    const normalized = path.replace(/\/\/+$/, '').toLowerCase();
-    if (normalized === '/login') return 'login';
-    if (normalized.startsWith('/find-help/')) return 'find-help';
-    if (normalized === '/find-help') return 'find-help';
-    if (normalized === '/events') return 'events';
-    if (normalized === '/benefits') return 'benefits';
-    if (normalized === '/walks') return 'walks';
-    if (normalized === '/admin') return 'admin';
-    if (normalized === '/profile') return 'profile';
-    if (normalized === '/recognition') return 'recognition';
-    if (normalized === '/business') return 'business';
-    if (normalized === '/about') return 'about';
-    if (normalized === '/card') return 'card';
-    return 'home';
+    const clean = (path || '/').replace(/\/+$/, '').toLowerCase();
+    const segs = clean.replace(/^\//, '').split('/').filter(Boolean);
+
+    if (!segs.length) return { page: 'home', county: null };
+
+    // Global pages — no county prefix
+    const GLOBAL = ['login', 'admin', 'profile', 'recognition', 'business', 'about', 'card'];
+    if (GLOBAL.includes(segs[0])) return { page: segs[0], county: null };
+
+    // County-prefixed routes: /cornwall/find-help or /cornwall
+    if (COUNTY_SLUGS.includes(segs[0])) {
+      return { page: segs[1] || 'home', county: segs[0] };
+    }
+
+    // Legacy flat routes — silently redirect and return new page/county
+    const LEGACY = { 'find-help': 'find-help', 'events': 'events', 'benefits': 'for-you', 'walks': 'walks' };
+    if (LEGACY[segs[0]]) {
+      const pg = LEGACY[segs[0]];
+      const newPath = COUNTY_PAGES.has(pg) ? `/${COUNTY_DEFAULT}/${pg}` : `/${pg}`;
+      window.history.replaceState({}, '', newPath);
+      return { page: pg, county: COUNTY_DEFAULT };
+    }
+
+    return { page: 'home', county: null };
   };
 
-  const [page, setPage] = React.useState(() => {
-    return parseRoute(window.location.pathname);
+  const [page, setPage] = React.useState(() => parseRoute(window.location.pathname).page);
+  const [county, setCounty] = React.useState(() => {
+    const { county: urlCounty } = parseRoute(window.location.pathname);
+    try { return urlCounty || localStorage.getItem('ic_county') || null; } catch { return urlCounty || null; }
   });
   const [authRouteGraceUntil, setAuthRouteGraceUntil] = React.useState(0);
   const [session, setSession] = React.useState(null);
@@ -353,7 +370,11 @@ const App = () => {
   }, []);
 
   React.useEffect(() => {
-    const onPop = () => setPage(parseRoute(window.location.pathname));
+    const onPop = () => {
+      const { page: pg, county: co } = parseRoute(window.location.pathname);
+      setPage(pg);
+      if (co) setCounty(co);
+    };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
@@ -367,12 +388,13 @@ const App = () => {
     }
   }, [page, sessionLoading, session, authRouteGraceUntil]);
 
-  const navigate = (key) => {
-    // Only redirect away from admin if auth has fully resolved (sessionLoading done)
-    // and there really is no session. Avoids false redirect during localStorage restore.
+  const navigate = (key, explicitCounty) => {
+    // Normalise legacy page keys so internal links don't need updating.
+    if (key === 'benefits') key = 'for-you';
+
+    // Admin guard — unchanged logic.
     if (key === 'admin' && !sessionLoading && !session) {
       if (page === 'login') {
-        // Allow a longer auth hydration window right after successful sign-in.
         setAuthRouteGraceUntil(Date.now() + 15000);
       } else {
         setPage('login');
@@ -382,9 +404,21 @@ const App = () => {
       }
     }
 
+    const isCountyPage = COUNTY_PAGES.has(key);
+    const effectiveCounty = explicitCounty || county || COUNTY_DEFAULT;
+
+    const path = key === 'home'
+      ? '/'
+      : isCountyPage
+        ? `/${effectiveCounty}/${key}`
+        : `/${key}`;
+
     setPage(key);
-    const path = key === 'home' ? '/' : `/${key}`;
-    window.history.pushState({ page: key }, '', path);
+    if (isCountyPage) {
+      setCounty(effectiveCounty);
+      try { localStorage.setItem('ic_county', effectiveCounty); } catch {}
+    }
+    window.history.pushState({ page: key, county: isCountyPage ? effectiveCounty : null }, '', path);
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
@@ -393,16 +427,19 @@ const App = () => {
   let content;
   switch (displayPage) {
     case 'login': content = <React.Suspense fallback={<RouteLoading />}><LoginPage onNavigate={navigate} session={session} /></React.Suspense>; break;
-    case 'find-help': content = <React.Suspense fallback={<RouteLoading />}><FindHelpPage onNavigate={navigate} session={session} /></React.Suspense>; break;
-    case 'events': content = <React.Suspense fallback={<RouteLoading />}><EventsPage onNavigate={navigate} session={session} /></React.Suspense>; break;
-    case 'benefits': content = <React.Suspense fallback={<RouteLoading />}><BenefitsPage onNavigate={navigate} session={session} /></React.Suspense>; break;
-    case 'walks': content = <React.Suspense fallback={<RouteLoading />}><WalksPage onNavigate={navigate} session={session} /></React.Suspense>; break;
+    case 'find-help': content = <React.Suspense fallback={<RouteLoading />}><FindHelpPage onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;
+    case 'events': content = <React.Suspense fallback={<RouteLoading />}><EventsPage onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;
+    case 'for-you':
+    case 'benefits': content = <React.Suspense fallback={<RouteLoading />}><BenefitsPage onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;
+    case 'walks': content = <React.Suspense fallback={<RouteLoading />}><WalksPage onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;
+    case 'activities': content = <Placeholder title="Activities" activePage="activities" onNavigate={navigate} session={session} note="Walks, outdoor activities, attractions and wellbeing places for carers across Cornwall — coming in the next round." />; break;
+    case 'training': content = <Placeholder title="Training" activePage="training" onNavigate={navigate} session={session} note="Carer training, CPD, professional development and awareness sessions across Cornwall — coming in the next round." />; break;
     case 'admin': content = <React.Suspense fallback={<RouteLoading />}><AdminPage onNavigate={navigate} session={session} sessionLoading={sessionLoading} /></React.Suspense>; break;
     case 'profile': content = <React.Suspense fallback={<RouteLoading />}><ProfileDashboardPage onNavigate={navigate} session={session} /></React.Suspense>; break;
-    case 'recognition': content = <Placeholder title="Recognition & awards" onNavigate={navigate} note="Carer of the Month, stories, nominations and community recognition — coming in the next round. Preview lives in the homepage Recognition section." />; break;
-    case 'business': content = <Placeholder title="For businesses" onNavigate={navigate} note="Submit offers, see the why-carers-matter statement, badge tiers and featured partner placements — next round." />; break;
-    case 'about': content = <Placeholder title="About inspiring carers" onNavigate={navigate} note="Mission, the two-tier model, and the local-first national vision — next round." />; break;
-    case 'card': content = <Placeholder title="Get your free card" onNavigate={navigate} note="Three-minute sign-up flow with PDF + physical card in the post — next round." />; break;
+    case 'recognition': content = <Placeholder title="Recognition & awards" activePage="recognition" onNavigate={navigate} session={session} note="Carer of the Month, stories, nominations and community recognition — coming in the next round. Preview lives in the homepage Recognition section." />; break;
+    case 'business': content = <Placeholder title="For businesses" activePage="business" onNavigate={navigate} session={session} note="Submit offers, see the why-carers-matter statement, badge tiers and featured partner placements — next round." />; break;
+    case 'about': content = <Placeholder title="About inspiring carers" activePage="about" onNavigate={navigate} session={session} note="Mission, the two-tier model, and the local-first national vision — next round." />; break;
+    case 'card': content = <Placeholder title="Get your free card" activePage="card" onNavigate={navigate} session={session} note="Three-minute sign-up flow with PDF + physical card in the post — next round." />; break;
     default: content = <HomePage onNavigate={navigate} tweaks={tweaks} />;
   }
 

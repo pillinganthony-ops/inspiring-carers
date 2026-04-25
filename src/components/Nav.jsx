@@ -95,10 +95,11 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp 
   }, []);
 
   const primaryNavItems = [
-    { key: 'benefits', label: 'For you', accent: '#F5A623' },
-    { key: 'find-help', label: 'Find help', accent: '#2D9CDB' },
-    { key: 'walks', label: 'Walks', accent: '#5BC94A' },
-    { key: 'events', label: 'Events', accent: '#2D9CDB' },
+    { key: 'find-help',  label: 'Find help',  accent: '#2D9CDB' },
+    { key: 'activities', label: 'Activities',  accent: '#5BC94A' },
+    { key: 'training',   label: 'Training',    accent: '#7B5CF5' },
+    { key: 'events',     label: 'Events',      accent: '#2D9CDB' },
+    { key: 'for-you',    label: 'For you',     accent: '#F5A623' },
   ];
 
   const secondaryNavItems = [
@@ -158,21 +159,24 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp 
         </nav>
 
         <div className="nav-actions" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div ref={accountRef} style={{ position: 'relative' }}>
-            <button className="btn btn-ghost btn-sm" onClick={() => setAccountOpen((open) => !open)} style={{ gap: 6 }}>
-              Profile <IChevron s={14} dir="down" />
+          {session ? (
+            <div ref={accountRef} style={{ position: 'relative' }}>
+              <button className="btn btn-ghost btn-sm" onClick={() => setAccountOpen((open) => !open)} style={{ gap: 6 }}>
+                Profile <IChevron s={14} dir="down" />
+              </button>
+              {accountOpen ? (
+                <div className="card" style={{ position: 'absolute', top: 'calc(100% + 10px)', right: 0, minWidth: 200, borderRadius: 16, padding: 8, display: 'grid', gap: 4, zIndex: 120 }}>
+                  <button onClick={() => handleNavigate('profile')} style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 12, fontSize: 14, fontWeight: 700, background: activePage === 'profile' ? 'rgba(26,39,68,0.06)' : 'transparent', color: '#1A2744' }}>Profile</button>
+                  {isAdmin && <button onClick={() => handleNavigate('admin')} style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 12, fontSize: 14, fontWeight: 700, background: activePage === 'admin' ? 'rgba(26,39,68,0.06)' : 'transparent', color: '#1A2744' }}>Admin dashboard</button>}
+                  <button onClick={handleLogout} style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 12, fontSize: 14, fontWeight: 700, background: 'transparent', color: '#A03A2D' }}>Logout</button>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <button className="btn btn-ghost btn-sm" onClick={() => handleNavigate('login')} style={{ whiteSpace: 'nowrap' }}>
+              Join / Sign In
             </button>
-            {accountOpen ? (
-              <div className="card" style={{ position: 'absolute', top: 'calc(100% + 10px)', right: 0, minWidth: 200, borderRadius: 16, padding: 8, display: 'grid', gap: 4, zIndex: 120 }}>
-                <button onClick={() => handleNavigate('profile')} style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 12, fontSize: 14, fontWeight: 700, background: activePage === 'profile' ? 'rgba(26,39,68,0.06)' : 'transparent', color: '#1A2744' }}>Profile</button>
-                {isAdmin
-                  ? <button onClick={() => handleNavigate('admin')} style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 12, fontSize: 14, fontWeight: 700, background: activePage === 'admin' ? 'rgba(26,39,68,0.06)' : 'transparent', color: '#1A2744' }}>Admin dashboard</button>
-                  : <button onClick={() => handleNavigate('login')} style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 12, fontSize: 14, fontWeight: 700, background: activePage === 'login' ? 'rgba(26,39,68,0.06)' : 'transparent', color: '#1A2744' }}>Admin login</button>
-                }
-                {session ? <button onClick={handleLogout} style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 12, fontSize: 14, fontWeight: 700, background: 'transparent', color: '#A03A2D' }}>Logout</button> : null}
-              </div>
-            ) : null}
-          </div>
+          )}
           <button className="btn btn-gold btn-sm" onClick={() => handleNavigate('card')}>
             Get your free card
             <IArrow s={16} />
@@ -196,12 +200,12 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp 
               <button key={item.key} onClick={() => handleNavigate(item.key)} style={{ textAlign: 'left', padding: '12px 14px', borderRadius: 14, background: activePage === item.key ? 'rgba(26,39,68,0.06)' : '#FAFBFF', color: '#1A2744', fontWeight: 700 }}>{item.label}</button>
             ))}
 
-            <div style={{ display: 'grid', gridTemplateColumns: session ? '1fr 1fr 1fr 1fr' : '1fr 1fr 1fr', gap: 8, marginTop: 8 }}>
-              <button className="btn btn-ghost btn-sm" onClick={() => handleNavigate('profile')}>Profile</button>
-              {isAdmin
-                ? <button className="btn btn-ghost btn-sm" onClick={() => handleNavigate('admin')}>Admin</button>
-                : <button className="btn btn-ghost btn-sm" onClick={() => handleNavigate('login')}>Admin login</button>
+            <div style={{ display: 'grid', gridTemplateColumns: !session ? '1fr 1fr' : isAdmin ? '1fr 1fr 1fr 1fr' : '1fr 1fr 1fr', gap: 8, marginTop: 8 }}>
+              {session
+                ? <button className="btn btn-ghost btn-sm" onClick={() => handleNavigate('profile')}>Profile</button>
+                : <button className="btn btn-ghost btn-sm" onClick={() => handleNavigate('login')}>Join / Sign In</button>
               }
+              {isAdmin && <button className="btn btn-ghost btn-sm" onClick={() => handleNavigate('admin')}>Admin</button>}
               <button className="btn btn-gold btn-sm" onClick={() => handleNavigate('card')}>Get card</button>
               {session ? <button className="btn btn-ghost btn-sm" onClick={handleLogout}>Logout</button> : null}
             </div>
