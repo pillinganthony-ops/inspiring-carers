@@ -1587,6 +1587,86 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     }, `Ownership repaired: "${orgName}" assigned to admin account.`);
   };
 
+  const repairFromApprovedClaim = async (profile) => {
+    if (!profile?.id || !supabase) return;
+    const orgName = getProfileName(profile, resources);
+
+    setBusy(true);
+    try {
+      let approvedClaim = null;
+
+      // 1. listing_claims by resource_id (most reliable match)
+      if (profile.resource_id) {
+        const { data } = await supabase
+          .from('listing_claims')
+          .select('id, email, submitted_by_user_id, listing_title')
+          .eq('listing_id', profile.resource_id)
+          .eq('status', 'approved')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (data) approvedClaim = { ...data, _source: 'listing_claims' };
+      }
+
+      // 2. listing_claims by slug (fallback if resource_id not indexed)
+      if (!approvedClaim && profile.slug) {
+        const { data } = await supabase
+          .from('listing_claims')
+          .select('id, email, submitted_by_user_id, listing_title')
+          .eq('listing_slug', profile.slug)
+          .eq('status', 'approved')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (data) approvedClaim = { ...data, _source: 'listing_claims' };
+      }
+
+      // 3. resource_update_submissions fallback queue
+      if (!approvedClaim && profile.resource_id) {
+        const { data } = await supabase
+          .from('resource_update_submissions')
+          .select('id, submitter_email, resource_id')
+          .eq('resource_id', profile.resource_id)
+          .eq('update_type', 'claim_request')
+          .eq('status', 'approved')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (data) approvedClaim = { ...data, email: data.submitter_email, _source: 'resource_update_submissions' };
+      }
+
+      if (!approvedClaim) {
+        setToast('No approved claim found for this profile.');
+        return;
+      }
+
+      // Apply repair
+      const updateFields = { claim_status: 'claimed' };
+      if (approvedClaim.submitted_by_user_id) {
+        updateFields.created_by = approvedClaim.submitted_by_user_id;
+      }
+      const { error: updateErr } = await supabase
+        .from('organisation_profiles')
+        .update(updateFields)
+        .eq('id', profile.id);
+      if (updateErr) throw updateErr;
+
+      const ownerEmail = approvedClaim.email || profile.contact_email;
+      if (ownerEmail) await ensureProfileMemberAccess(supabase, profile.id, ownerEmail);
+
+      const didLinkUser = Boolean(approvedClaim.submitted_by_user_id);
+      setToast(
+        `"${orgName}" repaired from approved claim.` +
+        (didLinkUser ? ' User ID linked.' : ' No user ID in claim — use Repair Ownership to link a user account.')
+      );
+      await loadData();
+    } catch (err) {
+      setToast(`Repair failed: ${err?.message || 'Unknown error.'}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const sendPasswordReset = async (targetEmail) => {
     if (!targetEmail || !supabase) return;
     if (!window.confirm(`Send a password reset link to ${targetEmail}?`)) return;
@@ -2405,6 +2485,16 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                             title="Claim exists but no user ID linked — assign admin account for testing"
                           >
                             Repair ownership
+                          </button>
+                        )}
+                        {!hasOwner && row.contact_email && row.resource_id && (
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => repairFromApprovedClaim(row)}
+                            style={{ color: '#1054A0', borderColor: 'rgba(45,156,219,0.3)', background: 'rgba(45,156,219,0.06)' }}
+                            title="Look up an approved claim for this listing and apply ownership fields"
+                          >
+                            Repair from approved claim
                           </button>
                         )}
                         <button
