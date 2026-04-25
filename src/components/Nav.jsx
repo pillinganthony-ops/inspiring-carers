@@ -236,13 +236,13 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp 
               )}
             </div>
           ) : (
-            /* ── Join / Sign In — logged out ── */
+            /* ── Claim / Sign In — logged out ── */
             <button
               className="btn btn-ghost btn-sm"
               onClick={() => handleNavigate('login')}
               style={{ whiteSpace: 'nowrap', fontSize: 13.5, fontWeight: 700 }}
             >
-              Join / Sign In
+              Claim / Sign In
             </button>
           )}
 
@@ -350,7 +350,7 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp 
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 2 }}>
                 <button className="btn btn-ghost btn-sm" onClick={() => handleNavigate('login')} style={{ justifyContent: 'center', fontWeight: 700 }}>
-                  Join / Sign In
+                  Claim / Sign In
                 </button>
                 <button className="btn btn-gold btn-sm" onClick={() => handleNavigate('card')} style={{ justifyContent: 'center' }}>
                   Get free card

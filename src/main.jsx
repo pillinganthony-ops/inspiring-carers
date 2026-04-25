@@ -155,7 +155,7 @@ const ClosingBand = ({ onNavigate }) => (
               }}
               onClick={() => onNavigate('profile')}
             >
-              Already a member
+              Sign in to your account
             </button>
           </div>
           

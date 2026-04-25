@@ -642,9 +642,12 @@ const ProfileDashboard = ({ onNavigate, session, section = 'dashboard' }) => {
         <section style={{ minHeight: '60vh', paddingTop: 54, paddingBottom: 64 }}>
           <div className="container">
             <div className="card" style={{ padding: 28, borderRadius: 20 }}>
-              <h1 style={{ fontSize: 34, marginBottom: 10 }}>Sign in to access your account</h1>
-              <p style={{ color: 'rgba(26,39,68,0.7)' }}>Use your account to manage organisation profile details and live events.</p>
-              <button className="btn btn-gold" style={{ marginTop: 16 }} onClick={() => onNavigate('login')}>Go to login</button>
+              <h1 style={{ fontSize: 34, marginBottom: 10 }}>Sign in to manage your organisation</h1>
+              <p style={{ color: 'rgba(26,39,68,0.7)', lineHeight: 1.6 }}>This area is for verified organisations, charities, service providers and approved administrators. Claim your listing from the Find Help directory to get started.</p>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
+                <button className="btn btn-gold" onClick={() => onNavigate('login')}>Sign in</button>
+                <button className="btn btn-ghost" onClick={() => onNavigate('find-help')}>Browse the directory</button>
+              </div>
             </div>
           </div>
         </section>
@@ -951,7 +954,7 @@ const ProfileDashboard = ({ onNavigate, session, section = 'dashboard' }) => {
                   <div style={{ display: 'grid', gap: 10, marginBottom: 22 }}>
                     {[
                       ['Email address', userEmail || '—'],
-                      ['Account type', isAdmin ? 'Administrator' : profiles.length > 0 ? 'Organisation owner' : 'Standard member'],
+                      ['Account type', isAdmin ? 'Administrator' : profiles.length > 0 ? 'Organisation owner' : 'Account holder'],
                       ['Organisations connected', String(profiles.length || 0)],
                     ].map(([label, value]) => (
                       <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 16px', borderRadius: 14, border: '1px solid #E9EEF5', background: '#FAFBFF' }}>

@@ -83,13 +83,13 @@ const LoginPage = ({ onNavigate }) => {
               <IHub s={32} />
             </div>
             <div>
-              <div className="eyebrow" style={{ color: '#2D9CDB' }}>Secure access</div>
-              <h1 style={{ marginTop: 6, fontSize: 28, fontWeight: 800 }}>Admin login</h1>
+              <div className="eyebrow" style={{ color: '#2D9CDB' }}>Professional access</div>
+              <h1 style={{ marginTop: 6, fontSize: 28, fontWeight: 800 }}>Claim or manage your organisation profile</h1>
             </div>
           </div>
 
           <p style={{ color: 'rgba(26,39,68,0.72)', lineHeight: 1.7, marginBottom: 28 }}>
-            Sign in with your approved Supabase admin account to access the Cornwall Resource Finder dashboard.
+            For approved organisations, charities, businesses and profile owners. Public visitors can browse the directory freely — no account needed.
           </p>
 
           {!isSupabaseConfigured() ? (
@@ -116,7 +116,7 @@ const LoginPage = ({ onNavigate }) => {
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                placeholder="admin@inspiring-carers.org"
+                placeholder="you@yourorganisation.org"
                 required
                 disabled={loading || !isSupabaseConfigured()}
                 style={{
