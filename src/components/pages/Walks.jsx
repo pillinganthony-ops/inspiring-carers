@@ -470,6 +470,7 @@ const WalksPage = ({ onNavigate, session }) => {
   const [detailWalk, setDetailWalk] = React.useState(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = React.useState(false);
   const [viewMode, setViewMode] = React.useState('list');
+  const [mapMountKey, setMapMountKey] = React.useState(0);
   const [visibleCount, setVisibleCount] = React.useState(24);
 
   // Reset pagination when any filter or search changes
@@ -582,7 +583,7 @@ const WalksPage = ({ onNavigate, session }) => {
             </button>
             <button
               className="btn btn-lg"
-              onClick={() => { setViewMode('map'); setTimeout(() => document.getElementById('walk-results')?.scrollIntoView({ behavior: 'smooth' }), 50); }}
+              onClick={() => { setViewMode('map'); setMapMountKey((k) => k + 1); setTimeout(() => document.getElementById('walk-results')?.scrollIntoView({ behavior: 'smooth' }), 50); }}
               style={{ fontSize: 16, padding: '16px 32px', fontWeight: 700, background: 'rgba(255,255,255,0.1)', color: 'white', border: '1.5px solid rgba(255,255,255,0.25)', borderRadius: 16 }}
             >
               View map
@@ -654,7 +655,7 @@ const WalksPage = ({ onNavigate, session }) => {
                   <div style={{ fontSize: 14, color: 'rgba(26,39,68,0.72)' }}><strong>Max duration</strong> {formatDuration(maxDuration)}</div>
                   <div style={{ display: 'flex', gap: 4, padding: 4, background: 'white', borderRadius: 999, border: '1px solid #EFF1F7', marginLeft: 4 }}>
                     {['list', 'map'].map((mode) => (
-                      <button key={mode} onClick={() => setViewMode(mode)} style={{ padding: '6px 16px', borderRadius: 999, fontSize: 13, fontWeight: 700, background: viewMode === mode ? '#1A2744' : 'transparent', color: viewMode === mode ? 'white' : '#1A2744', textTransform: 'capitalize', border: 'none', cursor: 'pointer', transition: 'background 0.15s' }}>{mode}</button>
+                      <button key={mode} onClick={() => { setViewMode(mode); if (mode === 'map') setMapMountKey((k) => k + 1); }} style={{ padding: '6px 16px', borderRadius: 999, fontSize: 13, fontWeight: 700, background: viewMode === mode ? '#1A2744' : 'transparent', color: viewMode === mode ? 'white' : '#1A2744', textTransform: 'capitalize', border: 'none', cursor: 'pointer', transition: 'background 0.15s' }}>{mode}</button>
                     ))}
                   </div>
                 </div>
@@ -668,7 +669,7 @@ const WalksPage = ({ onNavigate, session }) => {
               ) : viewMode === 'map' ? (
                 <div>
                   {/* Map uses full filteredWalks for all pins */}
-                  <WalkMapView walks={filteredWalks} onSelectWalk={setDetailWalk} isVisible={viewMode === 'map'} />
+                  <WalkMapView key={`walk-map-${mapMountKey}`} walks={filteredWalks} onSelectWalk={setDetailWalk} isVisible={viewMode === 'map'} />
                   {/* Cards below map are also paginated */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 18, marginTop: 4 }}>
                     {filteredWalks.slice(0, visibleCount).map((walk) => (
