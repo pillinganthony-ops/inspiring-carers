@@ -1589,6 +1589,40 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     }, message);
   };
 
+  const deleteOrgProfile = async (profile) => {
+    const orgName = getProfileName(profile, resources);
+    if (!window.confirm(
+      `Delete "${orgName}" permanently?\n\n` +
+      `This removes the organisation profile and all its data (events, member records).\n` +
+      `The Find Help directory listing will NOT be deleted.\n\n` +
+      `This cannot be undone. Use "Revoke ownership" to remove access while keeping the profile.`
+    )) return;
+    await deleteRow('organisation_profiles', profile.id, `"${orgName}" deleted permanently.`);
+  };
+
+  // Compose a pre-filled mailto approval notification for the admin to send.
+  // No email backend is required — opens the admin's own email client.
+  const composeApprovalEmail = (claim) => {
+    const recipientEmail = `${claim.email || claim.submitter_email || ''}`.trim();
+    if (!recipientEmail) return;
+    const orgName = claim.listing_title || claim.org_name || 'your organisation';
+    const loginUrl = `${window.location.origin}/login`;
+    const subject = encodeURIComponent('Your profile has been approved — Inspiring Carers');
+    const body = encodeURIComponent([
+      `Hi,`,
+      ``,
+      `Great news — your organisation profile for ${orgName} has been approved and is now active on Inspiring Carers.`,
+      ``,
+      `You can sign in and manage your profile, add events, and update your listing here:`,
+      loginUrl,
+      ``,
+      `If you have any questions, please reply to this email.`,
+      ``,
+      `The Inspiring Carers Team`,
+    ].join('\n'));
+    window.open(`mailto:${recipientEmail}?subject=${subject}&body=${body}`, '_blank');
+  };
+
   const applyApprovedClaimOwnership = async (claim) => {
     if (!claim || !supabase) return;
     const contactEmail = `${claim.email || ''}`.trim().toLowerCase();
@@ -1656,9 +1690,10 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       const claimRow = claims.find((row) => `${row.id}` === `${id}`) || null;
       if (status === 'approved' && claimRow) {
         await applyApprovedClaimOwnership(claimRow);
+        composeApprovalEmail(claimRow);
       }
     }, claims.some((r) => `${r.id}` === `${id}`) && status === 'approved'
-      ? 'Claim approved and owner access provisioned.'
+      ? 'Claim approved. Approval email template opened — send from your email client.'
       : 'Status updated.');
   };
 
@@ -2326,7 +2361,6 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                       {/* Actions */}
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         <button className="btn btn-ghost btn-sm" onClick={() => setProfileDraft({ ...emptyProfile, ...normalizeProfileRow(row) })}>Edit</button>
-                        <button className="btn btn-ghost btn-sm" onClick={() => deleteRow('organisation_profiles', row.id, 'Profile deleted.')}>Delete</button>
                         {row.contact_email && (
                           <button className="btn btn-ghost btn-sm" onClick={() => sendPasswordReset(row.contact_email)}>Send password reset</button>
                         )}
@@ -2339,6 +2373,14 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                             Revoke ownership
                           </button>
                         )}
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => deleteOrgProfile(row)}
+                          style={{ color: '#A03A2D', fontSize: 11.5, opacity: 0.7 }}
+                          title="Permanently deletes the organisation profile. The directory listing is preserved."
+                        >
+                          Delete permanently
+                        </button>
                       </div>
                     </div>
                   );
