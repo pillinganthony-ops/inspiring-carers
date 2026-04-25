@@ -289,25 +289,88 @@ const WalkMapView = ({ walks: mapWalks, onSelectWalk }) => {
             onClick={() => setActiveWalk(walk)}
           />
         ))}
-        {activeWalk && coords[activeWalk.postcode] && (
-          <InfoWindowF
-            position={coords[activeWalk.postcode]}
-            onCloseClick={() => setActiveWalk(null)}
-          >
-            <div style={{ maxWidth: 220, fontFamily: 'Inter, sans-serif', padding: '4px 2px' }}>
-              <div style={{ fontWeight: 700, fontSize: 14, color: '#1A2744', marginBottom: 4 }}>{activeWalk.name}</div>
-              <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.65)', marginBottom: 10 }}>
-                {activeWalk.area} · {formatDistance(activeWalk.distanceMiles)} · {activeWalk.difficulty}
+        {activeWalk && coords[activeWalk.postcode] && (() => {
+          const diff    = normalizeDifficultyLabel(activeWalk.difficulty);
+          const accent  = DIFF_ACCENT[diff] || DIFF_ACCENT.Moderate;
+          const accentBg = DIFF_BG[diff]   || DIFF_BG.Moderate;
+          const accentFg = DIFF_FG[diff]   || DIFF_FG.Moderate;
+          const accessible = hasAccessibleTerrain(activeWalk);
+          return (
+            <InfoWindowF
+              position={coords[activeWalk.postcode]}
+              onCloseClick={() => setActiveWalk(null)}
+              options={{ maxWidth: 340, disableAutoPan: false }}
+            >
+              <div style={{ fontFamily: 'Inter, sans-serif', width: 300, paddingRight: 20, paddingTop: 2 }}>
+                {/* Difficulty stripe */}
+                <div style={{ height: 3, background: `linear-gradient(90deg, ${accent} 0%, ${accent}77 100%)`, borderRadius: 2, marginBottom: 10, marginRight: -20 }} />
+
+                {/* Header: difficulty pill + area */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8, flexWrap: 'wrap' }}>
+                  <span style={{ padding: '2px 9px', borderRadius: 999, background: accent, color: 'white', fontSize: 11, fontWeight: 800, flexShrink: 0 }}>{diff}</span>
+                  <span style={{ fontSize: 12, color: accentFg, fontWeight: 700, background: accentBg, padding: '2px 8px', borderRadius: 999 }}>{activeWalk.area}</span>
+                </div>
+
+                {/* Walk name — 2-line clamp */}
+                <div style={{ fontFamily: 'Sora, sans-serif', fontWeight: 800, fontSize: 15, color: '#1A2744', lineHeight: 1.22, marginBottom: 6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                  {activeWalk.name}
+                </div>
+
+                {/* Distance · Duration */}
+                <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.56)', marginBottom: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <span>{formatDistance(activeWalk.distanceMiles)}</span>
+                  <span style={{ opacity: 0.4 }}>·</span>
+                  <span>{formatDuration(activeWalk.durationMinutes)}</span>
+                  {activeWalk.startLocation && (
+                    <>
+                      <span style={{ opacity: 0.4 }}>·</span>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 130 }}>{activeWalk.startLocation}</span>
+                    </>
+                  )}
+                </div>
+
+                {/* Info chips */}
+                {(accessible || activeWalk.circular) && (
+                  <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 10 }}>
+                    {accessible && (
+                      <span style={{ padding: '3px 9px', borderRadius: 999, background: 'rgba(45,156,219,0.1)', color: '#1054A0', fontSize: 11.5, fontWeight: 700 }}>♿ Accessible</span>
+                    )}
+                    {activeWalk.circular && (
+                      <span style={{ padding: '3px 9px', borderRadius: 999, background: 'rgba(91,201,74,0.1)', color: '#1E6B10', fontSize: 11.5, fontWeight: 700 }}>Circular</span>
+                    )}
+                  </div>
+                )}
+
+                {/* Facilities row */}
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', paddingTop: 8, borderTop: '1px solid #EEF2FA', marginBottom: 12 }}>
+                  {[
+                    { label: 'Toilets', has: activeWalk.toilets },
+                    { label: 'Parking', has: activeWalk.parking },
+                    { label: 'Buses',   has: activeWalk.publicTransport },
+                    { label: 'Cafes',   has: activeWalk.refreshments },
+                  ].map(({ label, has }) => (
+                    <span key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11.5, fontWeight: 700, color: has ? '#1E6B10' : 'rgba(26,39,68,0.32)' }}>
+                      <span style={{ width: 13, height: 13, borderRadius: 999, background: has ? 'rgba(91,201,74,0.18)' : 'rgba(26,39,68,0.07)', display: 'inline-grid', placeItems: 'center', fontSize: 8, flexShrink: 0 }}>
+                        {has ? '✓' : '–'}
+                      </span>
+                      {label}
+                    </span>
+                  ))}
+                </div>
+
+                {/* CTA */}
+                <button
+                  onClick={() => { onSelectWalk(activeWalk); setActiveWalk(null); }}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'linear-gradient(135deg,#1A2744,#2D3E6B)', color: 'white', fontWeight: 800, fontSize: 13, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, boxShadow: '0 4px 16px rgba(26,39,68,0.22)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'linear-gradient(135deg,#263659,#1A2744)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'linear-gradient(135deg,#1A2744,#2D3E6B)'; }}
+                >
+                  View walk details →
+                </button>
               </div>
-              <button
-                onClick={() => { onSelectWalk(activeWalk); setActiveWalk(null); }}
-                style={{ padding: '6px 14px', borderRadius: 8, background: '#1A2744', color: 'white', fontSize: 12.5, fontWeight: 700, border: 'none', cursor: 'pointer', width: '100%' }}
-              >
-                View details →
-              </button>
-            </div>
-          </InfoWindowF>
-        )}
+            </InfoWindowF>
+          );
+        })()}
       </GoogleMap>
       <div style={{ padding: '10px 16px', background: '#FAFBFF', borderTop: '1px solid #EFF1F7', fontSize: 12.5, color: 'rgba(26,39,68,0.55)', display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ color: '#5BC94A', fontWeight: 800 }}>●</span>
