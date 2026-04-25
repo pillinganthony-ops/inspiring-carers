@@ -1519,6 +1519,20 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     }
   };
 
+  const sendPasswordReset = async (targetEmail) => {
+    if (!targetEmail || !supabase) return;
+    if (!window.confirm(`Send a password reset link to ${targetEmail}?`)) return;
+    try {
+      await supabase.auth.resetPasswordForEmail(targetEmail.trim(), {
+        redirectTo: `${window.location.origin}/login`,
+      });
+      // Always show the same message — never confirm whether an email exists.
+      setToast(`Password reset link sent to ${targetEmail} if an account exists.`);
+    } catch {
+      setToast('Could not send reset link. Check Supabase configuration.');
+    }
+  };
+
   const deleteRow = async (table, id, message) => {
     await withBusy(async () => {
       const { error: deleteError } = await supabase.from(table).delete().eq('id', id);
@@ -2230,9 +2244,14 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                 {profiles.map((row) => (
                   <div key={row.id} style={{ border: '1px solid #E9EEF5', borderRadius: 10, padding: 10, display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
                     <div>{getProfileName(row, resources)} <span style={{ color: 'rgba(26,39,68,0.55)' }}>({row.contact_email || 'No contact email'})</span></div>
-                    <div style={{ display: 'flex', gap: 6 }}>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       <button className="btn btn-ghost btn-sm" onClick={() => setProfileDraft({ ...emptyProfile, ...normalizeProfileRow(row) })}>Edit</button>
                       <button className="btn btn-ghost btn-sm" onClick={() => deleteRow('organisation_profiles', row.id, 'Profile deleted.')}>Delete</button>
+                      {row.contact_email && (
+                        <button className="btn btn-ghost btn-sm" onClick={() => sendPasswordReset(row.contact_email)} title={`Send reset link to ${row.contact_email}`}>
+                          Send password reset
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}

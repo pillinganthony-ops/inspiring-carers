@@ -18,6 +18,8 @@ const LoginPage = ({ onNavigate }) => {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
   const [successMsg, setSuccessMsg] = React.useState('');
+  const [resetting, setResetting] = React.useState(false);
+  const [resetSent, setResetSent] = React.useState(false);
 
   const waitForSession = async () => {
     for (let attempt = 0; attempt < 8; attempt += 1) {
@@ -65,6 +67,30 @@ const LoginPage = ({ onNavigate }) => {
       setError(signInError?.message || 'Login failed due to a network or server error.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!isSupabaseConfigured() || !supabase) {
+      setError('Supabase is not configured. Contact your administrator.');
+      return;
+    }
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setError('Please enter your email address above, then click Forgotten password.');
+      return;
+    }
+    setResetting(true);
+    setError('');
+    setResetSent(false);
+    try {
+      await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+        redirectTo: `${window.location.origin}/login`,
+      });
+    } finally {
+      // Always show the same message — never confirm whether an email exists.
+      setResetSent(true);
+      setResetting(false);
     }
   };
 
@@ -133,9 +159,17 @@ const LoginPage = ({ onNavigate }) => {
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 8, color: '#1A2744' }}>
-                Password
-              </label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+                <label style={{ fontSize: 14, fontWeight: 600, color: '#1A2744' }}>Password</label>
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  disabled={resetting || !isSupabaseConfigured()}
+                  style={{ fontSize: 13, color: '#2D9CDB', fontWeight: 600, background: 'none', border: 'none', cursor: resetting ? 'wait' : 'pointer', padding: 0 }}
+                >
+                  {resetting ? 'Sending…' : 'Forgotten password?'}
+                </button>
+              </div>
               <input
                 type="password"
                 value={password}
@@ -183,6 +217,12 @@ const LoginPage = ({ onNavigate }) => {
                 {successMsg}
               </div>
             ) : null}
+
+            {resetSent && (
+              <div style={{ borderRadius: 14, border: '1px solid rgba(45,156,219,0.28)', background: 'rgba(45,156,219,0.06)', padding: 14, color: '#1c78b5', fontSize: 14, fontWeight: 600 }}>
+                If this email is linked to an account, a password reset link has been sent. Check your inbox.
+              </div>
+            )}
 
             <button
               type="submit"
