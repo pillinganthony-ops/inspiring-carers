@@ -1,7 +1,8 @@
-// VenueProfile — individual venue detail page.
+// VenueProfile — premium individual venue detail page.
 // Loaded from venues_public by slug.
 // Rendered inside PlacesToVisit or WellbeingSupport when venueSlug is set.
 // Back navigation returns user to the parent listing page.
+// No schema changes, no routing changes — visual upgrade only.
 
 import React from 'react';
 import supabase, { isSupabaseConfigured } from '../../lib/supabaseClient.js';
@@ -10,7 +11,7 @@ import Footer from '../Footer.jsx';
 import Icons from '../Icons.jsx';
 import ClaimModal from '../ClaimModal.jsx';
 
-const { IPin } = Icons;
+const { IPin, IArrow } = Icons;
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -25,44 +26,130 @@ const PAGE_ACCENT = {
 };
 
 const PAGE_HERO = {
-  'places-to-visit': 'linear-gradient(150deg, #1A0C35 0%, #2C1452 50%, #341A60 100%)',
-  'wellbeing':       'linear-gradient(150deg, #0A1F25 0%, #0F2E38 50%, #133640 100%)',
+  'places-to-visit': 'linear-gradient(150deg, #160B30 0%, #261048 50%, #301558 100%)',
+  'wellbeing':       'linear-gradient(150deg, #071A20 0%, #0C2830 50%, #102E38 100%)',
 };
 
-// ── Sub-components ─────────────────────────────────────────────────────────
+// Emoji by subcategory — no external assets, no broken image areas
+const SUBCAT_EMOJI = {
+  'Beach':                '🏖️',
+  'Garden':               '🌿',
+  'Walking Route':        '🥾',
+  'Nature Reserve':       '🌳',
+  'Wildlife':             '🦜',
+  'Wellbeing':            '🧘',
+  'Museum':               '🏛️',
+  'Historic Site':        '🏰',
+  'Heritage Railway':     '🚂',
+  'Landmark':             '📍',
+  'Theatre':              '🎭',
+  'Arts & Culture':       '🎨',
+  'Boat Trip':            '⛵',
+  'Outdoor Activity':     '🏃',
+  'Indoor Activity':      '🎮',
+  'Family Attraction':    '👨‍👩‍👧',
+  'Theme Park':           '🎡',
+  'Adventure':            '🧭',
+  'Free Attraction':      '🎁',
+  'Rainy Day':            '🌧️',
+  'Shopping Village':     '🛍️',
+  'Community Attraction': '🤝',
+};
+
+// ── Shared styles ──────────────────────────────────────────────────────────
 
 const tagPill = (color) => ({
-  fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 5,
+  fontSize: 11.5, fontWeight: 600, padding: '4px 10px', borderRadius: 6,
   background: `${color}18`, color, display: 'inline-block',
 });
 
-const SectionCard = ({ title, children }) => (
-  <div className="card" style={{ padding: '18px 20px', borderRadius: 16, marginBottom: 14 }}>
-    <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.38)', marginBottom: 12 }}>
-      {title}
+// ── Sub-components ─────────────────────────────────────────────────────────
+
+const SectionCard = ({ title, accent, children }) => (
+  <div className="card" style={{ padding: 0, overflow: 'hidden', borderRadius: 16, marginBottom: 14 }}>
+    <div style={{ height: 3, background: `linear-gradient(90deg, ${accent || '#7B5CF5'}, ${accent || '#7B5CF5'}44)` }} />
+    <div style={{ padding: '16px 20px' }}>
+      <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: 'rgba(26,39,68,0.38)', marginBottom: 14 }}>
+        {title}
+      </div>
+      {children}
     </div>
-    {children}
   </div>
 );
 
+// BoolRow: true = colored chip, false = dimmed label, null = hidden
 const BoolRow = ({ label, value, color }) => {
   if (value === null || value === undefined) return null;
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7 }}>
-      <span style={{ width: 18, height: 18, borderRadius: 4, background: value ? `${color}22` : 'rgba(26,39,68,0.06)', color: value ? color : 'rgba(26,39,68,0.35)', display: 'grid', placeItems: 'center', fontSize: 10, fontWeight: 900, flexShrink: 0 }}>
-        {value ? '✓' : '✗'}
+  if (value) {
+    return (
+      <span style={{ ...tagPill(color), marginRight: 6, marginBottom: 6, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+        <span style={{ fontSize: 10 }}>✓</span> {label}
       </span>
-      <span style={{ fontSize: 13.5, color: value ? '#1A2744' : 'rgba(26,39,68,0.40)' }}>{label}</span>
-    </div>
+    );
+  }
+  return (
+    <span style={{ fontSize: 11.5, fontWeight: 600, padding: '4px 10px', borderRadius: 6, background: 'rgba(26,39,68,0.04)', color: 'rgba(26,39,68,0.30)', display: 'inline-flex', alignItems: 'center', gap: 5, marginRight: 6, marginBottom: 6 }}>
+      <span style={{ fontSize: 10 }}>✗</span> {label}
+    </span>
   );
 };
 
 const InfoRow = ({ label, value }) => {
   if (!value) return null;
   return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(26,39,68,0.44)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>{label}</div>
-      <div style={{ fontSize: 13.5, color: '#1A2744', lineHeight: 1.55 }}>{value}</div>
+    <div style={{ paddingBottom: 10, marginBottom: 10, borderBottom: '1px solid #F0F4FA' }}>
+      <div style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(26,39,68,0.40)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: 13.5, color: '#1A2744', lineHeight: 1.6 }}>{value}</div>
+    </div>
+  );
+};
+
+// Illustration card — no images, uses category colour + emoji
+const VenueIllustration = ({ venue, accent }) => {
+  const emoji = SUBCAT_EMOJI[venue.subcategory] || '📍';
+  return (
+    <div style={{
+      borderRadius: 22,
+      background: `linear-gradient(145deg, ${accent}28 0%, ${accent}0E 100%)`,
+      border: `1px solid ${accent}30`,
+      padding: '32px 24px',
+      minHeight: 220,
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14,
+      position: 'relative', overflow: 'hidden', textAlign: 'center',
+    }}>
+      {/* Decorative orbs */}
+      <div style={{ position: 'absolute', top: -40, right: -40, width: 140, height: 140, borderRadius: '50%', background: `${accent}18`, pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', bottom: -30, left: -30, width: 100, height: 100, borderRadius: '50%', background: `${accent}10`, pointerEvents: 'none' }} />
+
+      {/* Icon */}
+      <div style={{ width: 68, height: 68, borderRadius: 18, background: `${accent}22`, border: `1.5px solid ${accent}44`, display: 'grid', placeItems: 'center', fontSize: 30, position: 'relative' }}>
+        {emoji}
+      </div>
+
+      {/* Subcategory label */}
+      <div style={{ fontSize: 15, fontWeight: 800, color: '#FFFFFF', lineHeight: 1.3 }}>
+        {venue.subcategory || venue.category}
+      </div>
+
+      {/* Location */}
+      {venue.town && (
+        <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.48)', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <IPin s={11} /> {venue.town}{venue.county ? `, ${venue.county}` : ''}
+        </div>
+      )}
+
+      {/* Badges */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
+        {venue.free_or_paid === 'Free' && (
+          <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 6, background: 'rgba(16,185,129,0.22)', color: '#5EEAD4' }}>Free entry</span>
+        )}
+        {venue.wheelchair_access && (
+          <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 6, background: 'rgba(123,92,245,0.22)', color: '#C4B5FD' }}>♿ Accessible</span>
+        )}
+        {venue.dog_friendly && (
+          <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 6, background: 'rgba(61,168,50,0.22)', color: '#86EFAC' }}>Dog friendly</span>
+        )}
+      </div>
     </div>
   );
 };
@@ -114,23 +201,27 @@ const VenueProfile = ({ slug, county, backPage, onNavigate, session }) => {
 
   const goBack = () => onNavigate(backPage, county || 'cornwall');
 
-  // Derive non-null suitability items to avoid showing an empty section
+  // Non-null suitability items only
   const suitability = venue ? [
     { label: 'Family friendly',   value: venue.family_friendly,   color: '#F5A623' },
     { label: 'Dog friendly',      value: venue.dog_friendly,       color: '#3DA832' },
     { label: 'Carer friendly',    value: venue.carer_friendly,     color: '#F4613A' },
     { label: 'Dementia friendly', value: venue.dementia_friendly,  color: '#2D9CDB' },
+    { label: 'Wheelchair access', value: venue.wheelchair_access,  color: '#7B5CF5' },
+    { label: 'Toilets',           value: venue.toilets,            color: '#0D9488' },
   ].filter((i) => i.value !== null && i.value !== undefined) : [];
 
-  const hasAccessibility = venue && (
-    venue.accessibility_info || venue.wheelchair_access !== null ||
-    venue.toilets !== null || venue.parking_info || venue.public_transport_info
+  const hasPractical = venue && (
+    venue.opening_hours || venue.seasonality || venue.address_line_1 || venue.town ||
+    venue.price_adult != null || venue.price_child != null || venue.price_family != null
   );
 
-  const hasPractical = venue && (
-    venue.opening_hours || venue.seasonality ||
-    venue.price_adult || venue.price_child || venue.price_family ||
-    venue.address_line_1 || venue.town
+  const hasAccessibility = venue && (
+    venue.accessibility_info || venue.parking_info || venue.public_transport_info
+  );
+
+  const hasHighlights = venue && (
+    (venue.features?.length > 0) || (venue.best_for?.length > 0)
   );
 
   return (
@@ -138,111 +229,152 @@ const VenueProfile = ({ slug, county, backPage, onNavigate, session }) => {
       <Nav activePage={backPage} onNavigate={onNavigate} session={session} />
 
       {/* ── Hero ─────────────────────────────────────────────────────── */}
-      <section style={{ background: heroGrad, paddingTop: 22, paddingBottom: 36, position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: -60, right: -60, width: 320, height: 320, borderRadius: '50%', background: `radial-gradient(circle, ${accent}20 0%, transparent 65%)`, pointerEvents: 'none' }} />
+      <section style={{ background: heroGrad, paddingTop: 24, paddingBottom: 44, position: 'relative', overflow: 'hidden' }}>
+        {/* Decorative orbs */}
+        <div style={{ position: 'absolute', top: -80, right: -80, width: 420, height: 420, borderRadius: '50%', background: `radial-gradient(circle, ${accent}18 0%, transparent 65%)`, pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: -60, left: '20%', width: 360, height: 360, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.04) 0%, transparent 65%)', pointerEvents: 'none' }} />
 
         <div className="container" style={{ position: 'relative' }}>
           {/* Back button */}
           <button
             onClick={goBack}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.62)', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.13)', padding: '6px 13px', borderRadius: 8, cursor: 'pointer', marginBottom: 22 }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.60)', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.13)', padding: '6px 14px', borderRadius: 8, cursor: 'pointer', marginBottom: 24 }}
           >
             ← {backLabel}
           </button>
 
+          {/* Loading in hero */}
           {loading && (
-            <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 15 }}>Loading venue…</div>
+            <div style={{ color: 'rgba(255,255,255,0.50)', fontSize: 15 }}>Loading venue…</div>
           )}
 
+          {/* Hero content */}
           {!loading && venue && (
-            <>
-              {/* Category badges */}
-              <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 14 }}>
-                <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', padding: '3px 11px', borderRadius: 999, background: `${accent}30`, border: `1px solid ${accent}50`, color: '#FFFFFF' }}>
-                  {venue.category}
-                </span>
-                {venue.subcategory && (
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 11px', borderRadius: 999, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.18)', color: 'rgba(255,255,255,0.78)' }}>
-                    {venue.subcategory}
-                  </span>
-                )}
-                {venue.verified && (
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 11px', borderRadius: 999, background: 'rgba(16,185,129,0.20)', color: '#5EEAD4' }}>
-                    Verified
-                  </span>
-                )}
-                {venue.featured && (
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 11px', borderRadius: 999, background: 'rgba(245,166,35,0.22)', color: '#FDE68A' }}>
-                    Featured
-                  </span>
-                )}
-              </div>
+            <div style={{ display: 'flex', gap: 36, alignItems: 'flex-start', flexWrap: 'wrap' }}>
 
-              {/* Name */}
-              <h1 style={{ fontSize: 'clamp(24px, 4.5vw, 44px)', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.03em', lineHeight: 1.08, margin: '0 0 10px', textWrap: 'balance' }}>
-                {venue.name}
-              </h1>
+              {/* ── Left: metadata ── */}
+              <div style={{ flex: '1 1 340px', minWidth: 0 }}>
 
-              {/* Location line */}
-              {(venue.town || venue.county || venue.postcode) && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 14, color: 'rgba(255,255,255,0.58)', marginBottom: 14 }}>
-                  <IPin s={13} />
-                  {[venue.town, venue.county, venue.postcode].filter(Boolean).join(', ')}
+                {/* Badges row */}
+                <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 16 }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', padding: '4px 12px', borderRadius: 999, background: `${accent}35`, border: `1px solid ${accent}55`, color: '#FFFFFF' }}>
+                    {venue.category}
+                  </span>
+                  {venue.subcategory && (
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 999, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.18)', color: 'rgba(255,255,255,0.82)' }}>
+                      {venue.subcategory}
+                    </span>
+                  )}
+                  {venue.free_or_paid && (
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 999, background: venue.free_or_paid === 'Free' ? 'rgba(16,185,129,0.22)' : 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.10)', color: venue.free_or_paid === 'Free' ? '#5EEAD4' : 'rgba(255,255,255,0.65)' }}>
+                      {venue.free_or_paid}
+                    </span>
+                  )}
+                  {venue.verified && (
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 999, background: 'rgba(16,185,129,0.22)', color: '#5EEAD4' }}>
+                      ✓ Verified
+                    </span>
+                  )}
+                  {venue.featured && (
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 999, background: 'rgba(245,166,35,0.22)', color: '#FDE68A' }}>
+                      ★ Featured
+                    </span>
+                  )}
                 </div>
-              )}
 
-              {/* Short description */}
-              {venue.short_description && (
-                <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.74)', lineHeight: 1.65, margin: '0 0 18px', maxWidth: 600 }}>
-                  {venue.short_description}
-                </p>
-              )}
+                {/* Name — H1 for SEO */}
+                <h1 style={{ fontSize: 'clamp(26px, 4.5vw, 46px)', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.03em', lineHeight: 1.06, margin: '0 0 10px', textWrap: 'balance' }}>
+                  {venue.name}
+                </h1>
 
-              {/* Quick info badges */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                {venue.free_or_paid && (
-                  <span style={{ fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 7, background: venue.free_or_paid === 'Free' ? 'rgba(16,185,129,0.22)' : 'rgba(255,255,255,0.12)', color: venue.free_or_paid === 'Free' ? '#5EEAD4' : 'rgba(255,255,255,0.72)' }}>
-                    {venue.free_or_paid}
-                  </span>
+                {/* Location */}
+                {(venue.town || venue.county) && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, color: 'rgba(255,255,255,0.55)', marginBottom: 16 }}>
+                    <IPin s={13} />
+                    {[venue.town, venue.county, venue.postcode].filter(Boolean).join(', ')}
+                  </div>
                 )}
-                {venue.indoor_outdoor && (
-                  <span style={{ fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 7, background: 'rgba(45,156,219,0.20)', color: '#7DD3FC' }}>
-                    {venue.indoor_outdoor}
-                  </span>
+
+                {/* Short description — intro paragraph */}
+                {venue.short_description && (
+                  <p style={{ fontSize: 15.5, color: 'rgba(255,255,255,0.76)', lineHeight: 1.68, margin: '0 0 22px', maxWidth: 560 }}>
+                    {venue.short_description}
+                  </p>
                 )}
-                {venue.wheelchair_access && (
-                  <span style={{ fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 7, background: 'rgba(123,92,245,0.22)', color: '#C4B5FD' }}>
-                    ♿ Wheelchair accessible
-                  </span>
-                )}
-                {venue.carer_friendly && (
-                  <span style={{ fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 7, background: 'rgba(244,97,58,0.22)', color: '#FCA5A5' }}>
-                    Carer friendly
-                  </span>
-                )}
-                {venue.dog_friendly && (
-                  <span style={{ fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 7, background: 'rgba(61,168,50,0.22)', color: '#86EFAC' }}>
-                    Dog friendly
-                  </span>
-                )}
+
+                {/* Quick suitability pills in hero */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 26 }}>
+                  {venue.indoor_outdoor && (
+                    <span style={{ fontSize: 12, fontWeight: 700, padding: '5px 12px', borderRadius: 8, background: 'rgba(45,156,219,0.22)', color: '#7DD3FC' }}>
+                      {venue.indoor_outdoor}
+                    </span>
+                  )}
+                  {venue.wheelchair_access && (
+                    <span style={{ fontSize: 12, fontWeight: 700, padding: '5px 12px', borderRadius: 8, background: 'rgba(123,92,245,0.22)', color: '#C4B5FD' }}>
+                      ♿ Wheelchair accessible
+                    </span>
+                  )}
+                  {venue.carer_friendly && (
+                    <span style={{ fontSize: 12, fontWeight: 700, padding: '5px 12px', borderRadius: 8, background: 'rgba(244,97,58,0.22)', color: '#FCA5A5' }}>
+                      Carer friendly
+                    </span>
+                  )}
+                  {venue.dog_friendly && (
+                    <span style={{ fontSize: 12, fontWeight: 700, padding: '5px 12px', borderRadius: 8, background: 'rgba(61,168,50,0.22)', color: '#86EFAC' }}>
+                      Dog friendly
+                    </span>
+                  )}
+                  {venue.family_friendly && (
+                    <span style={{ fontSize: 12, fontWeight: 700, padding: '5px 12px', borderRadius: 8, background: 'rgba(245,166,35,0.22)', color: '#FDE68A' }}>
+                      Family friendly
+                    </span>
+                  )}
+                </div>
+
+                {/* Hero CTAs */}
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  {venue.website && (
+                    <a
+                      href={venue.website} target="_blank" rel="noopener noreferrer"
+                      className="btn btn-gold"
+                      style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 7 }}
+                    >
+                      Visit website <IArrow s={13} />
+                    </a>
+                  )}
+                  <button
+                    onClick={() => setClaimOpen(true)}
+                    style={{ padding: '11px 18px', borderRadius: 12, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 7 }}
+                  >
+                    Claim this listing
+                  </button>
+                </div>
               </div>
-            </>
+
+              {/* ── Right: illustration card ── */}
+              <div style={{ flex: '0 0 260px', maxWidth: '100%' }}>
+                <VenueIllustration venue={venue} accent={accent} />
+              </div>
+
+            </div>
           )}
         </div>
       </section>
 
       {/* ── Content ──────────────────────────────────────────────────── */}
-      <section style={{ paddingTop: 28, paddingBottom: 56, background: '#FAFBFF', minHeight: '40vh' }}>
+      <section style={{ paddingTop: 32, paddingBottom: 60, background: '#F7F9FC', minHeight: '40vh' }}>
         <div className="container">
 
           {/* Loading skeleton */}
           {loading && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="card" style={{ padding: 18, borderRadius: 16, minHeight: 180 }}>
-                  <div style={{ height: 12, width: '70%', borderRadius: 6, background: '#E4ECF8', marginBottom: 14 }} />
-                  <div style={{ height: 10, width: '92%', borderRadius: 6, background: '#EAF0FA', marginBottom: 8 }} />
-                  <div style={{ height: 10, width: '60%', borderRadius: 6, background: '#EAF0FA' }} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="card" style={{ padding: 20, borderRadius: 16, minHeight: 160 }}>
+                  <div style={{ height: 3, background: '#E4ECF8', borderRadius: 2, marginBottom: 16 }} />
+                  <div style={{ height: 11, width: '45%', borderRadius: 6, background: '#EAF0FA', marginBottom: 14 }} />
+                  <div style={{ height: 13, width: '80%', borderRadius: 6, background: '#E4ECF8', marginBottom: 10 }} />
+                  <div style={{ height: 10, width: '65%', borderRadius: 6, background: '#EAF0FA', marginBottom: 8 }} />
+                  <div style={{ height: 10, width: '90%', borderRadius: 6, background: '#EAF0FA' }} />
                 </div>
               ))}
             </div>
@@ -250,26 +382,26 @@ const VenueProfile = ({ slug, county, backPage, onNavigate, session }) => {
 
           {/* Error / not found */}
           {!loading && error && (
-            <div style={{ textAlign: 'center', padding: '64px 20px' }}>
-              <div style={{ fontSize: 34, marginBottom: 14 }}>{error.includes('not found') ? '🔍' : '⚠️'}</div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>
+            <div style={{ textAlign: 'center', padding: '72px 20px' }}>
+              <div style={{ fontSize: 40, marginBottom: 16 }}>{error.includes('not found') ? '🔍' : '⚠️'}</div>
+              <div style={{ fontSize: 17, fontWeight: 800, color: '#1A2744', marginBottom: 8 }}>
                 {error.includes('not found') ? 'Venue not found' : 'Could not load venue'}
               </div>
-              <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)', marginBottom: 22, maxWidth: 380, margin: '0 auto 22px' }}>{error}</div>
+              <div style={{ fontSize: 14, color: 'rgba(26,39,68,0.55)', marginBottom: 24, maxWidth: 380, margin: '0 auto 24px' }}>{error}</div>
               <button onClick={goBack} className="btn btn-gold btn-sm">← Back to {backLabel}</button>
             </div>
           )}
 
-          {/* Venue detail */}
+          {/* Venue detail — two-column responsive grid */}
           {!loading && !error && venue && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.4fr) minmax(0,1fr)', gap: 14, alignItems: 'start' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 14, alignItems: 'start' }}>
 
               {/* ── Left column ── */}
               <div>
-                {/* Full description */}
+                {/* About this place */}
                 {venue.full_description && venue.full_description !== venue.short_description && (
-                  <SectionCard title="About this venue">
-                    <p style={{ fontSize: 14, color: 'rgba(26,39,68,0.70)', lineHeight: 1.72, margin: 0, whiteSpace: 'pre-line' }}>
+                  <SectionCard title="About this place" accent={accent}>
+                    <p style={{ fontSize: 14.5, color: 'rgba(26,39,68,0.72)', lineHeight: 1.75, margin: 0, whiteSpace: 'pre-line' }}>
                       {venue.full_description}
                     </p>
                   </SectionCard>
@@ -277,8 +409,8 @@ const VenueProfile = ({ slug, county, backPage, onNavigate, session }) => {
 
                 {/* Suitability */}
                 {suitability.length > 0 && (
-                  <SectionCard title="Suitability">
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                  <SectionCard title="Suitability" accent={accent}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 0 }}>
                       {suitability.map((item) => (
                         <BoolRow key={item.label} label={item.label} value={item.value} color={item.color} />
                       ))}
@@ -286,22 +418,34 @@ const VenueProfile = ({ slug, county, backPage, onNavigate, session }) => {
                   </SectionCard>
                 )}
 
-                {/* Features & best for */}
-                {(venue.features?.length > 0 || venue.best_for?.length > 0) && (
-                  <SectionCard title="Highlights">
+                {/* Features & Best for */}
+                {hasHighlights && (
+                  <SectionCard title="Highlights" accent={accent}>
                     {venue.features?.length > 0 && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: venue.best_for?.length > 0 ? 12 : 0 }}>
-                        {venue.features.map((f) => <span key={f} style={tagPill(accent)}>{f}</span>)}
+                      <div style={{ marginBottom: venue.best_for?.length > 0 ? 14 : 0 }}>
+                        <div style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(26,39,68,0.38)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Features</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                          {venue.features.map((f) => <span key={f} style={tagPill(accent)}>{f}</span>)}
+                        </div>
                       </div>
                     )}
                     {venue.best_for?.length > 0 && (
-                      <>
-                        <div style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(26,39,68,0.38)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 7 }}>Best for</div>
+                      <div>
+                        <div style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(26,39,68,0.38)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Best for</div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                           {venue.best_for.map((b) => <span key={b} style={tagPill('#7B5CF5')}>{b}</span>)}
                         </div>
-                      </>
+                      </div>
                     )}
+                  </SectionCard>
+                )}
+
+                {/* Accessibility notes — if text present */}
+                {venue.accessibility_info && (
+                  <SectionCard title="Accessibility" accent="#7B5CF5">
+                    <p style={{ fontSize: 14, color: 'rgba(26,39,68,0.70)', lineHeight: 1.65, margin: 0 }}>
+                      {venue.accessibility_info}
+                    </p>
                   </SectionCard>
                 )}
               </div>
@@ -310,63 +454,77 @@ const VenueProfile = ({ slug, county, backPage, onNavigate, session }) => {
               <div>
                 {/* Practical information */}
                 {hasPractical && (
-                  <SectionCard title="Practical information">
-                    <InfoRow label="Opening hours"   value={venue.opening_hours} />
-                    <InfoRow label="Seasonality"     value={venue.seasonality} />
-                    {venue.price_adult  != null && <InfoRow label="Adult price"  value={`£${venue.price_adult}`} />}
-                    {venue.price_child  != null && <InfoRow label="Child price"  value={`£${venue.price_child}`} />}
-                    {venue.price_family != null && <InfoRow label="Family price" value={`£${venue.price_family}`} />}
+                  <SectionCard title="Practical information" accent={accent}>
+                    <InfoRow label="Opening hours" value={venue.opening_hours} />
+                    <InfoRow label="Seasonality"   value={venue.seasonality} />
+                    {venue.price_adult  != null && <InfoRow label="Adult price"  value={`£${Number(venue.price_adult).toFixed(2)}`} />}
+                    {venue.price_child  != null && <InfoRow label="Child price"  value={`£${Number(venue.price_child).toFixed(2)}`} />}
+                    {venue.price_family != null && <InfoRow label="Family price" value={`£${Number(venue.price_family).toFixed(2)}`} />}
                     <InfoRow label="Address" value={[venue.address_line_1, venue.address_line_2, venue.town, venue.postcode].filter(Boolean).join(', ')} />
                   </SectionCard>
                 )}
 
-                {/* Accessibility */}
-                {hasAccessibility && (
-                  <SectionCard title="Accessibility">
-                    <BoolRow label="Wheelchair accessible" value={venue.wheelchair_access} color="#7B5CF5" />
-                    <BoolRow label="Toilets available"     value={venue.toilets}           color="#2D9CDB" />
-                    <InfoRow label="Accessibility notes"   value={venue.accessibility_info} />
-                    <InfoRow label="Parking"               value={venue.parking_info} />
-                    <InfoRow label="Public transport"      value={venue.public_transport_info} />
+                {/* Getting there */}
+                {(venue.parking_info || venue.public_transport_info) && (
+                  <SectionCard title="Getting there" accent="#2D9CDB">
+                    <InfoRow label="Parking"          value={venue.parking_info} />
+                    <InfoRow label="Public transport"  value={venue.public_transport_info} />
                   </SectionCard>
                 )}
 
                 {/* Contact & booking */}
                 {(venue.website || venue.booking_url || venue.phone) && (
-                  <SectionCard title="Contact & booking">
+                  <SectionCard title="Contact & booking" accent={accent}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {venue.website && (
                         <a href={venue.website} target="_blank" rel="noopener noreferrer"
-                          style={{ fontSize: 13.5, fontWeight: 700, color: accent, background: `${accent}14`, padding: '10px 14px', borderRadius: 10, textDecoration: 'none', display: 'block', textAlign: 'center' }}>
+                          style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF', background: accent, padding: '11px 16px', borderRadius: 10, textDecoration: 'none', display: 'block', textAlign: 'center' }}>
                           Visit website →
                         </a>
                       )}
                       {venue.booking_url && venue.booking_url !== venue.website && (
                         <a href={venue.booking_url} target="_blank" rel="noopener noreferrer"
-                          style={{ fontSize: 13.5, fontWeight: 700, color: '#1A2744', background: 'rgba(26,39,68,0.06)', padding: '10px 14px', borderRadius: 10, textDecoration: 'none', display: 'block', textAlign: 'center' }}>
+                          style={{ fontSize: 14, fontWeight: 700, color: '#1A2744', background: 'rgba(26,39,68,0.06)', border: '1px solid rgba(26,39,68,0.10)', padding: '11px 16px', borderRadius: 10, textDecoration: 'none', display: 'block', textAlign: 'center' }}>
                           Book / reserve →
                         </a>
                       )}
-                      {venue.phone && <InfoRow label="Phone" value={venue.phone} />}
+                      {venue.phone && (
+                        <div style={{ paddingTop: 8 }}>
+                          <InfoRow label="Phone" value={venue.phone} />
+                        </div>
+                      )}
                     </div>
                   </SectionCard>
                 )}
 
-                {/* Claim panel */}
-                <div className="card" style={{ padding: '16px 18px', borderRadius: 16, border: '1px dashed rgba(26,39,68,0.16)', background: 'rgba(26,39,68,0.015)' }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: '#1A2744', marginBottom: 5 }}>Own or manage this place?</div>
-                  <p style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.52)', lineHeight: 1.55, margin: '0 0 12px' }}>
-                    Claim this listing to update details, add photos and manage your profile.
-                  </p>
-                  <button
-                    onClick={() => setClaimOpen(true)}
-                    style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'rgba(26,39,68,0.06)', color: '#1A2744', fontWeight: 700, fontSize: 13.5, border: '1px solid rgba(26,39,68,0.12)', cursor: 'pointer' }}
-                  >
-                    Claim this listing
-                  </button>
+                {/* ── Claim this listing — premium panel ── */}
+                <div className="card" style={{ padding: 0, overflow: 'hidden', borderRadius: 18, border: `1px solid ${accent}28` }}>
+                  <div style={{ height: 4, background: `linear-gradient(90deg, ${accent}, ${accent}66)` }} />
+                  <div style={{ padding: '18px 20px' }}>
+                    <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: `${accent}`, marginBottom: 8 }}>
+                      Venue owner?
+                    </div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: '#1A2744', marginBottom: 6 }}>
+                      Claim this listing
+                    </div>
+                    <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.55)', lineHeight: 1.6, margin: '0 0 16px' }}>
+                      Update details, add photos and manage how this venue appears across Inspiring Carers. Claims are reviewed before going live.
+                    </p>
+                    <div style={{ display: 'grid', gap: 8 }}>
+                      <button
+                        onClick={() => setClaimOpen(true)}
+                        style={{ padding: '11px 16px', borderRadius: 10, background: accent, color: 'white', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer' }}
+                      >
+                        Claim this listing
+                      </button>
+                      <div style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.38)', textAlign: 'center', lineHeight: 1.5 }}>
+                        Free to claim · Reviewed before changes go live
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
 
+              </div>
             </div>
           )}
         </div>
