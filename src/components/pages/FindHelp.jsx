@@ -2505,35 +2505,62 @@ const DirectoryMap = ({ listings, selectedId, onSelect, onOpenResource, isMobile
             >
               {selected && (
                 <InfoWindowF position={{ lat: selected.lat, lng: selected.lng }} onCloseClick={() => onSelect('')}>
-                  <div style={{ fontFamily: 'Inter, sans-serif', width: 252, padding: '2px 0 0' }}>
-                    <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 10 }}>
+                  <div style={{ fontFamily: 'Inter, sans-serif', width: 320, padding: '4px 2px 2px', background: '#fff' }}>
+                    {/* Top row: category badge + trust badges */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 9px', borderRadius: 999, background: `${toneMapColor(selected.tone).fg}14`, color: toneMapColor(selected.tone).fg, fontSize: 10.5, fontWeight: 700 }}>{selected.categoryLabel}</span>
+                      {Boolean(selected.profile?.featured) && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '3px 8px', borderRadius: 999, background: 'rgba(245,166,35,0.12)', color: '#8a5a0b', fontSize: 10, fontWeight: 700 }}>★ Featured</span>}
+                      {Boolean(selected.profile && ['claimed','pending'].includes(`${selected.profile?.claim_status||''}`.toLowerCase())) && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '3px 8px', borderRadius: 999, background: 'rgba(123,92,245,0.1)', color: '#5B35C5', fontSize: 10, fontWeight: 700 }}>✓ Claimed</span>}
+                    </div>
+
+                    {/* Avatar + title block */}
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 12 }}>
                       <div style={{ flexShrink: 0 }}>
-                        {Boolean(selected.profile) ? <OrgAvatar listing={selected} size={46} /> : <IconTile tone={selected.tone} size={44} radius={11}>{selected.icon}</IconTile>}
+                        {Boolean(selected.profile) ? <OrgAvatar listing={selected} size={50} /> : <IconTile tone={selected.tone} size={48} radius={13}>{selected.icon}</IconTile>}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        {Boolean(selected.profile) && (
-                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 6px', borderRadius: 999, background: 'rgba(245,166,35,0.13)', color: '#8a5a0b', fontSize: 9.5, fontWeight: 700, marginBottom: 4 }}>★ Premium</div>
+                        <div style={{ fontFamily: 'Sora, sans-serif', fontWeight: 800, fontSize: 15, lineHeight: 1.3, color: '#1A2744', marginBottom: 5 }}>{selected.title}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'rgba(26,39,68,0.6)' }}>
+                          <IPin s={11} />
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selected.locationLabel}</span>
+                          {selected.footprintBadge && (
+                            <span style={{ flexShrink: 0, padding: '1px 6px', borderRadius: 999, background: selected.footprintBadge.bg, color: selected.footprintBadge.color, fontSize: 9.5, fontWeight: 700 }}>{selected.footprintBadge.label}</span>
+                          )}
+                        </div>
+                        {selected.website && (
+                          <div style={{ marginTop: 4, fontSize: 11.5, color: '#2D9CDB', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {selected.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
+                          </div>
                         )}
-                        <div style={{ fontWeight: 800, fontSize: 13.5, lineHeight: 1.3, color: '#1A2744' }}>{selected.title}</div>
-                        <div style={{ fontSize: 11, color: '#2D9CDB', marginTop: 2, fontWeight: 600 }}>{selected.categoryLabel}</div>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: 'rgba(26,39,68,0.6)', marginBottom: selected.desc ? 8 : 12 }}>
-                      <IPin s={11} />
-                      <span>{selected.locationLabel}</span>
-                      {selected.footprintBadge && (
-                        <span style={{ marginLeft: 3, padding: '1px 5px', borderRadius: 999, background: selected.footprintBadge.bg, color: selected.footprintBadge.color, fontSize: 9.5, fontWeight: 700 }}>{selected.footprintBadge.label}</span>
-                      )}
-                    </div>
+
+                    {/* Description */}
                     {selected.desc && (
-                      <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.7)', lineHeight: 1.55, marginBottom: 12 }}>
-                        {selected.desc.length > 110 ? `${selected.desc.slice(0, 107)}…` : selected.desc}
+                      <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.68)', lineHeight: 1.6, marginBottom: 14, borderTop: '1px solid #EEF1F8', paddingTop: 12 }}>
+                        {selected.desc.length > 120 ? `${selected.desc.slice(0, 117)}…` : selected.desc}
                       </div>
                     )}
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button className="btn btn-sky btn-sm" style={{ flex: 1, justifyContent: 'center', fontSize: 12 }} onClick={() => onOpenResource(selected)}>View profile</button>
+
+                    {/* CTAs */}
+                    <div style={{ display: 'flex', gap: 8, marginTop: selected.desc ? 0 : 4 }}>
+                      <button
+                        onClick={() => onOpenResource(selected)}
+                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, height: 38, borderRadius: 11, background: 'linear-gradient(135deg, #2D9CDB 0%, #1A7FC0 100%)', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13, boxShadow: '0 3px 10px rgba(45,156,219,0.28)' }}
+                      >
+                        View profile <IArrow s={13} />
+                      </button>
                       {(!selected.serviceFootprintModel || selected.serviceFootprintModel === 'physical_venue' || selected.serviceFootprintModel === 'hq_only') && selected.lat !== null && (
-                        <a className="btn btn-ghost btn-sm" style={{ fontSize: 12 }} href={getMapsDirectionsUrl(selected)} target="_blank" rel="noreferrer"><IDirections s={13} /></a>
+                        <a
+                          href={getMapsDirectionsUrl(selected)}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={e => e.stopPropagation()}
+                          style={{ width: 38, height: 38, borderRadius: 11, border: '1.5px solid #E0E8F5', background: '#FAFBFF', color: 'rgba(26,39,68,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', flexShrink: 0 }}
+                          title="Get directions"
+                        >
+                          <IDirections s={16} />
+                        </a>
                       )}
                     </div>
                   </div>
@@ -2583,29 +2610,45 @@ const StateCard = ({ title, subtitle = 'Try another category or area filter, or 
 );
 
 /* ─── County Entrance ─────────────────────────────────────── */
-const COUNTIES = [
-  { slug: 'cornwall', label: 'Cornwall', active: true, description: 'Explore trusted local support across Cornwall.' },
-  { slug: 'devon',    label: 'Devon',    active: false },
-  { slug: 'dorset',   label: 'Dorset',   active: false },
-  { slug: 'somerset', label: 'Somerset', active: false },
+const COMING_SOON_COUNTIES = [
+  'Bedfordshire','Berkshire','Bristol','Buckinghamshire','Cambridgeshire',
+  'Cheshire','City of London','County Durham','Cumbria','Derbyshire',
+  'Devon','Dorset','East Riding of Yorkshire','East Sussex','Essex',
+  'Gloucestershire','Greater London','Greater Manchester','Hampshire',
+  'Herefordshire','Hertfordshire','Isle of Wight','Kent','Lancashire',
+  'Leicestershire','Lincolnshire','Merseyside','Norfolk','North Yorkshire',
+  'Northamptonshire','Northumberland','Nottinghamshire','Oxfordshire',
+  'Rutland','Shropshire','Somerset','South Yorkshire','Staffordshire',
+  'Suffolk','Surrey','Tyne and Wear','Warwickshire','West Midlands',
+  'West Sussex','West Yorkshire','Wiltshire','Worcestershire',
 ];
 
 const CountyEntrance = ({ onSelectCounty, onNavigate, session }) => {
   const isMobile = useIsMobile();
+  const [countySearch, setCountySearch] = React.useState('');
+  const [showAll, setShowAll] = React.useState(false);
+
+  const COMPACT_LIMIT = 16;
+  const filtered = countySearch.trim()
+    ? COMING_SOON_COUNTIES.filter(c => c.toLowerCase().includes(countySearch.toLowerCase()))
+    : COMING_SOON_COUNTIES;
+  const visible = showAll || countySearch.trim() ? filtered : filtered.slice(0, COMPACT_LIMIT);
+  const hasMore = !countySearch.trim() && !showAll && filtered.length > COMPACT_LIMIT;
+
   return (
     <>
       <Nav activePage="find-help" onNavigate={onNavigate} session={session} />
 
       {/* Hero */}
       <section style={{ paddingTop: 56, paddingBottom: 52, background: 'linear-gradient(180deg, #E7F3FB 0%, #FAFBFF 100%)' }}>
-        <div className="container" style={{ maxWidth: 780 }}>
+        <div className="container" style={{ maxWidth: 820 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'rgba(26,39,68,0.5)', fontSize: 13, marginBottom: 20 }}>
             <button onClick={() => onNavigate('home')} style={{ color: 'inherit', background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit' }}>Home</button>
             <IChevron s={12} />
             <span style={{ color: '#1A2744', fontWeight: 600 }}>Find help near you</span>
           </div>
           <div className="eyebrow" style={{ color: '#2D9CDB', marginBottom: 10 }}>Local support directory</div>
-          <h1 style={{ fontSize: 'clamp(32px, 4vw, 52px)', letterSpacing: '-0.03em', fontWeight: 700, textWrap: 'balance', marginBottom: 14 }}>
+          <h1 style={{ fontSize: 'clamp(30px, 4vw, 50px)', letterSpacing: '-0.03em', fontWeight: 700, textWrap: 'balance', marginBottom: 14 }}>
             Find trusted local support<br />near you.
           </h1>
           <p style={{ fontSize: 17, color: 'rgba(26,39,68,0.7)', maxWidth: 560 }}>
@@ -2614,79 +2657,92 @@ const CountyEntrance = ({ onSelectCounty, onNavigate, session }) => {
         </div>
       </section>
 
-      {/* County grid */}
-      <section style={{ paddingTop: 48, paddingBottom: 80 }}>
-        <div className="container" style={{ maxWidth: 860 }}>
-          <div style={{ marginBottom: 32 }}>
-            <h2 style={{ fontSize: 20, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>Choose your county</h2>
-            <p style={{ fontSize: 14, color: 'rgba(26,39,68,0.55)' }}>More counties launching soon — Cornwall is live now.</p>
+      {/* Cornwall live hero card */}
+      <section style={{ paddingTop: 48, paddingBottom: 0 }}>
+        <div className="container" style={{ maxWidth: 820 }}>
+          <h2 style={{ fontSize: 17, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>Choose your county</h2>
+          <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)', marginBottom: 24 }}>Cornwall is live now. Other counties are being prepared — register your interest below.</p>
+
+          <button
+            onClick={() => onSelectCounty('cornwall')}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', gap: 22,
+              padding: isMobile ? '20px 20px' : '26px 32px',
+              borderRadius: 22, border: '2px solid rgba(45,156,219,0.3)',
+              background: 'linear-gradient(135deg, #FFFFFF 0%, rgba(224,241,251,0.55) 100%)',
+              cursor: 'pointer', textAlign: 'left', marginBottom: 32,
+              boxShadow: '0 4px 24px rgba(45,156,219,0.12)',
+              transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 36px rgba(45,156,219,0.18)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 24px rgba(45,156,219,0.12)'; }}
+          >
+            <div style={{ width: 58, height: 58, borderRadius: 18, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #2D9CDB 0%, #1A7FC0 100%)', color: '#fff', boxShadow: '0 6px 18px rgba(45,156,219,0.38)', fontSize: 26 }}>
+              🌊
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 5 }}>
+                <span style={{ fontFamily: 'Sora, sans-serif', fontWeight: 800, fontSize: isMobile ? 20 : 24, color: '#1A2744' }}>Cornwall</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(91,201,74,0.13)', color: '#1E6B10', borderRadius: 20, padding: '3px 11px', fontSize: 11, fontWeight: 700, letterSpacing: '0.05em' }}>
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#5BC94A', display: 'inline-block', boxShadow: '0 0 0 2px rgba(91,201,74,0.3)' }} />
+                  LIVE NOW
+                </span>
+              </div>
+              <p style={{ margin: 0, fontSize: 14, color: 'rgba(26,39,68,0.65)', lineHeight: 1.5 }}>Browse verified local organisations, community groups, and specialist services across Cornwall.</p>
+            </div>
+            <div style={{ color: '#2D9CDB', flexShrink: 0 }}><IArrow s={22} /></div>
+          </button>
+        </div>
+      </section>
+
+      {/* Coming soon counties */}
+      <section style={{ paddingBottom: 64 }}>
+        <div className="container" style={{ maxWidth: 820 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#1A2744' }}>Coming soon across England</div>
+            {/* Search */}
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <ISearch style={{ position: 'absolute', left: 10, pointerEvents: 'none', color: 'rgba(26,39,68,0.4)' }} s={13} />
+              <input
+                type="text"
+                placeholder="Search counties…"
+                value={countySearch}
+                onChange={e => { setCountySearch(e.target.value); setShowAll(true); }}
+                style={{ paddingLeft: 30, paddingRight: 12, height: 34, borderRadius: 10, border: '1.5px solid #E0E8F5', fontSize: 13, color: '#1A2744', background: '#FAFBFF', outline: 'none', width: isMobile ? 150 : 190 }}
+              />
+            </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 18 }}>
-            {COUNTIES.map(county => {
-              const active = county.active;
-              return (
-                <button
-                  key={county.slug}
-                  onClick={() => active && onSelectCounty(county.slug)}
-                  disabled={!active}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 20,
-                    padding: '24px 28px',
-                    borderRadius: 20,
-                    border: active ? '2px solid rgba(45,156,219,0.25)' : '2px solid #E9EEF5',
-                    background: active
-                      ? 'linear-gradient(135deg, #FFFFFF 0%, rgba(231,243,251,0.6) 100%)'
-                      : 'rgba(244,246,251,0.7)',
-                    cursor: active ? 'pointer' : 'default',
-                    textAlign: 'left',
-                    transition: 'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease',
-                    boxShadow: active ? '0 2px 16px rgba(26,39,68,0.07)' : 'none',
-                    opacity: active ? 1 : 0.65,
-                  }}
-                  onMouseEnter={e => { if (active) { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(26,39,68,0.12)'; e.currentTarget.style.borderColor = 'rgba(45,156,219,0.5)'; }}}
-                  onMouseLeave={e => { if (active) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 16px rgba(26,39,68,0.07)'; e.currentTarget.style.borderColor = 'rgba(45,156,219,0.25)'; }}}
-                >
-                  {/* Icon tile */}
-                  <div style={{
-                    width: 52, height: 52, borderRadius: 16, flexShrink: 0,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: active ? 'linear-gradient(135deg, #2D9CDB 0%, #1A7FC0 100%)' : '#CBD5E1',
-                    color: '#fff',
-                    boxShadow: active ? '0 4px 14px rgba(45,156,219,0.35)' : 'none',
-                  }}>
-                    <IPin s={22} />
-                  </div>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: 8 }}>
+            {visible.map(name => (
+              <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', borderRadius: 12, border: '1.5px solid #EEF1F8', background: 'rgba(248,250,254,0.9)', opacity: 0.72 }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#CBD5E1', flexShrink: 0 }} />
+                <span style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.6)', fontWeight: 500, lineHeight: 1.3 }}>{name}</span>
+              </div>
+            ))}
+            {visible.length === 0 && (
+              <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '24px 0', color: 'rgba(26,39,68,0.45)', fontSize: 13 }}>No counties matched "{countySearch}".</div>
+            )}
+          </div>
 
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                      <span style={{ fontFamily: 'Sora, sans-serif', fontWeight: 700, fontSize: 18, color: active ? '#1A2744' : 'rgba(26,39,68,0.45)' }}>
-                        {county.label}
-                      </span>
-                      {active ? (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(91,201,74,0.12)', color: '#1E6B10', borderRadius: 20, padding: '2px 10px', fontSize: 11, fontWeight: 700, letterSpacing: '0.04em' }}>
-                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#5BC94A', display: 'inline-block' }} />
-                          LIVE
-                        </span>
-                      ) : (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', background: 'rgba(26,39,68,0.08)', color: 'rgba(26,39,68,0.45)', borderRadius: 20, padding: '2px 10px', fontSize: 11, fontWeight: 700, letterSpacing: '0.04em' }}>
-                          COMING SOON
-                        </span>
-                      )}
-                    </div>
-                    {active && county.description && (
-                      <p style={{ margin: 0, fontSize: 13, color: 'rgba(26,39,68,0.6)', lineHeight: 1.5 }}>{county.description}</p>
-                    )}
-                  </div>
+          {hasMore && (
+            <button onClick={() => setShowAll(true)} style={{ marginTop: 14, fontSize: 13, color: '#2D9CDB', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, padding: 0 }}>
+              + Show all {filtered.length - COMPACT_LIMIT} more counties
+            </button>
+          )}
 
-                  {active && (
-                    <div style={{ color: '#2D9CDB', flexShrink: 0 }}>
-                      <IArrow s={20} />
-                    </div>
-                  )}
-                </button>
-              );
-            })}
+          {/* Interest CTA */}
+          <div style={{ marginTop: 40, padding: isMobile ? '22px 20px' : '28px 32px', borderRadius: 20, background: 'linear-gradient(135deg, rgba(26,39,68,0.04) 0%, rgba(45,156,219,0.06) 100%)', border: '1.5px solid rgba(45,156,219,0.15)', display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', gap: 18 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: 'Sora, sans-serif', fontWeight: 700, fontSize: 16, color: '#1A2744', marginBottom: 5 }}>Want your county added sooner?</div>
+              <p style={{ margin: 0, fontSize: 13.5, color: 'rgba(26,39,68,0.6)', lineHeight: 1.55 }}>We're expanding to new counties soon. Register your interest and we'll let you know when your area goes live.</p>
+            </div>
+            <a
+              href="mailto:hello@inspiringcarers.co.uk?subject=County%20interest%20registration&body=Please%20add%20me%20to%20the%20waiting%20list%20for%20my%20county."
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 22px', borderRadius: 14, background: 'linear-gradient(135deg, #2D9CDB 0%, #1A7FC0 100%)', color: '#fff', fontWeight: 700, fontSize: 14, textDecoration: 'none', boxShadow: '0 4px 14px rgba(45,156,219,0.3)', whiteSpace: 'nowrap', flexShrink: 0 }}
+            >
+              Register interest <IArrow s={15} />
+            </a>
           </div>
         </div>
       </section>
