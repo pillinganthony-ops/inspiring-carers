@@ -1577,16 +1577,20 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   };
 
   const repairFromApprovedClaim = async (profile) => {
-    if (!profile?.id || !supabase) return;
+    if (!profile?.id || !supabase) return false;
     const orgName = getProfileName(profile, resources);
 
     setBusy(true);
+    setError('');
     try {
+      // Track what was searched so we can show a meaningful "not found" message
+      const searched = [];
       let approvedClaim = null;
 
       // 1. listing_claims by resource_id (most reliable match)
       if (profile.resource_id) {
-        const { data } = await supabase
+        searched.push(`listing_claims by resource_id (${profile.resource_id})`);
+        const { data, error: qErr } = await supabase
           .from('listing_claims')
           .select('id, email, submitted_by_user_id, listing_title')
           .eq('listing_id', profile.resource_id)
@@ -1594,12 +1598,16 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
+        if (qErr) throw new Error(`listing_claims query failed: ${qErr.message}`);
         if (data) approvedClaim = { ...data, _source: 'listing_claims' };
+      } else {
+        searched.push('listing_claims by resource_id — skipped (no resource_id on profile)');
       }
 
-      // 2. listing_claims by slug (fallback if resource_id not indexed)
+      // 2. listing_claims by slug
       if (!approvedClaim && profile.slug) {
-        const { data } = await supabase
+        searched.push(`listing_claims by slug (${profile.slug})`);
+        const { data, error: qErr } = await supabase
           .from('listing_claims')
           .select('id, email, submitted_by_user_id, listing_title')
           .eq('listing_slug', profile.slug)
@@ -1607,12 +1615,14 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
+        if (qErr) throw new Error(`listing_claims slug query failed: ${qErr.message}`);
         if (data) approvedClaim = { ...data, _source: 'listing_claims' };
       }
 
-      // 3. resource_update_submissions fallback queue
+      // 3. resource_update_submissions fallback
       if (!approvedClaim && profile.resource_id) {
-        const { data } = await supabase
+        searched.push('resource_update_submissions fallback queue');
+        const { data, error: qErr } = await supabase
           .from('resource_update_submissions')
           .select('id, submitter_email, resource_id')
           .eq('resource_id', profile.resource_id)
@@ -1621,11 +1631,16 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
+        if (qErr) throw new Error(`resource_update_submissions query failed: ${qErr.message}`);
         if (data) approvedClaim = { ...data, email: data.submitter_email, _source: 'resource_update_submissions' };
       }
 
       if (!approvedClaim) {
-        setToast('No approved claim found for this profile.');
+        // Show inline error in modal — not just a toast the user might miss
+        setError(
+          `No approved claim was found for this profile. You may need to approve a claim first.\n` +
+          `Searched: ${searched.join(' → ')}`
+        );
         return false;
       }
 
@@ -1638,20 +1653,21 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         .from('organisation_profiles')
         .update(updateFields)
         .eq('id', profile.id);
-      if (updateErr) throw updateErr;
+      if (updateErr) throw new Error(`Profile update failed: ${updateErr.message}`);
 
       const ownerEmail = approvedClaim.email || profile.contact_email;
       if (ownerEmail) await ensureProfileMemberAccess(supabase, profile.id, ownerEmail);
 
       const didLinkUser = Boolean(approvedClaim.submitted_by_user_id);
       setToast(
-        `"${orgName}" repaired from approved claim.` +
+        `"${orgName}" repaired from approved claim (${approvedClaim._source}).` +
         (didLinkUser ? ' User ID linked.' : ' No user ID in claim — use Repair Ownership to link a user account.')
       );
       await loadData();
       return true;
     } catch (err) {
-      setToast(`Repair failed: ${err?.message || 'Unknown error.'}`);
+      // Show inline in modal so the user can read it
+      setError(`Repair failed: ${err?.message || 'Unknown error.'}`);
       return false;
     } finally {
       setBusy(false);
