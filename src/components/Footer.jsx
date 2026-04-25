@@ -67,8 +67,8 @@ const Footer = ({ onNavigate = () => {} }) => {
             {col('For the people you support', [
               ['Find help near you', 'find-help'],
               ['Local services', 'find-help'],
-              ['Groups & activities', 'find-help'],
-              ['Walks & wellbeing', 'walks'],
+              ['Places to Visit', 'places-to-visit'],
+              ['Walks & outdoors', 'walks'],
               ['Advice & resources', 'find-help'],
             ])}
           </div>

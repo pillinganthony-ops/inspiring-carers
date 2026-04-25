@@ -288,7 +288,7 @@ const POPULAR_CHIPS = [
 const HERO_FEATURED = [
   { title: 'Porthcurno coastal walk', type: 'Walk',    tag: 'Free · 3.2 miles',    grad: 'linear-gradient(135deg, #D4F0C8 0%, #B8E4A4 100%)', accent: '#3DA832', dest: 'walks' },
   { title: 'Carer coffee morning',    type: 'Group',   tag: 'Free · Weekly',        grad: 'linear-gradient(135deg, #C8E4F8 0%, #A8D4F0 100%)', accent: '#1c78b5', dest: null    },
-  { title: 'Accessible day out',      type: 'Day Out', tag: 'Discounted · Booking', grad: 'linear-gradient(135deg, #FDE8C4 0%, #F8D4A0 100%)', accent: '#B45309', dest: null    },
+  { title: 'Accessible day out',      type: 'Day Out', tag: 'Discounted · Booking', grad: 'linear-gradient(135deg, #FDE8C4 0%, #F8D4A0 100%)', accent: '#B45309', dest: 'places-to-visit' },
 ];
 
 // ── Shared style ──────────────────────────────────────────────────────────────
@@ -650,33 +650,38 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
 
               {/* Featured preview cards — richer mini cards */}
               <div style={{ display: 'grid', gap: 8 }}>
-                {HERO_FEATURED.map((item) => (
-                  <div key={item.title}
-                    onClick={item.dest === 'walks' ? () => goToWalks(localCounty) : undefined}
-                    style={{ borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.12)', cursor: item.dest === 'walks' ? 'pointer' : 'default', transition: 'box-shadow .15s, transform .15s' }}
-                    onMouseEnter={item.dest === 'walks' ? (e) => { e.currentTarget.style.boxShadow = '0 8px 22px rgba(0,0,0,0.28)'; e.currentTarget.style.transform = 'translateY(-1px)'; } : undefined}
-                    onMouseLeave={item.dest === 'walks' ? (e) => { e.currentTarget.style.boxShadow = ''; e.currentTarget.style.transform = ''; } : undefined}
-                  >
-                    {/* Gradient strip with category badge */}
-                    <div style={{ height: 36, background: item.grad, display: 'flex', alignItems: 'center', padding: '0 10px', gap: 7 }}>
-                      <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '2px 8px', borderRadius: 999, background: 'rgba(255,255,255,0.85)', color: item.accent }}>
-                        {item.type}
-                      </span>
-                      {item.dest === 'walks' && (
-                        <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.75)', marginLeft: 'auto' }}>Live now</span>
-                      )}
-                    </div>
-                    <div style={{ padding: '9px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.05)' }}>
-                      <div>
-                        <div style={{ fontSize: 12.5, fontWeight: 700, color: 'rgba(255,255,255,0.90)', marginBottom: 2 }}>{item.title}</div>
-                        <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.48)' }}>{item.tag}</div>
+                {HERO_FEATURED.map((item) => {
+                  const itemClick = item.dest === 'walks'
+                    ? () => goToWalks(localCounty)
+                    : item.dest ? () => onNavigate(item.dest) : undefined;
+                  return (
+                    <div key={item.title}
+                      onClick={itemClick}
+                      style={{ borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.12)', cursor: item.dest ? 'pointer' : 'default', transition: 'box-shadow .15s, transform .15s' }}
+                      onMouseEnter={item.dest ? (e) => { e.currentTarget.style.boxShadow = '0 8px 22px rgba(0,0,0,0.28)'; e.currentTarget.style.transform = 'translateY(-1px)'; } : undefined}
+                      onMouseLeave={item.dest ? (e) => { e.currentTarget.style.boxShadow = ''; e.currentTarget.style.transform = ''; } : undefined}
+                    >
+                      {/* Gradient strip with category badge */}
+                      <div style={{ height: 36, background: item.grad, display: 'flex', alignItems: 'center', padding: '0 10px', gap: 7 }}>
+                        <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '2px 8px', borderRadius: 999, background: 'rgba(255,255,255,0.85)', color: item.accent }}>
+                          {item.type}
+                        </span>
+                        {item.dest && (
+                          <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.75)', marginLeft: 'auto' }}>Live now</span>
+                        )}
                       </div>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: item.dest === 'walks' ? item.accent : 'rgba(255,255,255,0.26)', flexShrink: 0, whiteSpace: 'nowrap' }}>
-                        {item.dest === 'walks' ? 'View →' : 'Details coming soon'}
-                      </span>
+                      <div style={{ padding: '9px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.05)' }}>
+                        <div>
+                          <div style={{ fontSize: 12.5, fontWeight: 700, color: 'rgba(255,255,255,0.90)', marginBottom: 2 }}>{item.title}</div>
+                          <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.48)' }}>{item.tag}</div>
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: item.dest ? item.accent : 'rgba(255,255,255,0.26)', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                          {item.dest ? 'Explore →' : 'Details coming soon'}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.10)', fontSize: 12, color: 'rgba(255,255,255,0.40)', textAlign: 'center' }}>
@@ -929,13 +934,20 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(26,39,68,0.35)' }}>Listings being added</div>
               </div>
             </div>
-            <div className="card" style={{ padding: 0, overflow: 'hidden', cursor: 'default', opacity: 0.75, border: '1px solid rgba(245,166,35,0.14)' }}>
-              <div style={{ height: 5, background: 'linear-gradient(90deg, #F5A62366, #F5A62333)' }} />
+            <div className="card" onClick={() => onNavigate('places-to-visit')} style={{ padding: 0, overflow: 'hidden', cursor: 'pointer', border: '1px solid rgba(123,92,245,0.22)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 8px 24px rgba(123,92,245,0.14)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = ''; }}>
+              <div style={{ height: 5, background: 'linear-gradient(90deg, #7B5CF5, #6D4EE8)' }} />
               <div style={{ padding: '16px 18px' }}>
-                <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#F5A623' }}>Coming soon</span>
-                <div style={{ fontSize: 17, fontWeight: 800, color: '#1A2744', margin: '5px 0' }}>Days Out</div>
-                <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.56)', lineHeight: 1.5, marginBottom: 12 }}>Gardens, beaches, attractions and family-friendly destinations.</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(26,39,68,0.35)' }}>Listings being added</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#7B5CF5' }}>Live now</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#5B3DB5', background: 'rgba(123,92,245,0.10)', padding: '2px 8px', borderRadius: 6 }}>233 venues</span>
+                </div>
+                <div style={{ fontSize: 17, fontWeight: 800, color: '#1A2744', marginBottom: 5 }}>Places to Visit</div>
+                <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.60)', lineHeight: 1.5, marginBottom: 12 }}>
+                  Carer-friendly attractions, gardens, heritage sites and family days out{countyLabel ? ` in ${countyLabel}` : ''}.
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#7B5CF5' }}>Explore places →</div>
               </div>
             </div>
           </div>

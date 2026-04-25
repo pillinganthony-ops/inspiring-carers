@@ -1,13 +1,14 @@
 // Icon-led discovery grid — the bespoke icon ecosystem on display
 import Icons from '../Icons.jsx';
-const { IDiscount, IWellbeing, IGroups, IWalks, IEvent, IAdvice, ILibrary, IHub, IReward, IRecognition, IFamily, IMind, IArrow, IconTile } = Icons;
+const { IDiscount, IWellbeing, IGroups, IWalks, IEvent, IAdvice, ILibrary, IHub, IReward, IRecognition, IFamily, IMind, IArrow, IconTile, ISparkle } = Icons;
 
 const IconDiscovery = ({ onNavigate }) => {
   const items = [
     { icon: <IDiscount s={32}/>,    tone: 'gold',   label: 'Discounts & offers',        side: 'you',     count: 'Local & regional offers' },
     { icon: <IWellbeing s={32}/>,   tone: 'coral',  label: 'Wellbeing & courses',      side: 'both',    count: 'Regular sessions' },
     { icon: <IGroups s={32}/>,      tone: 'sky',    label: 'Local groups & socials',   side: 'support', count: 'Cornwall & beyond' },
-    { icon: <IWalks s={32}/>,       tone: 'lime',   label: 'Walks & outdoors',        side: 'support', count: 'Walks & trails' },
+    { icon: <IWalks s={32}/>,       tone: 'lime',   label: 'Walks & outdoors',         side: 'support', count: 'Trails & coastal paths', route: 'walks' },
+    { icon: <ISparkle s={32}/>,     tone: 'violet', label: 'Places to Visit',          side: 'support', count: 'Attractions & days out',  route: 'places-to-visit' },
     { icon: <IEvent s={32}/>,       tone: 'violet', label: 'Events everywhere',        side: 'both',    count: 'Near you' },
     { icon: <IAdvice s={32}/>,      tone: 'sky',    label: 'Expert advice',            side: 'support', count: 'Updated daily' },
     { icon: <ILibrary s={32}/>,     tone: 'gold',   label: 'Libraries & hubs',        side: 'support', count: '38+ near you' },
@@ -45,7 +46,7 @@ const IconDiscovery = ({ onNavigate }) => {
               display: 'flex', flexDirection: 'column', gap: 16,
               minHeight: 180,
             }}
-              onClick={() => onNavigate(it.side === 'you' ? 'benefits' : 'find-help')}
+              onClick={() => onNavigate(it.route || (it.side === 'you' ? 'benefits' : 'find-help'))}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                 <IconTile tone={it.tone} size={56} radius={16}>{it.icon}</IconTile>
