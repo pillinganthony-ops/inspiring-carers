@@ -417,7 +417,7 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
   const allPins = [...walkPins, ...samplePins];
 
   const Fallback = () => (
-    <div style={{ height: 'clamp(340px, calc(30vw + 200px), 560px)', borderRadius: 20, background: 'linear-gradient(160deg, #E8F5E4 0%, #EEF7FF 100%)', border: '1px solid #DEE8F4', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, textAlign: 'center', padding: 32 }}>
+    <div style={{ height: 'clamp(300px, calc(20vw + 225px), 460px)', borderRadius: 20, background: 'linear-gradient(160deg, #E8F5E4 0%, #EEF7FF 100%)', border: '1px solid #DEE8F4', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, textAlign: 'center', padding: 32 }}>
       <div style={{ fontSize: 32, marginBottom: 4 }}>📍</div>
       <div style={{ fontSize: 15, fontWeight: 700, color: '#1A2744' }}>Activity map loading</div>
       <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)', maxWidth: 280, lineHeight: 1.6 }}>Explore walks, groups, days out, attractions and wellbeing activities by location.</div>
@@ -429,7 +429,7 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
 
   if (loadError) return <Fallback />;
   if (!isLoaded || geoLoading) return (
-    <div style={{ height: 'clamp(340px, calc(30vw + 200px), 560px)', borderRadius: 20, background: '#F0F5FB', border: '1px solid #DEE8F4', display: 'grid', placeItems: 'center' }}>
+    <div style={{ height: 'clamp(300px, calc(20vw + 225px), 460px)', borderRadius: 20, background: '#F0F5FB', border: '1px solid #DEE8F4', display: 'grid', placeItems: 'center' }}>
       <div style={{ textAlign: 'center', color: 'rgba(26,39,68,0.5)', fontSize: 14 }}>
         <div style={{ fontSize: 28, marginBottom: 8 }}>🗺️</div>
         {geoLoading ? 'Locating activities…' : 'Loading map…'}
@@ -445,10 +445,10 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
     <div>
       <div style={{ borderRadius: 20, overflow: 'hidden', boxShadow: '0 8px 32px rgba(26,39,68,0.10)', border: '1px solid #EEF1F7' }}>
         <GoogleMap
-          mapContainerStyle={{ width: '100%', height: 'clamp(340px, calc(30vw + 200px), 560px)' }}
+          mapContainerStyle={{ width: '100%', height: 'clamp(300px, calc(20vw + 225px), 460px)' }}
           center={{ lat, lng }}
           zoom={zoom}
-          options={{ streetViewControl: false, mapTypeControl: false, fullscreenControl: false, zoomControl: true, gestureHandling: 'greedy' }}
+          options={{ streetViewControl: false, mapTypeControl: false, fullscreenControl: false, zoomControl: true, gestureHandling: 'cooperative' }}
           onClick={() => setActivePin(null)}
         >
           {allPins.map((pin) => {
@@ -513,8 +513,9 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
             Full walks map →
           </button>
         </div>
-        <div style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.40)', fontStyle: 'italic' }}>
-          Showing selected mapped activity points. Open the full walks map for all 333 routes.
+        <div style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.40)', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 6 }}>
+          <span style={{ fontStyle: 'italic' }}>Showing selected mapped activity points. Open the full walks map for all 333 routes.</span>
+          <span>Ctrl + scroll to zoom map</span>
         </div>
       </div>
     </div>
@@ -712,7 +713,7 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
       </section>
 
       {/* ── Discovery map — full width ───────────────────────────── */}
-      <section id="act-map" style={{ paddingTop: 36, paddingBottom: 0, background: '#FFFFFF' }}>
+      <section id="act-map" style={{ paddingTop: 36, paddingBottom: 32, background: '#FFFFFF' }}>
         <div className="container">
 
           {/* Compact map header */}
