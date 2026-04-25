@@ -1,10 +1,10 @@
 // Activities discovery hub — county-optional route (/activities and /{county}/activities).
-// Map: real walk pins geocoded from walks.json via postcodes.io (same approach as Walks.jsx).
-// county prop = null on /activities (hub view), or county slug on /{county}/activities.
-// localCounty state lets county filter update without forcing a URL change.
+// Map: real Cornwall walk pins (walks.json → postcodes.io geocoding) + ACTIVITY_SAMPLE_DATA
+//      for all other categories. Find Help/resource data intentionally NOT imported here.
+// Future: replace ACTIVITY_SAMPLE_DATA with Supabase activities table.
 
 import React from 'react';
-import { GoogleMap, MarkerF, useJsApiLoader } from '@react-google-maps/api';
+import { GoogleMap, MarkerF, InfoWindowF, useJsApiLoader } from '@react-google-maps/api';
 import walksData from '../../data/walks.json';
 import Nav from '../Nav.jsx';
 import Footer from '../Footer.jsx';
@@ -15,7 +15,7 @@ const { IWalks, IGroups, IWellbeing, IArrow, ISparkle, ISearch, IPin } = Icons;
 // Stable ref — must not recreate on render (useJsApiLoader warning)
 const ACT_MAP_LIBS = [];
 
-// ── Data ─────────────────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────────
 
 const COUNTY_LABELS = {
   cornwall:  'Cornwall',
@@ -43,7 +43,7 @@ const ACTIVITY_TYPE_OPTIONS = [
   { value: 'days-out',    label: 'Days Out' },
   { value: 'attractions', label: 'Attractions' },
   { value: 'wellbeing',   label: 'Wellbeing' },
-  { value: 'events',      label: 'Events' },
+  { value: 'discounts',   label: 'Carer Discounts' },
 ];
 
 const ACCESSIBILITY_OPTIONS = [
@@ -62,28 +62,177 @@ const COST_OPTIONS = [
   { value: 'paid',       label: 'Paid' },
 ];
 
-// Map centre per county
-const COUNTY_CENTERS = {
-  '':         { lat: 51.00, lng: -3.50, zoom: 8 }, // South-west England
-  cornwall:   { lat: 50.35, lng: -4.80, zoom: 9 },
-  devon:      { lat: 50.72, lng: -3.80, zoom: 9 },
-  somerset:   { lat: 51.10, lng: -2.95, zoom: 9 },
-  bristol:    { lat: 51.45, lng: -2.60, zoom: 10 },
-  dorset:     { lat: 50.75, lng: -2.35, zoom: 9 },
-  wiltshire:  { lat: 51.35, lng: -1.99, zoom: 9 },
+// Category config — accent colours + map marker labels
+const CAT_CONFIG = {
+  walks:       { accent: '#3DA832', label: 'W', bg: 'rgba(61,168,50,0.12)'  },
+  groups:      { accent: '#2D9CDB', label: 'G', bg: 'rgba(45,156,219,0.12)' },
+  'days-out':  { accent: '#F5A623', label: 'D', bg: 'rgba(245,166,35,0.12)' },
+  attractions: { accent: '#7B5CF5', label: 'A', bg: 'rgba(123,92,245,0.12)' },
+  wellbeing:   { accent: '#F4613A', label: 'H', bg: 'rgba(244,97,58,0.12)'  },
+  discounts:   { accent: '#0D7A55', label: '£', bg: 'rgba(16,185,129,0.12)' },
 };
 
-// Sample walks — one per unique area for geographic spread across Cornwall
-// walks.json is Cornwall-only; other counties show centred map + note
-const SAMPLE_WALKS = (() => {
-  const seenAreas = new Set();
-  return walksData.filter((w) => {
-    if (!w.postcode || !w.area || seenAreas.has(w.area)) return false;
-    seenAreas.add(w.area);
-    return seenAreas.size <= 16; // up to 16 map pins
-  });
-})();
+const COUNTY_CENTERS = {
+  '':        { lat: 51.00, lng: -3.50, zoom: 8 },
+  cornwall:  { lat: 50.35, lng: -4.80, zoom: 9 },
+  devon:     { lat: 50.72, lng: -3.80, zoom: 9 },
+  somerset:  { lat: 51.10, lng: -2.95, zoom: 9 },
+  bristol:   { lat: 51.45, lng: -2.60, zoom: 10 },
+  dorset:    { lat: 50.75, lng: -2.35, zoom: 9 },
+  wiltshire: { lat: 51.35, lng: -1.99, zoom: 9 },
+};
 
+// ── Activity sample data ───────────────────────────────────────────────────────
+// Future: replace ACTIVITY_SAMPLE_DATA with Supabase activities table.
+// Do NOT import or use Find Help / resources data here.
+// Each entry: title, category, county, area, lat, lng, cost, tags[], description.
+
+const ACTIVITY_SAMPLE_DATA = [
+  // ── Cornwall · Groups ──
+  { id: 'cg-01', category: 'groups', county: 'cornwall', area: 'St Austell',
+    title: 'St Austell Carers Support Group', lat: 50.3395, lng: -4.7906,
+    cost: 'free', tags: ['Weekly', 'Refreshments', 'All welcome'],
+    description: 'Weekly meetup for carers to share experiences and find peer support.' },
+  { id: 'cg-02', category: 'groups', county: 'cornwall', area: 'Truro',
+    title: 'Truro Carers Connect', lat: 50.2632, lng: -5.0501,
+    cost: 'free', tags: ['Fortnightly', 'Refreshments'],
+    description: 'Fortnightly gathering for carers in and around Truro.' },
+  { id: 'cg-03', category: 'groups', county: 'cornwall', area: 'Penzance',
+    title: 'Penzance Carer Circle', lat: 50.1193, lng: -5.5347,
+    cost: 'free', tags: ['Monthly', 'Wheelchair friendly'],
+    description: 'Monthly carer circle supporting people across the far west.' },
+  { id: 'cg-04', category: 'groups', county: 'cornwall', area: 'Newquay',
+    title: 'Newquay Peer Support Group', lat: 50.4159, lng: -5.0795,
+    cost: 'free', tags: ['Weekly', 'Dog friendly'],
+    description: 'Open peer support for carers in the Newquay area.' },
+  { id: 'cg-05', category: 'groups', county: 'cornwall', area: 'Falmouth',
+    title: 'Falmouth Carers Network', lat: 50.1553, lng: -5.0655,
+    cost: 'free', tags: ['Fortnightly', 'Public transport nearby'],
+    description: 'Community network for carers in Falmouth and the Fal estuary area.' },
+
+  // ── Cornwall · Days Out ──
+  { id: 'cd-01', category: 'days-out', county: 'cornwall', area: 'St Austell',
+    title: 'Eden Project', lat: 50.3601, lng: -4.7446,
+    cost: 'discounted', tags: ['Carer discount', 'Family', 'Wheelchair friendly'],
+    description: 'World-famous biomes and gardens — discounted entry for registered carers.' },
+  { id: 'cd-02', category: 'days-out', county: 'cornwall', area: 'St Ives',
+    title: 'Tate St Ives', lat: 50.2125, lng: -5.4813,
+    cost: 'discounted', tags: ['Free for carers', 'Accessible', 'Public transport nearby'],
+    description: 'Gallery of modern and contemporary art with stunning coastal views.' },
+  { id: 'cd-03', category: 'days-out', county: 'cornwall', area: 'Mawnan Smith',
+    title: 'Trebah Garden', lat: 50.0988, lng: -5.1269,
+    cost: 'discounted', tags: ['Wheelchair friendly', 'Dog friendly', 'Carer discount'],
+    description: 'Subtropical jungle garden with beach access — discounted for carers.' },
+  { id: 'cd-04', category: 'days-out', county: 'cornwall', area: 'Falmouth',
+    title: 'National Maritime Museum Falmouth', lat: 50.1511, lng: -5.0638,
+    cost: 'discounted', tags: ['Accessible', 'Family', 'Free carer entry'],
+    description: 'National Maritime Museum with harbour views — free entry for caring companions.' },
+
+  // ── Cornwall · Attractions ──
+  { id: 'ca-01', category: 'attractions', county: 'cornwall', area: 'Porthcurno',
+    title: 'Minack Theatre', lat: 50.0625, lng: -5.5793,
+    cost: 'paid', tags: ['Scenic', 'Accessible seating available'],
+    description: 'Clifftop open-air theatre — one of Cornwall\'s most iconic venues.' },
+  { id: 'ca-02', category: 'attractions', county: 'cornwall', area: 'Tintagel',
+    title: 'Tintagel Castle', lat: 50.6686, lng: -4.7580,
+    cost: 'discounted', tags: ['Historic', 'Free for carers', 'Coastal views'],
+    description: 'Legendary Arthurian castle with dramatic Atlantic coastline.' },
+  { id: 'ca-03', category: 'attractions', county: 'cornwall', area: 'Mevagissey',
+    title: 'Lost Gardens of Heligan', lat: 50.2779, lng: -4.7858,
+    cost: 'discounted', tags: ['Wheelchair paths', 'Dog friendly', 'Carer discount'],
+    description: 'Award-winning heritage gardens with restored Victorian productive gardens.' },
+  { id: 'ca-04', category: 'attractions', county: 'cornwall', area: 'St Just',
+    title: 'Geevor Tin Mine', lat: 50.1412, lng: -5.6843,
+    cost: 'discounted', tags: ['Heritage', 'Accessible areas', 'Family'],
+    description: 'Underground tin mine experience — a window into Cornwall\'s industrial heritage.' },
+
+  // ── Cornwall · Wellbeing ──
+  { id: 'cw-01', category: 'wellbeing', county: 'cornwall', area: 'Falmouth',
+    title: 'Falmouth Leisure Centre', lat: 50.1527, lng: -5.0635,
+    cost: 'free', tags: ['Swimming', 'Low mobility', 'Accessible'],
+    description: 'Community leisure centre with discounted carer swim sessions.' },
+  { id: 'cw-02', category: 'wellbeing', county: 'cornwall', area: 'Truro',
+    title: 'Truro Wellness Hub', lat: 50.2632, lng: -5.0501,
+    cost: 'free', tags: ['Yoga', 'Mindfulness', 'All welcome'],
+    description: 'Wellbeing sessions specifically designed for carers — mind and body.' },
+  { id: 'cw-03', category: 'wellbeing', county: 'cornwall', area: 'St Ives',
+    title: 'St Ives Beach Yoga', lat: 50.2121, lng: -5.4808,
+    cost: 'discounted', tags: ['Yoga', 'Outdoor', 'Dog friendly'],
+    description: 'Morning yoga sessions on Porthmeor beach — all abilities welcome.' },
+  { id: 'cw-04', category: 'wellbeing', county: 'cornwall', area: 'Penzance',
+    title: 'Penzance Hydrotherapy Pool', lat: 50.1193, lng: -5.5347,
+    cost: 'discounted', tags: ['Hydrotherapy', 'Low mobility', 'Wheelchair friendly'],
+    description: 'Warm water hydrotherapy — ideal for low-mobility carers and those they support.' },
+
+  // ── Cornwall · Discounts ──
+  { id: 'c$-01', category: 'discounts', county: 'cornwall', area: 'St Austell',
+    title: 'The Cornish Bakery — St Austell', lat: 50.3395, lng: -4.7906,
+    cost: 'discounted', tags: ['Food & drink', '20% off', 'Show card'],
+    description: '20% off for Inspiring Carers card holders. Show your staff benefits card.' },
+  { id: 'c$-02', category: 'discounts', county: 'cornwall', area: 'St Ives',
+    title: 'St Austell Leisure — St Ives', lat: 50.2121, lng: -5.4808,
+    cost: 'discounted', tags: ['Gym', 'Pool', 'Free guest pass'],
+    description: 'Free guest pass for registered carers. Gym, pool and fitness classes.' },
+  { id: 'c$-03', category: 'discounts', county: 'cornwall', area: 'Newquay',
+    title: 'Newquay Surf Experience', lat: 50.4159, lng: -5.0795,
+    cost: 'discounted', tags: ['Activities', 'Family', '1-for-1'],
+    description: '1-for-1 beginner surf lessons for carers and the person they support.' },
+  { id: 'c$-04', category: 'discounts', county: 'cornwall', area: 'Falmouth',
+    title: 'Falmouth Boat Trips', lat: 50.1553, lng: -5.0655,
+    cost: 'discounted', tags: ['Days out', 'Accessible vessel', 'Carer goes free'],
+    description: 'Scenic harbour and estuary trips — caring companion travels free.' },
+
+  // ── Devon ──
+  { id: 'dg-01', category: 'groups', county: 'devon', area: 'Exeter',
+    title: 'Exeter Carers Support Group', lat: 50.7236, lng: -3.5275,
+    cost: 'free', tags: ['Weekly', 'All welcome'], description: 'Weekly carer support group in central Exeter.' },
+  { id: 'dd-01', category: 'days-out', county: 'devon', area: 'Dartmoor',
+    title: 'Dartmoor National Park', lat: 50.5793, lng: -3.9024,
+    cost: 'free', tags: ['Outdoor', 'Dog friendly', 'Accessible trails'], description: 'Open moorland with accessible trails and guided carer walks.' },
+  { id: 'da-01', category: 'attractions', county: 'devon', area: 'Plymouth',
+    title: 'Plymouth City Museum', lat: 50.3754, lng: -4.1427,
+    cost: 'free', tags: ['Free entry', 'Accessible', 'Family'], description: 'Free admission museum covering Plymouth\'s maritime history.' },
+  { id: 'dw-01', category: 'wellbeing', county: 'devon', area: 'Torquay',
+    title: 'Torquay Carer Yoga', lat: 50.4612, lng: -3.5247,
+    cost: 'free', tags: ['Yoga', 'Low mobility'], description: 'Chair yoga and wellbeing sessions for carers.' },
+
+  // ── Somerset ──
+  { id: 'sg-01', category: 'groups', county: 'somerset', area: 'Taunton',
+    title: 'Taunton Carers Hub', lat: 51.0153, lng: -3.1064,
+    cost: 'free', tags: ['Weekly', 'Refreshments'], description: 'Friendly weekly hub for carers across the Taunton area.' },
+  { id: 'sw-01', category: 'wellbeing', county: 'somerset', area: 'Wells',
+    title: 'Wells Wellness Studio', lat: 51.2095, lng: -2.6446,
+    cost: 'discounted', tags: ['Yoga', 'Mindfulness', 'Dog friendly'], description: 'Wellness studio offering discounted sessions for carers.' },
+  { id: 'sd-01', category: 'days-out', county: 'somerset', area: 'Bath',
+    title: 'Roman Baths, Bath', lat: 51.3812, lng: -2.3590,
+    cost: 'discounted', tags: ['Heritage', 'Accessible', 'Carer discount'], description: 'World Heritage Site — discounted entry for carers.' },
+
+  // ── Bristol ──
+  { id: 'bg-01', category: 'groups', county: 'bristol', area: 'Bristol',
+    title: 'Bristol Carers Connect', lat: 51.4545, lng: -2.5879,
+    cost: 'free', tags: ['Weekly', 'Wheelchair friendly'], description: 'Accessible weekly group for carers across Bristol.' },
+  { id: 'bd-01', category: 'days-out', county: 'bristol', area: 'Bristol',
+    title: 'SS Great Britain', lat: 51.4488, lng: -2.6271,
+    cost: 'discounted', tags: ['Heritage', 'Accessible', 'Carer discount'], description: 'Brunel\'s famous steamship museum — discounted for registered carers.' },
+
+  // ── Dorset ──
+  { id: 'org-01', category: 'groups', county: 'dorset', area: 'Bournemouth',
+    title: 'Bournemouth Carers Group', lat: 50.7192, lng: -1.8808,
+    cost: 'free', tags: ['Fortnightly', 'Refreshments'], description: 'Fortnightly support group for carers in the Bournemouth area.' },
+  { id: 'ord-01', category: 'days-out', county: 'dorset', area: 'Wareham',
+    title: 'Durdle Door', lat: 50.6205, lng: -2.2739,
+    cost: 'free', tags: ['Coastal', 'Dog friendly', 'Scenic walk'], description: 'Iconic Jurassic Coast landmark — accessible from nearby car park.' },
+
+  // ── Wiltshire ──
+  { id: 'wg-01', category: 'groups', county: 'wiltshire', area: 'Salisbury',
+    title: 'Salisbury Carers Network', lat: 51.0693, lng: -1.7944,
+    cost: 'free', tags: ['Monthly', 'All welcome'], description: 'Monthly gathering for carers in the Salisbury area.' },
+  { id: 'wa-01', category: 'attractions', county: 'wiltshire', area: 'Avebury',
+    title: 'Avebury Stone Circle', lat: 51.4288, lng: -1.8542,
+    cost: 'free', tags: ['Free entry', 'Outdoor', 'Dog friendly'], description: 'Neolithic stone circle — free access, wide paths suitable for all mobilities.' },
+];
+
+// Activity categories shown in UI (featured section)
 const ACTIVITY_CATEGORIES = [
   { key: 'walks',       label: 'Walks',       status: 'live', cta: 'Explore walks',
     desc: 'Trails, coastal paths and nature routes rated by difficulty and accessibility.',
@@ -102,20 +251,30 @@ const ACTIVITY_CATEGORIES = [
     accent: '#F4613A', bg: 'rgba(244,97,58,0.08)', border: 'rgba(244,97,58,0.14)', Icon: IWellbeing },
 ];
 
+// Sample walks — one per unique area, geocoded at runtime
+const SAMPLE_WALKS = (() => {
+  const seenAreas = new Set();
+  return walksData.filter((w) => {
+    if (!w.postcode || !w.area || seenAreas.has(w.area)) return false;
+    seenAreas.add(w.area);
+    return seenAreas.size <= 16;
+  });
+})();
+
 const POPULAR_CHIPS = [
-  { label: 'Free activities',    sub: 'No cost',       icon: '🆓', type: '',          cost: 'free',       access: '' },
-  { label: 'Accessible places',  sub: 'Easy access',   icon: '♿', type: '',          cost: '',           access: 'low-mobility' },
-  { label: 'Coastal walks',      sub: 'Scenic routes', icon: '🌊', type: 'walks',     cost: '',           access: '' },
-  { label: 'Family days out',    sub: 'All ages',      icon: '👨‍👩‍👧', type: 'days-out',  cost: '',           access: '' },
-  { label: 'Wellbeing sessions', sub: 'Mind & body',   icon: '🧘', type: 'wellbeing', cost: '',           access: '' },
-  { label: 'Carer discounts',    sub: 'Save money',    icon: '🏷️', type: '',          cost: 'discounted', access: '' },
+  { label: 'Free activities',    sub: 'No cost',       icon: '🆓', type: '',           cost: 'free',       access: '' },
+  { label: 'Accessible places',  sub: 'Easy access',   icon: '♿', type: '',           cost: '',           access: 'low-mobility' },
+  { label: 'Coastal walks',      sub: 'Scenic routes', icon: '🌊', type: 'walks',      cost: '',           access: '' },
+  { label: 'Family days out',    sub: 'All ages',      icon: '👨‍👩‍👧', type: 'days-out',   cost: '',           access: '' },
+  { label: 'Wellbeing sessions', sub: 'Mind & body',   icon: '🧘', type: 'wellbeing',  cost: '',           access: '' },
+  { label: 'Carer discounts',    sub: 'Save money',    icon: '🏷️', type: 'discounts',  cost: 'discounted', access: '' },
 ];
 
-// Hero featured cards — visual highlights, all route to walks page
+// Hero featured items — walks route to walks, others to find-help
 const HERO_FEATURED = [
-  { title: 'Porthcurno coastal walk', type: 'Walk',    tag: 'Free · 3.2 miles',    grad: 'linear-gradient(135deg, #D4F0C8 0%, #B8E4A4 100%)', accent: '#3DA832' },
-  { title: 'Carer coffee morning',    type: 'Group',   tag: 'Free · Weekly',        grad: 'linear-gradient(135deg, #C8E4F8 0%, #A8D4F0 100%)', accent: '#1c78b5' },
-  { title: 'Accessible day out',      type: 'Day Out', tag: 'Discounted · Booking', grad: 'linear-gradient(135deg, #FDE8C4 0%, #F8D4A0 100%)', accent: '#B45309' },
+  { title: 'Porthcurno coastal walk', type: 'Walk',    tag: 'Free · 3.2 miles',    grad: 'linear-gradient(135deg, #D4F0C8 0%, #B8E4A4 100%)', accent: '#3DA832', dest: 'walks'     },
+  { title: 'Carer coffee morning',    type: 'Group',   tag: 'Free · Weekly',        grad: 'linear-gradient(135deg, #C8E4F8 0%, #A8D4F0 100%)', accent: '#1c78b5', dest: 'find-help' },
+  { title: 'Accessible day out',      type: 'Day Out', tag: 'Discounted · Booking', grad: 'linear-gradient(135deg, #FDE8C4 0%, #F8D4A0 100%)', accent: '#B45309', dest: 'find-help' },
 ];
 
 // ── Shared style ──────────────────────────────────────────────────────────────
@@ -127,12 +286,12 @@ const iStyle = {
   cursor: 'pointer', appearance: 'auto',
 };
 
-// ── Map component ─────────────────────────────────────────────────────────────
-// Geocodes real walk postcodes from walks.json via postcodes.io (same as Walks.jsx).
-// No new API dependencies. Uses existing VITE_GOOGLE_MAPS_API_KEY.
-// Falls back gracefully on API error or missing key.
+// ── Activities map ────────────────────────────────────────────────────────────
+// Combines geocoded walk pins (walks.json → postcodes.io) with ACTIVITY_SAMPLE_DATA.
+// Find Help / resource data is NOT used here.
+// Walk markers → navigate to walks page. Non-walk markers → find-help or info card.
 
-const ActivitiesMap = ({ localCounty, onNavigate }) => {
+const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavigate }) => {
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'ic-activity-map',
@@ -140,10 +299,11 @@ const ActivitiesMap = ({ localCounty, onNavigate }) => {
     libraries: ACT_MAP_LIBS,
   });
 
-  const [walkCoords, setWalkCoords] = React.useState({});
-  const [geoLoading, setGeoLoading] = React.useState(false);
+  const [walkCoords,  setWalkCoords]  = React.useState({});
+  const [geoLoading,  setGeoLoading]  = React.useState(false);
+  const [activePin,   setActivePin]   = React.useState(null); // InfoWindow
 
-  // Geocode sample walk postcodes once (Cornwall data only)
+  // Geocode sample walk postcodes once — Cornwall data only, same as Walks.jsx pattern
   React.useEffect(() => {
     const postcodes = SAMPLE_WALKS.map((w) => w.postcode).filter(Boolean);
     if (!postcodes.length) return;
@@ -169,66 +329,151 @@ const ActivitiesMap = ({ localCounty, onNavigate }) => {
       }
     })();
     return () => { cancelled = true; };
-  }, []); // one-shot — sample walks don't change
+  }, []);
 
   const { lat, lng, zoom } = COUNTY_CENTERS[localCounty] || COUNTY_CENTERS[''];
-  const center = { lat, lng };
-
-  // Walk pins only available for Cornwall data in walks.json
   const isCornwallOrAll = !localCounty || localCounty === 'cornwall';
-  const pins = isCornwallOrAll
-    ? SAMPLE_WALKS.filter((w) => walkCoords[w.postcode]).map((w) => ({ ...walkCoords[w.postcode], title: w.name, area: w.area }))
+
+  // Walk pins — geocoded from walks.json, Cornwall only
+  const showWalks = !activityType || activityType === 'walks';
+  const walkPins = showWalks && isCornwallOrAll
+    ? SAMPLE_WALKS
+        .filter((w) => walkCoords[w.postcode])
+        .filter((w) => !cost || cost === 'free') // walks.json are all free walks
+        .map((w) => ({
+          id: `walk-${w.id || w.name}`,
+          lat: walkCoords[w.postcode].lat,
+          lng: walkCoords[w.postcode].lng,
+          title: w.name,
+          category: 'walks',
+          area: w.area,
+          cost: 'free',
+          description: `${w.distanceMiles} miles · ${w.difficulty} · ${w.area}`,
+          action: () => onNavigate('walks', localCounty || null),
+        }))
     : [];
 
-  const Fallback = ({ msg }) => (
+  // Sample activity pins — filtered by county, category, cost, accessibility
+  const samplePins = ACTIVITY_SAMPLE_DATA.filter((item) => {
+    if (item.category === 'walks') return false; // walks come from geocoded data
+    if (localCounty && item.county !== localCounty) return false;
+    if (activityType && item.category !== activityType) return false;
+    if (cost && item.cost !== cost) return false;
+    if (accessibility) {
+      const tagStr = item.tags.join(' ').toLowerCase();
+      const accessMap = {
+        wheelchair: 'wheelchair',
+        'low-mobility': 'low mobility',
+        transport: 'public transport',
+        dogs: 'dog',
+        dementia: 'dementia',
+      };
+      const keyword = accessMap[accessibility];
+      if (keyword && !tagStr.includes(keyword)) return false;
+    }
+    return true;
+  }).map((item) => ({
+    ...item,
+    action: () => onNavigate('find-help'), // non-walk activities route to find-help
+  }));
+
+  const allPins = [...walkPins, ...samplePins];
+
+  const Fallback = () => (
     <div style={{ height: 400, borderRadius: 20, background: 'linear-gradient(160deg, #E8F5E4 0%, #EEF7FF 100%)', border: '1px solid #DEE8F4', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, textAlign: 'center', padding: 32 }}>
       <div style={{ fontSize: 32, marginBottom: 4 }}>📍</div>
-      <div style={{ fontSize: 15, fontWeight: 700, color: '#1A2744' }}>{msg}</div>
-      <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)', maxWidth: 280, lineHeight: 1.6 }}>Explore walks, coastal paths and local activities by location.</div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: '#1A2744' }}>Activity map loading</div>
+      <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)', maxWidth: 280, lineHeight: 1.6 }}>Explore walks, groups, days out, attractions and wellbeing activities by location.</div>
       <button className="btn btn-gold btn-sm" onClick={() => onNavigate('walks', localCounty || null)} style={{ marginTop: 4 }}>
         Explore walks map <IArrow s={12} />
       </button>
     </div>
   );
 
-  if (loadError) return <Fallback msg="Map unavailable" />;
+  if (loadError) return <Fallback />;
   if (!isLoaded || geoLoading) return (
     <div style={{ height: 400, borderRadius: 20, background: '#F0F5FB', border: '1px solid #DEE8F4', display: 'grid', placeItems: 'center' }}>
       <div style={{ textAlign: 'center', color: 'rgba(26,39,68,0.5)', fontSize: 14 }}>
         <div style={{ fontSize: 28, marginBottom: 8 }}>🗺️</div>
-        {geoLoading ? 'Locating walks…' : 'Loading map…'}
+        {geoLoading ? 'Locating activities…' : 'Loading map…'}
       </div>
     </div>
   );
+
+  // Categories with no pins for "more being added" note
+  const visibleCats = activityType ? [activityType] : ['walks', 'groups', 'days-out', 'attractions', 'wellbeing', 'discounts'];
+  const emptyCats = visibleCats.filter((cat) => !allPins.some((p) => p.category === cat));
 
   return (
     <div>
       <div style={{ borderRadius: 20, overflow: 'hidden', boxShadow: '0 8px 32px rgba(26,39,68,0.10)', border: '1px solid #EEF1F7' }}>
         <GoogleMap
           mapContainerStyle={{ width: '100%', height: '400px' }}
-          center={center}
+          center={{ lat, lng }}
           zoom={zoom}
           options={{ streetViewControl: false, mapTypeControl: false, fullscreenControl: false, zoomControl: true, gestureHandling: 'cooperative' }}
+          onClick={() => setActivePin(null)}
         >
-          {pins.map((pin, i) => (
-            <MarkerF
-              key={i}
-              position={{ lat: pin.lat, lng: pin.lng }}
-              title={`${pin.title} · ${pin.area}`}
-              label={{ text: 'W', color: 'white', fontWeight: '800', fontSize: '11px' }}
-              onClick={() => onNavigate('walks', localCounty || null)}
-            />
-          ))}
+          {allPins.map((pin) => {
+            const cfg = CAT_CONFIG[pin.category] || CAT_CONFIG.walks;
+            return (
+              <MarkerF
+                key={pin.id}
+                position={{ lat: pin.lat, lng: pin.lng }}
+                title={pin.title}
+                label={{ text: cfg.label, color: 'white', fontWeight: '800', fontSize: '11px' }}
+                onClick={() => setActivePin(activePin?.id === pin.id ? null : pin)}
+              />
+            );
+          })}
+
+          {activePin && (
+            <InfoWindowF
+              position={{ lat: activePin.lat, lng: activePin.lng }}
+              onCloseClick={() => setActivePin(null)}
+            >
+              <div style={{ maxWidth: 220, fontFamily: 'Inter, sans-serif' }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: CAT_CONFIG[activePin.category]?.accent || '#1A2744', marginBottom: 4 }}>
+                  {ACTIVITY_TYPE_OPTIONS.find((o) => o.value === activePin.category)?.label || activePin.category}
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#1A2744', marginBottom: 4 }}>{activePin.title}</div>
+                {activePin.area && <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.55)', marginBottom: 4 }}>{activePin.area}</div>}
+                {activePin.description && <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.72)', lineHeight: 1.5, marginBottom: 8 }}>{activePin.description}</div>}
+                <button
+                  onClick={activePin.action}
+                  style={{ fontSize: 12, fontWeight: 700, padding: '5px 12px', borderRadius: 8, background: CAT_CONFIG[activePin.category]?.bg || 'rgba(61,168,50,0.12)', color: CAT_CONFIG[activePin.category]?.accent || '#1A2744', border: 'none', cursor: 'pointer' }}
+                >
+                  {activePin.category === 'walks' ? 'View walks →' : 'Find out more →'}
+                </button>
+              </div>
+            </InfoWindowF>
+          )}
         </GoogleMap>
       </div>
-      <div style={{ marginTop: 8, fontSize: 12, color: 'rgba(26,39,68,0.48)', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4 }}>
-        {isCornwallOrAll
-          ? <span>{pins.length} Cornwall walk locations shown · <em>Resource locations added as listings are mapped</em></span>
-          : <span>Walk data for {COUNTY_LABELS[localCounty]} being added · Cornwall shown by default</span>}
-        <button onClick={() => onNavigate('walks', localCounty || 'cornwall')} style={{ fontSize: 12, fontWeight: 700, color: '#5BC94A', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-          Open full walks map →
+
+      {/* Map legend */}
+      <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {Object.entries(CAT_CONFIG).map(([cat, cfg]) => (
+            <span key={cat} style={{ fontSize: 11, fontWeight: 600, color: 'rgba(26,39,68,0.55)', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 16, height: 16, borderRadius: 3, background: cfg.accent, display: 'grid', placeItems: 'center', color: 'white', fontSize: 9, fontWeight: 800 }}>{cfg.label}</span>
+              {ACTIVITY_TYPE_OPTIONS.find((o) => o.value === cat)?.label || cat}
+            </span>
+          ))}
+        </div>
+        <button onClick={() => onNavigate('walks', localCounty || null)} style={{ fontSize: 12, fontWeight: 700, color: '#5BC94A', background: 'none', border: 'none', cursor: 'pointer', padding: 0, whiteSpace: 'nowrap' }}>
+          Full walks map →
         </button>
       </div>
+
+      {/* "More being added" notes for empty categories */}
+      {emptyCats.length > 0 && !activityType && (
+        <div style={{ marginTop: 8, fontSize: 12, color: 'rgba(26,39,68,0.45)', fontStyle: 'italic' }}>
+          {emptyCats.length === 1
+            ? `More ${ACTIVITY_TYPE_OPTIONS.find((o) => o.value === emptyCats[0])?.label || emptyCats[0]} listings are being added in this county.`
+            : `Activities map is growing — more listings being added for all categories.`}
+        </div>
+      )}
     </div>
   );
 };
@@ -236,7 +481,6 @@ const ActivitiesMap = ({ localCounty, onNavigate }) => {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 const ActivitiesPage = ({ onNavigate, session, county }) => {
-  // county prop: null on /activities (hub), county slug on /{county}/activities
   const [localCounty,   setLocalCounty]   = React.useState(county || '');
   const [areaSearch,    setAreaSearch]    = React.useState('');
   const [activityType,  setActivityType]  = React.useState('');
@@ -245,16 +489,14 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
   const [chipHov,       setChipHov]       = React.useState(null);
   const [catHov,        setCatHov]        = React.useState(null);
 
-  // Sync if parent county prop changes (e.g. URL changes via popstate)
   React.useEffect(() => { setLocalCounty(county || ''); }, [county]);
 
-  const countyLabel  = localCounty ? (COUNTY_LABELS[localCounty] || localCounty) : null;
-  const isHubView    = !localCounty; // true on /activities, false on /{county}/activities
+  const countyLabel = localCounty ? (COUNTY_LABELS[localCounty] || localCounty) : null;
+  const isHubView   = !localCounty;
 
   const liveCategories = ACTIVITY_CATEGORIES.filter((c) => c.status === 'live');
   const soonCategories = ACTIVITY_CATEGORIES.filter((c) => c.status === 'soon');
 
-  // County selector updates local state only — no URL navigation
   const handleCountyChange = (e) => setLocalCounty(e.target.value);
 
   const handleChip = (chip) => {
@@ -266,22 +508,18 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
   const chipIsActive = (chip) =>
     activityType === chip.type && cost === chip.cost && accessibility === chip.access;
 
-  // Helper: navigate to walks.
-  // county='' or falsy → navigate('walks', null) → /walks (all-county hub)
-  // county='cornwall' etc → navigate('walks', 'cornwall') → /cornwall/walks
-  const goToWalks = (county) => onNavigate('walks', county || null);
+  const goToWalks = (c) => onNavigate('walks', c || null);
 
   return (
     <>
       <Nav activePage="activities" onNavigate={onNavigate} session={session} />
 
-      {/* ── Hero ──────────────────────────────────────────────── */}
+      {/* ── Hero ─────────────────────────────────────────────────── */}
       <section style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(160deg, #EAF5E7 0%, #F2F8FF 55%, #F9FBFF 100%)', paddingTop: 52, paddingBottom: 40, borderBottom: '1px solid rgba(91,201,74,0.10)' }}>
         <div style={{ position: 'absolute', top: -60, right: -60, width: 320, height: 320, borderRadius: '50%', background: 'radial-gradient(circle, rgba(91,201,74,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', bottom: -40, left: -40, width: 240, height: 240, borderRadius: '50%', background: 'radial-gradient(circle, rgba(45,156,219,0.08) 0%, transparent 70%)', pointerEvents: 'none' }} />
         <div className="container" style={{ position: 'relative' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 28, alignItems: 'center' }}>
-
             <div>
               <div className="eyebrow" style={{ color: '#3DA832', marginBottom: 10 }}>Activities</div>
               <h1 style={{ fontSize: 'clamp(26px, 4.5vw, 48px)', fontWeight: 800, color: '#1A2744', letterSpacing: '-0.03em', lineHeight: 1.08, margin: '0 0 12px', textWrap: 'balance' }}>
@@ -290,14 +528,11 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
               <p style={{ fontSize: 15.5, color: 'rgba(26,39,68,0.68)', lineHeight: 1.65, margin: '0 0 18px', maxWidth: 440 }}>
                 Discover walks, groups, days out and wellbeing activities for carers, families and communities.
               </p>
-
-              {/* Showing filter pill */}
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 14px', borderRadius: 999, background: isHubView ? 'rgba(26,39,68,0.06)' : 'rgba(91,201,74,0.12)', border: `1px solid ${isHubView ? 'rgba(26,39,68,0.10)' : 'rgba(91,201,74,0.25)'}`, fontSize: 13, fontWeight: 600, color: isHubView ? 'rgba(26,39,68,0.65)' : '#2D6B1F', marginBottom: 18 }}>
-                <span>{isHubView ? 'Showing: All counties' : `Showing: ${countyLabel}`}</span>
+                {isHubView ? 'Showing: All counties' : `Showing: ${countyLabel}`}
                 {!isHubView && <button onClick={() => setLocalCounty('')} style={{ fontSize: 11, fontWeight: 700, color: '#5BC94A', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>✕ All</button>}
               </div>
-
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
                 <button className="btn btn-gold" onClick={() => document.getElementById('act-map')?.scrollIntoView({ behavior: 'smooth' })} style={{ fontSize: 14 }}>
                   <IPin s={13} /> Explore by map
                 </button>
@@ -305,8 +540,6 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
                   Suggest an activity
                 </button>
               </div>
-
-              {/* Walks CTAs — correctly county-aware */}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
                 <button className="btn btn-ghost btn-sm" onClick={() => goToWalks('')} style={{ fontSize: 13 }}>
                   <IWalks s={13} /> Explore all walks
@@ -317,7 +550,6 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
                   </button>
                 )}
               </div>
-
               <div style={{ display: 'flex', gap: 0, flexWrap: 'wrap', paddingTop: 14, borderTop: '1px solid rgba(26,39,68,0.07)' }}>
                 {[{ n: '333+', l: 'Walks' }, { n: '6', l: 'Counties' }, { n: '100+', l: 'Places' }, { n: 'Free', l: 'To browse' }].map(({ n, l }, i) => (
                   <div key={l} style={{ paddingRight: 18, paddingLeft: i > 0 ? 18 : 0, borderLeft: i > 0 ? '1px solid rgba(26,39,68,0.09)' : 'none' }}>
@@ -328,7 +560,7 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
               </div>
             </div>
 
-            {/* Featured this week — all navigate to walks with correct county */}
+            {/* Featured this week — walks → walks, others → find-help */}
             <div className="card" style={{ padding: 20, borderRadius: 20, background: 'rgba(255,255,255,0.92)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
                 <div style={{ fontSize: 13, fontWeight: 800, color: '#1A2744' }}>Featured this week</div>
@@ -337,7 +569,7 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
               <div style={{ display: 'grid', gap: 10 }}>
                 {HERO_FEATURED.map((item) => (
                   <div key={item.title}
-                    onClick={() => goToWalks(localCounty)}
+                    onClick={() => item.dest === 'walks' ? goToWalks(localCounty) : onNavigate(item.dest)}
                     style={{ borderRadius: 14, overflow: 'hidden', cursor: 'pointer', border: '1px solid rgba(26,39,68,0.06)', transition: 'box-shadow .15s' }}
                     onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 6px 20px rgba(26,39,68,0.08)'; }}
                     onMouseLeave={(e) => { e.currentTarget.style.boxShadow = ''; }}
@@ -346,7 +578,7 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
                     <div style={{ padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 700, color: '#1A2744', marginBottom: 2 }}>{item.title}</div>
-                        <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: 5 }}>
                           <span style={{ fontSize: 10.5, fontWeight: 700, color: item.accent, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{item.type}</span>
                           <span style={{ fontSize: 10.5, color: 'rgba(26,39,68,0.45)' }}>· {item.tag}</span>
                         </div>
@@ -356,11 +588,10 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
                   </div>
                 ))}
               </div>
-              <button className="btn btn-ghost btn-sm" onClick={() => goToWalks(localCounty)} style={{ width: '100%', marginTop: 10, justifyContent: 'center', fontSize: 12.5 }}>
+              <button className="btn btn-ghost btn-sm" onClick={() => onNavigate('find-help')} style={{ width: '100%', marginTop: 10, justifyContent: 'center', fontSize: 12.5 }}>
                 See all activities <IArrow s={11} />
               </button>
             </div>
-
           </div>
         </div>
       </section>
@@ -369,7 +600,6 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
       <section style={{ background: '#FFFFFF', borderBottom: '1px solid #EEF1F7', paddingTop: 14, paddingBottom: 14, position: 'sticky', top: 72, zIndex: 40 }}>
         <div className="container">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, alignItems: 'center' }}>
-            {/* County selector — local state only, no URL change */}
             <select value={localCounty} onChange={handleCountyChange} style={{ ...iStyle, fontWeight: 700, flex: '1 1 130px' }}>
               {COUNTY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
@@ -390,38 +620,50 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
         </div>
       </section>
 
-      {/* ── Discovery map + nearby cards ─────────────────────────── */}
+      {/* ── Discovery map ────────────────────────────────────────── */}
       <section id="act-map" style={{ paddingTop: 56, paddingBottom: 52, background: '#FFFFFF' }}>
         <div className="container">
-          <div style={{ marginBottom: 22 }}>
-            <div className="eyebrow" style={{ marginBottom: 6 }}>Explore nearby</div>
-            <h2 style={{ fontSize: 'clamp(20px, 2.8vw, 28px)', fontWeight: 800, color: '#1A2744', margin: 0 }}>
-              {isHubView ? 'Explore activities across all counties' : `Explore activities in ${countyLabel}`}
+          <div style={{ marginBottom: 8 }}>
+            <div className="eyebrow" style={{ marginBottom: 5 }}>Explore nearby</div>
+            <h2 style={{ fontSize: 'clamp(20px, 2.8vw, 28px)', fontWeight: 800, color: '#1A2744', margin: '0 0 6px' }}>
+              {localCounty ? `Explore activities in ${countyLabel}` : 'Explore activities by county'}
             </h2>
+            <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.52)', margin: 0 }}>
+              Showing {activityType
+                ? ACTIVITY_TYPE_OPTIONS.find((o) => o.value === activityType)?.label
+                : 'walks, groups, days out, attractions and wellbeing activities'
+              }{localCounty ? ` in ${countyLabel}` : ' across all counties'}.
+            </p>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18, alignItems: 'start' }}>
 
-            {/* Real map */}
-            <ActivitiesMap localCounty={localCounty} onNavigate={onNavigate} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18, marginTop: 20, alignItems: 'start' }}>
+            {/* Map — passes all filter state for category/county control */}
+            <ActivitiesMap
+              localCounty={localCounty}
+              activityType={activityType}
+              cost={cost}
+              accessibility={accessibility}
+              onNavigate={onNavigate}
+            />
 
-            {/* Nearby highlights */}
+            {/* Featured nearby panel — non-walk markers → find-help */}
             <div>
               <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.40)', marginBottom: 12 }}>
                 {countyLabel ? `Featured in ${countyLabel}` : 'Featured activities'}
               </div>
               <div style={{ display: 'grid', gap: 10 }}>
                 {[
-                  { title: 'Accessible coastal walk', type: 'Walk',     location: 'St Ives',  tags: ['Wheelchair', 'Free'],    accent: '#5BC94A', grad: 'linear-gradient(135deg, #D8F0CC, #C4E8B4)', dest: () => goToWalks(localCounty || 'cornwall') },
-                  { title: 'Carer coffee morning',    type: 'Group',    location: 'Truro',    tags: ['All welcome', 'Free'],   accent: '#2D9CDB', grad: 'linear-gradient(135deg, #C8E4F8, #B4D8F4)', dest: () => onNavigate('find-help') },
-                  { title: 'Family-friendly day out', type: 'Day Out',  location: 'Falmouth', tags: ['Family', 'Free entry'],  accent: '#F5A623', grad: 'linear-gradient(135deg, #FDE8C4, #FDDCA8)', dest: () => onNavigate('find-help') },
-                  { title: 'Wellbeing swim session',  type: 'Wellbeing',location: 'Penzance', tags: ['Low mobility', 'Free'],  accent: '#F4613A', grad: 'linear-gradient(135deg, #FADCD4, #F8C8BC)', dest: () => onNavigate('find-help') },
-                ].map((card) => (
+                  { title: 'Accessible coastal walk', type: 'walks',    location: 'St Ives',  tags: ['Wheelchair', 'Free'],    accent: '#5BC94A', grad: 'linear-gradient(135deg, #D8F0CC, #C4E8B4)', dest: () => goToWalks(localCounty || 'cornwall') },
+                  { title: 'Carer coffee morning',    type: 'groups',   location: 'Truro',    tags: ['All welcome', 'Free'],   accent: '#2D9CDB', grad: 'linear-gradient(135deg, #C8E4F8, #B4D8F4)', dest: () => onNavigate('find-help') },
+                  { title: 'Family-friendly day out', type: 'days-out', location: 'Falmouth', tags: ['Family', 'Free entry'],  accent: '#F5A623', grad: 'linear-gradient(135deg, #FDE8C4, #FDDCA8)', dest: () => onNavigate('find-help') },
+                  { title: 'Wellbeing swim session',  type: 'wellbeing',location: 'Penzance', tags: ['Low mobility', 'Free'],  accent: '#F4613A', grad: 'linear-gradient(135deg, #FADCD4, #F8C8BC)', dest: () => onNavigate('find-help') },
+                ].filter((c) => !activityType || c.type === activityType).map((card) => (
                   <div key={card.title} className="card" style={{ padding: 0, overflow: 'hidden', borderRadius: 16, borderLeft: `3px solid ${card.accent}` }}>
                     <div style={{ height: 26, background: card.grad }} />
                     <div style={{ padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
-                          <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: card.accent }}>{card.type}</span>
+                          <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: card.accent }}>{ACTIVITY_TYPE_OPTIONS.find((o) => o.value === card.type)?.label || card.type}</span>
                           <span style={{ fontSize: 10.5, color: 'rgba(26,39,68,0.40)' }}>· {card.location}</span>
                         </div>
                         <div style={{ fontSize: 14, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>{card.title}</div>
@@ -435,20 +677,18 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
                     </div>
                   </div>
                 ))}
-                {/* Native sponsor slot */}
+                {/* Native sponsor slot — routes to login, never walks */}
                 <div className="card" style={{ padding: '11px 14px', borderRadius: 14, border: '1px dashed rgba(245,166,35,0.35)', background: 'rgba(245,166,35,0.03)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                   <div>
                     <div style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'rgba(26,39,68,0.36)', marginBottom: 2 }}>Featured partner slot available</div>
                     <div style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(26,39,68,0.55)' }}>Your venue or activity here.</div>
                   </div>
-                  {/* Sponsor CTA goes to login, NOT to walks */}
                   <button onClick={() => onNavigate('login')} style={{ fontSize: 11, fontWeight: 700, color: '#B45309', background: 'rgba(245,166,35,0.10)', padding: '4px 10px', borderRadius: 7, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                     Promote →
                   </button>
                 </div>
               </div>
             </div>
-
           </div>
         </div>
       </section>
@@ -490,9 +730,7 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
               <div key={cat.key} className="card" onClick={() => goToWalks(localCounty)} onMouseEnter={() => setCatHov(cat.key)} onMouseLeave={() => setCatHov(null)}
                 style={{ padding: 0, overflow: 'hidden', cursor: 'pointer', marginBottom: 12, border: `1px solid ${hov ? cat.accent : cat.border}`, boxShadow: hov ? '0 16px 40px rgba(26,39,68,0.09)' : '0 3px 10px rgba(26,39,68,0.04)', transition: 'border-color .16s, box-shadow .16s' }}>
                 <div style={{ height: 50, background: `linear-gradient(135deg, ${cat.bg.replace('0.08', '0.24')} 0%, ${cat.bg} 100%)`, display: 'flex', alignItems: 'center', padding: '0 26px', gap: 12 }}>
-                  <div style={{ width: 34, height: 34, borderRadius: 10, background: cat.bg, display: 'grid', placeItems: 'center', color: cat.accent }}>
-                    <cat.Icon s={18} />
-                  </div>
+                  <div style={{ width: 34, height: 34, borderRadius: 10, background: cat.bg, display: 'grid', placeItems: 'center', color: cat.accent }}><cat.Icon s={18} /></div>
                   <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.10em', textTransform: 'uppercase', color: cat.accent }}>
                     Live now{countyLabel ? ` — ${countyLabel}` : ' — All counties'}
                   </span>
@@ -514,9 +752,7 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
             {soonCategories.map((cat) => (
               <div key={cat.key} className="card" style={{ padding: 18, border: `1px solid ${cat.border}`, opacity: 0.76, cursor: 'default' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 9 }}>
-                  <div style={{ width: 34, height: 34, borderRadius: 9, background: cat.bg, display: 'grid', placeItems: 'center', color: cat.accent }}>
-                    <cat.Icon s={17} />
-                  </div>
+                  <div style={{ width: 34, height: 34, borderRadius: 9, background: cat.bg, display: 'grid', placeItems: 'center', color: cat.accent }}><cat.Icon s={17} /></div>
                   <div>
                     <div style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: cat.accent }}>Coming soon</div>
                     <div style={{ fontSize: 15, fontWeight: 700, color: '#1A2744' }}>{cat.label}</div>
@@ -538,7 +774,6 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
               <h2 style={{ fontSize: 'clamp(20px, 2.8vw, 26px)', fontWeight: 800, color: '#1A2744', margin: 0 }}>Activity listings are growing</h2>
             </div>
             <div style={{ display: 'flex', gap: 7 }}>
-              {/* "Explore all walks" — no hardcoded county */}
               <button className="btn btn-gold btn-sm" onClick={() => goToWalks('')}>Explore all walks <IArrow s={11} /></button>
               <button className="btn btn-ghost btn-sm" onClick={() => onNavigate('find-help')}>Suggest an activity</button>
             </div>
@@ -554,10 +789,13 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#0D7A55', background: 'rgba(16,185,129,0.10)', padding: '2px 8px', borderRadius: 6 }}>333+ routes</span>
                 </div>
                 <div style={{ fontSize: 17, fontWeight: 800, color: '#1A2744', marginBottom: 5 }}>Walks</div>
-                <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.60)', lineHeight: 1.5, marginBottom: 12 }}>Rated trails, coastal paths and accessible routes{countyLabel ? ` across ${countyLabel}` : ''}.</div>
+                <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.60)', lineHeight: 1.5, marginBottom: 12 }}>
+                  Rated trails, coastal paths and accessible routes{countyLabel ? ` across ${countyLabel}` : ''}.
+                </div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#5BC94A' }}>Explore walks →</div>
               </div>
             </div>
+            {/* Groups — routes to find-help, not walks */}
             <div className="card" style={{ padding: 0, overflow: 'hidden', cursor: 'default', opacity: 0.75, border: '1px solid rgba(45,156,219,0.14)' }}>
               <div style={{ height: 5, background: 'linear-gradient(90deg, #2D9CDB66, #2D9CDB33)' }} />
               <div style={{ padding: '16px 18px' }}>
@@ -593,7 +831,6 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
                 <div>
                   <div style={{ fontSize: 15, fontWeight: 800, color: '#1A2744', marginBottom: 6 }}>{c.title}</div>
                   <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.60)', lineHeight: 1.55, margin: '0 0 12px' }}>{c.desc}</p>
-                  {/* Partner CTAs go to login, NOT to walks */}
                   <button onClick={() => onNavigate('login')} style={{ fontSize: 12, fontWeight: 700, color: '#B45309', background: 'rgba(245,166,35,0.10)', padding: '5px 12px', borderRadius: 7, border: 'none', cursor: 'pointer' }}>
                     Find out more →
                   </button>
@@ -618,7 +855,6 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
               </p>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {/* Suggest goes to find-help, NOT to walks */}
               <button className="btn btn-gold" onClick={() => onNavigate('find-help')}>Suggest an activity</button>
               <button className="btn btn-ghost" onClick={() => onNavigate('find-help')}>Claim your organisation</button>
             </div>
