@@ -255,7 +255,7 @@ const ACTIVITY_CATEGORIES = [
 const _geoCache = {};
 const _geoCacheAttempted = new Set(); // tracks attempted postcodes, avoids re-fetch on failed lookups
 
-// Deduplicated walk postcodes, capped at 150 for initial load
+// Deduplicated walk postcodes, capped at 80 to avoid map clutter
 const WALK_POSTCODES = (() => {
   const seen = new Set();
   const result = [];
@@ -263,7 +263,7 @@ const WALK_POSTCODES = (() => {
     if (w.postcode && !seen.has(w.postcode)) {
       seen.add(w.postcode);
       result.push(w.postcode);
-      if (result.length >= 150) break;
+      if (result.length >= 80) break;
     }
   }
   return result;
@@ -514,7 +514,7 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
           </button>
         </div>
         <div style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.40)', fontStyle: 'italic' }}>
-          Showing mapped walk start points and activity locations{emptyCats.length > 0 && !activityType ? ' · More listings being added' : ''}
+          Showing selected mapped activity points. Open the full walks map for all 333 routes.
         </div>
       </div>
     </div>
@@ -558,7 +558,7 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
       <Nav activePage="activities" onNavigate={onNavigate} session={session} />
 
       {/* ── Hero — premium dark navy search hub ─────────────────── */}
-      <section style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(150deg, #0C1A35 0%, #162C52 50%, #1A3460 100%)', paddingTop: 56, paddingBottom: 52 }}>
+      <section style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(150deg, #0C1A35 0%, #162C52 50%, #1A3460 100%)', paddingTop: 36, paddingBottom: 36 }}>
         <div style={{ position: 'absolute', top: -80, right: -80, width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle, rgba(91,201,74,0.10) 0%, transparent 65%)', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', bottom: -60, left: '30%', width: 360, height: 360, borderRadius: '50%', background: 'radial-gradient(circle, rgba(245,166,35,0.07) 0%, transparent 65%)', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', top: '20%', left: -60, width: 280, height: 280, borderRadius: '50%', background: 'radial-gradient(circle, rgba(45,156,219,0.08) 0%, transparent 65%)', pointerEvents: 'none' }} />
@@ -568,25 +568,25 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
 
             {/* Left — headline + search panel */}
             <div>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 999, background: 'rgba(91,201,74,0.15)', border: '1px solid rgba(91,201,74,0.28)', fontSize: 11, fontWeight: 800, color: '#78E060', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16 }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 999, background: 'rgba(91,201,74,0.15)', border: '1px solid rgba(91,201,74,0.28)', fontSize: 11, fontWeight: 800, color: '#78E060', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
                 Activities · UK Discovery Hub
               </div>
-              <h1 style={{ fontSize: 'clamp(28px, 4.5vw, 52px)', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.03em', lineHeight: 1.06, margin: '0 0 14px', textWrap: 'balance' }}>
+              <h1 style={{ fontSize: 'clamp(24px, 4vw, 44px)', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.03em', lineHeight: 1.06, margin: '0 0 10px', textWrap: 'balance' }}>
                 Explore activities, walks and days out
               </h1>
-              <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.68)', lineHeight: 1.65, margin: '0 0 18px', maxWidth: 460 }}>
+              <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.68)', lineHeight: 1.6, margin: '0 0 12px', maxWidth: 460 }}>
                 Find carer-friendly walks, groups, wellbeing sessions, attractions, days out and local offers across the UK. Choose a county to start exploring.
               </p>
 
               {/* Selected county status pill */}
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 14px', borderRadius: 999, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.16)', fontSize: 12.5, fontWeight: 600, color: 'rgba(255,255,255,0.82)', marginBottom: 20 }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 14px', borderRadius: 999, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.16)', fontSize: 12.5, fontWeight: 600, color: 'rgba(255,255,255,0.82)', marginBottom: 14 }}>
                 <span style={{ width: 7, height: 7, borderRadius: '50%', background: localCounty ? '#5BC94A' : 'rgba(255,255,255,0.30)', display: 'inline-block', flexShrink: 0 }} />
                 {localCounty ? `Selected county: ${countyLabel}` : 'Select a county to explore'}
                 {localCounty && <button onClick={() => setLocalCounty('')} style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.45)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginLeft: 2 }}>✕</button>}
               </div>
 
               {/* Inline search + filter card */}
-              <div style={{ background: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(12px)', borderRadius: 20, padding: 18, border: '1px solid rgba(255,255,255,0.12)', marginBottom: 24 }}>
+              <div style={{ background: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(12px)', borderRadius: 20, padding: '14px 16px', border: '1px solid rgba(255,255,255,0.12)', marginBottom: 16 }}>
                 <div style={{ display: 'grid', gap: 9 }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
                     <select value={localCounty} onChange={handleCountyChange} style={{ ...heroInputStyle, fontWeight: 700 }} aria-label="Select county">
@@ -612,7 +612,7 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
               </div>
 
               {/* Stats row */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.10)' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.10)' }}>
                 {[{ n: '333+', l: 'Walks' }, { n: '6', l: 'Counties' }, { n: '100+', l: 'Places' }, { n: 'Free', l: 'To browse' }].map(({ n, l }, i) => (
                   <div key={l} style={{ paddingRight: 18, paddingLeft: i > 0 ? 18 : 0, borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.10)' : 'none' }}>
                     <div style={{ fontSize: 18, fontWeight: 800, color: '#FFFFFF', lineHeight: 1 }}>{n}</div>
@@ -623,7 +623,7 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
             </div>
 
             {/* Right — activity discovery panel */}
-            <div style={{ background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(10px)', borderRadius: 22, padding: 20, border: '1px solid rgba(255,255,255,0.12)' }}>
+            <div style={{ background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(10px)', borderRadius: 22, padding: 16, border: '1px solid rgba(255,255,255,0.12)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                 <div style={{ fontSize: 13, fontWeight: 800, color: 'rgba(255,255,255,0.90)' }}>Activity discovery map</div>
                 <button onClick={() => document.getElementById('act-map')?.scrollIntoView({ behavior: 'smooth' })} style={{ fontSize: 11.5, fontWeight: 700, color: '#5BC94A', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
@@ -817,17 +817,31 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
             const hov = catHov === cat.key;
             return (
               <div key={cat.key} className="card" onClick={() => goToWalks(localCounty)} onMouseEnter={() => setCatHov(cat.key)} onMouseLeave={() => setCatHov(null)}
-                style={{ padding: 0, overflow: 'hidden', cursor: 'pointer', marginBottom: 12, border: `1px solid ${hov ? cat.accent : cat.border}`, boxShadow: hov ? '0 16px 40px rgba(26,39,68,0.09)' : '0 3px 10px rgba(26,39,68,0.04)', transition: 'border-color .16s, box-shadow .16s' }}>
-                <div style={{ height: 50, background: `linear-gradient(135deg, ${cat.bg.replace('0.08', '0.24')} 0%, ${cat.bg} 100%)`, display: 'flex', alignItems: 'center', padding: '0 26px', gap: 12 }}>
-                  <div style={{ width: 34, height: 34, borderRadius: 10, background: cat.bg, display: 'grid', placeItems: 'center', color: cat.accent }}><cat.Icon s={18} /></div>
-                  <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.10em', textTransform: 'uppercase', color: cat.accent }}>
-                    Live now{countyLabel ? ` — ${countyLabel}` : ' — All counties'}
-                  </span>
+                style={{ padding: 0, overflow: 'hidden', cursor: 'pointer', marginBottom: 14, border: `1px solid ${hov ? cat.accent : cat.border}`, boxShadow: hov ? '0 16px 40px rgba(26,39,68,0.09)' : '0 3px 10px rgba(26,39,68,0.04)', transition: 'border-color .16s, box-shadow .16s' }}>
+                {/* Rich header strip */}
+                <div style={{ height: 66, background: `linear-gradient(135deg, ${cat.bg.replace('0.08', '0.28')} 0%, ${cat.bg.replace('0.08', '0.10')} 100%)`, display: 'flex', alignItems: 'center', padding: '0 24px', gap: 14 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 12, background: cat.accent + '22', border: `1.5px solid ${cat.accent}44`, display: 'grid', placeItems: 'center', color: cat.accent, flexShrink: 0 }}>
+                    <cat.Icon s={20} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.10em', textTransform: 'uppercase', color: cat.accent, marginBottom: 3 }}>
+                      Live now{countyLabel ? ` — ${countyLabel}` : ' — All counties'}
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: '#1A2744' }}>{cat.label}</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 6, background: cat.accent + '18', color: cat.accent }}>333+ routes</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 6, background: 'rgba(26,39,68,0.06)', color: 'rgba(26,39,68,0.50)' }}>Free</span>
+                  </div>
                 </div>
-                <div style={{ padding: '18px 26px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+                <div style={{ padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
                   <div>
-                    <h3 style={{ fontSize: 21, fontWeight: 800, color: '#1A2744', margin: '0 0 5px' }}>{cat.label}</h3>
-                    <p style={{ fontSize: 14.5, color: 'rgba(26,39,68,0.68)', lineHeight: 1.6, margin: 0, maxWidth: 460 }}>{cat.desc}</p>
+                    <p style={{ fontSize: 14, color: 'rgba(26,39,68,0.68)', lineHeight: 1.6, margin: '0 0 10px', maxWidth: 460 }}>{cat.desc}</p>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {['Coastal paths', 'Accessible routes', 'Rated trails', 'Dog friendly'].map((t) => (
+                        <span key={t} style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 5, background: cat.bg, color: cat.accent }}>{t}</span>
+                      ))}
+                    </div>
                   </div>
                   <button className="btn btn-gold" onClick={(e) => { e.stopPropagation(); goToWalks(localCounty); }} style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
                     {cat.cta} <IArrow s={13} />
@@ -839,15 +853,19 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
           <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: 'rgba(26,39,68,0.34)', marginBottom: 10, marginTop: 4 }}>Coming next</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(215px, 1fr))', gap: 9 }}>
             {soonCategories.map((cat) => (
-              <div key={cat.key} className="card" style={{ padding: 18, border: `1px solid ${cat.border}`, opacity: 0.76, cursor: 'default' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 9 }}>
-                  <div style={{ width: 34, height: 34, borderRadius: 9, background: cat.bg, display: 'grid', placeItems: 'center', color: cat.accent }}><cat.Icon s={17} /></div>
-                  <div>
-                    <div style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: cat.accent }}>Coming soon</div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: '#1A2744' }}>{cat.label}</div>
+              <div key={cat.key} className="card" style={{ padding: 0, overflow: 'hidden', border: `1px solid ${cat.border}`, cursor: 'default' }}>
+                <div style={{ height: 42, background: `linear-gradient(135deg, ${cat.bg.replace('0.08', '0.22')} 0%, ${cat.bg.replace('0.08', '0.06')} 100%)`, display: 'flex', alignItems: 'center', padding: '0 16px', gap: 10 }}>
+                  <div style={{ width: 30, height: 30, borderRadius: 8, background: cat.accent + '20', display: 'grid', placeItems: 'center', color: cat.accent, flexShrink: 0 }}>
+                    <cat.Icon s={16} />
                   </div>
+                  <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.07em', textTransform: 'uppercase', padding: '2px 8px', borderRadius: 999, background: cat.accent + '18', color: cat.accent }}>
+                    Coming soon
+                  </span>
                 </div>
-                <p style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.56)', lineHeight: 1.55, margin: 0 }}>{cat.desc}</p>
+                <div style={{ padding: '13px 16px' }}>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: '#1A2744', marginBottom: 5 }}>{cat.label}</div>
+                  <p style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.56)', lineHeight: 1.55, margin: 0 }}>{cat.desc}</p>
+                </div>
               </div>
             ))}
           </div>
@@ -907,28 +925,36 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
         </div>
       </section>
 
-      {/* ── Partner section ──────────────────────────────────────── */}
-      <section style={{ paddingTop: 44, paddingBottom: 44, background: '#FFFFFF', borderTop: '1px solid #EEF1F7' }}>
+      {/* ── Partner / advertising inventory section ──────────────── */}
+      <section style={{ paddingTop: 28, paddingBottom: 32, background: 'linear-gradient(180deg, #F8FBFF 0%, #FFFFFF 100%)', borderTop: '1px solid #EEF1F7' }}>
         <div className="container">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: 'rgba(26,39,68,0.36)', marginBottom: 3 }}>Advertising inventory</div>
+              <div style={{ fontSize: 17, fontWeight: 800, color: '#1A2744' }}>Reach carers where they discover</div>
+            </div>
+            <button className="btn btn-gold btn-sm" onClick={() => onNavigate('login')}>View options <IArrow s={11} /></button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 10 }}>
             {[
-              { icon: '🏆', title: 'County sponsorship',       desc: 'Own the headline partner slot for a county and appear across all activity discovery pages.' },
-              { icon: '📍', title: 'Featured activity listings', desc: 'Promote events, venues and wellbeing opportunities to carers searching locally.' },
+              { icon: '🏆', badge: 'Limited slots', title: 'County sponsorship',      desc: 'Headline partner for a full county — appears across all activity and discovery pages.' },
+              { icon: '📍', badge: 'Self-serve',    title: 'Featured activity listing', desc: 'Promoted placement for your venue, event or activity seen by carers searching nearby.' },
+              { icon: '🏷️', badge: 'Free to list',  title: 'Carer discount partner',   desc: 'Add your business to the carer discounts map and build loyalty with a growing audience.' },
             ].map((c) => (
-              <div key={c.title} className="card" style={{ padding: '18px 20px', borderRadius: 18, display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-                <div style={{ fontSize: 24, flexShrink: 0 }}>{c.icon}</div>
-                <div>
-                  <div style={{ fontSize: 15, fontWeight: 800, color: '#1A2744', marginBottom: 6 }}>{c.title}</div>
-                  <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.60)', lineHeight: 1.55, margin: '0 0 12px' }}>{c.desc}</p>
-                  <button onClick={() => onNavigate('login')} style={{ fontSize: 12, fontWeight: 700, color: '#B45309', background: 'rgba(245,166,35,0.10)', padding: '5px 12px', borderRadius: 7, border: 'none', cursor: 'pointer' }}>
-                    Find out more →
-                  </button>
+              <div key={c.title} style={{ borderRadius: 16, border: '1px solid #E9EEF5', background: '#FAFBFF', padding: '15px 17px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: 22, lineHeight: 1 }}>{c.icon}</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 5, background: 'rgba(245,166,35,0.12)', color: '#B45309' }}>{c.badge}</span>
                 </div>
+                <div>
+                  <div style={{ fontSize: 13.5, fontWeight: 800, color: '#1A2744', marginBottom: 4 }}>{c.title}</div>
+                  <p style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.58)', lineHeight: 1.55, margin: 0 }}>{c.desc}</p>
+                </div>
+                <button onClick={() => onNavigate('login')} style={{ fontSize: 12, fontWeight: 700, color: '#B45309', background: 'rgba(245,166,35,0.10)', padding: '6px 12px', borderRadius: 7, border: 'none', cursor: 'pointer', alignSelf: 'flex-start', marginTop: 'auto' }}>
+                  Find out more →
+                </button>
               </div>
             ))}
-          </div>
-          <div style={{ textAlign: 'center', marginTop: 14 }}>
-            <button className="btn btn-ghost btn-sm" onClick={() => onNavigate('login')}>Advertise activities, venues or discounts <IArrow s={11} /></button>
           </div>
         </div>
       </section>
