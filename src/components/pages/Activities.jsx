@@ -289,7 +289,7 @@ const iStyle = {
 // ── Activities map ────────────────────────────────────────────────────────────
 // Combines geocoded walk pins (walks.json → postcodes.io) with ACTIVITY_SAMPLE_DATA.
 // Find Help / resource data is NOT used here.
-// Walk markers → navigate to walks page. Non-walk markers → find-help or info card.
+// Walk markers → navigate to walks page. Non-walk markers → info card only (no navigation CTA).
 
 const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavigate }) => {
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
@@ -374,7 +374,7 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
     return true;
   }).map((item) => ({
     ...item,
-    action: () => onNavigate('find-help'), // non-walk activities route to find-help
+    action: null, // non-walk activity pins: info card only, no navigation CTA
   }));
 
   const allPins = [...walkPins, ...samplePins];
@@ -438,13 +438,15 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#1A2744', marginBottom: 4 }}>{activePin.title}</div>
                 {activePin.area && <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.55)', marginBottom: 4 }}>{activePin.area}</div>}
-                {activePin.description && <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.72)', lineHeight: 1.5, marginBottom: 8 }}>{activePin.description}</div>}
-                <button
-                  onClick={activePin.action}
-                  style={{ fontSize: 12, fontWeight: 700, padding: '5px 12px', borderRadius: 8, background: CAT_CONFIG[activePin.category]?.bg || 'rgba(61,168,50,0.12)', color: CAT_CONFIG[activePin.category]?.accent || '#1A2744', border: 'none', cursor: 'pointer' }}
-                >
-                  {activePin.category === 'walks' ? 'View walks →' : 'Find out more →'}
-                </button>
+                {activePin.description && <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.72)', lineHeight: 1.5, marginBottom: activePin.category === 'walks' ? 8 : 0 }}>{activePin.description}</div>}
+                {activePin.category === 'walks' && (
+                  <button
+                    onClick={activePin.action}
+                    style={{ fontSize: 12, fontWeight: 700, padding: '5px 12px', borderRadius: 8, background: CAT_CONFIG.walks.bg, color: CAT_CONFIG.walks.accent, border: 'none', cursor: 'pointer' }}
+                  >
+                    View walks →
+                  </button>
+                )}
               </div>
             </InfoWindowF>
           )}
