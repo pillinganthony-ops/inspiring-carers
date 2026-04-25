@@ -203,7 +203,7 @@ const buildWalkEmailHref = (walk) => {
   return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 };
 
-const WalkMapView = ({ walks: mapWalks, onSelectWalk }) => {
+const WalkMapView = ({ walks: mapWalks, onSelectWalk, isVisible = true }) => {
   const { isLoaded } = useJsApiLoader({
     id: 'ic-walk-map',
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
@@ -274,6 +274,26 @@ const WalkMapView = ({ walks: mapWalks, onSelectWalk }) => {
     shouldAutoFitRef.current = false;
     fitWalks();
   }, [mapReady, fitWalks]);
+
+  // Keep a stable ref to fitWalks so the reflow effect below never holds a
+  // stale closure regardless of when mapWalks/coords last changed.
+  const fitWalksRef = React.useRef(fitWalks);
+  React.useEffect(() => { fitWalksRef.current = fitWalks; }, [fitWalks]);
+
+  // Every time the map tab becomes visible, trigger resize + fitBounds at
+  // 150 ms AND 400 ms. This covers slow layout settling and the common case
+  // where onLoad fires before the container has reached its final dimensions.
+  React.useEffect(() => {
+    if (!isVisible) return;
+    const doReflow = () => {
+      if (!mapRef.current || !window.google?.maps?.event) return;
+      window.google.maps.event.trigger(mapRef.current, 'resize');
+      fitWalksRef.current();
+    };
+    const t1 = setTimeout(doReflow, 150);
+    const t2 = setTimeout(doReflow, 400);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [isVisible]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pinWalks = mapWalks.filter((w) => w.postcode && coords[w.postcode]);
 
@@ -648,7 +668,7 @@ const WalksPage = ({ onNavigate, session }) => {
               ) : viewMode === 'map' ? (
                 <div>
                   {/* Map uses full filteredWalks for all pins */}
-                  <WalkMapView walks={filteredWalks} onSelectWalk={setDetailWalk} />
+                  <WalkMapView walks={filteredWalks} onSelectWalk={setDetailWalk} isVisible={viewMode === 'map'} />
                   {/* Cards below map are also paginated */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 18, marginTop: 4 }}>
                     {filteredWalks.slice(0, visibleCount).map((walk) => (
