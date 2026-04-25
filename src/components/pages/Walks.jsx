@@ -212,9 +212,7 @@ const WalkMapView = ({ walks: mapWalks, onSelectWalk, isVisible = true }) => {
   const [coords, setCoords] = React.useState({ ..._walkGeoCache });
   const [geocoding, setGeocoding] = React.useState(false);
   const [activeWalk, setActiveWalk] = React.useState(null);
-  const [mapReady, setMapReady] = React.useState(false);
   const mapRef = React.useRef(null);
-  const shouldAutoFitRef = React.useRef(true);
 
   React.useEffect(() => {
     const postcodes = [...new Set(mapWalks.map((w) => w.postcode).filter(Boolean))];
@@ -251,9 +249,6 @@ const WalkMapView = ({ walks: mapWalks, onSelectWalk, isVisible = true }) => {
     return () => { cancelled = true; };
   }, [mapWalks]);
 
-  // Re-enable auto-fit whenever the filtered walk set changes
-  React.useEffect(() => { shouldAutoFitRef.current = true; }, [mapWalks]);
-
   const fitWalks = React.useCallback(() => {
     if (!mapRef.current || !window.google?.maps) return;
     const valid = mapWalks.filter((w) => w.postcode && coords[w.postcode]);
@@ -268,32 +263,16 @@ const WalkMapView = ({ walks: mapWalks, onSelectWalk, isVisible = true }) => {
     mapRef.current.fitBounds(bounds, 60);
   }, [mapWalks, coords]);
 
-  // Fit to visible pins when map is ready or filtered set changes
-  React.useEffect(() => {
-    if (!mapReady || !shouldAutoFitRef.current) return;
-    shouldAutoFitRef.current = false;
-    fitWalks();
-  }, [mapReady, fitWalks]);
-
-  // Keep a stable ref to fitWalks so the reflow effect below never holds a
-  // stale closure regardless of when mapWalks/coords last changed.
+  // Stable ref so onLoad timers always call the current fitWalks even after
+  // coords/mapWalks have changed since the closure was created.
   const fitWalksRef = React.useRef(fitWalks);
   React.useEffect(() => { fitWalksRef.current = fitWalks; }, [fitWalks]);
 
-  // Every time the map tab becomes visible, trigger resize + fitBounds at
-  // 150 ms AND 400 ms. This covers slow layout settling and the common case
-  // where onLoad fires before the container has reached its final dimensions.
+  // Re-fit when filters change (mapWalks is useMemo'd — ref only changes on
+  // real filter edits). No-op on first mount because mapRef.current is null.
   React.useEffect(() => {
-    if (!isVisible) return;
-    const doReflow = () => {
-      if (!mapRef.current || !window.google?.maps?.event) return;
-      window.google.maps.event.trigger(mapRef.current, 'resize');
-      fitWalksRef.current();
-    };
-    const t1 = setTimeout(doReflow, 150);
-    const t2 = setTimeout(doReflow, 400);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [isVisible]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (mapRef.current) fitWalksRef.current();
+  }, [mapWalks]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pinWalks = mapWalks.filter((w) => w.postcode && coords[w.postcode]);
 
@@ -327,16 +306,19 @@ const WalkMapView = ({ walks: mapWalks, onSelectWalk, isVisible = true }) => {
         zoom={9}
         onLoad={(map) => {
           mapRef.current = map;
-          // Trigger resize after layout settles so map knows its container dimensions,
-          // then flag ready so the fit-bounds effect can run.
-          setTimeout(() => {
-            if (window.google?.maps?.event) window.google.maps.event.trigger(map, 'resize');
-            setMapReady(true);
-          }, 100);
+          // Resize + fitBounds triggered from here — the only safe point where
+          // the map instance is ready AND the container has stable dimensions.
+          // Two shots: 150ms (primary) and 500ms (belt-and-braces for slow
+          // devices / layout). fitWalksRef always holds the current closure.
+          const fit = () => {
+            if (!mapRef.current) return;
+            if (window.google?.maps?.event) window.google.maps.event.trigger(mapRef.current, 'resize');
+            fitWalksRef.current();
+          };
+          setTimeout(fit, 150);
+          setTimeout(fit, 500);
         }}
-        onUnmount={() => { mapRef.current = null; setMapReady(false); }}
-        onDragStart={() => { shouldAutoFitRef.current = false; }}
-        onZoomChanged={() => { shouldAutoFitRef.current = false; }}
+        onUnmount={() => { mapRef.current = null; }}
         onClick={() => setActiveWalk(null)}
         options={{
           mapTypeId: 'roadmap',
