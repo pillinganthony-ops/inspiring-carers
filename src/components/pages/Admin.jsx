@@ -1732,17 +1732,48 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     }
   };
 
-  const sendPasswordReset = async (targetEmail) => {
-    if (!targetEmail || !supabase) return false;
+  // Magic link: creates auth account if none exists, then sends one-click login.
+  // Works for all new and existing owners — no service role key needed.
+  const sendOwnerLoginLink = async (targetEmail) => {
+    if (!targetEmail || !supabase) { setError('No email address on this profile.'); return false; }
+    const email = targetEmail.trim();
+    setBusy(true);
+    setError('');
     try {
-      await supabase.auth.resetPasswordForEmail(targetEmail.trim(), {
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email,
+        options: { shouldCreateUser: true, emailRedirectTo: window.location.origin },
+      });
+      if (otpError) throw otpError;
+      setToast(`Magic login link sent to ${email}. Owner clicks it to access their dashboard.`);
+      return true;
+    } catch (err) {
+      setError(`Could not send login link: ${err?.message || 'Unknown error.'}`);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Password reset: only works if the owner already has a Supabase auth account.
+  // Silent success even when no account exists — do not use as primary for new owners.
+  const sendPasswordReset = async (targetEmail) => {
+    if (!targetEmail || !supabase) { setError('No email address on this profile.'); return false; }
+    const email = targetEmail.trim();
+    setBusy(true);
+    setError('');
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
-      setToast(`Password reset link sent to ${targetEmail} if an account exists.`);
+      if (resetError) throw resetError;
+      setToast(`Password reset sent to ${email}. Only works if a Supabase account exists for this address.`);
       return true;
-    } catch {
-      setToast('Could not send reset link. Check Supabase configuration.');
+    } catch (err) {
+      setError(`Password reset failed: ${err?.message || 'Unknown error.'}`);
       return false;
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -3142,24 +3173,30 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
           </div>
         );
 
-        /* ── SEND RESET ───────────────────────────────────── */
+        /* ── SEND LOGIN LINK ──────────────────────────────── */
         if (type === 'reset') return (
           <div style={backdrop} onClick={(e) => { if (e.target === e.currentTarget) closeProfileModal(); }}>
             <div style={card(false)}>
               {closeBtn}
-              {eyebrow('Password reset')}
-              <h2 style={{ fontSize: 20, fontWeight: 800, color: '#1A2744', marginBottom: 12 }}>Send a password reset link?</h2>
-              <div style={{ padding: '12px 14px', borderRadius: 12, border: '1px solid #E9EEF5', background: '#FAFBFF', fontSize: 14, color: '#1A2744', marginBottom: 12 }}>
+              {eyebrow('Owner access')}
+              <h2 style={{ fontSize: 20, fontWeight: 800, color: '#1A2744', marginBottom: 12 }}>Send owner access to "{orgName}"?</h2>
+              <div style={{ padding: '12px 14px', borderRadius: 12, border: '1px solid #E9EEF5', background: '#FAFBFF', fontSize: 14, color: '#1A2744', marginBottom: 14 }}>
                 <span style={{ color: 'rgba(26,39,68,0.55)', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Send to</span>
                 <div style={{ marginTop: 4, fontWeight: 700 }}>{profile?.contact_email}</div>
               </div>
-              <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.6)', lineHeight: 1.55 }}>
-                A secure reset link will be sent. The response is the same whether or not an account exists at this address.
+              <div style={{ padding: '10px 14px', borderRadius: 12, border: '1px solid rgba(45,156,219,0.22)', background: 'rgba(45,156,219,0.05)', fontSize: 13, color: '#1054A0', lineHeight: 1.6, marginBottom: 10 }}>
+                <strong>Magic login link</strong> — creates a Supabase account if one doesn't exist yet, then sends a one-click login. Use this for all new owners.
+              </div>
+              <div style={{ padding: '10px 14px', borderRadius: 12, border: '1px solid #E9EEF5', background: '#FAFBFF', fontSize: 12.5, color: 'rgba(26,39,68,0.58)', lineHeight: 1.55, marginBottom: 4 }}>
+                <strong>Password reset</strong> only works if the owner already has a Supabase auth account. If the reset email doesn't arrive, use the magic link instead.
               </div>
               {error && <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 12, background: 'rgba(244,97,58,0.06)', color: '#A03A2D', fontSize: 13.5, fontWeight: 600 }}>{error}</div>}
               {actionRow(<>
-                <button className="btn btn-gold" disabled={busy} onClick={async () => { const ok = await sendPasswordReset(profile.contact_email); if (ok) closeProfileModal(); }}>
-                  {busy ? 'Sending…' : 'Send Reset Link'}
+                <button className="btn btn-gold" disabled={busy} onClick={async () => { const ok = await sendOwnerLoginLink(profile.contact_email); if (ok) closeProfileModal(); }}>
+                  {busy ? 'Sending…' : 'Send magic login link'}
+                </button>
+                <button className="btn btn-ghost btn-sm" disabled={busy} onClick={async () => { const ok = await sendPasswordReset(profile.contact_email); if (ok) closeProfileModal(); }}>
+                  Send password reset instead
                 </button>
                 <button className="btn btn-ghost" onClick={closeProfileModal}>Cancel</button>
               </>)}
