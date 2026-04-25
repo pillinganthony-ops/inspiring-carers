@@ -1198,84 +1198,114 @@ const WalkDetailModal = ({ walk, onClose }) => {
         </div>
 
         <div style={{ display: 'grid', gap: 14, marginBottom: 20 }}>
-          <DetailSection title="Highlights" content={walk.highlights} />
-          <DetailSection title="Safety notes" content={walk.safetyNotes} />
-          <DetailSection title="Accessibility notes" content={walk.accessibility} />
-          <DetailSection title="Bus information" content={walk.busInfo} />
-          
-          {/* Risk Assessment Section */}
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span>🛡️</span> Professional Risk Assessment
+          {/* Tinted info sections */}
+          <DetailSection title="Highlights"         content={walk.highlights}  icon="🥾" tint="rgba(91,201,74,0.05)"   border="rgba(91,201,74,0.2)" />
+          <DetailSection title="Safety notes"       content={walk.safetyNotes} icon="⚠️"  tint="rgba(245,166,35,0.06)"  border="rgba(245,166,35,0.22)" />
+          <DetailSection title="Accessibility notes" content={walk.accessibility} icon="♿" tint="rgba(45,156,219,0.05)"  border="rgba(45,156,219,0.2)" />
+          <DetailSection title="Bus information"    content={walk.busInfo}     icon="🚌" tint="rgba(123,92,245,0.05)"  border="rgba(123,92,245,0.2)" />
+
+          {/* Professional Risk Assessment */}
+          <div style={{ border: '1px solid rgba(26,39,68,0.12)', borderRadius: 20, overflow: 'hidden' }}>
+            <div style={{ padding: '13px 18px', background: 'linear-gradient(135deg, rgba(26,39,68,0.04) 0%, rgba(26,39,68,0.02) 100%)', borderBottom: '1px solid rgba(26,39,68,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                <span style={{ fontSize: 16 }}>🛡️</span>
+                <span style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.55)' }}>Professional risk assessment</span>
+              </div>
+              {!riskLoading && (
+                <span style={{ padding: '3px 10px', borderRadius: 999, background: riskAssessment ? 'rgba(16,185,129,0.1)' : 'rgba(26,39,68,0.07)', color: riskAssessment ? '#0D7A55' : 'rgba(26,39,68,0.45)', fontSize: 11.5, fontWeight: 800 }}>
+                  {riskAssessment ? 'Assessment available' : 'Not yet published'}
+                </span>
+              )}
             </div>
-            {riskLoading ? (
-              <div style={{ fontSize: 14, color: 'rgba(26,39,68,0.65)', padding: '16px', background: '#F8FBFF', borderRadius: 12 }}>Loading assessment...</div>
-            ) : (
-              <>
-                <WalkRiskSummary assessment={riskAssessment} walk={walk} />
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 12 }}>
-                  {riskAssessment && (
-                    <button onClick={() => downloadRiskAssessmentPDF(riskAssessment, walk)} className="btn btn-sky btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      📥 Download Assessment
-                    </button>
-                  )}
-                  {!SUPPORTS_WALK_UPDATES ? (
-                    <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.65)' }}>Risk update submissions are disabled on the current live schema.</div>
-                  ) : (
-                    <button onClick={() => setShowRiskSubmission(true)} className="btn btn-ghost btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      📋 Submit Risk Update
-                    </button>
-                  )}
-                </div>
-              </>
-            )}
+            <div style={{ padding: '16px 18px' }}>
+              {riskLoading ? (
+                <div style={{ fontSize: 14, color: 'rgba(26,39,68,0.5)', padding: '8px 0' }}>Loading assessment…</div>
+              ) : (
+                <>
+                  <WalkRiskSummary assessment={riskAssessment} walk={walk} />
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }}>
+                    {riskAssessment && (
+                      <button onClick={() => downloadRiskAssessmentPDF(riskAssessment, walk)} className="btn btn-sky btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        📥 Download assessment
+                      </button>
+                    )}
+                    {SUPPORTS_WALK_UPDATES && (
+                      <button onClick={() => setShowRiskSubmission(true)} className="btn btn-ghost btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        Submit risk update
+                      </button>
+                    )}
+                    {!SUPPORTS_WALK_UPDATES && <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.45)' }}>Risk updates unavailable.</div>}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10 }}>Itinerary journey</div>
-            {itinerarySteps.length > 0 ? (
-              <ItineraryFlow steps={itinerarySteps} />
-            ) : (
-              <div style={{ color: 'rgba(26,39,68,0.72)', fontSize: 14 }}>Detailed itinerary not available for this route yet.</div>
-            )}
+          {/* Itinerary journey */}
+          <div style={{ border: '1px solid #E9EEF5', borderRadius: 20, overflow: 'hidden' }}>
+            <div style={{ padding: '13px 18px', background: 'linear-gradient(135deg, rgba(91,201,74,0.06), rgba(45,156,219,0.04))', borderBottom: '1px solid #EEF4FF', display: 'flex', alignItems: 'center', gap: 9 }}>
+              <span style={{ fontSize: 15 }}>🗺️</span>
+              <span style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.5)' }}>Itinerary journey</span>
+            </div>
+            <div style={{ padding: '16px 18px' }}>
+              {itinerarySteps.length > 0 ? (
+                <ItineraryFlow steps={itinerarySteps} />
+              ) : (
+                <div style={{ padding: '14px 0', textAlign: 'center', color: 'rgba(26,39,68,0.45)', fontSize: 14 }}>
+                  <div style={{ fontSize: 22, marginBottom: 8 }}>🥾</div>
+                  Detailed itinerary not available for this route yet.
+                </div>
+              )}
+            </div>
+          </div>
 
-            <div style={{ marginTop: 14 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#1A2744', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 8 }}>Approved journey improvements</div>
+          {/* Approved route updates */}
+          <div style={{ border: '1px solid #E9EEF5', borderRadius: 20, overflow: 'hidden' }}>
+            <div style={{ padding: '13px 18px', background: 'linear-gradient(135deg, rgba(45,156,219,0.06), rgba(123,92,245,0.04))', borderBottom: '1px solid #EEF4FF', display: 'flex', alignItems: 'center', gap: 9 }}>
+              <span style={{ fontSize: 15 }}>📍</span>
+              <span style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.5)' }}>Approved route updates</span>
+            </div>
+            <div style={{ padding: '14px 18px' }}>
               {itineraryLoading ? (
-                <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.6)', padding: '10px 12px', borderRadius: 12, background: '#F8FBFF', border: '1px solid #E9EEF5' }}>Loading itinerary improvements...</div>
+                <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.5)', padding: '8px 0' }}>Loading updates…</div>
               ) : itineraryUpdates.length ? (
                 <div style={{ display: 'grid', gap: 10 }}>
                   {itineraryUpdates.map((update, index) => (
-                    <div key={update.id || `${walk.id}-update-${index}`} style={{ borderRadius: 14, border: '1px solid #E9EEF5', background: '#FCFDFF', padding: 12 }}>
+                    <div key={update.id || `${walk.id}-update-${index}`} style={{ borderRadius: 14, border: '1px solid #E9EEF5', background: 'white', padding: '12px 14px', boxShadow: '0 2px 8px rgba(26,39,68,0.04)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
                         <div style={{ fontWeight: 700, color: '#1A2744', fontSize: 13.5 }}>{update.itinerary_step_title || update.update_type?.replaceAll('_', ' ') || 'Route update'}</div>
-                        <div style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.58)' }}>{update.created_at ? new Date(update.created_at).toLocaleDateString('en-GB') : ''}</div>
+                        <div style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.5)' }}>{update.created_at ? new Date(update.created_at).toLocaleDateString('en-GB') : ''}</div>
                       </div>
                       <div style={{ display: 'grid', gap: 6, fontSize: 13, color: 'rgba(26,39,68,0.75)', lineHeight: 1.6 }}>
-                        {update.itinerary_step_detail ? <div><strong style={{ color: '#1A2744' }}>Step detail:</strong> {update.itinerary_step_detail}</div> : null}
-                        {update.revised_walk_sequence ? <div><strong style={{ color: '#1A2744' }}>Sequence:</strong> {update.revised_walk_sequence}</div> : null}
-                        {update.wayfinding_notes ? <div><strong style={{ color: '#1A2744' }}>Wayfinding:</strong> {update.wayfinding_notes}</div> : null}
-                        {update.landmarks ? <div><strong style={{ color: '#1A2744' }}>Landmarks:</strong> {update.landmarks}</div> : null}
-                        {update.route_notes ? <div><strong style={{ color: '#1A2744' }}>Route notes:</strong> {update.route_notes}</div> : null}
-                        {update.start_point_notes ? <div><strong style={{ color: '#1A2744' }}>Start point:</strong> {update.start_point_notes}</div> : null}
-                        {update.finish_point_notes ? <div><strong style={{ color: '#1A2744' }}>Finish point:</strong> {update.finish_point_notes}</div> : null}
-                        {update.circular_route_clarification ? <div><strong style={{ color: '#1A2744' }}>Circular route:</strong> {update.circular_route_clarification}</div> : null}
-                        {update.rest_points ? <div><strong style={{ color: '#1A2744' }}>Rest points:</strong> {update.rest_points}</div> : null}
-                        {update.points_of_interest ? <div><strong style={{ color: '#1A2744' }}>Points of interest:</strong> {update.points_of_interest}</div> : null}
-                        {update.transport_notes ? <div><strong style={{ color: '#1A2744' }}>Transport:</strong> {update.transport_notes}</div> : null}
-                        {update.parking_notes ? <div><strong style={{ color: '#1A2744' }}>Parking:</strong> {update.parking_notes}</div> : null}
-                        {update.safety_sensitive_sections ? <div><strong style={{ color: '#1A2744' }}>Safety-sensitive sections:</strong> {update.safety_sensitive_sections}</div> : null}
-                        {update.accessibility_notes ? <div><strong style={{ color: '#1A2744' }}>Accessibility:</strong> {update.accessibility_notes}</div> : null}
-                        {update.description ? <div><strong style={{ color: '#1A2744' }}>Contributor notes:</strong> {update.description}</div> : null}
+                        {update.itinerary_step_detail && <div><strong style={{ color: '#1A2744' }}>Step detail:</strong> {update.itinerary_step_detail}</div>}
+                        {update.revised_walk_sequence && <div><strong style={{ color: '#1A2744' }}>Sequence:</strong> {update.revised_walk_sequence}</div>}
+                        {update.wayfinding_notes && <div><strong style={{ color: '#1A2744' }}>Wayfinding:</strong> {update.wayfinding_notes}</div>}
+                        {update.landmarks && <div><strong style={{ color: '#1A2744' }}>Landmarks:</strong> {update.landmarks}</div>}
+                        {update.route_notes && <div><strong style={{ color: '#1A2744' }}>Route notes:</strong> {update.route_notes}</div>}
+                        {update.start_point_notes && <div><strong style={{ color: '#1A2744' }}>Start point:</strong> {update.start_point_notes}</div>}
+                        {update.finish_point_notes && <div><strong style={{ color: '#1A2744' }}>Finish point:</strong> {update.finish_point_notes}</div>}
+                        {update.circular_route_clarification && <div><strong style={{ color: '#1A2744' }}>Circular route:</strong> {update.circular_route_clarification}</div>}
+                        {update.rest_points && <div><strong style={{ color: '#1A2744' }}>Rest points:</strong> {update.rest_points}</div>}
+                        {update.points_of_interest && <div><strong style={{ color: '#1A2744' }}>Points of interest:</strong> {update.points_of_interest}</div>}
+                        {update.transport_notes && <div><strong style={{ color: '#1A2744' }}>Transport:</strong> {update.transport_notes}</div>}
+                        {update.parking_notes && <div><strong style={{ color: '#1A2744' }}>Parking:</strong> {update.parking_notes}</div>}
+                        {update.safety_sensitive_sections && <div><strong style={{ color: '#1A2744' }}>Safety-sensitive sections:</strong> {update.safety_sensitive_sections}</div>}
+                        {update.accessibility_notes && <div><strong style={{ color: '#1A2744' }}>Accessibility:</strong> {update.accessibility_notes}</div>}
+                        {update.description && <div><strong style={{ color: '#1A2744' }}>Contributor notes:</strong> {update.description}</div>}
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.6)', padding: '10px 12px', borderRadius: 12, background: '#F8FBFF', border: '1px solid #E9EEF5' }}>
-                  {SUPPORTS_WALK_UPDATES
-                    ? 'No approved itinerary improvements yet. Use Submit Risk Update to contribute route details for moderation.'
-                    : 'Itinerary moderation updates are unavailable on the current live schema.'}
+                <div style={{ padding: '20px 0', textAlign: 'center' }}>
+                  <div style={{ fontSize: 24, marginBottom: 8 }}>📍</div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: '#1A2744', marginBottom: 5 }}>No approved route updates yet</div>
+                  <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.55)', lineHeight: 1.55, marginBottom: SUPPORTS_WALK_UPDATES ? 14 : 0 }}>
+                    Route improvements submitted by the community will appear here after review.
+                  </div>
+                  {SUPPORTS_WALK_UPDATES && (
+                    <button onClick={() => setShowRiskSubmission(true)} className="btn btn-ghost btn-sm">Submit a route update</button>
+                  )}
                 </div>
               )}
             </div>
@@ -1515,25 +1545,33 @@ const DetailBadge = ({ label, value, secondary, note }) => (
   </div>
 );
 
-const DetailSection = ({ title, content }) => (
-  <div style={{ border: '1px solid #E9EEF5', borderRadius: 18, background: '#FFFFFF', padding: '14px 16px' }}>
-    <div style={{ fontSize: 14, letterSpacing: '0.04em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 8, color: '#1A2744' }}>{title}</div>
-    <div style={{ color: 'rgba(26,39,68,0.82)', lineHeight: 1.75, maxWidth: '72ch' }}>{content || 'Not provided for this route.'}</div>
+const DetailSection = ({ title, content, icon, tint = '#FFFFFF', border = '#E9EEF5' }) => (
+  <div style={{ border: `1px solid ${border}`, borderRadius: 20, background: tint, padding: '16px 18px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
+      {icon && <span style={{ fontSize: 15, lineHeight: 1 }}>{icon}</span>}
+      <div style={{ fontSize: 11.5, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 800, color: 'rgba(26,39,68,0.5)' }}>{title}</div>
+    </div>
+    <div style={{ color: 'rgba(26,39,68,0.82)', lineHeight: 1.75, fontSize: 15, maxWidth: '72ch' }}>
+      {content || <span style={{ color: 'rgba(26,39,68,0.38)', fontStyle: 'italic', fontSize: 14 }}>Not provided for this route.</span>}
+    </div>
   </div>
 );
 
 const ItineraryFlow = ({ steps }) => (
-  <div style={{ display: 'grid', gap: 10 }}>
+  <div style={{ display: 'grid', gap: 12 }}>
     {steps.map((step, index) => {
       const isLast = index === steps.length - 1;
       return (
-        <div key={`itinerary-step-${index}`} style={{ display: 'grid', gridTemplateColumns: '26px 1fr', gap: 10, alignItems: 'start' }}>
+        <div key={`itinerary-step-${index}`} style={{ display: 'grid', gridTemplateColumns: '32px 1fr', gap: 12, alignItems: 'start' }}>
           <div style={{ display: 'grid', justifyItems: 'center' }}>
-            <div style={{ width: 18, height: 18, borderRadius: 999, background: '#5BC94A', color: '#0F2B1A', fontSize: 11, fontWeight: 800, display: 'grid', placeItems: 'center' }}>{index + 1}</div>
-            {!isLast ? <div style={{ width: 2, minHeight: 30, marginTop: 6, background: 'linear-gradient(180deg, rgba(91,201,74,0.55), rgba(45,156,219,0.35))' }} /> : null}
+            <div style={{ width: 28, height: 28, borderRadius: 999, background: 'linear-gradient(135deg, #5BC94A, #4CAF50)', color: 'white', fontSize: 12, fontWeight: 800, display: 'grid', placeItems: 'center', boxShadow: '0 3px 10px rgba(91,201,74,0.3)', flexShrink: 0 }}>
+              {index + 1}
+            </div>
+            {!isLast && <div style={{ width: 2, minHeight: 32, marginTop: 6, background: 'linear-gradient(180deg, rgba(91,201,74,0.45), rgba(45,156,219,0.25))' }} />}
           </div>
-          <div style={{ borderRadius: 14, border: '1px solid #E9EEF5', background: '#FAFBFF', padding: '10px 12px', color: 'rgba(26,39,68,0.82)', lineHeight: 1.6, fontSize: 14 }}>
-            {step}
+          <div style={{ borderRadius: 16, border: '1px solid #E9EEF5', background: 'white', padding: '12px 14px', boxShadow: '0 2px 8px rgba(26,39,68,0.05)', marginBottom: isLast ? 0 : 4 }}>
+            <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#5BC94A', marginBottom: 5 }}>Step {index + 1}</div>
+            <div style={{ color: 'rgba(26,39,68,0.82)', lineHeight: 1.65, fontSize: 14 }}>{step}</div>
           </div>
         </div>
       );
