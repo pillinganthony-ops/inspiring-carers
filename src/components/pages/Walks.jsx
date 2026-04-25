@@ -6,7 +6,7 @@ import Footer from '../Footer.jsx';
 import walks from '../../data/walks.json';
 import { RiskAssessmentDisclaimer, WalkRiskSummary, SubmitRiskUpdateModal, downloadRiskAssessmentPDF } from '../WalkRiskAssessment.jsx';
 import supabase, { isSupabaseConfigured } from '../../lib/supabaseClient.js';
-const { IWalks, IArrow, IChevron, IStar, IClose, IPin, IconTile } = Icons;
+const { IWalks, IArrow, IChevron, IStar, IClose, IPin, IconTile, IShield, ICheck, ISparkle, ITransport } = Icons;
 
 const WALKS_MAP_LIBRARIES = ['places'];
 const WALKS_MAP_CENTER = { lat: 50.45, lng: -4.65 }; // Cornwall centre
@@ -1197,55 +1197,68 @@ const WalkDetailModal = ({ walk, onClose }) => {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gap: 14, marginBottom: 20 }}>
-          {/* Tinted info sections */}
-          <DetailSection title="Highlights"         content={walk.highlights}  icon="🥾" tint="rgba(91,201,74,0.05)"   border="rgba(91,201,74,0.2)" />
-          <DetailSection title="Safety notes"       content={walk.safetyNotes} icon="⚠️"  tint="rgba(245,166,35,0.06)"  border="rgba(245,166,35,0.22)" />
-          <DetailSection title="Accessibility notes" content={walk.accessibility} icon="♿" tint="rgba(45,156,219,0.05)"  border="rgba(45,156,219,0.2)" />
-          <DetailSection title="Bus information"    content={walk.busInfo}     icon="🚌" tint="rgba(123,92,245,0.05)"  border="rgba(123,92,245,0.2)" />
+        <div style={{ display: 'grid', gap: 12, marginBottom: 20 }}>
+          {/* Premium tinted info sections — icons from Icons.jsx, hover lift */}
+          <DetailSection title="Highlights"          content={walk.highlights}    IconComp={ISparkle}   tint="linear-gradient(135deg,rgba(91,201,74,0.08),rgba(91,201,74,0.03))"   border="rgba(91,201,74,0.22)"   accentColor="#1E6B10" />
+          <DetailSection title="Safety notes"        content={walk.safetyNotes}   IconComp={IShield}    tint="linear-gradient(135deg,rgba(245,166,35,0.09),rgba(245,166,35,0.03))"  border="rgba(245,166,35,0.28)"  accentColor="#8A4B00" />
+          <DetailSection title="Accessibility notes" content={walk.accessibility}  IconComp={ICheck}     tint="linear-gradient(135deg,rgba(45,156,219,0.08),rgba(45,156,219,0.03))"  border="rgba(45,156,219,0.24)"  accentColor="#1054A0" />
+          <DetailSection title="Bus information"     content={walk.busInfo}       IconComp={ITransport} tint="linear-gradient(135deg,rgba(123,92,245,0.08),rgba(123,92,245,0.03))"  border="rgba(123,92,245,0.24)"  accentColor="#5034A0" />
 
           {/* Professional Risk Assessment */}
-          <div style={{ border: '1px solid rgba(26,39,68,0.12)', borderRadius: 20, overflow: 'hidden' }}>
-            <div style={{ padding: '13px 18px', background: 'linear-gradient(135deg, rgba(26,39,68,0.04) 0%, rgba(26,39,68,0.02) 100%)', borderBottom: '1px solid rgba(26,39,68,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                <span style={{ fontSize: 16 }}>🛡️</span>
-                <span style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.55)' }}>Professional risk assessment</span>
+          <div style={{ border: '1px solid rgba(26,39,68,0.12)', borderRadius: 18, overflow: 'hidden' }}>
+            <div style={{ padding: '11px 16px', background: 'linear-gradient(135deg, rgba(26,39,68,0.045) 0%, rgba(26,39,68,0.02) 100%)', borderBottom: '1px solid rgba(26,39,68,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', color: 'rgba(26,39,68,0.5)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                <IShield s={13} />
+                <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em' }}>Professional risk assessment</span>
               </div>
               {!riskLoading && (
-                <span style={{ padding: '3px 10px', borderRadius: 999, background: riskAssessment ? 'rgba(16,185,129,0.1)' : 'rgba(26,39,68,0.07)', color: riskAssessment ? '#0D7A55' : 'rgba(26,39,68,0.45)', fontSize: 11.5, fontWeight: 800 }}>
+                <span style={{ padding: '3px 10px', borderRadius: 999, background: riskAssessment ? 'rgba(16,185,129,0.1)' : 'rgba(26,39,68,0.06)', color: riskAssessment ? '#0D7A55' : 'rgba(26,39,68,0.4)', fontSize: 11, fontWeight: 800, letterSpacing: '0.04em' }}>
                   {riskAssessment ? 'Assessment available' : 'Not yet published'}
                 </span>
               )}
             </div>
-            <div style={{ padding: '16px 18px' }}>
+            <div style={{ padding: '14px 16px' }}>
               {riskLoading ? (
-                <div style={{ fontSize: 14, color: 'rgba(26,39,68,0.5)', padding: '8px 0' }}>Loading assessment…</div>
-              ) : (
+                <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.45)', padding: '6px 0' }}>Loading assessment…</div>
+              ) : riskAssessment ? (
                 <>
                   <WalkRiskSummary assessment={riskAssessment} walk={walk} />
-                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }}>
-                    {riskAssessment && (
-                      <button onClick={() => downloadRiskAssessmentPDF(riskAssessment, walk)} className="btn btn-sky btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                        📥 Download assessment
-                      </button>
-                    )}
+                  <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', marginTop: 12 }}>
+                    <button onClick={() => downloadRiskAssessmentPDF(riskAssessment, walk)} className="btn btn-sky btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      Download assessment
+                    </button>
                     {SUPPORTS_WALK_UPDATES && (
                       <button onClick={() => setShowRiskSubmission(true)} className="btn btn-ghost btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                        Submit risk update
+                        Submit update
                       </button>
                     )}
-                    {!SUPPORTS_WALK_UPDATES && <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.45)' }}>Risk updates unavailable.</div>}
                   </div>
                 </>
+              ) : (
+                <div style={{ padding: '12px 0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, color: 'rgba(26,39,68,0.5)' }}>
+                    <IShield s={14} />
+                    <span style={{ fontSize: 13.5, fontWeight: 700, color: '#1A2744' }}>Awaiting first professional submission</span>
+                  </div>
+                  <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.55)', lineHeight: 1.6, marginBottom: SUPPORTS_WALK_UPDATES ? 12 : 0 }}>
+                    A verified risk assessment for this route has not yet been published. Assessments are submitted by qualified practitioners and reviewed by the Inspiring Carers team.
+                  </p>
+                  {SUPPORTS_WALK_UPDATES && (
+                    <button onClick={() => setShowRiskSubmission(true)} className="btn btn-ghost btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      Submit risk assessment
+                    </button>
+                  )}
+                  {!SUPPORTS_WALK_UPDATES && <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.4)' }}>Risk submissions unavailable.</div>}
+                </div>
               )}
             </div>
           </div>
 
           {/* Itinerary journey */}
-          <div style={{ border: '1px solid #E9EEF5', borderRadius: 20, overflow: 'hidden' }}>
-            <div style={{ padding: '13px 18px', background: 'linear-gradient(135deg, rgba(91,201,74,0.06), rgba(45,156,219,0.04))', borderBottom: '1px solid #EEF4FF', display: 'flex', alignItems: 'center', gap: 9 }}>
-              <span style={{ fontSize: 15 }}>🗺️</span>
-              <span style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.5)' }}>Itinerary journey</span>
+          <div style={{ border: '1px solid #E9EEF5', borderRadius: 18, overflow: 'hidden' }}>
+            <div style={{ padding: '11px 16px', background: 'linear-gradient(135deg, rgba(91,201,74,0.07), rgba(45,156,219,0.04))', borderBottom: '1px solid #EEF4FF', display: 'flex', alignItems: 'center', gap: 7, color: '#1E6B10' }}>
+              <IWalks s={13} />
+              <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em' }}>Itinerary journey</span>
             </div>
             <div style={{ padding: '16px 18px' }}>
               {itinerarySteps.length > 0 ? (
@@ -1260,10 +1273,10 @@ const WalkDetailModal = ({ walk, onClose }) => {
           </div>
 
           {/* Approved route updates */}
-          <div style={{ border: '1px solid #E9EEF5', borderRadius: 20, overflow: 'hidden' }}>
-            <div style={{ padding: '13px 18px', background: 'linear-gradient(135deg, rgba(45,156,219,0.06), rgba(123,92,245,0.04))', borderBottom: '1px solid #EEF4FF', display: 'flex', alignItems: 'center', gap: 9 }}>
-              <span style={{ fontSize: 15 }}>📍</span>
-              <span style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.5)' }}>Approved route updates</span>
+          <div style={{ border: '1px solid #E9EEF5', borderRadius: 18, overflow: 'hidden' }}>
+            <div style={{ padding: '11px 16px', background: 'linear-gradient(135deg, rgba(45,156,219,0.07), rgba(123,92,245,0.04))', borderBottom: '1px solid #EEF4FF', display: 'flex', alignItems: 'center', gap: 7, color: '#1054A0' }}>
+              <IPin s={13} />
+              <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em' }}>Approved route updates</span>
             </div>
             <div style={{ padding: '14px 18px' }}>
               {itineraryLoading ? (
@@ -1545,17 +1558,33 @@ const DetailBadge = ({ label, value, secondary, note }) => (
   </div>
 );
 
-const DetailSection = ({ title, content, icon, tint = '#FFFFFF', border = '#E9EEF5' }) => (
-  <div style={{ border: `1px solid ${border}`, borderRadius: 20, background: tint, padding: '16px 18px' }}>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
-      {icon && <span style={{ fontSize: 15, lineHeight: 1 }}>{icon}</span>}
-      <div style={{ fontSize: 11.5, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 800, color: 'rgba(26,39,68,0.5)' }}>{title}</div>
+const DetailSection = ({ title, content, IconComp, tint = 'rgba(255,255,255,0.7)', border = '#E9EEF5', accentColor = 'rgba(26,39,68,0.5)' }) => {
+  const [hovered, setHovered] = React.useState(false);
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        border: `1px solid ${border}`,
+        borderRadius: 18,
+        background: tint,
+        padding: '12px 16px',
+        transition: 'transform 0.18s ease, box-shadow 0.18s ease',
+        transform: hovered ? 'translateY(-2px)' : 'translateY(0)',
+        boxShadow: hovered ? '0 8px 28px rgba(26,39,68,0.09)' : '0 1px 4px rgba(26,39,68,0.04)',
+        color: accentColor,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+        {IconComp && <IconComp s={13} />}
+        <div style={{ fontSize: 11, letterSpacing: '0.09em', textTransform: 'uppercase', fontWeight: 800 }}>{title}</div>
+      </div>
+      <div style={{ color: 'rgba(26,39,68,0.8)', lineHeight: 1.7, fontSize: 15 }}>
+        {content || <span style={{ color: 'rgba(26,39,68,0.35)', fontStyle: 'italic', fontSize: 14 }}>Not provided for this route.</span>}
+      </div>
     </div>
-    <div style={{ color: 'rgba(26,39,68,0.82)', lineHeight: 1.75, fontSize: 15, maxWidth: '72ch' }}>
-      {content || <span style={{ color: 'rgba(26,39,68,0.38)', fontStyle: 'italic', fontSize: 14 }}>Not provided for this route.</span>}
-    </div>
-  </div>
-);
+  );
+};
 
 const ItineraryFlow = ({ steps }) => (
   <div style={{ display: 'grid', gap: 12 }}>
