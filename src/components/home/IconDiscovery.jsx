@@ -5,7 +5,7 @@ const { IDiscount, IWellbeing, IGroups, IWalks, IEvent, IAdvice, ILibrary, IHub,
 const IconDiscovery = ({ onNavigate }) => {
   const items = [
     { icon: <IDiscount s={32}/>,    tone: 'gold',   label: 'Discounts & offers',        side: 'you',     count: 'Local & regional offers' },
-    { icon: <IWellbeing s={32}/>,   tone: 'coral',  label: 'Wellbeing & courses',      side: 'both',    count: 'Regular sessions' },
+    { icon: <IWellbeing s={32}/>,   tone: 'coral',  label: 'Wellbeing Support',        side: 'both',    count: 'Calm & restorative',      route: 'wellbeing' },
     { icon: <IGroups s={32}/>,      tone: 'sky',    label: 'Local groups & socials',   side: 'support', count: 'Cornwall & beyond' },
     { icon: <IWalks s={32}/>,       tone: 'lime',   label: 'Walks & outdoors',         side: 'support', count: 'Trails & coastal paths', route: 'walks' },
     { icon: <ISparkle s={32}/>,     tone: 'violet', label: 'Places to Visit',          side: 'support', count: 'Attractions & days out',  route: 'places-to-visit' },

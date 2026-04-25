@@ -246,9 +246,9 @@ const ACTIVITY_CATEGORIES = [
   { key: 'attractions', label: 'Attractions', status: 'soon',
     desc: 'Discounted and carer-friendly venues, museums and cultural experiences.',
     accent: '#7B5CF5', bg: 'rgba(123,92,245,0.08)', border: 'rgba(123,92,245,0.14)', Icon: ISparkle },
-  { key: 'wellbeing',   label: 'Wellbeing',   status: 'soon',
-    desc: 'Yoga, swimming, sport and wellbeing sessions supporting carer health.',
-    accent: '#F4613A', bg: 'rgba(244,97,58,0.08)', border: 'rgba(244,97,58,0.14)', Icon: IWellbeing },
+  { key: 'wellbeing',   label: 'Wellbeing Support', status: 'soon', route: 'wellbeing',
+    desc: 'Calm, restorative and community wellbeing places supporting carer health.',
+    accent: '#0D9488', bg: 'rgba(13,148,136,0.08)', border: 'rgba(13,148,136,0.16)', Icon: IWellbeing },
 ];
 
 // Module-level geocode cache — persists across component re-mounts
@@ -768,7 +768,7 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
               { title: 'Accessible coastal walk', type: 'walks',    location: 'St Ives',  tags: ['Wheelchair', 'Free'],   accent: '#5BC94A', grad: 'linear-gradient(135deg, #D8F0CC, #C4E8B4)', dest: () => goToWalks(localCounty) },
               { title: 'Carer coffee morning',    type: 'groups',   location: 'Truro',    tags: ['All welcome', 'Free'],  accent: '#2D9CDB', grad: 'linear-gradient(135deg, #C8E4F8, #B4D8F4)', dest: null },
               { title: 'Family-friendly day out', type: 'days-out', location: 'Falmouth', tags: ['Family', 'Free entry'], accent: '#F5A623', grad: 'linear-gradient(135deg, #FDE8C4, #FDDCA8)', dest: null },
-              { title: 'Wellbeing swim session',  type: 'wellbeing',location: 'Penzance', tags: ['Low mobility', 'Free'], accent: '#F4613A', grad: 'linear-gradient(135deg, #FADCD4, #F8C8BC)', dest: null },
+              { title: 'Wellbeing swim session',  type: 'wellbeing',location: 'Penzance', tags: ['Low mobility', 'Free'], accent: '#0D9488', grad: 'linear-gradient(135deg, #C7EDE8, #A8E2DC)', dest: () => onNavigate('wellbeing') },
             ].filter((c) => !activityType || c.type === activityType).map((card) => (
               <div key={card.title} className="card" style={{ padding: 0, overflow: 'hidden', borderRadius: 16, borderLeft: `3px solid ${card.accent}` }}>
                 <div style={{ height: 24, background: card.grad }} />
@@ -875,18 +875,26 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
           <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: 'rgba(26,39,68,0.34)', marginBottom: 10, marginTop: 4 }}>Coming next</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(215px, 1fr))', gap: 9 }}>
             {soonCategories.map((cat) => (
-              <div key={cat.key} className="card" style={{ padding: 0, overflow: 'hidden', border: `1px solid ${cat.border}`, cursor: 'default' }}>
+              <div key={cat.key} className="card"
+                onClick={cat.route ? () => onNavigate(cat.route) : undefined}
+                style={{ padding: 0, overflow: 'hidden', border: `1px solid ${cat.border}`, cursor: cat.route ? 'pointer' : 'default' }}
+                onMouseEnter={cat.route ? (e) => { e.currentTarget.style.boxShadow = `0 6px 20px ${cat.accent}20`; } : undefined}
+                onMouseLeave={cat.route ? (e) => { e.currentTarget.style.boxShadow = ''; } : undefined}
+              >
                 <div style={{ height: 42, background: `linear-gradient(135deg, ${cat.bg.replace('0.08', '0.22')} 0%, ${cat.bg.replace('0.08', '0.06')} 100%)`, display: 'flex', alignItems: 'center', padding: '0 16px', gap: 10 }}>
                   <div style={{ width: 30, height: 30, borderRadius: 8, background: cat.accent + '20', display: 'grid', placeItems: 'center', color: cat.accent, flexShrink: 0 }}>
                     <cat.Icon s={16} />
                   </div>
                   <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.07em', textTransform: 'uppercase', padding: '2px 8px', borderRadius: 999, background: cat.accent + '18', color: cat.accent }}>
-                    Coming soon
+                    {cat.route ? 'Live now' : 'Coming soon'}
                   </span>
                 </div>
                 <div style={{ padding: '13px 16px' }}>
                   <div style={{ fontSize: 15, fontWeight: 800, color: '#1A2744', marginBottom: 5 }}>{cat.label}</div>
-                  <p style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.56)', lineHeight: 1.55, margin: 0 }}>{cat.desc}</p>
+                  <p style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.56)', lineHeight: 1.55, margin: cat.route ? '0 0 10px' : 0 }}>{cat.desc}</p>
+                  {cat.route && (
+                    <div style={{ fontSize: 13, fontWeight: 700, color: cat.accent }}>Explore {cat.label.toLowerCase()} →</div>
+                  )}
                 </div>
               </div>
             ))}
