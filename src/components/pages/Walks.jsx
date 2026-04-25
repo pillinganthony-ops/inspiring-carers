@@ -1087,18 +1087,50 @@ const WalkDetailModal = ({ walk, onClose }) => {
     linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`,
   };
 
+  const diff     = normalizeDifficultyLabel(walk.difficulty);
+  const accent   = DIFF_ACCENT[diff] || DIFF_ACCENT.Moderate;
+  const accessible = hasAccessibleTerrain(walk);
+
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(15,23,42,0.42)', display: 'grid', placeItems: 'center', padding: 24 }}>
-      <div style={{ width: '100%', maxWidth: 1100, maxHeight: '90vh', overflowY: 'auto', borderRadius: 34, background: 'white', boxShadow: '0 34px 85px rgba(26,39,68,0.24)', padding: 'clamp(22px, 3vw, 38px)', position: 'relative' }}>
-        <button onClick={onClose} style={{ position: 'absolute', right: 24, top: 24, width: 42, height: 42, borderRadius: 999, border: '1px solid #E9EEF5', background: 'white', display: 'grid', placeItems: 'center' }}>
-          <IClose s={20} />
-        </button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
-          <IconTile tone="lime" size={64} radius={20}><IWalks s={28} /></IconTile>
-          <div>
-            <div className="eyebrow" style={{ color: '#5BC94A' }}>Walk details</div>
-            <h2 style={{ marginTop: 8, fontSize: 'clamp(30px, 4vw, 40px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.08, maxWidth: 740 }}>{walk.name}</h2>
-            <div style={{ marginTop: 8, fontSize: 14, color: 'rgba(26,39,68,0.72)', letterSpacing: '0.02em' }}>{walk.area} · {walk.postcode}</div>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(15,23,42,0.46)', display: 'grid', placeItems: 'center', padding: 16 }}>
+      <div style={{ width: '100%', maxWidth: 1100, maxHeight: '92vh', overflowY: 'auto', borderRadius: 34, background: 'white', boxShadow: '0 40px 100px rgba(15,23,42,0.3)', padding: 'clamp(22px, 3vw, 38px)', position: 'relative' }}>
+
+        {/* ── Premium hero band — negative margins give full-width on dark bg ── */}
+        <div style={{
+          background: 'linear-gradient(145deg, #0F172A 0%, #1A3A2A 50%, #1A2744 100%)',
+          margin: 'calc(-1 * clamp(22px, 3vw, 38px))',
+          marginBottom: 28,
+          padding: '28px clamp(22px,3vw,38px) 26px',
+          borderRadius: '34px 34px 0 0',
+          position: 'relative',
+        }}>
+          {/* Difficulty accent stripe */}
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, background: `linear-gradient(90deg, ${accent} 0%, ${accent}55 100%)`, borderRadius: '34px 34px 0 0', pointerEvents: 'none' }} />
+          {/* Close button */}
+          <button onClick={onClose} style={{ position: 'absolute', right: 18, top: 18, width: 38, height: 38, borderRadius: 999, border: '1.5px solid rgba(255,255,255,0.25)', background: 'rgba(255,255,255,0.1)', display: 'grid', placeItems: 'center', cursor: 'pointer', color: 'white' }}>
+            <IClose s={18} />
+          </button>
+          {/* Content */}
+          <div style={{ paddingRight: 52, paddingTop: 4 }}>
+            {/* Difficulty pill + area */}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
+              <span style={{ padding: '3px 12px', borderRadius: 999, background: accent, color: 'white', fontSize: 12.5, fontWeight: 800 }}>{diff}</span>
+              <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', fontWeight: 600 }}>
+                {walk.area}{hasText(walk.postcode) ? ` · ${walk.postcode}` : ''}
+              </span>
+            </div>
+            {/* Walk name */}
+            <h2 style={{ fontSize: 'clamp(22px, 4vw, 36px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1, color: '#FFFFFF', WebkitTextFillColor: '#FFFFFF', marginBottom: 16, maxWidth: 820 }}>
+              {walk.name}
+            </h2>
+            {/* Info chips */}
+            <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+              {walk.distanceMiles > 0 && <span style={{ padding: '5px 13px', borderRadius: 999, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.88)', fontSize: 13, fontWeight: 700 }}>{formatDistance(walk.distanceMiles)}</span>}
+              {walk.durationMinutes > 0 && <span style={{ padding: '5px 13px', borderRadius: 999, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.88)', fontSize: 13, fontWeight: 700 }}>{formatDuration(walk.durationMinutes)}</span>}
+              {accessible && <span style={{ padding: '5px 13px', borderRadius: 999, background: 'rgba(45,156,219,0.22)', border: '1px solid rgba(45,156,219,0.3)', color: '#7CC8F8', fontSize: 13, fontWeight: 700 }}>♿ Accessible</span>}
+              {walk.circular && <span style={{ padding: '5px 13px', borderRadius: 999, background: 'rgba(91,201,74,0.18)', border: '1px solid rgba(91,201,74,0.25)', color: '#7FDE6A', fontSize: 13, fontWeight: 700 }}>Circular</span>}
+              {hasText(walk.terrain) && <span style={{ padding: '5px 13px', borderRadius: 999, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 600 }}>{walk.terrain}</span>}
+            </div>
           </div>
         </div>
 
@@ -1133,22 +1165,35 @@ const WalkDetailModal = ({ walk, onClose }) => {
           )}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1.25fr 0.75fr', gap: 22, marginBottom: 28 }}>
-          <div style={{ display: 'grid', gap: 10, color: 'rgba(26,39,68,0.82)', lineHeight: 1.75, fontSize: 15, border: '1px solid #E9EEF5', background: '#FCFDFF', borderRadius: 22, padding: 16 }}>
-            <SectionItem label="Distance" value={formatDistance(walk.distanceMiles)} />
-            <SectionItem label="Duration" value={formatDuration(walk.durationMinutes)} />
-            <SectionItem label="Difficulty" value={walk.difficulty} />
-            <SectionItem label="Terrain" value={walk.terrain} />
-            <SectionItem label="Elevation" value={`${walk.elevation} m`} />
-            <SectionItem label="Circular route" value={walk.circular ? 'Yes' : 'No'} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18, marginBottom: 28 }}>
+          {/* Route facts */}
+          <div style={{ border: '1px solid #E9EEF5', background: '#FCFDFF', borderRadius: 22, overflow: 'hidden' }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid #E9EEF5', background: 'linear-gradient(135deg, rgba(91,201,74,0.08), rgba(45,156,219,0.05))', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <IWalks s={15} />
+              <span style={{ fontSize: 13, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#1A2744' }}>Route facts</span>
+            </div>
+            <div style={{ padding: 16, display: 'grid', gap: 0 }}>
+              <SectionItem label="Distance" value={formatDistance(walk.distanceMiles)} />
+              <SectionItem label="Duration" value={formatDuration(walk.durationMinutes)} />
+              <SectionItem label="Difficulty" value={walk.difficulty} />
+              <SectionItem label="Terrain" value={walk.terrain} />
+              {walk.elevation > 0 && <SectionItem label="Elevation" value={`${walk.elevation} m`} />}
+              <SectionItem label="Circular" value={walk.circular ? 'Yes' : 'No'} />
+            </div>
           </div>
-          <div style={{ background: 'rgba(245,250,255,1)', border: '1px solid #E9EEF5', borderRadius: 22, padding: 18, display: 'grid', gap: 12 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: '#1A2744' }}>Practical details</div>
-            <DetailBadge label="Toilets" value={walk.toilets} note={walk.toiletsNote} />
-            <DetailBadge label="Parking" value={walk.parking} note={walk.parkingNote} />
-            <DetailBadge label="Public transport" value={walk.publicTransport} note={walk.busInfo || undefined} />
-            <DetailBadge label="Refreshments" value={walk.refreshments} note={walk.refreshmentsNote} />
-            <DetailBadge label="Accessibility" value={walk.accessibility} secondary />
+          {/* Facilities & access */}
+          <div style={{ border: '1px solid #E9EEF5', background: '#FAFEFF', borderRadius: 22, overflow: 'hidden' }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid #E9EEF5', background: 'linear-gradient(135deg, rgba(45,156,219,0.08), rgba(91,201,74,0.05))', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <IStar s={14} />
+              <span style={{ fontSize: 13, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#1A2744' }}>Facilities &amp; access</span>
+            </div>
+            <div style={{ padding: 16, display: 'grid', gap: 10 }}>
+              <DetailBadge label="Toilets" value={walk.toilets} note={walk.toiletsNote} />
+              <DetailBadge label="Parking" value={walk.parking} note={walk.parkingNote} />
+              <DetailBadge label="Public transport" value={walk.publicTransport} note={walk.busInfo || undefined} />
+              <DetailBadge label="Refreshments" value={walk.refreshments} note={walk.refreshmentsNote} />
+              <DetailBadge label="Accessibility" value={walk.accessibility} secondary />
+            </div>
           </div>
         </div>
 
@@ -1237,28 +1282,29 @@ const WalkDetailModal = ({ walk, onClose }) => {
           </div>
         </div>
 
-        <div style={{ marginTop: 14, border: '1px solid #E9EEF5', borderRadius: 24, background: 'linear-gradient(180deg, #FFFFFF 0%, #F8FBFF 100%)', padding: 16 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10, alignItems: 'center' }}>
-            <a href={walk.googleMapsLink} target="_blank" rel="noreferrer" className="btn btn-gold btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-              Open in Google Maps
-              <IArrow s={18} />
+        <div style={{ marginTop: 14, border: '1px solid #E9EEF5', borderRadius: 24, background: 'linear-gradient(180deg, #F8FBFF 0%, #FFFFFF 100%)', padding: '18px 20px' }}>
+          {/* Primary actions */}
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <a href={walk.googleMapsLink} target="_blank" rel="noreferrer" className="btn btn-gold btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flex: '1 1 200px', justifyContent: 'center', boxShadow: '0 8px 24px rgba(212,175,55,0.28)' }}>
+              Open in Google Maps <IArrow s={16} />
             </a>
-            <a href={buildWalkEmailHref(walk)} className="btn btn-sky btn-lg" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-              Email walk details
+            <a href={buildWalkEmailHref(walk)} className="btn btn-ghost btn-lg" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, flex: '1 1 160px' }}>
+              Email details
             </a>
-            {SUPPORTS_WALK_UPDATES ? (
-              <button onClick={() => setShowUpdateForm((open) => !open)} className="btn btn-ghost btn-lg" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-                Submit an update
-              </button>
-            ) : null}
-            <button onClick={onClose} className="btn btn-ghost btn-lg" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-              Back to results
+            <button onClick={onClose} className="btn btn-ghost btn-lg" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              ← Back to results
             </button>
           </div>
-          <div style={{ marginTop: 12, fontSize: 12, color: 'rgba(26,39,68,0.65)' }}>
-            {SUPPORTS_WALK_UPDATES
-              ? 'Community-maintained route information. Updates may be reviewed before appearing. Check route conditions before travel.'
-              : 'Community route submissions are currently disabled on the live legacy schema. Check route conditions before travel.'}
+          {/* Secondary actions */}
+          {SUPPORTS_WALK_UPDATES && (
+            <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button onClick={() => setShowUpdateForm((open) => !open)} className="btn btn-ghost btn-sm" style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.6)' }}>
+                Submit a route update
+              </button>
+            </div>
+          )}
+          <div style={{ marginTop: 10, fontSize: 12, color: 'rgba(26,39,68,0.52)', lineHeight: 1.5 }}>
+            Community-maintained route information. Always check current conditions before travel.
           </div>
         </div>
 
