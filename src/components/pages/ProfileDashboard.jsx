@@ -190,7 +190,7 @@ const UpgradeEnquiryModal = ({ upgradeTitle, orgName, userEmail, onClose, onSucc
   );
 };
 
-const ProfileDashboard = ({ onNavigate, session }) => {
+const ProfileDashboard = ({ onNavigate, session, section = 'dashboard' }) => {
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState('');
@@ -211,6 +211,13 @@ const ProfileDashboard = ({ onNavigate, session }) => {
   const [analyticsWindow, setAnalyticsWindow] = React.useState('30d');
 
   const userEmail = `${session?.user?.email || ''}`.trim().toLowerCase();
+
+  // Section routing
+  const activeNavPage = { dashboard: 'profile', organisation: 'profile-org', posts: 'profile-posts', enquiries: 'profile-enquiries' }[section] || 'profile';
+  const showAll = section === 'dashboard';
+  const showOrg = showAll || section === 'organisation';
+  const showPosts = showAll || section === 'posts';
+  const showEnquiries = showAll || section === 'enquiries';
 
   const loadData = React.useCallback(async () => {
     if (!session || !supabase || !isSupabaseConfigured()) {
@@ -621,11 +628,11 @@ const ProfileDashboard = ({ onNavigate, session }) => {
   if (!session) {
     return (
       <>
-        <Nav activePage="profile" onNavigate={onNavigate} session={session} />
+        <Nav activePage={activeNavPage} onNavigate={onNavigate} session={session} />
         <section style={{ minHeight: '60vh', paddingTop: 54, paddingBottom: 64 }}>
           <div className="container">
             <div className="card" style={{ padding: 28, borderRadius: 20 }}>
-              <h1 style={{ fontSize: 34, marginBottom: 10 }}>Sign in to access your profile dashboard</h1>
+              <h1 style={{ fontSize: 34, marginBottom: 10 }}>Sign in to access your account</h1>
               <p style={{ color: 'rgba(26,39,68,0.7)' }}>Use your account to manage organisation profile details and live events.</p>
               <button className="btn btn-gold" style={{ marginTop: 16 }} onClick={() => onNavigate('login')}>Go to login</button>
             </div>
@@ -638,17 +645,41 @@ const ProfileDashboard = ({ onNavigate, session }) => {
 
   return (
     <>
-      <Nav activePage="profile" onNavigate={onNavigate} />
+      <Nav activePage={activeNavPage} onNavigate={onNavigate} session={session} />
       <section style={{ paddingTop: 40, paddingBottom: 74, background: 'linear-gradient(180deg, #EEF7FF 0%, #FAFBFF 100%)' }}>
         <div className="container" style={{ display: 'grid', gap: 18 }}>
           <div className="card" style={{ padding: 22, borderRadius: 20 }}>
-            <h1 style={{ fontSize: 34, fontWeight: 800 }}>Organisation Profile Dashboard</h1>
+            <h1 style={{ fontSize: 34, fontWeight: 800 }}>Account Dashboard</h1>
             <p style={{ marginTop: 8, color: 'rgba(26,39,68,0.7)' }}>Signed in as {session.user.email}.</p>
             {error ? <div style={{ marginTop: 10, color: '#A03A2D', fontWeight: 600 }}>{error}</div> : null}
             {toast ? <div style={{ marginTop: 10, color: '#2D6B1F', fontWeight: 600 }}>{toast}</div> : null}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+          {/* Section sub-navigation */}
+          <div style={{ display: 'flex', gap: 2, padding: 4, background: '#EFF2F8', borderRadius: 14, width: 'fit-content', flexWrap: 'wrap' }}>
+            {[
+              { key: 'profile',            label: 'Dashboard' },
+              { key: 'profile-org',        label: 'My Organisation' },
+              { key: 'profile-posts',      label: 'My Posts' },
+              { key: 'profile-enquiries',  label: 'My Enquiries' },
+            ].map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => onNavigate(key)}
+                style={{
+                  padding: '7px 15px', borderRadius: 10, fontSize: 13.5, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all .12s',
+                  fontWeight: activeNavPage === key ? 700 : 500,
+                  background: activeNavPage === key ? 'white' : 'transparent',
+                  color: activeNavPage === key ? '#1A2744' : 'rgba(26,39,68,0.58)',
+                  boxShadow: activeNavPage === key ? '0 1px 4px rgba(26,39,68,0.1)' : 'none',
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {showAll && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
             {[
               ['Profiles', dashboardKpis.profiles],
               ['Events', dashboardKpis.events],
@@ -662,9 +693,9 @@ const ProfileDashboard = ({ onNavigate, session }) => {
                 <div style={{ marginTop: 6, fontSize: 26, fontWeight: 800 }}>{value}</div>
               </div>
             ))}
-          </div>
+          </div>}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+          {showAll && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
             <div className="card" style={{ gridColumn: '1 / -1', padding: 16, borderRadius: 16, background: '#FFFFFF' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                 <div>
@@ -703,9 +734,9 @@ const ProfileDashboard = ({ onNavigate, session }) => {
                 <div style={{ marginTop: 8, fontSize: 13.5, color: 'rgba(26,39,68,0.62)', lineHeight: 1.65 }}>Profile views, enquiry totals and time-window reporting become visible when `analytics_enabled` is switched on by admin.</div>
               </div>
             )}
-          </div>
+          </div>}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.6fr) minmax(280px, 1fr)', gap: 14 }}>
+          {showAll && <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.6fr) minmax(280px, 1fr)', gap: 14 }}>
             <div className="card" style={{ padding: 22, borderRadius: 20, background: 'linear-gradient(145deg, rgba(26,39,68,0.98) 0%, rgba(34,70,110,0.96) 100%)', color: '#FFFFFF' }}>
               <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(255,255,255,0.7)' }}>Your owner dashboard</div>
               <h2 style={{ marginTop: 10, fontSize: 28, fontWeight: 800 }}>
@@ -776,9 +807,9 @@ const ProfileDashboard = ({ onNavigate, session }) => {
                 ))}
               </div>
             </div>
-          </div>
+          </div>}
 
-          <div className="card" style={{ padding: 22, borderRadius: 20, border: '1px solid #E7D8B9', background: 'linear-gradient(180deg, #FFF9ED 0%, #FFFFFF 100%)' }}>
+          {showAll && <div className="card" style={{ padding: 22, borderRadius: 20, border: '1px solid #E7D8B9', background: 'linear-gradient(180deg, #FFF9ED 0%, #FFFFFF 100%)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
               <div>
                 <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.46)' }}>Grow your listing</div>
@@ -808,9 +839,9 @@ const ProfileDashboard = ({ onNavigate, session }) => {
                 </div>
               ))}
             </div>
-          </div>
+          </div>}
 
-          <div className="card" style={{ padding: 22, borderRadius: 20 }}>
+          {showAll && <div className="card" style={{ padding: 22, borderRadius: 20 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
               <div>
                 <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.46)' }}>Account plan</div>
@@ -844,9 +875,9 @@ const ProfileDashboard = ({ onNavigate, session }) => {
                 </div>
               ))}
             </div>
-          </div>
+          </div>}
 
-          <div className="card" style={{ padding: 22, borderRadius: 20 }}>
+          {showEnquiries && <div className="card" style={{ padding: 22, borderRadius: 20 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
               <div>
                 <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.46)' }}>Enquiry pipeline</div>
@@ -895,13 +926,33 @@ const ProfileDashboard = ({ onNavigate, session }) => {
                 <div style={{ marginTop: 8, fontSize: 13.5, color: 'rgba(26,39,68,0.62)', lineHeight: 1.65 }}>Switch `enquiry_tools_enabled` on in admin to unlock pipeline management and response tracking.</div>
               </div>
             )}
-          </div>
+          </div>}
 
           {loading ? (
-            <div className="card" style={{ padding: 20 }}>Loading profile data...</div>
+            <div className="card" style={{ padding: 20 }}>Loading account data…</div>
           ) : (
             <>
-              <div id="pd-profile-section" className="card" style={{ padding: 22, borderRadius: 20 }}>
+              {/* No-org guidance for focused sections */}
+              {!showAll && profiles.length === 0 && (
+                <div className="card" style={{ padding: 32, borderRadius: 20, textAlign: 'center' }}>
+                  <div style={{ fontSize: 40, marginBottom: 14 }}>🏢</div>
+                  <h2 style={{ fontSize: 22, fontWeight: 800, color: '#1A2744', marginBottom: 8 }}>No organisation connected yet</h2>
+                  <p style={{ color: 'rgba(26,39,68,0.65)', lineHeight: 1.65, maxWidth: 480, margin: '0 auto 16px' }}>
+                    Browse the Find Help directory and click "Claim this listing" on any listing that belongs to your organisation. Once approved, your organisation will appear here.
+                  </p>
+                  {claims.length > 0 && (
+                    <div style={{ marginBottom: 16, padding: '10px 16px', borderRadius: 12, background: 'rgba(245,166,35,0.1)', color: '#8a5a0b', fontSize: 13.5, fontWeight: 700, display: 'inline-block' }}>
+                      {claims.length} claim{claims.length !== 1 ? 's' : ''} pending review — check your Dashboard for status
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+                    <button className="btn btn-gold" onClick={() => onNavigate('find-help')}>Browse the directory →</button>
+                    <button className="btn btn-ghost" onClick={() => onNavigate('profile')}>Go to Dashboard</button>
+                  </div>
+                </div>
+              )}
+
+              {showOrg && <div id="pd-profile-section" className="card" style={{ padding: 22, borderRadius: 20 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                   <h2 style={{ fontSize: 22, fontWeight: 700 }}>Your organisation profiles</h2>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -955,10 +1006,10 @@ const ProfileDashboard = ({ onNavigate, session }) => {
                 <div style={{ marginTop: 12 }}>
                   <button className="btn btn-gold" disabled={saving} onClick={saveProfile}>{saving ? 'Saving...' : 'Save profile'}</button>
                 </div>
-              </div>
+              </div>}
 
-              <div className="card" style={{ padding: 22, borderRadius: 20 }}>
-                <h2 style={{ fontSize: 22, fontWeight: 700 }}>Events for selected profile</h2>
+              {showPosts && <div className="card" style={{ padding: 22, borderRadius: 20 }}>
+                <h2 style={{ fontSize: 22, fontWeight: 700 }}>My Posts</h2>
                 {!activeProfileId ? <div style={{ marginTop: 8, color: 'rgba(26,39,68,0.65)' }}>Select or create a profile to manage events.</div> : null}
                 {activeProfileId ? (
                   <>
@@ -1006,9 +1057,9 @@ const ProfileDashboard = ({ onNavigate, session }) => {
                     </div>
                   </>
                 ) : null}
-              </div>
+              </div>}
 
-              <div className="card" style={{ padding: 22, borderRadius: 20 }}>
+              {showOrg && <div className="card" style={{ padding: 22, borderRadius: 20 }}>
                 <h2 style={{ fontSize: 22, fontWeight: 700 }}>Your listing claims</h2>
                 <div style={{ marginTop: 10, display: 'grid', gap: 10 }}>
                   {claims.length ? claims.map((claim) => {
@@ -1039,7 +1090,7 @@ const ProfileDashboard = ({ onNavigate, session }) => {
                     );
                   }) : <div style={{ color: 'rgba(26,39,68,0.65)', fontSize: 13.5 }}>No listing claims found for your email yet. Submit a claim from any listing in the Find Help directory.</div>}
                 </div>
-              </div>
+              </div>}
             </>
           )}
         </div>

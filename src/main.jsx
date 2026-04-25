@@ -305,8 +305,14 @@ const App = () => {
 
     if (!segs.length) return { page: 'home', county: null };
 
+    // Profile sub-routes — /profile/organisation, /profile/posts, /profile/enquiries
+    if (segs[0] === 'profile') {
+      const PROFILE_SUBS = { organisation: 'profile-org', posts: 'profile-posts', enquiries: 'profile-enquiries' };
+      return { page: PROFILE_SUBS[segs[1]] || 'profile', county: null };
+    }
+
     // Global pages — no county prefix
-    const GLOBAL = ['login', 'admin', 'profile', 'recognition', 'business', 'about', 'card'];
+    const GLOBAL = ['login', 'admin', 'recognition', 'business', 'about', 'card'];
     if (GLOBAL.includes(segs[0])) return { page: segs[0], county: null };
 
     // County-prefixed routes: /cornwall/find-help or /cornwall
@@ -407,11 +413,14 @@ const App = () => {
     const isCountyPage = COUNTY_PAGES.has(key);
     const effectiveCounty = explicitCounty || county || COUNTY_DEFAULT;
 
+    const PROFILE_URLS = { 'profile-org': '/profile/organisation', 'profile-posts': '/profile/posts', 'profile-enquiries': '/profile/enquiries' };
     const path = key === 'home'
       ? '/'
-      : isCountyPage
-        ? `/${effectiveCounty}/${key}`
-        : `/${key}`;
+      : PROFILE_URLS[key]
+        ? PROFILE_URLS[key]
+        : isCountyPage
+          ? `/${effectiveCounty}/${key}`
+          : `/${key}`;
 
     setPage(key);
     if (isCountyPage) {
@@ -435,7 +444,10 @@ const App = () => {
     case 'activities': content = <Placeholder title="Activities" activePage="activities" onNavigate={navigate} session={session} note="Walks, outdoor activities, attractions and wellbeing places for carers across Cornwall — coming in the next round." />; break;
     case 'training': content = <Placeholder title="Training" activePage="training" onNavigate={navigate} session={session} note="Carer training, CPD, professional development and awareness sessions across Cornwall — coming in the next round." />; break;
     case 'admin': content = <React.Suspense fallback={<RouteLoading />}><AdminPage onNavigate={navigate} session={session} sessionLoading={sessionLoading} /></React.Suspense>; break;
-    case 'profile': content = <React.Suspense fallback={<RouteLoading />}><ProfileDashboardPage onNavigate={navigate} session={session} /></React.Suspense>; break;
+    case 'profile': content = <React.Suspense fallback={<RouteLoading />}><ProfileDashboardPage section="dashboard" onNavigate={navigate} session={session} /></React.Suspense>; break;
+    case 'profile-org': content = <React.Suspense fallback={<RouteLoading />}><ProfileDashboardPage section="organisation" onNavigate={navigate} session={session} /></React.Suspense>; break;
+    case 'profile-posts': content = <React.Suspense fallback={<RouteLoading />}><ProfileDashboardPage section="posts" onNavigate={navigate} session={session} /></React.Suspense>; break;
+    case 'profile-enquiries': content = <React.Suspense fallback={<RouteLoading />}><ProfileDashboardPage section="enquiries" onNavigate={navigate} session={session} /></React.Suspense>; break;
     case 'recognition': content = <Placeholder title="Recognition & awards" activePage="recognition" onNavigate={navigate} session={session} note="Carer of the Month, stories, nominations and community recognition — coming in the next round. Preview lives in the homepage Recognition section." />; break;
     case 'business': content = <Placeholder title="For businesses" activePage="business" onNavigate={navigate} session={session} note="Submit offers, see the why-carers-matter statement, badge tiers and featured partner placements — next round." />; break;
     case 'about': content = <Placeholder title="About inspiring carers" activePage="about" onNavigate={navigate} session={session} note="Mission, the two-tier model, and the local-first national vision — next round." />; break;

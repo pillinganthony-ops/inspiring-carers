@@ -120,11 +120,13 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp 
   ];
 
   const profileItems = [
-    { label: 'My Dashboard', key: 'profile',  isActive: activePage === 'profile' },
-    { label: 'My Listings',  key: 'profile',  isActive: false },
-    { label: 'My Posts',     key: 'profile',  isActive: false },
-    { label: 'Settings',     key: 'profile',  isActive: false },
+    { label: 'Account Dashboard', key: 'profile',            isActive: activePage === 'profile' },
+    { label: 'My Organisation',   key: 'profile-org',        isActive: activePage === 'profile-org' },
+    { label: 'My Posts',          key: 'profile-posts',      isActive: activePage === 'profile-posts' },
+    { label: 'My Enquiries',      key: 'profile-enquiries',  isActive: activePage === 'profile-enquiries' },
+    { label: 'Settings',          key: 'profile',            isActive: false },
   ];
+  const isAccountPage = ['profile', 'profile-org', 'profile-posts', 'profile-enquiries'].includes(activePage);
 
   const isAdmin = Boolean(session?.user?.email && ADMIN_EMAIL_ALLOWLIST.includes(session.user.email.toLowerCase()));
 
@@ -213,9 +215,9 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp 
               <button
                 className="btn btn-ghost btn-sm"
                 onClick={() => setAccountOpen((o) => !o)}
-                style={{ gap: 5, fontSize: 13.5, fontWeight: 700 }}
+                style={{ gap: 5, fontSize: 13.5, fontWeight: isAccountPage ? 700 : 600 }}
               >
-                Profile <IChevron s={13} />
+                Account <IChevron s={13} />
               </button>
               {accountOpen && (
                 <div style={{ ...dropCard, right: 0 }}>
@@ -310,13 +312,13 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp 
                 <div style={{ fontSize: 10.5, fontWeight: 800, color: 'rgba(26,39,68,0.4)', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '4px 2px 2px' }}>
                   Account
                 </div>
-                {profileItems.map(({ label, key }) => (
+                {profileItems.map(({ label, key, isActive }) => (
                   <button
                     key={label}
                     onClick={() => handleNavigate(key)}
                     style={{
                       textAlign: 'left', padding: '10px 14px', borderRadius: 14, border: 'none', cursor: 'pointer', width: '100%',
-                      background: '#FAFBFF', color: '#1A2744', fontWeight: 600,
+                      background: isActive ? 'rgba(26,39,68,0.06)' : '#FAFBFF', color: '#1A2744', fontWeight: isActive ? 700 : 600,
                     }}
                   >
                     {label}
