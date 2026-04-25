@@ -10,6 +10,13 @@ import Nav from '../Nav.jsx';
 import Footer from '../Footer.jsx';
 import Icons from '../Icons.jsx';
 import ClaimModal from '../ClaimModal.jsx';
+import {
+  Route, Mountain, Leaf, Landmark, Waves, Castle, Train,
+  Theater, Palette, Sailboat, Building2, TreePine,
+  MapPin, Compass, FerrisWheel, Flower2, Users, PawPrint,
+  ShoppingBag, Gem, Bird, HeartHandshake, Sparkles, Star,
+  Heart, Tent, Coffee,
+} from 'lucide-react';
 
 const { IPin, IArrow } = Icons;
 
@@ -30,31 +37,50 @@ const PAGE_HERO = {
   'wellbeing':       'linear-gradient(150deg, #071A20 0%, #0C2830 50%, #102E38 100%)',
 };
 
-// Emoji by subcategory — no external assets, no broken image areas
-const SUBCAT_EMOJI = {
-  'Beach':                '🏖️',
-  'Garden':               '🌿',
-  'Walking Route':        '🥾',
-  'Nature Reserve':       '🌳',
-  'Wildlife':             '🦜',
-  'Wellbeing':            '🧘',
-  'Museum':               '🏛️',
-  'Historic Site':        '🏰',
-  'Heritage Railway':     '🚂',
-  'Landmark':             '📍',
-  'Theatre':              '🎭',
-  'Arts & Culture':       '🎨',
-  'Boat Trip':            '⛵',
-  'Outdoor Activity':     '🏃',
-  'Indoor Activity':      '🎮',
-  'Family Attraction':    '👨‍👩‍👧',
-  'Theme Park':           '🎡',
-  'Adventure':            '🧭',
-  'Free Attraction':      '🎁',
-  'Rainy Day':            '🌧️',
-  'Shopping Village':     '🛍️',
-  'Community Attraction': '🤝',
+// Premium icon map — lucide-react, consistent 1.5 stroke, no emojis
+const SUBCAT_ICONS = {
+  // Nature & outdoors
+  'Beach':                Waves,
+  'Garden':               Leaf,
+  'Walking Route':        Route,
+  'Nature Reserve':       TreePine,
+  'Wildlife':             Bird,
+  'Outdoor Activity':     Mountain,
+  'Adventure':            Compass,
+  'Watersports':          Sailboat,
+  'Boat Trip':            Sailboat,
+  'Tent':                 Tent,
+  // Culture & heritage
+  'Museum':               Landmark,
+  'Historic Site':        Castle,
+  'Heritage Railway':     Train,
+  'Landmark':             MapPin,
+  'Theatre':              Theater,
+  'Arts & Culture':       Palette,
+  'Art Gallery':          Palette,
+  // Wellbeing & community
+  'Wellbeing':            HeartHandshake,
+  'Spa':                  Flower2,
+  'Community Attraction': Users,
+  'Community Space':      Users,
+  // Family & entertainment
+  'Family Attraction':    Sparkles,
+  'Theme Park':           FerrisWheel,
+  'Indoor Activity':      Building2,
+  'Rainy Day':            Coffee,
+  'Animal Park':          PawPrint,
+  'Free Attraction':      Gem,
+  'Shopping Village':     ShoppingBag,
 };
+
+// Per-category fallback when subcategory has no match
+const CATEGORY_FALLBACK = {
+  'Days Out':    Landmark,
+  'Attractions': Star,
+  'Wellbeing':   HeartHandshake,
+};
+
+const DefaultVenueIcon = MapPin;
 
 // ── Shared styles ──────────────────────────────────────────────────────────
 
@@ -104,50 +130,71 @@ const InfoRow = ({ label, value }) => {
   );
 };
 
-// Illustration card — no images, uses category colour + emoji
+// Premium illustration card — lucide icon in frosted-glass circular badge, no emojis
 const VenueIllustration = ({ venue, accent }) => {
-  const emoji = SUBCAT_EMOJI[venue.subcategory] || '📍';
+  const IconComp = SUBCAT_ICONS[venue.subcategory]
+    || CATEGORY_FALLBACK[venue.category]
+    || DefaultVenueIcon;
+
   return (
     <div style={{
-      borderRadius: 22,
-      background: `linear-gradient(145deg, ${accent}28 0%, ${accent}0E 100%)`,
-      border: `1px solid ${accent}30`,
-      padding: '32px 24px',
-      minHeight: 220,
-      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14,
+      borderRadius: 24,
+      background: 'linear-gradient(145deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)',
+      border: '1px solid rgba(255,255,255,0.13)',
+      backdropFilter: 'blur(14px)',
+      WebkitBackdropFilter: 'blur(14px)',
+      padding: '36px 22px',
+      minHeight: 268,
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20,
       position: 'relative', overflow: 'hidden', textAlign: 'center',
     }}>
-      {/* Decorative orbs */}
-      <div style={{ position: 'absolute', top: -40, right: -40, width: 140, height: 140, borderRadius: '50%', background: `${accent}18`, pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', bottom: -30, left: -30, width: 100, height: 100, borderRadius: '50%', background: `${accent}10`, pointerEvents: 'none' }} />
+      {/* Ambient radial glow — inherits accent */}
+      <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(ellipse at 50% 20%, ${accent}2E 0%, transparent 68%)`, pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', top: -56, right: -56, width: 190, height: 190, borderRadius: '50%', background: `${accent}16`, pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', bottom: -44, left: -44, width: 150, height: 150, borderRadius: '50%', background: `${accent}0E`, pointerEvents: 'none' }} />
 
-      {/* Icon */}
-      <div style={{ width: 68, height: 68, borderRadius: 18, background: `${accent}22`, border: `1.5px solid ${accent}44`, display: 'grid', placeItems: 'center', fontSize: 30, position: 'relative' }}>
-        {emoji}
-      </div>
-
-      {/* Subcategory label */}
-      <div style={{ fontSize: 15, fontWeight: 800, color: '#FFFFFF', lineHeight: 1.3 }}>
-        {venue.subcategory || venue.category}
-      </div>
-
-      {/* Location */}
-      {venue.town && (
-        <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.48)', display: 'flex', alignItems: 'center', gap: 4 }}>
-          <IPin s={11} /> {venue.town}{venue.county ? `, ${venue.county}` : ''}
+      {/* Icon badge — glass circle with outer glow ring */}
+      <div style={{ position: 'relative' }}>
+        {/* Outer glow */}
+        <div style={{ position: 'absolute', inset: -12, borderRadius: '50%', background: `radial-gradient(circle, ${accent}32 0%, transparent 68%)`, pointerEvents: 'none' }} />
+        {/* Glass circle */}
+        <div style={{
+          width: 86, height: 86, borderRadius: '50%',
+          background: 'linear-gradient(145deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.07) 100%)',
+          border: '1.5px solid rgba(255,255,255,0.26)',
+          boxShadow: `0 10px 40px ${accent}38, 0 2px 10px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.20)`,
+          display: 'grid', placeItems: 'center',
+          position: 'relative',
+        }}>
+          <IconComp size={34} color="#FFFFFF" strokeWidth={1.5} />
         </div>
-      )}
+      </div>
 
-      {/* Badges */}
+      {/* Subcategory + location */}
+      <div>
+        <div style={{ fontSize: 14.5, fontWeight: 700, color: '#FFFFFF', lineHeight: 1.3, marginBottom: 6, letterSpacing: '-0.01em' }}>
+          {venue.subcategory || venue.category}
+        </div>
+        {venue.town && (
+          <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.46)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+            <IPin s={11} /> {venue.town}{venue.county ? `, ${venue.county}` : ''}
+          </div>
+        )}
+      </div>
+
+      {/* Quick attribute pills */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
         {venue.free_or_paid === 'Free' && (
-          <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 6, background: 'rgba(16,185,129,0.22)', color: '#5EEAD4' }}>Free entry</span>
+          <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 6, background: 'rgba(16,185,129,0.22)', color: '#5EEAD4' }}>Free entry</span>
         )}
         {venue.wheelchair_access && (
-          <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 6, background: 'rgba(123,92,245,0.22)', color: '#C4B5FD' }}>♿ Accessible</span>
+          <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 6, background: 'rgba(123,92,245,0.22)', color: '#C4B5FD' }}>♿ Accessible</span>
         )}
         {venue.dog_friendly && (
-          <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 6, background: 'rgba(61,168,50,0.22)', color: '#86EFAC' }}>Dog friendly</span>
+          <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 6, background: 'rgba(61,168,50,0.22)', color: '#86EFAC' }}>Dogs welcome</span>
+        )}
+        {venue.carer_friendly && (
+          <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 6, background: 'rgba(244,97,58,0.22)', color: '#FCA5A5' }}>Carer friendly</span>
         )}
       </div>
     </div>
