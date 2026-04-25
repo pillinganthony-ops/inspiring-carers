@@ -2497,7 +2497,15 @@ const DirectoryMap = ({ listings, selectedId, onSelect, onOpenResource, isMobile
               mapContainerStyle={{ width: '100%', height: isMobile ? '420px' : '640px', borderRadius: 22 }}
               center={mapInitialCenter}
               zoom={11}
-              onLoad={(map) => { mapRef.current = map; setMapReady(true); }}
+              onLoad={(map) => {
+                mapRef.current = map;
+                // Settle layout first so map has correct container dimensions
+                // before the fit-bounds effect runs.
+                setTimeout(() => {
+                  if (window.google?.maps?.event) window.google.maps.event.trigger(map, 'resize');
+                  setMapReady(true);
+                }, 100);
+              }}
               onUnmount={() => { mapRef.current = null; setMapReady(false); }}
               onDragStart={() => { shouldAutoFitRef.current = false; }}
               onZoomChanged={() => { shouldAutoFitRef.current = false; }}

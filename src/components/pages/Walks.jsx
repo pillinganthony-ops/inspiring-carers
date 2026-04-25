@@ -212,6 +212,9 @@ const WalkMapView = ({ walks: mapWalks, onSelectWalk }) => {
   const [coords, setCoords] = React.useState({ ..._walkGeoCache });
   const [geocoding, setGeocoding] = React.useState(false);
   const [activeWalk, setActiveWalk] = React.useState(null);
+  const [mapReady, setMapReady] = React.useState(false);
+  const mapRef = React.useRef(null);
+  const shouldAutoFitRef = React.useRef(true);
 
   React.useEffect(() => {
     const postcodes = [...new Set(mapWalks.map((w) => w.postcode).filter(Boolean))];
@@ -248,6 +251,30 @@ const WalkMapView = ({ walks: mapWalks, onSelectWalk }) => {
     return () => { cancelled = true; };
   }, [mapWalks]);
 
+  // Re-enable auto-fit whenever the filtered walk set changes
+  React.useEffect(() => { shouldAutoFitRef.current = true; }, [mapWalks]);
+
+  const fitWalks = React.useCallback(() => {
+    if (!mapRef.current || !window.google?.maps) return;
+    const valid = mapWalks.filter((w) => w.postcode && coords[w.postcode]);
+    if (!valid.length) return;
+    if (valid.length === 1) {
+      mapRef.current.panTo(coords[valid[0].postcode]);
+      mapRef.current.setZoom(13);
+      return;
+    }
+    const bounds = new window.google.maps.LatLngBounds();
+    valid.forEach((w) => bounds.extend(coords[w.postcode]));
+    mapRef.current.fitBounds(bounds, 60);
+  }, [mapWalks, coords]);
+
+  // Fit to visible pins when map is ready or filtered set changes
+  React.useEffect(() => {
+    if (!mapReady || !shouldAutoFitRef.current) return;
+    shouldAutoFitRef.current = false;
+    fitWalks();
+  }, [mapReady, fitWalks]);
+
   const pinWalks = mapWalks.filter((w) => w.postcode && coords[w.postcode]);
 
   if (!isLoaded || geocoding) {
@@ -278,8 +305,27 @@ const WalkMapView = ({ walks: mapWalks, onSelectWalk }) => {
         mapContainerStyle={{ width: '100%', height: '500px' }}
         center={WALKS_MAP_CENTER}
         zoom={9}
-        options={{ mapTypeId: 'roadmap', mapTypeControl: false, streetViewControl: false, fullscreenControl: true }}
+        onLoad={(map) => {
+          mapRef.current = map;
+          // Trigger resize after layout settles so map knows its container dimensions,
+          // then flag ready so the fit-bounds effect can run.
+          setTimeout(() => {
+            if (window.google?.maps?.event) window.google.maps.event.trigger(map, 'resize');
+            setMapReady(true);
+          }, 100);
+        }}
+        onUnmount={() => { mapRef.current = null; setMapReady(false); }}
+        onDragStart={() => { shouldAutoFitRef.current = false; }}
+        onZoomChanged={() => { shouldAutoFitRef.current = false; }}
         onClick={() => setActiveWalk(null)}
+        options={{
+          mapTypeId: 'roadmap',
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: true,
+          gestureHandling: 'greedy',
+          clickableIcons: false,
+        }}
       >
         {pinWalks.map((walk) => {
           const pinDiff  = normalizeDifficultyLabel(walk.difficulty);
