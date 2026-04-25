@@ -70,8 +70,10 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp 
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [moreOpen, setMoreOpen] = React.useState(false);
   const [accountOpen, setAccountOpen] = React.useState(false);
+  const [activitiesOpen, setActivitiesOpen] = React.useState(false);
   const moreRef = React.useRef(null);
   const accountRef = React.useRef(null);
+  const activitiesRef = React.useRef(null);
   const [sessionInternal, setSessionInternal] = React.useState(null);
   const session = sessionProp !== undefined ? sessionProp : sessionInternal;
 
@@ -98,6 +100,7 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp 
     const onDown = (e) => {
       if (moreRef.current && !moreRef.current.contains(e.target)) setMoreOpen(false);
       if (accountRef.current && !accountRef.current.contains(e.target)) setAccountOpen(false);
+      if (activitiesRef.current && !activitiesRef.current.contains(e.target)) setActivitiesOpen(false);
     };
     const onKey = (e) => { if (e.key === 'Escape') { setMoreOpen(false); setAccountOpen(false); } };
     document.addEventListener('mousedown', onDown);
@@ -107,11 +110,16 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp 
 
   const primaryNavItems = [
     { key: 'find-help',  label: 'Find help',  accent: '#2D9CDB' },
-    { key: 'activities', label: 'Activities',  accent: '#5BC94A' },
     { key: 'training',   label: 'Training',    accent: '#7B5CF5' },
     { key: 'events',     label: 'Events',      accent: '#2D9CDB' },
     { key: 'for-you',    label: 'For you',     accent: '#F5A623' },
   ];
+
+  // Activities sub-pages — Walks is live; others are in the roadmap.
+  const activitiesItems = [
+    { key: 'walks', label: 'Walks', note: 'Trails and routes' },
+  ];
+  const isActivitiesPage = activitiesItems.some((i) => i.key === activePage) || activePage === 'activities';
 
   const moreItems = [
     { key: 'recognition', label: 'Recognition' },
@@ -134,6 +142,7 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp 
     setMobileOpen(false);
     setMoreOpen(false);
     setAccountOpen(false);
+    setActivitiesOpen(false);
     onNavigate(key);
   };
 
@@ -178,14 +187,32 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp 
 
         {/* Centre nav */}
         <nav className="nav-desktop" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-          {primaryNavItems.map((item) => (
+          {/* Find Help first */}
+          {primaryNavItems.slice(0, 1).map((item) => (
+            <NavItem key={item.key} label={item.label} accent={item.accent} active={activePage === item.key} onClick={() => handleNavigate(item.key)} />
+          ))}
+
+          {/* Activities ▾ — dropdown with Walks as primary entry */}
+          <div ref={activitiesRef} style={{ position: 'relative' }}>
             <NavItem
-              key={item.key}
-              label={item.label}
-              accent={item.accent}
-              active={activePage === item.key}
-              onClick={() => handleNavigate(item.key)}
+              label="Activities"
+              accent="#5BC94A"
+              hasCaret
+              active={isActivitiesPage}
+              onClick={() => setActivitiesOpen((o) => !o)}
             />
+            {activitiesOpen && (
+              <div style={{ ...dropCard, left: '50%', transform: 'translateX(-50%)', minWidth: 200 }}>
+                {activitiesItems.map((item) => (
+                  <DropItem key={item.key} label={item.label} active={activePage === item.key} onClick={() => handleNavigate(item.key)} />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Remaining primary items */}
+          {primaryNavItems.slice(1).map((item) => (
+            <NavItem key={item.key} label={item.label} accent={item.accent} active={activePage === item.key} onClick={() => handleNavigate(item.key)} />
           ))}
 
           {/* More ▾ */}
@@ -270,17 +297,26 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp 
             <div style={{ fontSize: 10.5, fontWeight: 800, color: 'rgba(26,39,68,0.4)', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '4px 2px 2px' }}>
               Navigation
             </div>
-            {primaryNavItems.map((item) => (
-              <button
-                key={item.key}
-                onClick={() => handleNavigate(item.key)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left',
-                  padding: '12px 14px', borderRadius: 14, border: 'none', cursor: 'pointer', width: '100%',
-                  background: activePage === item.key ? 'rgba(26,39,68,0.06)' : '#FAFBFF',
-                  color: '#1A2744', fontWeight: activePage === item.key ? 700 : 600,
-                }}
-              >
+            {/* Find Help */}
+            {primaryNavItems.slice(0, 1).map((item) => (
+              <button key={item.key} onClick={() => handleNavigate(item.key)} style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', padding: '12px 14px', borderRadius: 14, border: 'none', cursor: 'pointer', width: '100%', background: activePage === item.key ? 'rgba(26,39,68,0.06)' : '#FAFBFF', color: '#1A2744', fontWeight: activePage === item.key ? 700 : 600 }}>
+                {item.accent && <span style={{ width: 8, height: 8, borderRadius: 2, background: item.accent, flexShrink: 0 }} />}
+                {item.label}
+              </button>
+            ))}
+
+            {/* Activities — Walks is the live entry */}
+            <div style={{ fontSize: 10.5, fontWeight: 800, color: 'rgba(26,39,68,0.4)', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '6px 2px 2px' }}>Activities</div>
+            {activitiesItems.map((item) => (
+              <button key={item.key} onClick={() => handleNavigate(item.key)} style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', padding: '12px 14px', borderRadius: 14, border: 'none', cursor: 'pointer', width: '100%', background: activePage === item.key ? 'rgba(91,201,74,0.10)' : '#FAFBFF', color: '#1A2744', fontWeight: activePage === item.key ? 700 : 600 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: '#5BC94A', flexShrink: 0 }} />
+                {item.label}
+              </button>
+            ))}
+
+            {/* Remaining primary items */}
+            {primaryNavItems.slice(1).map((item) => (
+              <button key={item.key} onClick={() => handleNavigate(item.key)} style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', padding: '12px 14px', borderRadius: 14, border: 'none', cursor: 'pointer', width: '100%', background: activePage === item.key ? 'rgba(26,39,68,0.06)' : '#FAFBFF', color: '#1A2744', fontWeight: activePage === item.key ? 700 : 600 }}>
                 {item.accent && <span style={{ width: 8, height: 8, borderRadius: 2, background: item.accent, flexShrink: 0 }} />}
                 {item.label}
               </button>
