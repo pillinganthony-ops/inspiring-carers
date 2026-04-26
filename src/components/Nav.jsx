@@ -154,13 +154,15 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp,
     setMobileOpen(false); setMoreOpen(false); setAccountOpen(false); setActivitiesOpen(false);
     onNavigate('activities', county || null);
   };
+  // Find Help and Events always open the hub (county selector), never jump to a stored county.
+  // Activities is different — it uses county context because it has discovery value there.
   const handleFindHelpClick = () => {
     setMobileOpen(false); setMoreOpen(false); setAccountOpen(false); setActivitiesOpen(false);
-    onNavigate('find-help', county || null);
+    onNavigate('find-help', null);
   };
   const handleEventsClick = () => {
     setMobileOpen(false); setMoreOpen(false); setAccountOpen(false); setActivitiesOpen(false);
-    onNavigate('events', county || null);
+    onNavigate('events', null);
   };
 
   const handleLogout = async () => {
