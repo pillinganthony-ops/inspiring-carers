@@ -85,9 +85,15 @@ const WellbeingCard = ({ venue, onClaim, onViewProfile }) => {
   if (venue.dog_friendly)      tags.push({ label: 'Dog friendly',       color: '#3DA832' });
 
   return (
-    <div className="card" style={{ padding: 0, overflow: 'hidden', borderRadius: 16, border: `1px solid ${accent}28`, display: 'flex', flexDirection: 'column', background: '#FFFFFF' }}>
-      {/* Teal colour strip */}
-      <div style={{ height: 4, background: `linear-gradient(90deg, ${accent}, #14B8A6)`, flexShrink: 0 }} />
+    <div
+      className="card"
+      onClick={() => onViewProfile(venue.slug)}
+      style={{ padding: 0, overflow: 'hidden', borderRadius: 16, border: `1px solid ${accent}28`, display: 'flex', flexDirection: 'column', background: '#FFFFFF', cursor: 'pointer', transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.16s ease' }}
+      onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = `0 12px 36px ${accent}22, 0 4px 12px rgba(26,39,68,0.06)`; e.currentTarget.style.borderColor = `${accent}55`; }}
+      onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.borderColor = `${accent}28`; }}
+    >
+      {/* Teal colour strip — gradient, 5px */}
+      <div style={{ height: 5, background: `linear-gradient(90deg, ${accent}, #14B8A6)`, flexShrink: 0 }} />
 
       <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', flex: 1, gap: 7 }}>
         {/* Subcategory + badges */}
@@ -110,10 +116,9 @@ const WellbeingCard = ({ venue, onClaim, onViewProfile }) => {
           )}
         </div>
 
-        {/* Name — clickable to profile */}
+        {/* Name — color transitions on hover; card container handles click */}
         <div
-          onClick={() => onViewProfile(venue.slug)}
-          style={{ fontSize: 15, fontWeight: 800, color: '#1A2744', lineHeight: 1.3, cursor: 'pointer' }}
+          style={{ fontSize: 15, fontWeight: 800, color: '#1A2744', lineHeight: 1.3, transition: 'color .14s' }}
           onMouseEnter={(e) => { e.currentTarget.style.color = accent; }}
           onMouseLeave={(e) => { e.currentTarget.style.color = '#1A2744'; }}
         >
@@ -129,7 +134,7 @@ const WellbeingCard = ({ venue, onClaim, onViewProfile }) => {
 
         {/* Short description */}
         {venue.short_description && (
-          <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.68)', lineHeight: 1.55, margin: 0 }}>
+          <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.66)', lineHeight: 1.62, margin: 0 }}>
             {venue.short_description}
           </p>
         )}
@@ -153,8 +158,10 @@ const WellbeingCard = ({ venue, onClaim, onViewProfile }) => {
         {/* CTAs — pushed to bottom */}
         <div style={{ marginTop: 'auto', paddingTop: 10, display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center' }}>
           <button
-            onClick={() => onViewProfile(venue.slug)}
-            style={{ fontSize: 12.5, fontWeight: 700, color: accent, background: `${accent}14`, padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer' }}
+            onClick={(e) => { e.stopPropagation(); onViewProfile(venue.slug); }}
+            style={{ fontSize: 12.5, fontWeight: 700, color: accent, background: `${accent}14`, padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', transition: 'background .14s' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = `${accent}26`; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = `${accent}14`; }}
           >
             View profile →
           </button>
@@ -162,7 +169,9 @@ const WellbeingCard = ({ venue, onClaim, onViewProfile }) => {
             <a
               href={venue.website} target="_blank" rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(26,39,68,0.50)', background: 'rgba(26,39,68,0.05)', padding: '6px 12px', borderRadius: 8, textDecoration: 'none', display: 'inline-block' }}
+              style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(26,39,68,0.50)', background: 'rgba(26,39,68,0.05)', padding: '6px 12px', borderRadius: 8, textDecoration: 'none', display: 'inline-block', transition: 'background .14s' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(26,39,68,0.09)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(26,39,68,0.05)'; }}
             >
               Website ↗
             </a>
@@ -174,7 +183,9 @@ const WellbeingCard = ({ venue, onClaim, onViewProfile }) => {
           <span style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.40)' }}>Own or manage this place?</span>
           <button
             onClick={(e) => { e.stopPropagation(); onClaim(venue); }}
-            style={{ fontSize: 11.5, fontWeight: 700, color: '#1A2744', background: 'rgba(26,39,68,0.05)', border: '1px solid rgba(26,39,68,0.12)', padding: '4px 10px', borderRadius: 7, cursor: 'pointer', whiteSpace: 'nowrap' }}
+            style={{ fontSize: 11.5, fontWeight: 700, color: '#1A2744', background: 'rgba(26,39,68,0.05)', border: '1px solid rgba(26,39,68,0.12)', padding: '4px 10px', borderRadius: 7, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'background .14s' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(26,39,68,0.09)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(26,39,68,0.05)'; }}
           >
             Claim listing
           </button>
