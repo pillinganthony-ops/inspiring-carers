@@ -513,16 +513,19 @@ const App = () => {
       return;
     }
 
-    // find-help: null/undefined → national landing at /find-help; county slug → /county/find-help
+    // find-help routing — null/undefined county → hub; county string → county directory
+    // Optional slug: navigate('find-help','cornwall','listing-slug') → /cornwall/find-help/listing-slug
     if (key === 'find-help') {
       setPage('find-help');
-      setVenueSlug(null);
       if (explicitCounty) {
         setCounty(explicitCounty);
         try { localStorage.setItem('ic_county', explicitCounty); } catch {}
-        window.history.pushState({ page: 'find-help', county: explicitCounty }, '', `/${explicitCounty}/find-help`);
+        const path = slug ? `/${explicitCounty}/find-help/${slug}` : `/${explicitCounty}/find-help`;
+        setVenueSlug(slug || null);
+        window.history.pushState({ page: 'find-help', county: explicitCounty, slug: slug || null }, '', path);
       } else {
         setCounty(null);
+        setVenueSlug(null);
         window.history.pushState({ page: 'find-help', county: null }, '', '/find-help');
       }
       window.scrollTo({ top: 0, behavior: 'instant' });
@@ -550,6 +553,7 @@ const App = () => {
     if (key === 'walks' && explicitCounty === null) {
       setPage('walks');
       setVenueSlug(null);
+      setCounty(null);
       window.history.pushState({ page: 'walks', county: null }, '', '/walks');
       window.scrollTo({ top: 0, behavior: 'instant' });
       return;
@@ -584,7 +588,7 @@ const App = () => {
     case 'login': content = <React.Suspense fallback={<RouteLoading />}><LoginPage onNavigate={navigate} session={session} /></React.Suspense>; break;
     case 'reset-password': content = <React.Suspense fallback={<RouteLoading />}><ResetPasswordPage onNavigate={navigate} /></React.Suspense>; break;
     case 'find-help': content = county
-      ? <React.Suspense key={county} fallback={<RouteLoading />}><FindHelpPage onNavigate={navigate} session={session} county={county} /></React.Suspense>
+      ? <React.Suspense key={county} fallback={<RouteLoading />}><FindHelpPage onNavigate={navigate} session={session} county={county} venueSlug={venueSlug} /></React.Suspense>
       : <FindHelpLandingPage onNavigate={navigate} session={session} />; break;
     case 'events': content = county
       ? <React.Suspense key={county} fallback={<RouteLoading />}><EventsPage  onNavigate={navigate} session={session} county={county} /></React.Suspense>

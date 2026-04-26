@@ -185,7 +185,7 @@ const Toast = ({ message, onClose }) => {
   );
 };
 
-const EventsPage = ({ onNavigate, session }) => {
+const EventsPage = ({ onNavigate, session, county }) => {
   const [events, setEvents] = React.useState([]);
   const [query, setQuery] = React.useState('');
   const [loading, setLoading] = React.useState(true);
@@ -298,7 +298,7 @@ const EventsPage = ({ onNavigate, session }) => {
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
                     <button className="btn btn-gold btn-sm" onClick={() => setActiveEvent(event)}>{event.cta_type === 'book' ? 'Book your place' : 'Contact provider'}</button>
-                    {event.publicSlug ? <button className="btn btn-ghost btn-sm" onClick={() => { window.history.pushState({ page: 'find-help', slug: event.publicSlug }, '', `/find-help/${event.publicSlug}`); window.dispatchEvent(new PopStateEvent('popstate')); window.scrollTo({ top: 0, behavior: 'instant' }); }}>View organisation <IArrow s={14} /></button> : null}
+                    {event.publicSlug ? <button className="btn btn-ghost btn-sm" onClick={() => onNavigate('find-help', county || null, event.publicSlug)}>View organisation <IArrow s={14} /></button> : null}
                   </div>
                 </div>
               ))}

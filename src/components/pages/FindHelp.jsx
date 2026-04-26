@@ -332,11 +332,6 @@ const isCoordinatePairSane = (lat, lng) => {
   return true;
 };
 
-const getDetailSlugFromPath = () => {
-  // Matches both /find-help/slug and /cornwall/find-help/slug
-  const match = window.location.pathname.match(/\/find-help\/([^/?#]+)/i);
-  return match ? decodeURIComponent(match[1]) : '';
-};
 
 const getListingUrl = (listing) => {
     const base = county ? `/${county}/find-help` : '/find-help';
@@ -2782,9 +2777,9 @@ const CountyEntrance = ({ onSelectCounty, onNavigate, session }) => {
   );
 };
 
-const FindHelpV2 = ({ onNavigate, session, county }) => {
-  // county = URL county (e.g. 'cornwall') passed from main.jsx — used to keep
-  // internal pushState URLs county-aware so browser back never shows the hub.
+const FindHelpV2 = ({ onNavigate, session, county, venueSlug }) => {
+  // detailSlug is now driven entirely by the router via venueSlug prop.
+  // No internal pushState, no popstate listener — history is owned by main.jsx.
 
   // SEO — update title/meta/canonical whenever county changes, restore on unmount
   React.useEffect(() => {
@@ -2838,14 +2833,9 @@ const FindHelpV2 = ({ onNavigate, session, county }) => {
   const [shareOpenId, setShareOpenId] = React.useState('');
   const [toast, setToast] = React.useState('');
   const [selectedId, setSelectedId] = React.useState('');
-  const [detailSlug, setDetailSlug] = React.useState(() => getDetailSlugFromPath());
+  const detailSlug = venueSlug || '';
   const [newOrganisationOpen, setNewOrganisationOpen] = React.useState(false);
 
-  React.useEffect(() => {
-    const onPop = () => setDetailSlug(getDetailSlugFromPath());
-    window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
-  }, []);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -3097,18 +3087,12 @@ const FindHelpV2 = ({ onNavigate, session, county }) => {
   };
 
   const openResource = (listing) => {
-    setDetailSlug(listing.slug);
     setShareOpenId('');
-    const base = county ? `/${county}/find-help` : '/find-help';
-    window.history.pushState({ page: 'find-help', slug: listing.slug }, '', `${base}/${listing.slug}`);
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    onNavigate('find-help', county || null, listing.slug);
   };
 
   const closeResource = () => {
-    setDetailSlug('');
-    const base = county ? `/${county}/find-help` : '/find-help';
-    window.history.pushState({ page: 'find-help' }, '', base);
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    onNavigate('find-help', county || null);
   };
 
   const handleShareAction = async (action, listing) => {
