@@ -409,7 +409,7 @@ const App = () => {
     const onPop = () => {
       const { page: pg, county: co, slug: sl } = parseRoute(window.location.pathname);
       setPage(pg);
-      if (co) setCounty(co);
+      setCounty(co || null); // always sync county from URL (clears on non-county pages)
       setVenueSlug(sl || null);
     };
     window.addEventListener('popstate', onPop);
@@ -458,6 +458,24 @@ const App = () => {
         window.scrollTo({ top: 0, behavior: 'instant' });
         return;
       }
+    }
+
+    // Activities: county-aware hub vs dedicated county listing
+    // navigate('activities', 'cornwall') → /cornwall/activities (county listing)
+    // navigate('activities') or navigate('activities', null) → /activities (hub, clears county)
+    if (key === 'activities') {
+      setPage('activities');
+      setVenueSlug(null);
+      if (explicitCounty) {
+        setCounty(explicitCounty);
+        try { localStorage.setItem('ic_county', explicitCounty); } catch {}
+        window.history.pushState({ page: 'activities', county: explicitCounty }, '', `/${explicitCounty}/activities`);
+      } else {
+        setCounty(null);
+        window.history.pushState({ page: 'activities', county: null }, '', '/activities');
+      }
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      return;
     }
 
     // navigate('walks', null) — explicit all-county intent → /walks (county-agnostic hub)
