@@ -26,6 +26,7 @@ const ResetPasswordPage = React.lazy(() => import('./components/pages/ResetPassw
 const PlacesToVisitPage    = React.lazy(() => import('./components/pages/PlacesToVisit.jsx'));
 const WellbeingSupportPage = React.lazy(() => import('./components/pages/WellbeingSupport.jsx'));
 const GroupsPage           = React.lazy(() => import('./components/pages/Groups.jsx'));
+const TrainingPage         = React.lazy(() => import('./components/pages/Training.jsx'));
 const VenueProfilePage     = React.lazy(() => import('./components/pages/VenueProfile.jsx'));
 // Hub pages — eagerly imported so county selectors render with zero loading flash
 import FindHelpLandingPage from './components/pages/FindHelpLanding.jsx';
@@ -308,8 +309,8 @@ const isAdminEmail = (email) => Boolean(email && ADMIN_EMAILS.includes(`${email}
 
 // County-aware routing constants
 // 'activities' intentionally excluded — it is a county-optional hub (/activities and /{county}/activities both work)
-// find-help intentionally excluded — it always routes to /find-help (no county prefix)
-const COUNTY_PAGES = new Set(['training', 'events', 'for-you', 'walks', 'places-to-visit', 'wellbeing', 'groups']);
+// find-help and training intentionally excluded — they always route to their flat URLs
+const COUNTY_PAGES = new Set(['events', 'for-you', 'walks', 'places-to-visit', 'wellbeing', 'groups']);
 const COUNTY_SLUGS = ['cornwall', 'devon', 'dorset', 'somerset', 'bristol', 'wiltshire'];
 const COUNTY_DEFAULT = 'cornwall';
 
@@ -600,7 +601,7 @@ const App = () => {
     case 'places-to-visit': content = <React.Suspense fallback={<RouteLoading />}><PlacesToVisitPage    onNavigate={navigate} session={session} county={county} venueSlug={venueSlug} /></React.Suspense>; break;
     case 'wellbeing':       content = <React.Suspense fallback={<RouteLoading />}><WellbeingSupportPage onNavigate={navigate} session={session} county={county} venueSlug={venueSlug} /></React.Suspense>; break;
     case 'groups':          content = <React.Suspense fallback={<RouteLoading />}><GroupsPage           onNavigate={navigate} session={session} county={county} venueSlug={venueSlug} /></React.Suspense>; break;
-    case 'training': content = <Placeholder title="Training" activePage="training" onNavigate={navigate} session={session} note="Carer training, CPD, professional development and awareness sessions across Cornwall — coming in the next round." />; break;
+    case 'training': content = <React.Suspense fallback={<RouteLoading />}><TrainingPage onNavigate={navigate} session={session} /></React.Suspense>; break;
     case 'admin': content = <React.Suspense fallback={<RouteLoading />}><AdminPage onNavigate={navigate} session={session} sessionLoading={sessionLoading} /></React.Suspense>; break;
     case 'profile': content = <React.Suspense fallback={<RouteLoading />}><ProfileDashboardPage section="dashboard" onNavigate={navigate} session={session} /></React.Suspense>; break;
     case 'profile-org': content = <React.Suspense fallback={<RouteLoading />}><ProfileDashboardPage section="organisation" onNavigate={navigate} session={session} /></React.Suspense>; break;
