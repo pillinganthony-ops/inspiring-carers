@@ -154,10 +154,10 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp,
     setMobileOpen(false); setMoreOpen(false); setAccountOpen(false); setActivitiesOpen(false);
     onNavigate('activities', null);
   };
-  // Find Help opens the hub (county selector). Events does the same.
+  // Find Help goes directly to county directory (no hub page).
   const handleFindHelpClick = () => {
     setMobileOpen(false); setMoreOpen(false); setAccountOpen(false); setActivitiesOpen(false);
-    onNavigate('find-help', null);
+    onNavigate('find-help');
   };
   const handleEventsClick = () => {
     setMobileOpen(false); setMoreOpen(false); setAccountOpen(false); setActivitiesOpen(false);
