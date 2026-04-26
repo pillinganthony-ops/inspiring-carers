@@ -638,43 +638,147 @@ const ActivityListCard = ({ venue, onViewProfile }) => {
   );
 };
 
-// Walk card for county listing — routes to Walks page, no profile page needed
-const WalkListCard = ({ walk, onViewWalks }) => (
-  <div
-    className="card"
-    onClick={onViewWalks}
-    style={{ padding: 0, overflow: 'hidden', borderRadius: 16, border: '1px solid rgba(91,201,74,0.22)', display: 'flex', flexDirection: 'column', background: '#FFFFFF', cursor: 'pointer', transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.16s ease' }}
-    onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 12px 36px rgba(91,201,74,0.18), 0 4px 12px rgba(26,39,68,0.06)'; e.currentTarget.style.borderColor = 'rgba(91,201,74,0.55)'; }}
-    onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.borderColor = 'rgba(91,201,74,0.22)'; }}
-  >
-    <div style={{ height: 5, background: 'linear-gradient(90deg, #5BC94A, #3DA832)', flexShrink: 0 }} />
-    <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', flex: 1, gap: 6 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 9.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', padding: '2px 7px', borderRadius: 5, background: 'rgba(91,201,74,0.14)', color: '#3DA832' }}>Walk</span>
-        {walk.difficulty && <span style={tagPill('rgba(26,39,68,0.45)')}>{walk.difficulty}</span>}
+// ── Walk difficulty colour system (mirrors Walks.jsx) ────────────────────────
+const WALK_DIFF_ACCENT = { Easy: '#5BC94A', Moderate: '#F5A623', Hard: '#EF4444' };
+const WALK_DIFF_BG     = { Easy: 'rgba(91,201,74,0.08)', Moderate: 'rgba(245,166,35,0.08)', Hard: 'rgba(239,68,68,0.08)' };
+const WALK_DIFF_FG     = { Easy: '#1E6B10', Moderate: '#92400E', Hard: '#B91C1C' };
+const normWalkDiff = (d) => {
+  const s = (d || '').toString().toLowerCase().trim();
+  if (s.includes('easy') || s.includes('gentle')) return 'Easy';
+  if (s.includes('hard') || s.includes('strenuous') || s.includes('challeng')) return 'Hard';
+  return 'Moderate';
+};
+
+// Premium walk card — matches Walks page WalkCard design. Click expands detail modal (no navigation).
+const WalkListCard = ({ walk, onExpand }) => {
+  const diff   = normWalkDiff(walk.difficulty);
+  const accent = WALK_DIFF_ACCENT[diff];
+  const bg     = WALK_DIFF_BG[diff];
+  const fg     = WALK_DIFF_FG[diff];
+  return (
+    <div
+      className="card"
+      onClick={() => onExpand(walk)}
+      style={{ padding: 0, overflow: 'hidden', borderRadius: 22, border: '1px solid #E8EEF8', display: 'flex', flexDirection: 'column', background: '#FFFFFF', cursor: 'pointer', transition: 'transform 0.20s ease, box-shadow 0.20s ease' }}
+      onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 22px 52px rgba(26,39,68,0.13)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; }}
+    >
+      {/* Difficulty-coded stripe */}
+      <div style={{ height: 4, background: `linear-gradient(90deg, ${accent}, ${accent}88)`, flexShrink: 0 }} />
+      {/* Tinted area + difficulty header */}
+      <div style={{ padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, background: bg }}>
+        <span style={{ fontSize: 12.5, fontWeight: 700, color: fg, display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '65%' }}>
+          <IPin s={12} /> {walk.area || 'Cornwall'}
+        </span>
+        <span style={{ padding: '3px 10px', borderRadius: 999, background: accent, color: 'white', fontSize: 11.5, fontWeight: 800, flexShrink: 0 }}>
+          {diff}
+        </span>
       </div>
-      <div style={{ fontSize: 14.5, fontWeight: 800, color: '#1A2744', lineHeight: 1.3 }}>{walk.name}</div>
-      {walk.area && (
-        <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.52)', display: 'flex', alignItems: 'center', gap: 4 }}>
-          <IPin s={11} /> {walk.area}
+      {/* Body */}
+      <div style={{ padding: '12px 16px', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ fontFamily: 'Sora, sans-serif', fontSize: 16, fontWeight: 800, lineHeight: 1.22, color: '#1A2744', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          {walk.name}
         </div>
-      )}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-        {walk.distanceMiles && <span style={tagPill('#3DA832')}>{walk.distanceMiles} miles</span>}
-        <span style={tagPill('#0D7A55')}>Free</span>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {walk.distanceMiles > 0 && (
+            <span style={{ padding: '4px 10px', borderRadius: 999, background: '#EEF4FF', color: '#2A4A90', fontSize: 12, fontWeight: 700 }}>
+              {Number(walk.distanceMiles).toFixed(1)} miles
+            </span>
+          )}
+          <span style={{ padding: '4px 10px', borderRadius: 999, background: 'rgba(13,122,85,0.10)', color: '#0D7A55', fontSize: 12, fontWeight: 700 }}>Free</span>
+        </div>
       </div>
-      <div style={{ marginTop: 'auto', paddingTop: 8 }}>
-        <button onClick={(e) => { e.stopPropagation(); onViewWalks(); }}
-          style={{ fontSize: 12.5, fontWeight: 700, color: '#3DA832', background: 'rgba(91,201,74,0.12)', padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', transition: 'background .14s' }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(91,201,74,0.22)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(91,201,74,0.12)'; }}
+      {/* CTA */}
+      <div style={{ padding: '8px 16px 14px' }}>
+        <button
+          onClick={(e) => { e.stopPropagation(); onExpand(walk); }}
+          style={{ width: '100%', padding: '10px 14px', borderRadius: 12, background: 'linear-gradient(135deg, #1A2744, #2D3E6B)', color: 'white', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'background .15s' }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'linear-gradient(135deg, #263659, #1A2744)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'linear-gradient(135deg, #1A2744, #2D3E6B)'; }}
         >
-          View route →
+          View walk details <IArrow s={13} />
         </button>
       </div>
     </div>
-  </div>
-);
+  );
+};
+
+// Walk detail modal — expands walk info in place without leaving the page
+const WalkExpandModal = ({ walk, county, onNavigate, onClose }) => {
+  if (!walk) return null;
+  const diff   = normWalkDiff(walk.difficulty);
+  const accent = WALK_DIFF_ACCENT[diff];
+  const bg     = WALK_DIFF_BG[diff];
+  const fg     = WALK_DIFF_FG[diff];
+  const facilities = [
+    { label: 'Toilets', has: walk.toilets },
+    { label: 'Parking', has: walk.parking },
+    { label: 'Buses',   has: walk.publicTransport },
+    { label: 'Cafes',   has: walk.refreshments },
+  ].filter((f) => f.has !== undefined && f.has !== null);
+  return (
+    <div
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'rgba(15,23,42,0.55)', display: 'grid', placeItems: 'center', padding: 16 }}
+    >
+      <div style={{ background: 'white', borderRadius: 22, width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 40px 80px rgba(15,23,42,0.22)', position: 'relative' }}>
+        <div style={{ height: 5, background: `linear-gradient(90deg, ${accent}, ${accent}88)` }} />
+        <button onClick={onClose} style={{ position: 'absolute', right: 16, top: 18, width: 32, height: 32, borderRadius: 999, border: '1px solid #EFF1F7', background: '#FAFBFF', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
+          <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#1A2744" strokeWidth={2.5} strokeLinecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+        <div style={{ padding: '18px 22px 22px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderRadius: 10, background: bg, marginBottom: 14 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: fg, display: 'flex', alignItems: 'center', gap: 5 }}>
+              <IPin s={12} /> {walk.area || 'Cornwall'}
+            </span>
+            <span style={{ padding: '3px 10px', borderRadius: 999, background: accent, color: 'white', fontSize: 12, fontWeight: 800 }}>{diff}</span>
+          </div>
+          <h2 style={{ fontFamily: 'Sora, sans-serif', fontSize: 22, fontWeight: 800, color: '#1A2744', marginBottom: 12, lineHeight: 1.2 }}>
+            {walk.name}
+          </h2>
+          <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 14 }}>
+            {walk.distanceMiles > 0 && (
+              <span style={{ padding: '5px 12px', borderRadius: 999, background: '#EEF4FF', color: '#2A4A90', fontSize: 13, fontWeight: 700 }}>
+                {Number(walk.distanceMiles).toFixed(1)} miles
+              </span>
+            )}
+            <span style={{ padding: '5px 12px', borderRadius: 999, background: 'rgba(13,122,85,0.10)', color: '#0D7A55', fontSize: 13, fontWeight: 700 }}>Free</span>
+            {walk.circular && <span style={{ padding: '5px 12px', borderRadius: 999, background: 'rgba(91,201,74,0.10)', color: '#1E6B10', fontSize: 13, fontWeight: 700 }}>Circular</span>}
+          </div>
+          {walk.startLocation && (
+            <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.56)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <IWalks s={13} />
+              {walk.startLocation}{walk.finishLocation && walk.finishLocation !== walk.startLocation ? ` → ${walk.finishLocation}` : ''}
+            </div>
+          )}
+          {walk.highlights && (
+            <p style={{ fontSize: 14, color: 'rgba(26,39,68,0.68)', lineHeight: 1.65, marginBottom: 14 }}>{walk.highlights}</p>
+          )}
+          {facilities.length > 0 && (
+            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', padding: '10px 14px', background: '#F7F9FC', borderRadius: 10, marginBottom: 18 }}>
+              {facilities.map(({ label, has }) => (
+                <span key={label} style={{ fontSize: 12.5, fontWeight: 700, color: has ? '#1E6B10' : 'rgba(26,39,68,0.34)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ width: 15, height: 15, borderRadius: 999, background: has ? 'rgba(91,201,74,0.18)' : 'rgba(26,39,68,0.06)', display: 'inline-grid', placeItems: 'center', fontSize: 9 }}>
+                    {has ? '✓' : '–'}
+                  </span>
+                  {label}
+                </span>
+              ))}
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button className="btn btn-gold" onClick={() => { onClose(); onNavigate('walks', county); }} style={{ flex: 1, justifyContent: 'center' }}>
+              Explore on walks map <IArrow s={13} />
+            </button>
+            <button onClick={onClose} style={{ padding: '11px 16px', borderRadius: 12, background: '#F5F7FB', color: '#1A2744', fontWeight: 600, fontSize: 13.5, border: '1px solid #E9EEF5', cursor: 'pointer' }}>
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const CountyActivitiesView = ({ county, onNavigate, session }) => {
   const dbCounty    = COUNTY_LABELS[county] || 'Cornwall';
@@ -686,6 +790,7 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
   const [showMap,      setShowMap]      = React.useState(false);
   const [visibleCount, setVisibleCount] = React.useState(PAGE_SIZE);
   const [walkSearch,   setWalkSearch]   = React.useState('');
+  const [expandedWalk, setExpandedWalk] = React.useState(null);
 
   const [search,           setSearch]           = React.useState('');
   const [filterCat,        setFilterCat]        = React.useState('');
@@ -847,27 +952,18 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
               ))}
             </div>
           )}
-        </div>
-      </section>
 
-      {/* ── Sponsor strip ── */}
-      <div style={{ background: '#FFFFFF', borderBottom: '1px solid #EEF1F7', paddingTop: 10, paddingBottom: 10 }}>
-        <div className="container">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.35)', padding: '3px 8px', borderRadius: 5, border: '1px solid rgba(26,39,68,0.10)', background: 'rgba(26,39,68,0.02)', whiteSpace: 'nowrap' }}>
-                County partner
-              </span>
-              <span style={{ fontSize: 13, fontWeight: 500, color: 'rgba(26,39,68,0.48)' }}>
-                Reach carers discovering {countyLabel} · Sponsor this page
-              </span>
-            </div>
-            <button onClick={() => onNavigate('login')} style={{ fontSize: 12, fontWeight: 700, color: '#B45309', background: 'rgba(245,166,35,0.10)', padding: '5px 12px', borderRadius: 7, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+          {/* Partner CTA — positioned in hero for consistent commercial placement */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 16, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.10)', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.44)', fontWeight: 500 }}>
+              Feature your organisation across {countyLabel} activities
+            </span>
+            <button onClick={() => onNavigate('login')} style={{ fontSize: 12, fontWeight: 700, color: '#F5A623', background: 'rgba(245,166,35,0.12)', border: '1px solid rgba(245,166,35,0.25)', padding: '5px 12px', borderRadius: 7, cursor: 'pointer', whiteSpace: 'nowrap' }}>
               Become a partner →
             </button>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* ── Interactive map — full-width, above listings ── */}
       <div style={{ background: '#FFFFFF', borderBottom: '1px solid #EEF1F7', paddingTop: 14, paddingBottom: showMap ? 0 : 14 }}>
@@ -1052,7 +1148,7 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
                     <>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14, marginBottom: 20 }}>
                         {visibleWalks.map((walk, i) => (
-                          <WalkListCard key={walk.id || `${walk.name}-${i}`} walk={walk} onViewWalks={() => onNavigate('walks', county)} />
+                          <WalkListCard key={walk.id || `${walk.name}-${i}`} walk={walk} onExpand={setExpandedWalk} />
                         ))}
                       </div>
                       {visibleCount < filteredWalks.length && (
@@ -1124,6 +1220,16 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
           </div>
         </div>
       </div>
+
+      {/* Walk expand modal — shows walk detail in place, no page navigation */}
+      {expandedWalk && (
+        <WalkExpandModal
+          walk={expandedWalk}
+          county={county}
+          onNavigate={onNavigate}
+          onClose={() => setExpandedWalk(null)}
+        />
+      )}
 
       <Footer onNavigate={onNavigate} />
     </>
