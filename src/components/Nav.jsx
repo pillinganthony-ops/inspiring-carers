@@ -154,11 +154,10 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp,
     setMobileOpen(false); setMoreOpen(false); setAccountOpen(false); setActivitiesOpen(false);
     onNavigate('activities', null);
   };
-  // Find Help navigates directly to the directory (county or default Cornwall — no hub page).
-  // Events uses the hub (county selector) first.
+  // Find Help opens the hub (county selector). Events does the same.
   const handleFindHelpClick = () => {
     setMobileOpen(false); setMoreOpen(false); setAccountOpen(false); setActivitiesOpen(false);
-    onNavigate('find-help');
+    onNavigate('find-help', null);
   };
   const handleEventsClick = () => {
     setMobileOpen(false); setMoreOpen(false); setAccountOpen(false); setActivitiesOpen(false);

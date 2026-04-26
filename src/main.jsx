@@ -27,8 +27,9 @@ const PlacesToVisitPage    = React.lazy(() => import('./components/pages/PlacesT
 const WellbeingSupportPage = React.lazy(() => import('./components/pages/WellbeingSupport.jsx'));
 const GroupsPage           = React.lazy(() => import('./components/pages/Groups.jsx'));
 const VenueProfilePage     = React.lazy(() => import('./components/pages/VenueProfile.jsx'));
-// Events hub — county selector landing page for /events
-import EventsHubPage from './components/pages/EventsHub.jsx';
+// Hub pages — eagerly imported so county selectors render with zero loading flash
+import FindHelpHubPage from './components/pages/FindHelpHub.jsx';
+import EventsHubPage   from './components/pages/EventsHub.jsx';
 
 // Make icons global for JSX
 window.IDot = Icons.IDot;
@@ -365,7 +366,7 @@ const App = () => {
   const [county, setCounty] = React.useState(() => {
     const { county: urlCounty, page: urlPage } = parseRoute(window.location.pathname);
     // Hub pages (no county in URL) must not inherit county from localStorage
-    const HUB_PAGES = ['activities', 'events'];
+    const HUB_PAGES = ['activities', 'find-help', 'events'];
     if (HUB_PAGES.includes(urlPage) && !urlCounty) return null;
     try { return urlCounty || localStorage.getItem('ic_county') || null; } catch { return urlCounty || null; }
   });
@@ -424,9 +425,10 @@ const App = () => {
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
-  // Preload Events county page chunk while the hub is visible
+  // Preload county page chunks while their hubs are visible
   React.useEffect(() => {
-    if (page === 'events' && !county) import('./components/pages/Events.jsx').catch(() => {});
+    if (page === 'find-help' && !county) import('./components/pages/FindHelp.jsx').catch(() => {});
+    if (page === 'events'    && !county) import('./components/pages/Events.jsx').catch(() => {});
   }, [page, county]);
 
   React.useEffect(() => {
@@ -501,18 +503,19 @@ const App = () => {
       return;
     }
 
-    // events: county-optional hub pattern
-    // navigate('events', null) → hub; navigate('events') → stored county or hub
-    if (key === 'events') {
-      setPage('events');
+    // find-help and events: county-optional hub pattern
+    // navigate('find-help'/'events', null) → hub
+    // navigate('find-help'/'events', 'cornwall') → county page
+    if (key === 'find-help' || key === 'events') {
+      setPage(key);
       setVenueSlug(null);
       if (explicitCounty) {
         setCounty(explicitCounty);
         try { localStorage.setItem('ic_county', explicitCounty); } catch {}
-        window.history.pushState({ page: 'events', county: explicitCounty }, '', `/${explicitCounty}/events`);
+        window.history.pushState({ page: key, county: explicitCounty }, '', `/${explicitCounty}/${key}`);
       } else {
         setCounty(null);
-        window.history.pushState({ page: 'events', county: null }, '', '/events');
+        window.history.pushState({ page: key, county: null }, '', `/${key}`);
       }
       window.scrollTo({ top: 0, behavior: 'instant' });
       return;
@@ -556,7 +559,9 @@ const App = () => {
   switch (displayPage) {
     case 'login': content = <React.Suspense fallback={<RouteLoading />}><LoginPage onNavigate={navigate} session={session} /></React.Suspense>; break;
     case 'reset-password': content = <React.Suspense fallback={<RouteLoading />}><ResetPasswordPage onNavigate={navigate} /></React.Suspense>; break;
-    case 'find-help': content = <React.Suspense key={county || 'all'} fallback={<RouteLoading />}><FindHelpPage onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;
+    case 'find-help': content = county
+      ? <React.Suspense key={county} fallback={<RouteLoading />}><FindHelpPage    onNavigate={navigate} session={session} county={county} /></React.Suspense>
+      : <FindHelpHubPage key="hub" onNavigate={navigate} session={session} />; break;
     case 'events': content = county
       ? <React.Suspense key={county} fallback={<RouteLoading />}><EventsPage  onNavigate={navigate} session={session} county={county} /></React.Suspense>
       : <EventsHubPage   key="hub" onNavigate={navigate} session={session} />; break;
