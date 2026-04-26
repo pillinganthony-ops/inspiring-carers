@@ -424,6 +424,12 @@ const App = () => {
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
+  // Preload county page chunks while the hub is visible so the first click renders immediately
+  React.useEffect(() => {
+    if (page === 'find-help' && !county) import('./components/pages/FindHelp.jsx').catch(() => {});
+    if (page === 'events'    && !county) import('./components/pages/Events.jsx').catch(() => {});
+  }, [page, county]);
+
   React.useEffect(() => {
     if (page !== 'admin' || sessionLoading) return;
     if (!session) {
@@ -556,11 +562,11 @@ const App = () => {
     case 'login': content = <React.Suspense fallback={<RouteLoading />}><LoginPage onNavigate={navigate} session={session} /></React.Suspense>; break;
     case 'reset-password': content = <React.Suspense fallback={<RouteLoading />}><ResetPasswordPage onNavigate={navigate} /></React.Suspense>; break;
     case 'find-help': content = county
-      ? <React.Suspense fallback={<RouteLoading />}><FindHelpPage    onNavigate={navigate} session={session} county={county} /></React.Suspense>
-      : <React.Suspense fallback={<RouteLoading />}><FindHelpHubPage onNavigate={navigate} session={session} /></React.Suspense>; break;
+      ? <React.Suspense key={county} fallback={<RouteLoading />}><FindHelpPage    onNavigate={navigate} session={session} county={county} /></React.Suspense>
+      : <React.Suspense key="hub"    fallback={<RouteLoading />}><FindHelpHubPage onNavigate={navigate} session={session} /></React.Suspense>; break;
     case 'events': content = county
-      ? <React.Suspense fallback={<RouteLoading />}><EventsPage    onNavigate={navigate} session={session} county={county} /></React.Suspense>
-      : <React.Suspense fallback={<RouteLoading />}><EventsHubPage onNavigate={navigate} session={session} /></React.Suspense>; break;
+      ? <React.Suspense key={county} fallback={<RouteLoading />}><EventsPage    onNavigate={navigate} session={session} county={county} /></React.Suspense>
+      : <React.Suspense key="hub"    fallback={<RouteLoading />}><EventsHubPage onNavigate={navigate} session={session} /></React.Suspense>; break;
     case 'for-you':
     case 'benefits': content = <React.Suspense fallback={<RouteLoading />}><BenefitsPage onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;
     case 'walks': content = <React.Suspense fallback={<RouteLoading />}><WalksPage onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;
