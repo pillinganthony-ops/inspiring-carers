@@ -27,8 +27,10 @@ const PlacesToVisitPage    = React.lazy(() => import('./components/pages/PlacesT
 const WellbeingSupportPage = React.lazy(() => import('./components/pages/WellbeingSupport.jsx'));
 const GroupsPage           = React.lazy(() => import('./components/pages/Groups.jsx'));
 const VenueProfilePage     = React.lazy(() => import('./components/pages/VenueProfile.jsx'));
-const FindHelpHubPage      = React.lazy(() => import('./components/pages/FindHelpHub.jsx'));
-const EventsHubPage        = React.lazy(() => import('./components/pages/EventsHub.jsx'));
+// Hub pages are small (~5KB each) — import eagerly so /find-help and /events
+// render the county selector immediately with no Suspense loading flash.
+import FindHelpHubPage from './components/pages/FindHelpHub.jsx';
+import EventsHubPage   from './components/pages/EventsHub.jsx';
 
 // Make icons global for JSX
 window.IDot = Icons.IDot;
@@ -562,11 +564,11 @@ const App = () => {
     case 'login': content = <React.Suspense fallback={<RouteLoading />}><LoginPage onNavigate={navigate} session={session} /></React.Suspense>; break;
     case 'reset-password': content = <React.Suspense fallback={<RouteLoading />}><ResetPasswordPage onNavigate={navigate} /></React.Suspense>; break;
     case 'find-help': content = county
-      ? <React.Suspense key={county} fallback={<RouteLoading />}><FindHelpPage    onNavigate={navigate} session={session} county={county} /></React.Suspense>
-      : <React.Suspense key="hub"    fallback={<RouteLoading />}><FindHelpHubPage onNavigate={navigate} session={session} /></React.Suspense>; break;
+      ? <React.Suspense key={county} fallback={<RouteLoading />}><FindHelpPage onNavigate={navigate} session={session} county={county} /></React.Suspense>
+      : <FindHelpHubPage key="hub" onNavigate={navigate} session={session} />; break;
     case 'events': content = county
-      ? <React.Suspense key={county} fallback={<RouteLoading />}><EventsPage    onNavigate={navigate} session={session} county={county} /></React.Suspense>
-      : <React.Suspense key="hub"    fallback={<RouteLoading />}><EventsHubPage onNavigate={navigate} session={session} /></React.Suspense>; break;
+      ? <React.Suspense key={county} fallback={<RouteLoading />}><EventsPage  onNavigate={navigate} session={session} county={county} /></React.Suspense>
+      : <EventsHubPage   key="hub" onNavigate={navigate} session={session} />; break;
     case 'for-you':
     case 'benefits': content = <React.Suspense fallback={<RouteLoading />}><BenefitsPage onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;
     case 'walks': content = <React.Suspense fallback={<RouteLoading />}><WalksPage onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;
