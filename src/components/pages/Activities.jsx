@@ -18,6 +18,8 @@ const ACT_MAP_LIBS = [];
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
+const COUNTY_DEFAULT = 'cornwall';
+
 const COUNTY_LABELS = {
   cornwall:  'Cornwall',
   devon:     'Devon',
@@ -235,21 +237,26 @@ const ACTIVITY_SAMPLE_DATA = [
 
 // Activity categories shown in UI (featured section)
 const ACTIVITY_CATEGORIES = [
-  { key: 'walks',       label: 'Walks',       status: 'live', cta: 'Explore walks',
+  { key: 'walks',       label: 'Walks',            status: 'live', route: 'walks',
+    cta: 'Explore walks',         count: '333+ routes',  countLabel: 'Cornwall',
+    tags: ['Coastal paths', 'Accessible routes', 'Rated trails', 'Dog friendly'],
     desc: 'Trails, coastal paths and nature routes rated by difficulty and accessibility.',
     accent: '#5BC94A', bg: 'rgba(91,201,74,0.08)', border: 'rgba(91,201,74,0.18)', Icon: IWalks },
-  { key: 'groups',      label: 'Groups',      status: 'soon',
-    desc: 'Social groups, carer circles and peer support activities near you.',
-    accent: '#2D9CDB', bg: 'rgba(45,156,219,0.08)', border: 'rgba(45,156,219,0.16)', Icon: IGroups },
-  { key: 'days-out',    label: 'Days Out',    status: 'soon',
-    desc: 'Gardens, beaches, attractions and family-friendly destinations.',
+  { key: 'places',      label: 'Places to Visit',  status: 'live', route: 'places-to-visit',
+    cta: 'Browse places',         count: 'Days Out & Attractions', countLabel: 'Cornwall',
+    tags: ['Gardens', 'Beaches', 'Heritage sites', 'Family friendly'],
+    desc: 'Carer-friendly days out, gardens, beaches, heritage sites and family-friendly attractions.',
     accent: '#F5A623', bg: 'rgba(245,166,35,0.08)', border: 'rgba(245,166,35,0.16)', Icon: ISparkle },
-  { key: 'attractions', label: 'Attractions', status: 'soon',
-    desc: 'Discounted and carer-friendly venues, museums and cultural experiences.',
-    accent: '#7B5CF5', bg: 'rgba(123,92,245,0.08)', border: 'rgba(123,92,245,0.14)', Icon: ISparkle },
-  { key: 'wellbeing',   label: 'Wellbeing Support', status: 'soon', route: 'wellbeing',
+  { key: 'wellbeing',   label: 'Wellbeing Support', status: 'live', route: 'wellbeing',
+    cta: 'Browse wellbeing',      count: 'Calm & restorative',     countLabel: 'Cornwall',
+    tags: ['Mindfulness', 'Accessible', 'Community', 'Free sessions'],
     desc: 'Calm, restorative and community wellbeing places supporting carer health.',
     accent: '#0D9488', bg: 'rgba(13,148,136,0.08)', border: 'rgba(13,148,136,0.16)', Icon: IWellbeing },
+  { key: 'groups',      label: 'Groups & Social',  status: 'live', route: 'groups',
+    cta: 'Find groups',           count: 'Support & social',      countLabel: 'Cornwall',
+    tags: ['Peer support', 'All welcome', 'Weekly meetups', 'Free to join'],
+    desc: 'Local carer support groups, social circles and peer-support meetups near you.',
+    accent: '#2D9CDB', bg: 'rgba(45,156,219,0.08)', border: 'rgba(45,156,219,0.16)', Icon: IGroups },
 ];
 
 // Module-level geocode cache — persists across component re-mounts
@@ -317,8 +324,11 @@ const heroInputStyle = {
 // Find Help / resource data is NOT used here.
 // Walk markers → navigate to walks page. Non-walk markers → info card only (no navigation CTA).
 
-const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavigate, compactHeight }) => {
-  const mapH = compactHeight || mapH;
+// DB category → CAT_CONFIG key (for liveVenues pins)
+const DB_CAT_TO_MAP_KEY = { 'Days Out': 'days-out', 'Attractions': 'attractions', 'Wellbeing': 'wellbeing', 'Walks': 'walks' };
+
+const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavigate, compactHeight, liveVenues, onVenueClick }) => {
+  const mapH = compactHeight || 'clamp(300px, calc(20vw + 225px), 460px)';
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'ic-activity-map',
@@ -392,29 +402,40 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
         })
     : [];
 
-  // Sample activity pins — filtered by county, category, cost, accessibility
-  const samplePins = ACTIVITY_SAMPLE_DATA.filter((item) => {
-    if (item.category === 'walks') return false; // walks come from geocoded data
-    if (localCounty && item.county !== localCounty) return false;
-    if (activityType && item.category !== activityType) return false;
-    if (cost && item.cost !== cost) return false;
-    if (accessibility) {
-      const tagStr = item.tags.join(' ').toLowerCase();
-      const accessMap = {
-        wheelchair: 'wheelchair',
-        'low-mobility': 'low mobility',
-        transport: 'public transport',
-        dogs: 'dog',
-        dementia: 'dementia',
-      };
-      const keyword = accessMap[accessibility];
-      if (keyword && !tagStr.includes(keyword)) return false;
-    }
-    return true;
-  }).map((item) => ({
-    ...item,
-    action: null, // non-walk activity pins: info card only, no navigation CTA
-  }));
+  // Activity pins — use live Supabase venues when provided, else ACTIVITY_SAMPLE_DATA
+  const samplePins = liveVenues
+    ? liveVenues
+        .filter((v) => v.latitude && v.longitude)
+        .filter((v) => !activityType || DB_CAT_TO_MAP_KEY[v.category] === activityType)
+        .map((v) => ({
+          id:          `live-${v.id}`,
+          category:    DB_CAT_TO_MAP_KEY[v.category] || 'days-out',
+          lat:         v.latitude,
+          lng:         v.longitude,
+          title:       v.name,
+          area:        v.town,
+          description: v.short_description,
+          featured:    v.featured,
+          tags:        [
+            v.free_or_paid, v.indoor_outdoor,
+            v.wheelchair_access && 'Wheelchair', v.dog_friendly && 'Dogs',
+          ].filter(Boolean),
+          _venue: v,
+          action: null,
+        }))
+    : ACTIVITY_SAMPLE_DATA.filter((item) => {
+        if (item.category === 'walks') return false;
+        if (localCounty && item.county !== localCounty) return false;
+        if (activityType && item.category !== activityType) return false;
+        if (cost && item.cost !== cost) return false;
+        if (accessibility) {
+          const tagStr = item.tags.join(' ').toLowerCase();
+          const accessMap = { wheelchair: 'wheelchair', 'low-mobility': 'low mobility', transport: 'public transport', dogs: 'dog', dementia: 'dementia' };
+          const keyword = accessMap[accessibility];
+          if (keyword && !tagStr.includes(keyword)) return false;
+        }
+        return true;
+      }).map((item) => ({ ...item, action: null }));
 
   const allPins = [...walkPins, ...samplePins];
 
@@ -455,6 +476,7 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
         >
           {allPins.map((pin) => {
             const cfg = CAT_CONFIG[pin.category] || CAT_CONFIG.walks;
+            const isFeatured = !!pin.featured;
             return (
               <MarkerF
                 key={pin.id}
@@ -464,11 +486,12 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
                   path: 0, // google.maps.SymbolPath.CIRCLE
                   fillColor: cfg.accent,
                   fillOpacity: 1,
-                  strokeColor: '#ffffff',
-                  strokeWeight: 2.5,
-                  scale: 12,
+                  strokeColor: isFeatured ? '#F5A623' : '#ffffff',
+                  strokeWeight: isFeatured ? 3.5 : 2.5,
+                  scale: isFeatured ? 14 : 12,
                 }}
                 label={{ text: cfg.label, color: 'white', fontWeight: '900', fontSize: '11px' }}
+                zIndex={isFeatured ? 10 : 1}
                 onClick={() => setActivePin(activePin?.id === pin.id ? null : pin)}
               />
             );
@@ -479,21 +502,54 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
               position={{ lat: activePin.lat, lng: activePin.lng }}
               onCloseClick={() => setActivePin(null)}
             >
-              <div style={{ maxWidth: 220, fontFamily: 'Inter, sans-serif' }}>
-                <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: CAT_CONFIG[activePin.category]?.accent || '#1A2744', marginBottom: 4 }}>
-                  {ACTIVITY_TYPE_OPTIONS.find((o) => o.value === activePin.category)?.label || activePin.category}
+              <div style={{ maxWidth: 240, fontFamily: 'Inter, sans-serif', padding: '2px 0' }}>
+                {/* Category badge + featured flag */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
+                  <span style={{ fontSize: 9.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', padding: '2px 7px', borderRadius: 5, background: `${CAT_CONFIG[activePin.category]?.accent || '#1A2744'}18`, color: CAT_CONFIG[activePin.category]?.accent || '#1A2744' }}>
+                    {ACTIVITY_TYPE_OPTIONS.find((o) => o.value === activePin.category)?.label || activePin.category}
+                  </span>
+                  {activePin.featured && (
+                    <span style={{ fontSize: 9.5, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(245,166,35,0.14)', color: '#B45309' }}>Featured</span>
+                  )}
                 </div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#1A2744', marginBottom: 4 }}>{activePin.title}</div>
-                {activePin.area && <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.55)', marginBottom: 4 }}>{activePin.area}</div>}
-                {activePin.description && <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.72)', lineHeight: 1.5, marginBottom: activePin.category === 'walks' ? 8 : 0 }}>{activePin.description}</div>}
-                {activePin.category === 'walks' && (
+                {/* Title */}
+                <div style={{ fontSize: 14, fontWeight: 800, color: '#1A2744', lineHeight: 1.25, marginBottom: 4 }}>{activePin.title}</div>
+                {/* Area */}
+                {activePin.area && (
+                  <div style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.52)', marginBottom: 5, display: 'flex', alignItems: 'center', gap: 3 }}>
+                    📍 {activePin.area}
+                  </div>
+                )}
+                {/* Description */}
+                {activePin.description && (
+                  <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.70)', lineHeight: 1.5, marginBottom: 7, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {activePin.description}
+                  </div>
+                )}
+                {/* Tags */}
+                {activePin.tags?.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
+                    {activePin.tags.slice(0, 3).map((t) => (
+                      <span key={t} style={{ fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4, background: 'rgba(26,39,68,0.07)', color: 'rgba(26,39,68,0.60)' }}>{t}</span>
+                    ))}
+                  </div>
+                )}
+                {/* CTA */}
+                {activePin.category === 'walks' ? (
                   <button
                     onClick={activePin.action}
-                    style={{ fontSize: 12, fontWeight: 700, padding: '5px 12px', borderRadius: 8, background: CAT_CONFIG.walks.bg, color: CAT_CONFIG.walks.accent, border: 'none', cursor: 'pointer' }}
+                    style={{ width: '100%', fontSize: 12, fontWeight: 700, padding: '6px 0', borderRadius: 8, background: CAT_CONFIG.walks.bg, color: CAT_CONFIG.walks.accent, border: 'none', cursor: 'pointer' }}
                   >
                     View walks →
                   </button>
-                )}
+                ) : onVenueClick && activePin._venue ? (
+                  <button
+                    onClick={() => { setActivePin(null); onVenueClick(activePin._venue); }}
+                    style={{ width: '100%', fontSize: 12, fontWeight: 700, padding: '6px 0', borderRadius: 8, background: `${CAT_CONFIG[activePin.category]?.accent || '#1A2744'}14`, color: CAT_CONFIG[activePin.category]?.accent || '#1A2744', border: 'none', cursor: 'pointer' }}
+                  >
+                    View details →
+                  </button>
+                ) : null}
               </div>
             </InfoWindowF>
           )}
@@ -817,7 +873,7 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
       try {
         const { data, error: dbErr } = await supabase
           .from('venues_public')
-          .select('id, name, slug, category, subcategory, short_description, town, free_or_paid, indoor_outdoor, family_friendly, dog_friendly, wheelchair_access, carer_friendly, website, featured, verified')
+          .select('id, name, slug, category, subcategory, short_description, town, free_or_paid, indoor_outdoor, family_friendly, dog_friendly, wheelchair_access, carer_friendly, website, featured, verified, latitude, longitude')
           .eq('county', dbCounty)
           .in('category', ['Days Out', 'Attractions', 'Wellbeing'])
           .order('category', { ascending: true })
@@ -921,10 +977,10 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
 
         <div className="container" style={{ position: 'relative' }}>
           <button
-            onClick={() => onNavigate('activities')}
+            onClick={() => onNavigate('activities', null)}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.60)', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.13)', padding: '6px 14px', borderRadius: 8, cursor: 'pointer', marginBottom: 20 }}
           >
-            ← Activities
+            ← Activities hub
           </button>
 
           {/* Two-module hero: left = title/stats, right = sponsor panel */}
@@ -941,8 +997,7 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
               <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.68)', lineHeight: 1.6, margin: '0 0 16px', maxWidth: 480 }}>
                 {heroSubtitle}
               </p>
-              {!loading && venues.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 0, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.10)' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 0, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.10)' }}>
                   {[
                     { n: venues.length,                                                l: 'Places' },
                     { n: `${walksData.length}+`,                                       l: 'Walks' },
@@ -955,7 +1010,6 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
                     </div>
                   ))}
                 </div>
-              )}
             </div>
 
             {/* ── Right: county sponsorship module ── */}
@@ -1114,6 +1168,8 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
                     accessibility={''}
                     onNavigate={onNavigate}
                     compactHeight='290px'
+                    liveVenues={venues}
+                    onVenueClick={handleViewProfile}
                   />
                 )}
               </div>
@@ -1302,6 +1358,13 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
     setActivityType(chip.type);
     setCost(chip.cost);
     setAccessibility(chip.access);
+    // Navigate directly to the relevant page for concrete category chips
+    if (chip.type === 'walks')     { goToWalks(localCounty || null); return; }
+    if (chip.type === 'days-out')  { onNavigate('places-to-visit', localCounty || COUNTY_DEFAULT); return; }
+    if (chip.type === 'wellbeing') { onNavigate('wellbeing',       localCounty || COUNTY_DEFAULT); return; }
+    if (chip.type === 'groups')    { onNavigate('groups',          localCounty || COUNTY_DEFAULT); return; }
+    // Other chips (free, accessible, discounts) just filter the map — scroll to it
+    document.getElementById('act-map')?.scrollIntoView({ behavior: 'smooth' });
   };
 
   const chipIsActive = (chip) =>
@@ -1387,20 +1450,30 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
                 </button>
               </div>
 
-              {/* Category chips */}
+              {/* Category chips — clickable, navigate to county-specific pages */}
               <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 16 }}>
                 {[
-                  { label: 'Walks',       color: '#5BC94A', bg: 'rgba(91,201,74,0.18)'   },
-                  { label: 'Groups',      color: '#2D9CDB', bg: 'rgba(45,156,219,0.18)'  },
-                  { label: 'Days Out',    color: '#F5A623', bg: 'rgba(245,166,35,0.18)'  },
-                  { label: 'Attractions', color: '#7B5CF5', bg: 'rgba(123,92,245,0.18)'  },
-                  { label: 'Wellbeing',   color: '#F4613A', bg: 'rgba(244,97,58,0.18)'   },
-                  { label: 'Discounts',   color: '#10B981', bg: 'rgba(16,185,129,0.18)'  },
-                ].map((chip) => (
-                  <span key={chip.label} style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: chip.bg, color: chip.color, border: `1px solid ${chip.color}44` }}>
-                    {chip.label}
-                  </span>
-                ))}
+                  { label: 'Walks',       color: '#5BC94A', bg: 'rgba(91,201,74,0.18)',  dest: 'walks'          },
+                  { label: 'Days Out',    color: '#F5A623', bg: 'rgba(245,166,35,0.18)', dest: 'places-to-visit' },
+                  { label: 'Attractions', color: '#7B5CF5', bg: 'rgba(123,92,245,0.18)', dest: 'places-to-visit' },
+                  { label: 'Wellbeing',   color: '#0D9488', bg: 'rgba(13,148,136,0.18)', dest: 'wellbeing'       },
+                  { label: 'Groups',      color: '#2D9CDB', bg: 'rgba(45,156,219,0.18)', dest: 'groups'          },
+                  { label: 'Discounts',   color: '#10B981', bg: 'rgba(16,185,129,0.18)', dest: null             },
+                ].map((chip) => {
+                  const chipNav = chip.dest === 'walks'
+                    ? () => goToWalks(localCounty)
+                    : chip.dest ? () => onNavigate(chip.dest, localCounty || COUNTY_DEFAULT) : null;
+                  return (
+                    <span key={chip.label}
+                      onClick={chipNav || undefined}
+                      style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: chip.bg, color: chip.color, border: `1px solid ${chip.color}44`, cursor: chipNav ? 'pointer' : 'default', transition: 'opacity .12s' }}
+                      onMouseEnter={chipNav ? (e) => { e.currentTarget.style.opacity = '0.80'; } : undefined}
+                      onMouseLeave={chipNav ? (e) => { e.currentTarget.style.opacity = '1'; } : undefined}
+                    >
+                      {chip.label}
+                    </span>
+                  );
+                })}
               </div>
 
               {/* Featured preview cards — richer mini cards */}
@@ -1408,7 +1481,7 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
                 {HERO_FEATURED.map((item) => {
                   const itemClick = item.dest === 'walks'
                     ? () => goToWalks(localCounty)
-                    : item.dest ? () => onNavigate(item.dest) : undefined;
+                    : item.dest ? () => onNavigate(item.dest, localCounty || COUNTY_DEFAULT) : undefined;
                   return (
                     <div key={item.title}
                       onClick={itemClick}
@@ -1439,8 +1512,19 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
                 })}
               </div>
 
-              <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.10)', fontSize: 12, color: 'rgba(255,255,255,0.40)', textAlign: 'center' }}>
-                More activities being added weekly
+              <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.10)', textAlign: 'center' }}>
+                {localCounty ? (
+                  <button
+                    onClick={() => onNavigate('activities', localCounty)}
+                    style={{ fontSize: 12.5, fontWeight: 700, color: '#FFFFFF', background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.18)', padding: '7px 14px', borderRadius: 10, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, transition: 'background .13s' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.18)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.10)'; }}
+                  >
+                    Browse all {countyLabel} activities <IArrow s={11} />
+                  </button>
+                ) : (
+                  <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.40)' }}>More activities being added weekly</span>
+                )}
               </div>
             </div>
 
@@ -1592,8 +1676,12 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
           </div>
           {liveCategories.map((cat) => {
             const hov = catHov === cat.key;
+            const goToCat = () => {
+              if (cat.key === 'walks') { goToWalks(localCounty); return; }
+              onNavigate(cat.route, localCounty || COUNTY_DEFAULT);
+            };
             return (
-              <div key={cat.key} className="card" onClick={() => goToWalks(localCounty)} onMouseEnter={() => setCatHov(cat.key)} onMouseLeave={() => setCatHov(null)}
+              <div key={cat.key} className="card" onClick={goToCat} onMouseEnter={() => setCatHov(cat.key)} onMouseLeave={() => setCatHov(null)}
                 style={{ padding: 0, overflow: 'hidden', cursor: 'pointer', marginBottom: 14, border: `1px solid ${hov ? cat.accent : cat.border}`, boxShadow: hov ? '0 16px 40px rgba(26,39,68,0.09)' : '0 3px 10px rgba(26,39,68,0.04)', transition: 'border-color .16s, box-shadow .16s' }}>
                 {/* Rich header strip */}
                 <div style={{ height: 66, background: `linear-gradient(135deg, ${cat.bg.replace('0.08', '0.28')} 0%, ${cat.bg.replace('0.08', '0.10')} 100%)`, display: 'flex', alignItems: 'center', padding: '0 24px', gap: 14 }}>
@@ -1602,32 +1690,35 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.10em', textTransform: 'uppercase', color: cat.accent, marginBottom: 3 }}>
-                      Live now{countyLabel ? ` — ${countyLabel}` : ' — All counties'}
+                      Live now{countyLabel ? ` — ${countyLabel}` : ' — Cornwall'}
                     </div>
                     <div style={{ fontSize: 14, fontWeight: 800, color: '#1A2744' }}>{cat.label}</div>
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 6, background: cat.accent + '18', color: cat.accent }}>333+ routes</span>
-                    <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 6, background: 'rgba(26,39,68,0.06)', color: 'rgba(26,39,68,0.50)' }}>Free</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 6, background: cat.accent + '18', color: cat.accent }}>{cat.count}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 6, background: 'rgba(26,39,68,0.06)', color: 'rgba(26,39,68,0.50)' }}>Free to browse</span>
                   </div>
                 </div>
                 <div style={{ padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
                   <div>
                     <p style={{ fontSize: 14, color: 'rgba(26,39,68,0.68)', lineHeight: 1.6, margin: '0 0 10px', maxWidth: 460 }}>{cat.desc}</p>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      {['Coastal paths', 'Accessible routes', 'Rated trails', 'Dog friendly'].map((t) => (
+                      {cat.tags.map((t) => (
                         <span key={t} style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 5, background: cat.bg, color: cat.accent }}>{t}</span>
                       ))}
                     </div>
                   </div>
-                  <button className="btn btn-gold" onClick={(e) => { e.stopPropagation(); goToWalks(localCounty); }} style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  <button className="btn btn-gold" onClick={(e) => { e.stopPropagation(); goToCat(); }} style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
                     {cat.cta} <IArrow s={13} />
                   </button>
                 </div>
               </div>
             );
           })}
-          <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: 'rgba(26,39,68,0.34)', marginBottom: 10, marginTop: 4 }}>Coming next</div>
+          {soonCategories.length > 0 && (
+            <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: 'rgba(26,39,68,0.34)', marginBottom: 10, marginTop: 4 }}>Coming next</div>
+          )}
+          {soonCategories.length > 0 && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(215px, 1fr))', gap: 9 }}>
             {soonCategories.map((cat) => (
               <div key={cat.key} className="card"
@@ -1654,6 +1745,7 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
               </div>
             ))}
           </div>
+          )}
         </div>
       </section>
 
@@ -1697,7 +1789,7 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(26,39,68,0.35)' }}>Listings being added</div>
               </div>
             </div>
-            <div className="card" onClick={() => onNavigate('places-to-visit')} style={{ padding: 0, overflow: 'hidden', cursor: 'pointer', border: '1px solid rgba(123,92,245,0.22)' }}
+            <div className="card" onClick={() => onNavigate('places-to-visit', localCounty || COUNTY_DEFAULT)} style={{ padding: 0, overflow: 'hidden', cursor: 'pointer', border: '1px solid rgba(123,92,245,0.22)' }}
               onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 8px 24px rgba(123,92,245,0.14)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.boxShadow = ''; }}>
               <div style={{ height: 5, background: 'linear-gradient(90deg, #7B5CF5, #6D4EE8)' }} />
@@ -1711,6 +1803,22 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
                   Carer-friendly attractions, gardens, heritage sites and family days out{countyLabel ? ` in ${countyLabel}` : ''}.
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#7B5CF5' }}>Explore places →</div>
+              </div>
+            </div>
+            <div className="card" onClick={() => onNavigate('wellbeing', localCounty || COUNTY_DEFAULT)} style={{ padding: 0, overflow: 'hidden', cursor: 'pointer', border: '1px solid rgba(13,148,136,0.22)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 8px 24px rgba(13,148,136,0.14)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = ''; }}>
+              <div style={{ height: 5, background: 'linear-gradient(90deg, #0D9488, #0B8075)' }} />
+              <div style={{ padding: '16px 18px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#0D9488' }}>Live now</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#0A6E65', background: 'rgba(13,148,136,0.10)', padding: '2px 8px', borderRadius: 6 }}>Calm & restorative</span>
+                </div>
+                <div style={{ fontSize: 17, fontWeight: 800, color: '#1A2744', marginBottom: 5 }}>Wellbeing Support</div>
+                <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.60)', lineHeight: 1.5, marginBottom: 12 }}>
+                  Mindfulness, accessible and community wellbeing places{countyLabel ? ` in ${countyLabel}` : ''}.
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#0D9488' }}>Explore wellbeing →</div>
               </div>
             </div>
           </div>

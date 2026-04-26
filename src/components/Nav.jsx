@@ -120,6 +120,7 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp 
     { key: 'walks',           label: 'Walks',             note: 'Trails and routes'     },
     { key: 'places-to-visit', label: 'Places to Visit',   note: 'Attractions & days out' },
     { key: 'wellbeing',       label: 'Wellbeing Support', note: 'Calm & restorative'    },
+    { key: 'groups',          label: 'Groups',            note: 'Social & peer support'  },
   ];
   const isActivitiesPage = activitiesItems.some((i) => i.key === activePage) || activePage === 'activities';
 

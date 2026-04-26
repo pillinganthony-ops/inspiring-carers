@@ -68,6 +68,7 @@ const Footer = ({ onNavigate = () => {} }) => {
               ['Find help near you', 'find-help'],
               ['Places to Visit', 'places-to-visit'],
               ['Wellbeing Support', 'wellbeing'],
+              ['Groups & Social', 'groups'],
               ['Walks & outdoors', 'walks'],
               ['Advice & resources', 'find-help'],
             ])}

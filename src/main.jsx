@@ -25,6 +25,7 @@ const ProfileDashboardPage = React.lazy(() => import('./components/pages/Profile
 const ResetPasswordPage = React.lazy(() => import('./components/pages/ResetPassword.jsx'));
 const PlacesToVisitPage    = React.lazy(() => import('./components/pages/PlacesToVisit.jsx'));
 const WellbeingSupportPage = React.lazy(() => import('./components/pages/WellbeingSupport.jsx'));
+const GroupsPage           = React.lazy(() => import('./components/pages/Groups.jsx'));
 const VenueProfilePage     = React.lazy(() => import('./components/pages/VenueProfile.jsx'));
 
 // Make icons global for JSX
@@ -304,7 +305,7 @@ const isAdminEmail = (email) => Boolean(email && ADMIN_EMAILS.includes(`${email}
 
 // County-aware routing constants
 // 'activities' intentionally excluded — it is a county-optional hub (/activities and /{county}/activities both work)
-const COUNTY_PAGES = new Set(['find-help', 'training', 'events', 'for-you', 'walks', 'places-to-visit', 'wellbeing']);
+const COUNTY_PAGES = new Set(['find-help', 'training', 'events', 'for-you', 'walks', 'places-to-visit', 'wellbeing', 'groups']);
 const COUNTY_SLUGS = ['cornwall', 'devon', 'dorset', 'somerset'];
 const COUNTY_DEFAULT = 'cornwall';
 
@@ -332,7 +333,8 @@ const App = () => {
     const GLOBAL = ['admin', 'recognition', 'business', 'about', 'card'];
     if (GLOBAL.includes(segs[0])) return { page: segs[0], county: null };
 
-    // Activities hub — county-optional: /activities loads hub; /{county}/activities loads county view
+    // Activities hub: /activities → county selector hub (county: null)
+    // /{county}/activities → county listing (handled by COUNTY_SLUGS check below)
     if (segs[0] === 'activities') return { page: 'activities', county: null };
 
     // Walks hub — /walks loads all walks; /{county}/walks loads county view (via COUNTY_SLUGS above)
@@ -358,7 +360,9 @@ const App = () => {
 
   const [page, setPage] = React.useState(() => parseRoute(window.location.pathname).page);
   const [county, setCounty] = React.useState(() => {
-    const { county: urlCounty } = parseRoute(window.location.pathname);
+    const { county: urlCounty, page: urlPage } = parseRoute(window.location.pathname);
+    // Hub pages that intentionally have no county must not inherit one from localStorage
+    if (urlPage === 'activities' && !urlCounty) return null;
     try { return urlCounty || localStorage.getItem('ic_county') || null; } catch { return urlCounty || null; }
   });
   const [venueSlug, setVenueSlug] = React.useState(() => parseRoute(window.location.pathname).slug || null);
@@ -460,19 +464,22 @@ const App = () => {
       }
     }
 
-    // Activities: county-aware hub vs dedicated county listing
-    // navigate('activities', 'cornwall') → /cornwall/activities (county listing)
-    // navigate('activities') or navigate('activities', null) → /activities (hub, clears county)
+    // Activities routing:
+    // navigate('activities', 'cornwall') → /cornwall/activities
+    // navigate('activities') or navigate('activities', undefined) → use stored/current county or Cornwall
+    // navigate('activities', null) → /activities hub (explicit null only)
     if (key === 'activities') {
       setPage('activities');
       setVenueSlug(null);
-      if (explicitCounty) {
-        setCounty(explicitCounty);
-        try { localStorage.setItem('ic_county', explicitCounty); } catch {}
-        window.history.pushState({ page: 'activities', county: explicitCounty }, '', `/${explicitCounty}/activities`);
-      } else {
+      if (explicitCounty === null) {
+        // Explicit null → national hub (accessible via back button in county view)
         setCounty(null);
         window.history.pushState({ page: 'activities', county: null }, '', '/activities');
+      } else {
+        const targetCounty = explicitCounty || county || COUNTY_DEFAULT;
+        setCounty(targetCounty);
+        try { localStorage.setItem('ic_county', targetCounty); } catch {}
+        window.history.pushState({ page: 'activities', county: targetCounty }, '', `/${targetCounty}/activities`);
       }
       window.scrollTo({ top: 0, behavior: 'instant' });
       return;
@@ -524,6 +531,7 @@ const App = () => {
     case 'activities': content = <React.Suspense fallback={<RouteLoading />}><ActivitiesPage onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;
     case 'places-to-visit': content = <React.Suspense fallback={<RouteLoading />}><PlacesToVisitPage    onNavigate={navigate} session={session} county={county} venueSlug={venueSlug} /></React.Suspense>; break;
     case 'wellbeing':       content = <React.Suspense fallback={<RouteLoading />}><WellbeingSupportPage onNavigate={navigate} session={session} county={county} venueSlug={venueSlug} /></React.Suspense>; break;
+    case 'groups':          content = <React.Suspense fallback={<RouteLoading />}><GroupsPage           onNavigate={navigate} session={session} county={county} venueSlug={venueSlug} /></React.Suspense>; break;
     case 'training': content = <Placeholder title="Training" activePage="training" onNavigate={navigate} session={session} note="Carer training, CPD, professional development and awareness sessions across Cornwall — coming in the next round." />; break;
     case 'admin': content = <React.Suspense fallback={<RouteLoading />}><AdminPage onNavigate={navigate} session={session} sessionLoading={sessionLoading} /></React.Suspense>; break;
     case 'profile': content = <React.Suspense fallback={<RouteLoading />}><ProfileDashboardPage section="dashboard" onNavigate={navigate} session={session} /></React.Suspense>; break;
