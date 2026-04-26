@@ -27,6 +27,9 @@ const PlacesToVisitPage    = React.lazy(() => import('./components/pages/PlacesT
 const WellbeingSupportPage = React.lazy(() => import('./components/pages/WellbeingSupport.jsx'));
 const GroupsPage           = React.lazy(() => import('./components/pages/Groups.jsx'));
 const TrainingPage         = React.lazy(() => import('./components/pages/Training.jsx'));
+const BusinessPageComponent    = React.lazy(() => import('./components/pages/BusinessPage.jsx'));
+const AdvertisePageComponent   = React.lazy(() => import('./components/pages/AdvertisePage.jsx'));
+const RecognitionPageComponent = React.lazy(() => import('./components/pages/Recognition.jsx'));
 const VenueProfilePage     = React.lazy(() => import('./components/pages/VenueProfile.jsx'));
 // Hub pages — eagerly imported so county selectors render with zero loading flash
 import FindHelpLandingPage from './components/pages/FindHelpLanding.jsx';
@@ -335,7 +338,7 @@ const App = () => {
     if (segs[0] === 'login') return { page: 'login', county: null };
 
     // Global pages — no county prefix
-    const GLOBAL = ['admin', 'recognition', 'business', 'about', 'card'];
+    const GLOBAL = ['admin', 'recognition', 'business', 'advertise', 'about', 'card'];
     if (GLOBAL.includes(segs[0])) return { page: segs[0], county: null };
 
     // Hub routes — standalone URLs without county prefix load county selector pages
@@ -608,8 +611,9 @@ const App = () => {
     case 'profile-posts': content = <React.Suspense fallback={<RouteLoading />}><ProfileDashboardPage section="posts" onNavigate={navigate} session={session} /></React.Suspense>; break;
     case 'profile-enquiries': content = <React.Suspense fallback={<RouteLoading />}><ProfileDashboardPage section="enquiries" onNavigate={navigate} session={session} /></React.Suspense>; break;
     case 'profile-settings': content = <React.Suspense fallback={<RouteLoading />}><ProfileDashboardPage section="settings" onNavigate={navigate} session={session} /></React.Suspense>; break;
-    case 'recognition': content = <Placeholder title="Recognition & awards" activePage="recognition" onNavigate={navigate} session={session} note="Carer of the Month, stories, nominations and community recognition — coming in the next round. Preview lives in the homepage Recognition section." />; break;
-    case 'business': content = <Placeholder title="For businesses" activePage="business" onNavigate={navigate} session={session} note="Submit offers, see the why-carers-matter statement, badge tiers and featured partner placements — next round." />; break;
+    case 'recognition': content = <React.Suspense fallback={<RouteLoading />}><RecognitionPageComponent onNavigate={navigate} session={session} /></React.Suspense>; break;
+    case 'business':   content = <React.Suspense fallback={<RouteLoading />}><BusinessPageComponent onNavigate={navigate} session={session} /></React.Suspense>; break;
+    case 'advertise':  content = <React.Suspense fallback={<RouteLoading />}><AdvertisePageComponent onNavigate={navigate} session={session} /></React.Suspense>; break;
     case 'about': content = <Placeholder title="About inspiring carers" activePage="about" onNavigate={navigate} session={session} note="Mission, the two-tier model, and the local-first national vision — next round." />; break;
     case 'card': content = <Placeholder title="Team Benefits" activePage="card" onNavigate={navigate} session={session} note="Approved organisations can apply for workforce benefit cards for eligible staff teams — organisation account required." />; break;
     default: content = <HomePage onNavigate={navigate} tweaks={tweaks} />;

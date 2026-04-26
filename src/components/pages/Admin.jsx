@@ -40,6 +40,15 @@ const ANALYTICS_WINDOWS = [
   { key: 'all', label: 'All time', days: null },
 ];
 
+// Partner enquiry status config — colours and labels for badge rendering
+const PE_STATUS = {
+  new:       { label: 'New',       color: '#2563EB', bg: 'rgba(37,99,235,0.09)'  },
+  reviewing: { label: 'Reviewing', color: '#D97706', bg: 'rgba(217,119,6,0.09)'  },
+  approved:  { label: 'Approved',  color: '#16A34A', bg: 'rgba(22,163,74,0.09)'  },
+  rejected:  { label: 'Rejected',  color: '#DC2626', bg: 'rgba(220,38,38,0.09)'  },
+  converted: { label: 'Converted', color: '#7B5CF5', bg: 'rgba(123,92,245,0.09)' },
+};
+
 const getAnalyticsWindowDays = (windowKey) => ANALYTICS_WINDOWS.find((windowOption) => windowOption.key === windowKey)?.days ?? null;
 
 const isWithinPastWindow = (value, windowKey) => {
@@ -814,7 +823,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   const [profileDraft, setProfileDraft] = React.useState(emptyProfile);
   const [profileModal, setProfileModal] = React.useState(null);
   // { type: 'edit'|'revoke'|'reset'|'delete'|'repair'|'repair-claim', profile: {} }
-  const closeProfileModal = React.useCallback(() => { setProfileModal(null); setError(''); setLinkSentTo(''); }, []);
+  const closeProfileModal = React.useCallback(() => { setProfileModal(null); setError(''); setLinkSentTo(''); setConvertingEnquiryId(null); setEnquiryConversionDupWarn(null); }, []);
   const [eventDraft, setEventDraft] = React.useState(emptyEvent);
   const [postcodeBusy, setPostcodeBusy] = React.useState(false);
   const [postcodeError, setPostcodeError] = React.useState('');
@@ -827,6 +836,14 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   const [linkedProfileError, setLinkedProfileError] = React.useState('');
   const [showCompletedSubmissions, setShowCompletedSubmissions] = React.useState(false);
   const [showClosedContacts, setShowClosedContacts] = React.useState(false);
+
+  // ── Partner enquiries state ─────────────────────────────────────────────────
+  const [partnerEnquiries,           setPartnerEnquiries]           = React.useState([]);
+  const [selectedEnquiry,            setSelectedEnquiry]            = React.useState(null);
+  const [savingEnquiryId,            setSavingEnquiryId]            = React.useState(null);
+  const [enquiryNotesDraft,          setEnquiryNotesDraft]          = React.useState('');
+  const [convertingEnquiryId,        setConvertingEnquiryId]        = React.useState(null);
+  const [enquiryConversionDupWarn,   setEnquiryConversionDupWarn]  = React.useState(null);
 
   const canAccessAdmin = React.useMemo(() => {
     const email = `${session?.user?.email || ''}`.trim().toLowerCase();
@@ -956,9 +973,10 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       setWalkComments(walkCommentsResult.data || []);
 
       const optionalIssues = [];
-      const [viewEventsResult, eventEnquiriesResult] = await Promise.all([
+      const [viewEventsResult, eventEnquiriesResult, partnerEnqResult] = await Promise.all([
         supabase.from('resource_view_events').select('*'),
         supabase.from('organisation_event_enquiries').select('*').order('created_at', { ascending: false }),
+        supabase.from('partner_enquiries').select('*').order('created_at', { ascending: false }),
       ]);
 
       if (viewEventsResult.error) {
@@ -973,6 +991,13 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         optionalIssues.push(`event enquiries unavailable (${eventEnquiriesResult.error.message})`);
       } else {
         setEventEnquiries(eventEnquiriesResult.data || []);
+      }
+
+      if (partnerEnqResult.error) {
+        setPartnerEnquiries([]);
+        optionalIssues.push(`partner enquiries unavailable (${partnerEnqResult.error.message})`);
+      } else {
+        setPartnerEnquiries(partnerEnqResult.data || []);
       }
 
       if (optionalIssues.length) {
@@ -1383,14 +1408,35 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       return false;
     }
     const payload = buildLiveProfilePayload(profileDraft);
+    const isConverting = Boolean(convertingEnquiryId);
+    const enqId = convertingEnquiryId;
+    const currentNotes = enquiryNotesDraft;
     return await withBusy(async () => {
       if (profileDraft.id) {
         await updateOrgProfileCompat(supabase, profileDraft.id, payload);
       } else {
-        await insertOrgProfileCompat(supabase, payload);
+        const { data: newProfileData } = await insertOrgProfileCompat(supabase, payload);
+        // Post-insert: if this save originated from a partner enquiry conversion, mark it converted
+        if (isConverting && supabase) {
+          const convDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+          const convNote = `Converted to org profile${newProfileData?.id ? ` (…${String(newProfileData.id).slice(-8)})` : ''} on ${convDate}.`;
+          const updatedNotes = [currentNotes, convNote].filter(Boolean).join('\n');
+          await supabase.from('partner_enquiries').update({
+            admin_status: 'converted',
+            public_profile_ready: false,
+            conversion_notes: updatedNotes,
+          }).eq('id', enqId);
+          setPartnerEnquiries(prev => prev.map(e =>
+            e.id === enqId
+              ? { ...e, admin_status: 'converted', public_profile_ready: false, conversion_notes: updatedNotes }
+              : e
+          ));
+          setConvertingEnquiryId(null);
+          setEnquiryConversionDupWarn(null);
+        }
       }
       setProfileDraft(emptyProfile);
-    }, profileDraft.id ? 'Profile updated.' : 'Profile created.');
+    }, profileDraft.id ? 'Profile updated.' : isConverting ? 'Profile created — enquiry marked converted.' : 'Profile created.');
   };
 
   const saveEvent = async () => {
@@ -1880,6 +1926,102 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     }, 'Status updated.');
   };
 
+  // ── Partner enquiry handlers ────────────────────────────────────────────────
+
+  const openEnquiryDetail = (enq) => {
+    setSelectedEnquiry(enq);
+    setEnquiryNotesDraft(enq.conversion_notes || '');
+  };
+  const closeEnquiryDetail = () => { setSelectedEnquiry(null); setEnquiryNotesDraft(''); };
+
+  const updateEnquiryStatus = async (id, nextStatus) => {
+    if (!supabase) return;
+    setSavingEnquiryId(id);
+    try {
+      const { error: updateErr } = await supabase.from('partner_enquiries').update({ admin_status: nextStatus }).eq('id', id);
+      if (updateErr) throw updateErr;
+      setPartnerEnquiries(prev => prev.map(e => e.id === id ? { ...e, admin_status: nextStatus } : e));
+      if (selectedEnquiry?.id === id) setSelectedEnquiry(prev => ({ ...prev, admin_status: nextStatus }));
+      setToast(`Status → ${nextStatus}`);
+    } catch (err) {
+      setError(err.message || 'Status update failed');
+    } finally {
+      setSavingEnquiryId(null);
+    }
+  };
+
+  const saveEnquiryNotes = async (id, notes) => {
+    if (!supabase) return;
+    setSavingEnquiryId(id);
+    try {
+      const { error: updateErr } = await supabase.from('partner_enquiries').update({ conversion_notes: notes }).eq('id', id);
+      if (updateErr) throw updateErr;
+      setPartnerEnquiries(prev => prev.map(e => e.id === id ? { ...e, conversion_notes: notes } : e));
+      if (selectedEnquiry?.id === id) setSelectedEnquiry(prev => ({ ...prev, conversion_notes: notes }));
+      setToast('Notes saved');
+    } catch (err) {
+      setError(err.message || 'Notes save failed');
+    } finally {
+      setSavingEnquiryId(null);
+    }
+  };
+
+  const openProfileFromEnquiry = (enq) => {
+    // Duplicate name check against loaded profiles
+    const orgNameLower = `${enq.organisation_name || ''}`.toLowerCase().trim();
+    const dupName = orgNameLower && profiles.some(p =>
+      `${p.organisation_name || ''}`.toLowerCase().trim() === orgNameLower
+    );
+    const dupSite = Boolean(enq.website) && profiles.some(p => {
+      if (!p.website_url) return false;
+      const strip = (u) => `${u}`.toLowerCase().replace(/^https?:\/\/(www\.)?/, '').split('/')[0];
+      return strip(enq.website) === strip(p.website_url);
+    });
+    setEnquiryConversionDupWarn(dupName ? enq.organisation_name : dupSite ? enq.website : null);
+
+    // Pre-fill profile draft from enquiry fields
+    const noteParts = [
+      enq.offer_title        ? `Offer: ${enq.offer_title}`               : null,
+      enq.offer_description  ? `Offer detail: ${enq.offer_description}`  : null,
+      enq.business_type      ? `Biz type: ${enq.business_type}`          : null,
+      enq.promotion_type     ? `Promotion: ${enq.promotion_type}`        : null,
+      enq.preferred_placement? `Placement: ${enq.preferred_placement}`   : null,
+      enq.target_area        ? `Area: ${enq.target_area}`                : null,
+      enq.description        ? `Notes: ${enq.description}`               : null,
+    ].filter(Boolean).join('\n');
+
+    setProfileDraft({
+      ...emptyProfile,
+      organisation_name: enq.organisation_name  || '',
+      contact_email:     enq.email              || '',
+      contact_phone:     enq.phone              || '',
+      website_url:       enq.website            || '',
+      short_bio:         [enq.offer_title, enq.offer_category].filter(Boolean).join(' · ') || '',
+      full_bio:          noteParts,
+    });
+    setConvertingEnquiryId(enq.id);
+    setEnquiryNotesDraft(enq.conversion_notes || '');
+    closeEnquiryDetail();
+    setProfileModal({ type: 'edit', profile: null });
+    setError('');
+  };
+
+  const setEnquiryProfileReady = async (id, ready) => {
+    if (!supabase) return;
+    setSavingEnquiryId(id);
+    try {
+      const { error: updateErr } = await supabase.from('partner_enquiries').update({ public_profile_ready: ready }).eq('id', id);
+      if (updateErr) throw updateErr;
+      setPartnerEnquiries(prev => prev.map(e => e.id === id ? { ...e, public_profile_ready: ready } : e));
+      if (selectedEnquiry?.id === id) setSelectedEnquiry(prev => ({ ...prev, public_profile_ready: ready }));
+      setToast(ready ? 'Marked profile-ready' : 'Profile-ready cleared');
+    } catch (err) {
+      setError(err.message || 'Update failed');
+    } finally {
+      setSavingEnquiryId(null);
+    }
+  };
+
   // Dedicated approval path for claim rows — handles source table routing,
   // ownership provisioning, data refresh, toast, and email in the correct order.
   const approveClaim = async (claimRow) => {
@@ -1985,6 +2127,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   // Workload = actionable items only. Closed contacts and completed submissions excluded.
   const moderationWorkloadCount = pendingClaims.length + pendingResourceUpdates.length + inReviewResourceUpdates.length + approvedResourceUpdatesReady.length + pendingWalkUpdates.length + pendingWalkComments.length + contactLeads.length;
   const activeSubmissionsCount = pendingResourceUpdates.length + inReviewResourceUpdates.length + approvedResourceUpdatesReady.length;
+  const newPartnerEnquiries = partnerEnquiries.filter(e => (e.admin_status || 'new') === 'new').length;
   const tabCounts = {
     dashboard: 0,
     moderation: activeSubmissionsCount,
@@ -1994,6 +2137,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     events: events.length,
     contacts: contactLeads.length,
     'content-review': pendingWalkUpdates.length + pendingWalkComments.length,
+    'partner-enquiries': partnerEnquiries.length,
     settings: 0,
   };
   const ownerPerformanceRows = profiles.map((profile) => {
@@ -2055,6 +2199,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                 ['Pending claims', pendingClaims.length, pendingClaims.length > 0 ? '#F5A623' : null],
                 ['Pending subs', pendingResourceUpdates.length, pendingResourceUpdates.length > 0 ? '#F5A623' : null],
                 ['Contacts', contactLeads.length, contactLeads.length > 0 ? '#7B5CF5' : null, () => { setTab('contacts'); }],
+                ['Partner enqs', partnerEnquiries.length, newPartnerEnquiries > 0 ? '#F5A623' : null, () => { setTab('partner-enquiries'); }],
                 ['Profile views', ownerPerformanceSummary.totalViews, null],
                 ['Enquiries', ownerPerformanceSummary.totalEnquiries, null],
               ].map(([label, value, accent, onClick]) => (
@@ -2077,6 +2222,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
               ['events', 'Events'],
               ['contacts', 'Contacts'],
               ['content-review', 'Content Review'],
+              ['partner-enquiries', 'Partner Enquiries'],
               ['settings', 'Settings'],
             ].map(([key, label]) => (
               <button
@@ -2758,6 +2904,90 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
             </div>
           ) : null}
 
+          {/* ── Partner Enquiries tab ─────────────────────────── */}
+          {!loading && tab === 'partner-enquiries' ? (
+            <div style={{ display: 'grid', gap: 14 }}>
+
+              {/* Header */}
+              <div className="card" style={{ padding: 20, borderRadius: 22, background: 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,255,1) 100%)', boxShadow: '0 24px 44px rgba(26,39,68,0.08)' }}>
+                <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.56)' }}>Advertising intake pipeline</div>
+                <h2 style={{ marginTop: 8, fontSize: 28, fontWeight: 800, color: '#1A2744' }}>Partner enquiries</h2>
+                <p style={{ marginTop: 6, color: 'rgba(26,39,68,0.68)', lineHeight: 1.6 }}>Submissions from <code>/advertise</code>. Review, update status, add notes and mark profile-ready before manual conversion to live platform assets.</p>
+              </div>
+
+              {/* Summary stats */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 8 }}>
+                {[
+                  ['Total',     partnerEnquiries.length, null],
+                  ['New',       partnerEnquiries.filter(e => (e.admin_status || 'new') === 'new').length,          PE_STATUS.new.color],
+                  ['Reviewing', partnerEnquiries.filter(e => e.admin_status === 'reviewing').length,               PE_STATUS.reviewing.color],
+                  ['Approved',  partnerEnquiries.filter(e => e.admin_status === 'approved').length,                PE_STATUS.approved.color],
+                  ['Converted', partnerEnquiries.filter(e => e.admin_status === 'converted').length,               PE_STATUS.converted.color],
+                  ['Rejected',  partnerEnquiries.filter(e => e.admin_status === 'rejected').length,                PE_STATUS.rejected.color],
+                ].map(([label, value, accent]) => (
+                  <div key={label} className="card" style={{ padding: '12px 14px', borderRadius: 14, borderLeft: accent ? `3px solid ${accent}` : undefined }}>
+                    <div style={{ fontSize: 11, color: 'rgba(26,39,68,0.52)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em' }}>{label}</div>
+                    <div style={{ marginTop: 5, fontSize: 24, fontWeight: 800, color: accent || '#1A2744' }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Enquiries table */}
+              <div className="card" style={{ padding: 0, borderRadius: 16, overflow: 'hidden' }}>
+                {partnerEnquiries.length === 0 ? (
+                  <div style={{ padding: 40, textAlign: 'center' }}>
+                    <div style={{ fontSize: 17, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>No enquiries yet</div>
+                    <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.52)' }}>Submissions from /advertise will appear here.</div>
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid #EEF1F7', background: '#F8FAFD' }}>
+                          {['Organisation', 'Contact', 'Biz type', 'Promotion', 'Placement', 'County', 'Status', 'Date', ''].map(h => (
+                            <th key={h} style={{ padding: '9px 13px', textAlign: 'left', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'rgba(26,39,68,0.50)', whiteSpace: 'nowrap' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {partnerEnquiries.map(enq => {
+                          const s = PE_STATUS[enq.admin_status || 'new'] || PE_STATUS.new;
+                          const saving = savingEnquiryId === enq.id;
+                          return (
+                            <tr key={enq.id} style={{ borderBottom: '1px solid #F0F4FA' }} onMouseEnter={e => { e.currentTarget.style.background = '#FAFBFF'; }} onMouseLeave={e => { e.currentTarget.style.background = ''; }}>
+                              <td style={{ padding: '9px 13px', fontWeight: 700, color: '#1A2744', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{enq.organisation_name}</td>
+                              <td style={{ padding: '9px 13px', color: 'rgba(26,39,68,0.72)', whiteSpace: 'nowrap' }}>{enq.contact_name}</td>
+                              <td style={{ padding: '9px 13px', color: 'rgba(26,39,68,0.58)', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{enq.business_type || '—'}</td>
+                              <td style={{ padding: '9px 13px', color: 'rgba(26,39,68,0.70)', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{enq.promotion_type || enq.advertising_interest || '—'}</td>
+                              <td style={{ padding: '9px 13px', color: 'rgba(26,39,68,0.58)', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{enq.preferred_placement || '—'}</td>
+                              <td style={{ padding: '9px 13px', color: 'rgba(26,39,68,0.58)', whiteSpace: 'nowrap' }}>{enq.target_county || enq.county || '—'}</td>
+                              <td style={{ padding: '9px 13px' }}>
+                                <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 999, background: s.bg, color: s.color }}>{s.label}</span>
+                              </td>
+                              <td style={{ padding: '9px 13px', color: 'rgba(26,39,68,0.48)', whiteSpace: 'nowrap', fontSize: 12 }}>
+                                {enq.created_at ? new Date(enq.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : '—'}
+                              </td>
+                              <td style={{ padding: '9px 13px' }}>
+                                <button
+                                  disabled={saving}
+                                  onClick={() => openEnquiryDetail(enq)}
+                                  style={{ fontSize: 12, fontWeight: 700, padding: '5px 11px', borderRadius: 8, background: '#EEF4FF', border: 'none', color: '#1A2744', cursor: 'pointer' }}
+                                >
+                                  Open →
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+            </div>
+          ) : null}
+
         </div>
       </section>
       <CreateListingModal
@@ -3057,6 +3287,174 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
 
       <Footer onNavigate={onNavigate} />
 
+      {/* ── Partner enquiry detail modal ─────────────────────── */}
+      {selectedEnquiry && (() => {
+        const enq = selectedEnquiry;
+        const s = PE_STATUS[enq.admin_status || 'new'] || PE_STATUS.new;
+        const saving = savingEnquiryId === enq.id;
+        const STATUS_FLOW = ['new', 'reviewing', 'approved', 'rejected', 'converted'];
+        const Field = ({ label, value }) => value ? (
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'rgba(26,39,68,0.44)', marginBottom: 2 }}>{label}</div>
+            <div style={{ fontSize: 13.5, color: '#1A2744', lineHeight: 1.55 }}>{value}</div>
+          </div>
+        ) : null;
+        return (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'rgba(15,23,42,0.55)', display: 'grid', placeItems: 'center', padding: 16 }} onClick={e => { if (e.target === e.currentTarget) closeEnquiryDetail(); }}>
+            <div style={{ background: 'white', borderRadius: 22, width: '100%', maxWidth: 660, maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 40px 80px rgba(15,23,42,0.22)', position: 'relative' }}>
+              {/* Header strip */}
+              <div style={{ padding: '18px 22px 16px', borderBottom: '1px solid #EEF1F7', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, position: 'sticky', top: 0, background: 'white', zIndex: 1, borderRadius: '22px 22px 0 0' }}>
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#1A2744', lineHeight: 1.2 }}>{enq.organisation_name}</div>
+                  <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.55)', marginTop: 3 }}>{enq.contact_name} · {enq.email}</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 999, background: s.bg, color: s.color }}>{s.label}</span>
+                  <button onClick={closeEnquiryDetail} style={{ width: 32, height: 32, borderRadius: 999, border: '1px solid #EFF1F7', background: '#FAFBFF', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
+                    <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#1A2744" strokeWidth={2.5} strokeLinecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ padding: '18px 22px 24px', display: 'grid', gap: 18 }}>
+
+                {/* Status workflow */}
+                <div style={{ padding: '14px 16px', borderRadius: 14, background: '#F8FAFD', border: '1px solid #E8EEF8' }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.50)', marginBottom: 10 }}>Status workflow</div>
+                  <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+                    {STATUS_FLOW.map(st => {
+                      const cfg = PE_STATUS[st];
+                      const isCurrent = (enq.admin_status || 'new') === st;
+                      return (
+                        <button
+                          key={st}
+                          disabled={saving || isCurrent}
+                          onClick={() => updateEnquiryStatus(enq.id, st)}
+                          style={{ fontSize: 12, fontWeight: 700, padding: '6px 13px', borderRadius: 999, cursor: isCurrent ? 'default' : 'pointer', background: isCurrent ? cfg.bg : 'rgba(26,39,68,0.05)', color: isCurrent ? cfg.color : 'rgba(26,39,68,0.60)', border: isCurrent ? `1.5px solid ${cfg.color}44` : '1px solid rgba(26,39,68,0.12)', transition: 'all .13s', opacity: saving ? 0.6 : 1 }}
+                          onMouseEnter={e => { if (!isCurrent) { e.currentTarget.style.background = cfg.bg; e.currentTarget.style.color = cfg.color; } }}
+                          onMouseLeave={e => { if (!isCurrent) { e.currentTarget.style.background = 'rgba(26,39,68,0.05)'; e.currentTarget.style.color = 'rgba(26,39,68,0.60)'; } }}
+                        >
+                          {cfg.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Organisation details */}
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#F5A623', marginBottom: 12 }}>1 — Organisation</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
+                    <Field label="Org name"       value={enq.organisation_name} />
+                    <Field label="Contact"        value={enq.contact_name} />
+                    <Field label="Email"          value={enq.email} />
+                    <Field label="Phone"          value={enq.phone} />
+                    <Field label="Website"        value={enq.website} />
+                    <Field label="Business type"  value={enq.business_type} />
+                  </div>
+                </div>
+
+                {/* Promotion details */}
+                <div style={{ paddingTop: 14, borderTop: '1px solid #EEF1F7' }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#F5A623', marginBottom: 12 }}>2 — Offer / Promotion</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
+                    <Field label="Promotion type"   value={enq.promotion_type || enq.advertising_interest} />
+                    <Field label="Offer category"   value={enq.offer_category} />
+                    <Field label="Offer title"      value={enq.offer_title} />
+                    <Field label="Call to action"   value={enq.call_to_action} />
+                  </div>
+                  <Field label="Offer description" value={enq.offer_description} />
+                </div>
+
+                {/* Placement preferences */}
+                <div style={{ paddingTop: 14, borderTop: '1px solid #EEF1F7' }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#F5A623', marginBottom: 12 }}>3 — Placement</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
+                    <Field label="Preferred placement" value={enq.preferred_placement} />
+                    <Field label="Target county"       value={enq.target_county || enq.county} />
+                    <Field label="Target area"         value={enq.target_area} />
+                  </div>
+                </div>
+
+                {/* Assets */}
+                {(enq.logo_url || enq.image_url) && (
+                  <div style={{ paddingTop: 14, borderTop: '1px solid #EEF1F7' }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#F5A623', marginBottom: 12 }}>4 — Assets</div>
+                    <Field label="Logo URL"  value={enq.logo_url} />
+                    <Field label="Image URL" value={enq.image_url} />
+                  </div>
+                )}
+
+                {/* Notes */}
+                {enq.description && (
+                  <div style={{ paddingTop: 14, borderTop: '1px solid #EEF1F7' }}>
+                    <Field label="Submitted notes" value={enq.description} />
+                  </div>
+                )}
+
+                {/* Admin conversion notes */}
+                <div style={{ paddingTop: 14, borderTop: '1px solid #EEF1F7' }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.50)', marginBottom: 8 }}>Admin conversion notes</div>
+                  <textarea
+                    value={enquiryNotesDraft}
+                    onChange={e => setEnquiryNotesDraft(e.target.value)}
+                    placeholder="Notes for conversion — not visible to the submitter."
+                    rows={3}
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 10, border: '1px solid #E0E7F0', background: '#FAFBFF', fontSize: 13.5, color: '#1A2744', fontFamily: 'Inter, sans-serif', resize: 'vertical', outline: 'none' }}
+                  />
+                  <button
+                    onClick={() => saveEnquiryNotes(enq.id, enquiryNotesDraft)}
+                    disabled={saving}
+                    style={{ marginTop: 8, fontSize: 13, fontWeight: 700, padding: '7px 16px', borderRadius: 9, background: '#EEF4FF', border: 'none', color: '#1A2744', cursor: 'pointer' }}
+                  >
+                    {saving ? 'Saving…' : 'Save notes'}
+                  </button>
+                </div>
+
+                {/* Profile-ready toggle */}
+                <div style={{ paddingTop: 14, borderTop: '1px solid #EEF1F7', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1A2744' }}>Profile-ready flag</div>
+                    <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.52)', marginTop: 2 }}>Mark when this enquiry has enough data for conversion. Does not publish anything.</div>
+                  </div>
+                  <button
+                    onClick={() => setEnquiryProfileReady(enq.id, !enq.public_profile_ready)}
+                    disabled={saving}
+                    style={{ fontSize: 13, fontWeight: 800, padding: '8px 16px', borderRadius: 10, cursor: 'pointer', background: enq.public_profile_ready ? 'rgba(22,163,74,0.10)' : 'rgba(26,39,68,0.06)', color: enq.public_profile_ready ? '#16A34A' : 'rgba(26,39,68,0.55)', border: enq.public_profile_ready ? '1.5px solid rgba(22,163,74,0.30)' : '1px solid rgba(26,39,68,0.14)', transition: 'all .14s' }}
+                  >
+                    {enq.public_profile_ready ? '✓ Profile-ready' : 'Mark profile-ready'}
+                  </button>
+                </div>
+
+                {/* Conversion actions */}
+                <div style={{ paddingTop: 14, borderTop: '1px solid #EEF1F7' }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.50)', marginBottom: 12 }}>Conversion actions</div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    {/* Active: Convert to profile */}
+                    <button
+                      onClick={() => openProfileFromEnquiry(enq)}
+                      style={{ fontSize: 13, fontWeight: 700, padding: '9px 16px', borderRadius: 10, background: 'linear-gradient(135deg, #1A2744, #2D3E6B)', color: '#FFFFFF', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, transition: 'opacity .14s' }}
+                      onMouseEnter={e => { e.currentTarget.style.opacity = '0.85'; }}
+                      onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+                    >
+                      Convert to profile →
+                    </button>
+                    {/* Placeholders — coming next */}
+                    {['Push to Activities ad slot', 'Push to For You offer', 'Mark as county sponsor'].map(label => (
+                      <button key={label} disabled style={{ fontSize: 12, fontWeight: 600, padding: '7px 13px', borderRadius: 9, background: 'rgba(26,39,68,0.04)', border: '1px solid rgba(26,39,68,0.10)', color: 'rgba(26,39,68,0.30)', cursor: 'not-allowed' }}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ marginTop: 8, fontSize: 11.5, color: 'rgba(26,39,68,0.38)', fontStyle: 'italic' }}>Other conversion actions coming in the next build phase.</div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── Profile action modals ────────────────────────────── */}
       {profileModal && (() => {
         const { type, profile } = profileModal;
@@ -3102,6 +3500,16 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
               <h2 style={{ fontSize: 22, fontWeight: 800, color: '#1A2744', marginBottom: 20 }}>
                 {profile?.id ? 'Edit Organisation Profile' : 'New Organisation Profile'}
               </h2>
+              {convertingEnquiryId && (
+                <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 12, background: 'rgba(245,166,35,0.07)', border: '1px solid rgba(245,166,35,0.22)', fontSize: 13, color: '#92400E', fontWeight: 600 }}>
+                  Profile draft prepared from partner enquiry. Review all fields before saving — nothing is published automatically.
+                </div>
+              )}
+              {enquiryConversionDupWarn && (
+                <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 12, background: 'rgba(220,38,38,0.05)', border: '1px solid rgba(220,38,38,0.18)', fontSize: 13, color: '#B91C1C', fontWeight: 600 }}>
+                  ⚠ Possible duplicate: an existing profile matches "{enquiryConversionDupWarn}". Check the Organisations tab before saving.
+                </div>
+              )}
               {error && <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 12, background: 'rgba(244,97,58,0.06)', border: '1px solid rgba(244,97,58,0.2)', color: '#A03A2D', fontSize: 13.5, fontWeight: 600 }}>{error}</div>}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
                 <input value={profileDraft.organisation_name} onChange={(e) => setProfileDraft((p) => ({ ...p, organisation_name: e.target.value }))} placeholder="Organisation name *" style={fld} />

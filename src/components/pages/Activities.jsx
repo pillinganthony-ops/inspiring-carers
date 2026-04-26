@@ -10,6 +10,10 @@ import Nav from '../Nav.jsx';
 import Footer from '../Footer.jsx';
 import Icons from '../Icons.jsx';
 import supabase, { isSupabaseConfigured } from '../../lib/supabaseClient.js';
+import {
+  Crown, MapPin as LMapPin, Ticket, Gift, Coffee, HeartHandshake,
+  Waves, Accessibility, HeartPulse, TicketPercent, Tag, Trophy, Users as LUsers,
+} from 'lucide-react';
 
 const { IWalks, IGroups, IWellbeing, IArrow, ISparkle, ISearch, IPin } = Icons;
 
@@ -284,12 +288,12 @@ const WALK_BY_POSTCODE = walksData.reduce((acc, w) => {
 }, {});
 
 const POPULAR_CHIPS = [
-  { label: 'Free activities',    sub: 'No cost',       icon: '🆓', type: '',           cost: 'free',       access: '' },
-  { label: 'Accessible places',  sub: 'Easy access',   icon: '♿', type: '',           cost: '',           access: 'low-mobility' },
-  { label: 'Coastal walks',      sub: 'Scenic routes', icon: '🌊', type: 'walks',      cost: '',           access: '' },
-  { label: 'Family days out',    sub: 'All ages',      icon: '👨‍👩‍👧', type: 'days-out',   cost: '',           access: '' },
-  { label: 'Wellbeing sessions', sub: 'Mind & body',   icon: '🧘', type: 'wellbeing',  cost: '',           access: '' },
-  { label: 'Carer discounts',    sub: 'Save money',    icon: '🏷️', type: 'discounts',  cost: 'discounted', access: '' },
+  { label: 'Free activities',    sub: 'No cost',       Icon: Tag,           color: '#0D9488', type: '',           cost: 'free',       access: '' },
+  { label: 'Accessible places',  sub: 'Easy access',   Icon: Accessibility, color: '#7B5CF5', type: '',           cost: '',           access: 'low-mobility' },
+  { label: 'Coastal walks',      sub: 'Scenic routes', Icon: Waves,         color: '#2D9CDB', type: 'walks',      cost: '',           access: '' },
+  { label: 'Family days out',    sub: 'All ages',      Icon: LUsers,        color: '#F5A623', type: 'days-out',   cost: '',           access: '' },
+  { label: 'Wellbeing sessions', sub: 'Mind & body',   Icon: HeartPulse,    color: '#E11D48', type: 'wellbeing',  cost: '',           access: '' },
+  { label: 'Carer discounts',    sub: 'Save money',    Icon: TicketPercent, color: '#5BC94A', type: 'discounts',  cost: 'discounted', access: '' },
 ];
 
 // Hero featured preview cards — walk routes to walks, others are info-only (no navigation)
@@ -299,24 +303,250 @@ const HERO_FEATURED = [
   { title: 'Accessible day out',      type: 'Day Out', tag: 'Discounted · Booking', grad: 'linear-gradient(135deg, #FDE8C4 0%, #F8D4A0 100%)', accent: '#B45309', dest: 'places-to-visit' },
 ];
 
+// ── Editorial card header — layered gradient + icon + metadata overlay ──────────
+// Used in featured activity cards. Replaces flat colour blocks with intentional
+// visual panels without requiring real photography.
+
+const ActivityCardHeader = ({ grad, Icon, label, accent, location }) => (
+  <div style={{
+    height: 106, background: grad,
+    position: 'relative', overflow: 'hidden',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  }}>
+    {/* Radial depth highlights */}
+    <div style={{ position: 'absolute', top: -24, right: -16, width: 130, height: 130, borderRadius: '50%', background: 'rgba(255,255,255,0.14)', pointerEvents: 'none' }} />
+    <div style={{ position: 'absolute', bottom: -36, left: -6, width: 100, height: 100, borderRadius: '50%', background: 'rgba(255,255,255,0.09)', pointerEvents: 'none' }} />
+    {/* Central icon badge */}
+    <div style={{ width: 50, height: 50, borderRadius: 16, background: 'rgba(255,255,255,0.30)', backdropFilter: 'blur(4px)', display: 'grid', placeItems: 'center', position: 'relative', zIndex: 1, boxShadow: '0 2px 10px rgba(0,0,0,0.10)' }}>
+      <Icon size={24} color={accent} strokeWidth={1.7} />
+    </div>
+    {/* Bottom overlay: category tag + location */}
+    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 12px 10px' }}>
+      <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.05em', color: accent, background: 'rgba(255,255,255,0.90)', padding: '2px 10px', borderRadius: 999, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+        {label}
+      </span>
+      <span style={{ fontSize: 10.5, color: 'rgba(26,39,68,0.55)', background: 'rgba(255,255,255,0.80)', padding: '2px 8px', borderRadius: 999, display: 'flex', alignItems: 'center', gap: 3 }}>
+        <LMapPin size={9} color="rgba(26,39,68,0.40)" strokeWidth={2.5} /> {location}
+      </span>
+    </div>
+  </div>
+);
+
+// ── Featured Partners panel (hero right slot — paid ad inventory) ─────────────
+
+const FEATURED_PARTNERS = [
+  {
+    id: 'fp-1',
+    name: 'Harbour Wellness Spa',
+    category: 'Wellness & relaxation',
+    offer: 'Exclusive carer relaxation offer',
+    detail: '25% off all treatments for Inspiring Carers card holders. Show your card at reception.',
+    location: 'St Ives, Cornwall',
+    badge: 'Wellness partner',
+    color: '#0D9488',
+    iconBg: 'rgba(13,148,136,0.12)',
+    offerBg: 'rgba(13,148,136,0.09)',
+    Icon: Gift,
+    isCTA: false,
+  },
+  {
+    id: 'fp-2',
+    name: 'Coastal Adventure Park',
+    category: 'Family days out',
+    offer: 'Accessible family day discounts',
+    detail: 'Carer goes free with any full-price adult ticket. Book online with code CARER24.',
+    location: 'Newquay, Cornwall',
+    badge: 'Featured attraction',
+    color: '#7B5CF5',
+    iconBg: 'rgba(123,92,245,0.12)',
+    offerBg: 'rgba(123,92,245,0.09)',
+    Icon: Ticket,
+    isCTA: false,
+  },
+  {
+    id: 'fp-3',
+    name: 'Bloom Café Collective',
+    category: 'Food & drink',
+    offer: 'Free drink upgrades for carers',
+    detail: 'Show your Inspiring Carers card at any Bloom Café location for a free size upgrade.',
+    location: 'Multiple locations',
+    badge: 'Carer discount',
+    color: '#D97706',
+    iconBg: 'rgba(217,119,6,0.12)',
+    offerBg: 'rgba(217,119,6,0.09)',
+    Icon: Coffee,
+    isCTA: false,
+  },
+  {
+    id: 'fp-4',
+    name: 'County sponsor space',
+    category: 'County sponsorship',
+    offer: 'Your brand supporting carers',
+    detail: 'Become the exclusive county partner. Reach carers searching for local activities across the region.',
+    location: 'Your county',
+    badge: 'Available now',
+    color: '#F5A623',
+    iconBg: 'rgba(245,166,35,0.12)',
+    offerBg: 'rgba(245,166,35,0.09)',
+    Icon: Crown,
+    isCTA: true,
+  },
+];
+
+const FeaturedPartnersPanel = ({ onNavigate }) => {
+  const [active, setActive] = React.useState(0);
+  const len = FEATURED_PARTNERS.length;
+
+  React.useEffect(() => {
+    const t = setInterval(() => setActive(a => (a + 1) % len), 4500);
+    return () => clearInterval(t);
+  }, [len]);
+
+  const p = FEATURED_PARTNERS[active];
+
+  return (
+    <div style={{
+      background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(18px)',
+      borderRadius: 24, padding: '24px 22px 20px',
+      border: '1px solid rgba(255,255,255,0.11)',
+      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)',
+      display: 'flex', flexDirection: 'column',
+    }}>
+      {/* Section header */}
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7 }}>
+          <Crown size={12} color="#FFD580" strokeWidth={2} />
+          <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#FFD580' }}>
+            Featured partners
+          </span>
+          <span style={{ marginLeft: 'auto', fontSize: 9.5, fontWeight: 600, color: 'rgba(255,255,255,0.28)', padding: '1px 7px', borderRadius: 999, border: '1px solid rgba(255,255,255,0.10)' }}>
+            Demo
+          </span>
+        </div>
+        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.48)', lineHeight: 1.6, margin: '0 0 6px' }}>
+          Promote activities, offers and carer-friendly experiences to a values-led audience.
+        </p>
+        <p style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.24)', margin: 0, fontStyle: 'italic' }}>
+          Demo placements — preview of future paid inventory.
+        </p>
+      </div>
+
+      {/* Active partner card */}
+      <div style={{
+        borderRadius: 18, background: '#FFFFFF',
+        boxShadow: '0 8px 28px rgba(0,0,0,0.13)',
+        marginBottom: 14, overflow: 'hidden', flexShrink: 0,
+      }}>
+        <div style={{ height: 3, background: `linear-gradient(90deg, ${p.color}, ${p.color}66)` }} />
+        <div style={{ padding: '18px 18px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+          {/* Identity */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 44, height: 44, borderRadius: 14, background: p.iconBg, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+              <p.Icon size={20} color={p.color} strokeWidth={1.75} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14.5, fontWeight: 800, color: '#1A2744', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+              <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.44)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 3 }}>
+                <LMapPin size={10} color="rgba(26,39,68,0.32)" strokeWidth={2} /> {p.location}
+              </div>
+            </div>
+            <span style={{ fontSize: 9.5, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: p.iconBg, color: p.color, flexShrink: 0 }}>
+              {p.isCTA ? 'Open' : 'Demo'}
+            </span>
+          </div>
+
+          {/* Offer */}
+          <div>
+            <div style={{ fontSize: 16.5, fontWeight: 800, color: '#1A2744', lineHeight: 1.25, marginBottom: 6, letterSpacing: '-0.01em' }}>{p.offer}</div>
+            <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.52)', lineHeight: 1.6 }}>{p.detail}</div>
+          </div>
+
+          {/* CTA */}
+          <button
+            onClick={() => p.isCTA ? onNavigate('business') : undefined}
+            style={{
+              width: '100%', padding: '10px 14px', borderRadius: 10,
+              background: p.isCTA ? 'linear-gradient(135deg, #F5A623, #D4AF37)' : `${p.color}12`,
+              border: p.isCTA ? 'none' : `1px solid ${p.color}20`,
+              color: p.isCTA ? '#0F172A' : p.color,
+              fontWeight: 800, fontSize: 13.5, cursor: p.isCTA ? 'pointer' : 'default',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              transition: 'opacity .14s',
+            }}
+            onMouseEnter={e => { if (p.isCTA) e.currentTarget.style.opacity = '0.88'; }}
+            onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+          >
+            {p.isCTA
+              ? <><Crown size={13} /> Become a partner</>
+              : <><HeartHandshake size={13} /> View offer</>
+            }
+          </button>
+        </div>
+      </div>
+
+      {/* Dot indicators */}
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 7, marginBottom: 14 }}>
+        {FEATURED_PARTNERS.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => setActive(i)}
+            aria-label={`Show partner ${i + 1}`}
+            style={{
+              width: i === active ? 22 : 7, height: 7, borderRadius: 999,
+              background: i === active ? '#F5A623' : 'rgba(255,255,255,0.25)',
+              border: 'none', padding: 0, cursor: 'pointer',
+              transition: 'all .28s ease',
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Footer CTAs */}
+      <div style={{ paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.09)', display: 'flex', gap: 8 }}>
+        <button
+          onClick={() => onNavigate('advertise')}
+          style={{ flex: 1, padding: '9px 14px', borderRadius: 11, background: 'rgba(245,166,35,0.16)', border: '1px solid rgba(245,166,35,0.28)', color: '#FFD580', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, transition: 'background .14s' }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(245,166,35,0.26)'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(245,166,35,0.16)'; }}
+        >
+          Advertise with us <IArrow s={11} />
+        </button>
+        <button
+          onClick={() => onNavigate('advertise')}
+          style={{ padding: '9px 13px', borderRadius: 11, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.11)', color: 'rgba(255,255,255,0.60)', fontWeight: 600, fontSize: 12, cursor: 'pointer', transition: 'background .14s', whiteSpace: 'nowrap' }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.13)'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; }}
+        >
+          View options
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // ── Shared style ──────────────────────────────────────────────────────────────
 
 const iStyle = {
-  padding: '10px 14px', borderRadius: 12, border: '1px solid #E9EEF5',
-  background: '#FAFBFF', fontSize: 13.5, color: '#1A2744',
+  padding: '10px 14px', borderRadius: 12,
+  border: '1px solid #DDE5F0',
+  background: '#F8FAFD',
+  fontSize: 13.5, color: '#1A2744',
   fontFamily: 'Inter, sans-serif', flex: '1 1 140px', minWidth: 0,
   cursor: 'pointer', appearance: 'auto',
+  boxShadow: '0 1px 3px rgba(26,39,68,0.05)',
 };
 
 // Inputs inside the dark hero panel
 const heroInputStyle = {
-  padding: '10px 14px', borderRadius: 12,
-  border: '1px solid rgba(26,39,68,0.12)',
-  background: 'rgba(255,255,255,0.95)',
-  fontSize: 13.5, color: '#1A2744',
+  padding: '12px 16px', borderRadius: 14,
+  border: '1px solid rgba(26,39,68,0.07)',
+  background: '#FFFFFF',
+  fontSize: 14, color: '#1A2744',
   fontFamily: 'Inter, sans-serif',
   width: '100%', cursor: 'pointer', appearance: 'auto',
   boxSizing: 'border-box',
+  boxShadow: '0 1px 4px rgba(26,39,68,0.07)',
 };
 
 // ── Activities map ────────────────────────────────────────────────────────────
@@ -1377,37 +1607,30 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
       <Nav activePage="activities" onNavigate={onNavigate} session={session} county={county} />
 
       {/* ── Hero — premium dark navy search hub ─────────────────── */}
-      <section style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(150deg, #0C1A35 0%, #162C52 50%, #1A3460 100%)', paddingTop: 36, paddingBottom: 36 }}>
+      <section style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(150deg, #0C1A35 0%, #162C52 50%, #1A3460 100%)', paddingTop: 56, paddingBottom: 60 }}>
         <div style={{ position: 'absolute', top: -80, right: -80, width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle, rgba(91,201,74,0.10) 0%, transparent 65%)', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', bottom: -60, left: '30%', width: 360, height: 360, borderRadius: '50%', background: 'radial-gradient(circle, rgba(245,166,35,0.07) 0%, transparent 65%)', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', top: '20%', left: -60, width: 280, height: 280, borderRadius: '50%', background: 'radial-gradient(circle, rgba(45,156,219,0.08) 0%, transparent 65%)', pointerEvents: 'none' }} />
 
         <div className="container" style={{ position: 'relative' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 28, alignItems: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 48, alignItems: 'center' }}>
 
             {/* Left — headline + search panel */}
             <div>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 999, background: 'rgba(91,201,74,0.15)', border: '1px solid rgba(91,201,74,0.28)', fontSize: 11, fontWeight: 800, color: '#78E060', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 14px', borderRadius: 999, background: 'rgba(91,201,74,0.11)', border: '1px solid rgba(91,201,74,0.20)', fontSize: 11.5, fontWeight: 600, color: 'rgba(130,230,110,0.88)', letterSpacing: '0.02em', marginBottom: 20 }}>
                 Activities · UK Discovery Hub
               </div>
-              <h1 style={{ fontSize: 'clamp(24px, 4vw, 44px)', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.03em', lineHeight: 1.06, margin: '0 0 10px', textWrap: 'balance' }}>
-                Explore activities, walks and days out
+              <h1 style={{ fontSize: 'clamp(28px, 4.5vw, 54px)', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.04em', lineHeight: 1.02, margin: '0 0 18px', textWrap: 'balance' }}>
+                Explore activities,<br />walks and days out
               </h1>
-              <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.68)', lineHeight: 1.6, margin: '0 0 12px', maxWidth: 460 }}>
-                Find carer-friendly walks, groups, wellbeing sessions, attractions, days out and local offers across the UK. Choose a county to start exploring.
+              <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.58)', lineHeight: 1.75, margin: '0 0 26px', maxWidth: 400 }}>
+                Find carer-friendly walks, groups, wellbeing sessions, attractions, days out and local offers across the UK.
               </p>
 
-              {/* Selected county status pill */}
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 14px', borderRadius: 999, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.16)', fontSize: 12.5, fontWeight: 600, color: 'rgba(255,255,255,0.82)', marginBottom: 14 }}>
-                <span style={{ width: 7, height: 7, borderRadius: '50%', background: localCounty ? '#5BC94A' : 'rgba(255,255,255,0.30)', display: 'inline-block', flexShrink: 0 }} />
-                {localCounty ? `Selected county: ${countyLabel}` : 'Select a county to explore'}
-                {localCounty && <button onClick={() => setLocalCounty('')} style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.45)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginLeft: 2 }}>✕</button>}
-              </div>
-
               {/* Inline search + filter card */}
-              <div style={{ background: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(12px)', borderRadius: 20, padding: '14px 16px', border: '1px solid rgba(255,255,255,0.12)', marginBottom: 16 }}>
-                <div style={{ display: 'grid', gap: 9 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
+              <div style={{ background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(18px)', borderRadius: 24, padding: '18px 18px', border: '1px solid rgba(255,255,255,0.14)', marginBottom: 22, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)' }}>
+                <div style={{ display: 'grid', gap: 10 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                     <select value={localCounty} onChange={handleCountyChange} style={{ ...heroInputStyle, fontWeight: 700 }} aria-label="Select county">
                       {COUNTY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
@@ -1416,126 +1639,53 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
                     </select>
                   </div>
                   <div style={{ position: 'relative' }}>
-                    <input type="text" value={areaSearch} onChange={(e) => setAreaSearch(e.target.value)} placeholder="Search by town, activity or place…" style={{ ...heroInputStyle, paddingLeft: 34 }} />
-                    <span style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'rgba(26,39,68,0.38)', display: 'flex', pointerEvents: 'none' }}><ISearch s={14} /></span>
+                    <input type="text" value={areaSearch} onChange={(e) => setAreaSearch(e.target.value)} placeholder="Search by town, activity or place…" style={{ ...heroInputStyle, paddingLeft: 36 }} />
+                    <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'rgba(26,39,68,0.36)', display: 'flex', pointerEvents: 'none' }}><ISearch s={14} /></span>
                   </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button className="btn btn-gold" onClick={() => document.getElementById('act-map')?.scrollIntoView({ behavior: 'smooth' })} style={{ flex: 1, justifyContent: 'center', fontSize: 14 }}>
-                      <IPin s={13} /> Explore map
+                  <div style={{ display: 'flex', gap: 9 }}>
+                    <button
+                      className="btn btn-gold"
+                      onClick={() => document.getElementById('act-map')?.scrollIntoView({ behavior: 'smooth' })}
+                      style={{ flex: 1, justifyContent: 'center', fontSize: 15, fontWeight: 800, padding: '13px 20px', letterSpacing: '-0.01em' }}
+                    >
+                      Explore map
                     </button>
-                    <button onClick={() => onNavigate('find-help')} style={{ padding: '10px 16px', borderRadius: 12, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
-                      <ISparkle s={13} /> Suggest an activity
+                    <button
+                      onClick={() => onNavigate('find-help')}
+                      style={{ padding: '13px 18px', borderRadius: 14, background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.17)', color: 'rgba(255,255,255,0.82)', fontWeight: 600, fontSize: 13.5, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', transition: 'background .14s' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.16)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.09)'; }}
+                    >
+                      Suggest an activity
                     </button>
                   </div>
                 </div>
               </div>
 
-              {/* Stats row */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.10)' }}>
-                {[{ n: '333+', l: 'Walks' }, { n: '6', l: 'Counties' }, { n: '100+', l: 'Places' }, { n: 'Free', l: 'To browse' }].map(({ n, l }, i) => (
-                  <div key={l} style={{ paddingRight: 18, paddingLeft: i > 0 ? 18 : 0, borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.10)' : 'none' }}>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: '#FFFFFF', lineHeight: 1 }}>{n}</div>
-                    <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.44)', fontWeight: 600, marginTop: 3 }}>{l}</div>
-                  </div>
+              {/* Stats — quiet inline strip with dot separators */}
+              <div style={{ paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexWrap: 'wrap', alignItems: 'center' }}>
+                {[['333+', 'walks'], ['6', 'counties'], ['100+', 'places'], ['Free', 'to browse']].map(([n, l], i) => (
+                  <React.Fragment key={l}>
+                    {i > 0 && <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'rgba(255,255,255,0.18)', display: 'inline-block', margin: '0 14px 1px', flexShrink: 0 }} />}
+                    <span style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.40)' }}>
+                      <strong style={{ fontWeight: 700, color: 'rgba(255,255,255,0.72)' }}>{n}</strong> {l}
+                    </span>
+                  </React.Fragment>
                 ))}
               </div>
             </div>
 
-            {/* Right — activity discovery panel */}
-            <div style={{ background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(10px)', borderRadius: 22, padding: 16, border: '1px solid rgba(255,255,255,0.12)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                <div style={{ fontSize: 13, fontWeight: 800, color: 'rgba(255,255,255,0.90)' }}>Activity discovery map</div>
-                <button onClick={() => document.getElementById('act-map')?.scrollIntoView({ behavior: 'smooth' })} style={{ fontSize: 11.5, fontWeight: 700, color: '#5BC94A', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                  View map →
-                </button>
-              </div>
-
-              {/* Category chips — clickable, navigate to county-specific pages */}
-              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 16 }}>
-                {[
-                  { label: 'Walks',       color: '#5BC94A', bg: 'rgba(91,201,74,0.18)',  dest: 'walks'          },
-                  { label: 'Days Out',    color: '#F5A623', bg: 'rgba(245,166,35,0.18)', dest: 'places-to-visit' },
-                  { label: 'Attractions', color: '#7B5CF5', bg: 'rgba(123,92,245,0.18)', dest: 'places-to-visit' },
-                  { label: 'Wellbeing',   color: '#0D9488', bg: 'rgba(13,148,136,0.18)', dest: 'wellbeing'       },
-                  { label: 'Groups',      color: '#2D9CDB', bg: 'rgba(45,156,219,0.18)', dest: 'groups'          },
-                  { label: 'Discounts',   color: '#10B981', bg: 'rgba(16,185,129,0.18)', dest: null             },
-                ].map((chip) => {
-                  const chipNav = chip.dest === 'walks'
-                    ? () => goToWalks(localCounty)
-                    : chip.dest ? () => onNavigate(chip.dest, localCounty || COUNTY_DEFAULT) : null;
-                  return (
-                    <span key={chip.label}
-                      onClick={chipNav || undefined}
-                      style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: chip.bg, color: chip.color, border: `1px solid ${chip.color}44`, cursor: chipNav ? 'pointer' : 'default', transition: 'opacity .12s' }}
-                      onMouseEnter={chipNav ? (e) => { e.currentTarget.style.opacity = '0.80'; } : undefined}
-                      onMouseLeave={chipNav ? (e) => { e.currentTarget.style.opacity = '1'; } : undefined}
-                    >
-                      {chip.label}
-                    </span>
-                  );
-                })}
-              </div>
-
-              {/* Featured preview cards — richer mini cards */}
-              <div style={{ display: 'grid', gap: 8 }}>
-                {HERO_FEATURED.map((item) => {
-                  const itemClick = item.dest === 'walks'
-                    ? () => goToWalks(localCounty)
-                    : item.dest ? () => onNavigate(item.dest, localCounty || COUNTY_DEFAULT) : undefined;
-                  return (
-                    <div key={item.title}
-                      onClick={itemClick}
-                      style={{ borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.12)', cursor: item.dest ? 'pointer' : 'default', transition: 'box-shadow .15s, transform .15s' }}
-                      onMouseEnter={item.dest ? (e) => { e.currentTarget.style.boxShadow = '0 8px 22px rgba(0,0,0,0.28)'; e.currentTarget.style.transform = 'translateY(-1px)'; } : undefined}
-                      onMouseLeave={item.dest ? (e) => { e.currentTarget.style.boxShadow = ''; e.currentTarget.style.transform = ''; } : undefined}
-                    >
-                      {/* Gradient strip with category badge */}
-                      <div style={{ height: 36, background: item.grad, display: 'flex', alignItems: 'center', padding: '0 10px', gap: 7 }}>
-                        <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '2px 8px', borderRadius: 999, background: 'rgba(255,255,255,0.85)', color: item.accent }}>
-                          {item.type}
-                        </span>
-                        {item.dest && (
-                          <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.75)', marginLeft: 'auto' }}>Live now</span>
-                        )}
-                      </div>
-                      <div style={{ padding: '9px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.05)' }}>
-                        <div>
-                          <div style={{ fontSize: 12.5, fontWeight: 700, color: 'rgba(255,255,255,0.90)', marginBottom: 2 }}>{item.title}</div>
-                          <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.48)' }}>{item.tag}</div>
-                        </div>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: item.dest ? item.accent : 'rgba(255,255,255,0.26)', flexShrink: 0, whiteSpace: 'nowrap' }}>
-                          {item.dest ? 'Explore →' : 'Details coming soon'}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.10)', textAlign: 'center' }}>
-                {localCounty ? (
-                  <button
-                    onClick={() => onNavigate('activities', localCounty)}
-                    style={{ fontSize: 12.5, fontWeight: 700, color: '#FFFFFF', background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.18)', padding: '7px 14px', borderRadius: 10, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, transition: 'background .13s' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.18)'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.10)'; }}
-                  >
-                    Browse all {countyLabel} activities <IArrow s={11} />
-                  </button>
-                ) : (
-                  <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.40)' }}>More activities being added weekly</span>
-                )}
-              </div>
-            </div>
+            {/* Right — Featured Partners panel (paid ad inventory) */}
+            <FeaturedPartnersPanel onNavigate={onNavigate} />
 
           </div>
         </div>
       </section>
 
       {/* ── Filters ──────────────────────────────────────────────── */}
-      <section id="act-filters" style={{ background: '#FFFFFF', borderBottom: '1px solid #EEF1F7', paddingTop: 14, paddingBottom: 14, position: 'sticky', top: 72, zIndex: 40 }}>
+      <section id="act-filters" style={{ background: '#FFFFFF', borderBottom: '1px solid #E8EEF8', paddingTop: 11, paddingBottom: 11, position: 'sticky', top: 72, zIndex: 40, boxShadow: '0 2px 14px rgba(26,39,68,0.05)' }}>
         <div className="container">
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, alignItems: 'center' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
             <select value={localCounty} onChange={handleCountyChange} style={{ ...iStyle, fontWeight: 700, flex: '1 1 130px' }}>
               {COUNTY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
@@ -1557,7 +1707,7 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
       </section>
 
       {/* ── Discovery map — full width ───────────────────────────── */}
-      <section id="act-map" style={{ paddingTop: 36, paddingBottom: 32, background: '#FFFFFF' }}>
+      <section id="act-map" style={{ paddingTop: 52, paddingBottom: 52, background: '#FFFFFF' }}>
         <div className="container">
 
           {/* Compact map header */}
@@ -1597,69 +1747,127 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
       </section>
 
       {/* ── Featured activities below map ────────────────────────── */}
-      <section style={{ paddingTop: 28, paddingBottom: 36, background: '#FFFFFF', borderTop: '1px solid #F0F4FA' }}>
+      <section style={{ paddingTop: 56, paddingBottom: 64, background: '#FFFFFF', borderTop: '1px solid #EEF1F7' }}>
         <div className="container">
-          <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.40)', marginBottom: 14 }}>
-            {countyLabel ? `Featured in ${countyLabel}` : 'Featured activities'}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24, flexWrap: 'wrap', gap: 10 }}>
+            <div>
+              <div className="eyebrow" style={{ marginBottom: 6 }}>{countyLabel ? `Featured in ${countyLabel}` : 'Featured activities'}</div>
+              <h2 style={{ fontSize: 'clamp(20px, 2.6vw, 26px)', fontWeight: 800, color: '#1A2744', margin: 0 }}>Highlights worth exploring</h2>
+            </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
             {[
-              { title: 'Accessible coastal walk', type: 'walks',    location: 'St Ives',  tags: ['Wheelchair', 'Free'],   accent: '#5BC94A', grad: 'linear-gradient(135deg, #D8F0CC, #C4E8B4)', dest: () => goToWalks(localCounty) },
-              { title: 'Carer coffee morning',    type: 'groups',   location: 'Truro',    tags: ['All welcome', 'Free'],  accent: '#2D9CDB', grad: 'linear-gradient(135deg, #C8E4F8, #B4D8F4)', dest: null },
-              { title: 'Family-friendly day out', type: 'days-out', location: 'Falmouth', tags: ['Family', 'Free entry'], accent: '#F5A623', grad: 'linear-gradient(135deg, #FDE8C4, #FDDCA8)', dest: null },
-              { title: 'Wellbeing swim session',  type: 'wellbeing',location: 'Penzance', tags: ['Low mobility', 'Free'], accent: '#0D9488', grad: 'linear-gradient(135deg, #C7EDE8, #A8E2DC)', dest: () => onNavigate('wellbeing') },
+              { title: 'Accessible coastal walk',  type: 'walks',     location: 'St Ives',  desc: 'Rated trail with accessible paths and sea views.',           tags: ['Wheelchair', 'Free'],   accent: '#4DB83D', grad: 'linear-gradient(160deg, #C8EDBA 0%, #AEDEA0 100%)', Icon: Waves,      dest: () => goToWalks(localCounty) },
+              { title: 'Carer coffee morning',      type: 'groups',    location: 'Truro',    desc: 'A friendly weekly drop-in for local carers to connect.',     tags: ['All welcome', 'Free'],  accent: '#2588C4', grad: 'linear-gradient(160deg, #BDD9F0 0%, #A4CAE8 100%)', Icon: LUsers,     dest: null },
+              { title: 'Family-friendly day out',   type: 'days-out',  location: 'Falmouth', desc: 'Gardens, heritage and shoreline for all the family.',        tags: ['Family', 'Free entry'], accent: '#D4901E', grad: 'linear-gradient(160deg, #F8D88C 0%, #F0C870 100%)', Icon: Trophy,     dest: null },
+              { title: 'Wellbeing swim session',    type: 'wellbeing', location: 'Penzance', desc: 'Accessible sessions for carers — a mind and body reset.',    tags: ['Low mobility', 'Free'], accent: '#0A8077', grad: 'linear-gradient(160deg, #A8DED8 0%, #8CD0C8 100%)', Icon: HeartPulse, dest: () => onNavigate('wellbeing') },
             ].filter((c) => !activityType || c.type === activityType).map((card) => (
-              <div key={card.title} className="card" style={{ padding: 0, overflow: 'hidden', borderRadius: 16, borderLeft: `3px solid ${card.accent}` }}>
-                <div style={{ height: 24, background: card.grad }} />
-                <div style={{ padding: '11px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
-                      <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: card.accent }}>{ACTIVITY_TYPE_OPTIONS.find((o) => o.value === card.type)?.label || card.type}</span>
-                      <span style={{ fontSize: 10.5, color: 'rgba(26,39,68,0.40)' }}>· {card.location}</span>
-                    </div>
-                    <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1A2744', marginBottom: 5 }}>{card.title}</div>
-                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                      {card.tags.map((t) => <span key={t} style={{ fontSize: 10.5, fontWeight: 600, padding: '2px 7px', borderRadius: 5, background: `${card.accent}18`, color: card.accent }}>{t}</span>)}
-                    </div>
+              <div
+                key={card.title}
+                onClick={card.dest || undefined}
+                style={{
+                  padding: 0, overflow: 'hidden', borderRadius: 20,
+                  border: `1px solid ${card.accent}20`, background: '#FFFFFF',
+                  boxShadow: '0 2px 12px rgba(26,39,68,0.05)',
+                  cursor: card.dest ? 'pointer' : 'default',
+                  transition: 'transform .20s, box-shadow .20s',
+                  display: 'flex', flexDirection: 'column', minHeight: 290,
+                }}
+                onMouseEnter={card.dest ? e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = `0 16px 40px ${card.accent}22`; } : undefined}
+                onMouseLeave={card.dest ? e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 2px 12px rgba(26,39,68,0.05)'; } : undefined}
+              >
+                <ActivityCardHeader
+                  grad={card.grad}
+                  Icon={card.Icon}
+                  label={ACTIVITY_TYPE_OPTIONS.find((o) => o.value === card.type)?.label || card.type}
+                  accent={card.accent}
+                  location={card.location}
+                />
+                <div style={{ padding: '16px 18px 18px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 15.5, fontWeight: 800, color: '#1A2744', lineHeight: 1.28, marginBottom: 7 }}>{card.title}</div>
+                    <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.52)', lineHeight: 1.62, margin: 0 }}>{card.desc}</p>
                   </div>
-                  {card.dest
-                    ? <button onClick={card.dest} style={{ fontSize: 11.5, fontWeight: 700, color: card.accent, background: `${card.accent}14`, padding: '5px 10px', borderRadius: 7, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>View →</button>
-                    : <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(26,39,68,0.35)', flexShrink: 0, whiteSpace: 'nowrap' }}>Details coming soon</span>
-                  }
+                  <div style={{ paddingTop: 14, marginTop: 14, borderTop: '1px solid #F0F4FA' }}>
+                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 12 }}>
+                      {card.tags.map((t) => <span key={t} style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 6, background: `${card.accent}12`, color: card.accent }}>{t}</span>)}
+                    </div>
+                    {card.dest
+                      ? <button
+                          onClick={e => { e.stopPropagation(); card.dest(); }}
+                          style={{ fontSize: 13, fontWeight: 700, color: card.accent, background: 'transparent', padding: 0, border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, transition: 'opacity .14s' }}
+                          onMouseEnter={e => { e.currentTarget.style.opacity = '0.68'; }}
+                          onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+                        >
+                          Explore <IArrow s={12} />
+                        </button>
+                      : <span style={{ fontSize: 12, color: 'rgba(26,39,68,0.30)', fontStyle: 'italic' }}>Preview — added as partners join</span>
+                    }
+                  </div>
                 </div>
               </div>
             ))}
-            {/* Native sponsor slot */}
-            <div className="card" style={{ padding: '13px 16px', borderRadius: 14, border: '1px dashed rgba(245,166,35,0.35)', background: 'rgba(245,166,35,0.03)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-              <div>
-                <div style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'rgba(26,39,68,0.36)', marginBottom: 2 }}>Featured partner slot</div>
-                <div style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(26,39,68,0.55)' }}>Your venue or activity here.</div>
+            {/* Partner featured opportunity slot */}
+            <div style={{
+              padding: '24px 22px', borderRadius: 20, minHeight: 290,
+              border: '1.5px dashed rgba(245,166,35,0.36)',
+              background: 'linear-gradient(160deg, rgba(245,166,35,0.04) 0%, rgba(245,166,35,0.015) 100%)',
+              display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 14,
+            }}>
+              <div style={{ width: 44, height: 44, borderRadius: 14, background: 'rgba(245,166,35,0.12)', display: 'grid', placeItems: 'center' }}>
+                <Crown size={20} color="rgba(245,166,35,0.60)" strokeWidth={1.6} />
               </div>
-              <button onClick={() => onNavigate('login')} style={{ fontSize: 11, fontWeight: 700, color: '#B45309', background: 'rgba(245,166,35,0.10)', padding: '4px 10px', borderRadius: 7, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                Promote →
-              </button>
+              <div>
+                <div style={{ fontSize: 14.5, fontWeight: 800, color: '#1A2744', marginBottom: 6 }}>Featured partner opportunity</div>
+                <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.48)', lineHeight: 1.65, margin: 0 }}>Promote your venue, activity or carer-friendly offer to people actively exploring near them.</p>
+              </div>
+              <div>
+                <button
+                  onClick={() => onNavigate('advertise')}
+                  style={{ fontSize: 12.5, fontWeight: 700, color: '#92400E', background: 'rgba(245,166,35,0.12)', padding: '9px 18px', borderRadius: 10, border: '1px solid rgba(245,166,35,0.24)', cursor: 'pointer', transition: 'background .14s' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(245,166,35,0.22)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(245,166,35,0.12)'; }}
+                >
+                  Get in touch →
+                </button>
+
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       {/* ── Popular ways to explore ───────────────────────────────── */}
-      <section style={{ paddingTop: 44, paddingBottom: 44, background: 'linear-gradient(180deg, #F8FBFF 0%, #FFFFFF 100%)' }}>
+      <section style={{ paddingTop: 64, paddingBottom: 64, background: '#F7F9FC' }}>
         <div className="container">
-          <div style={{ marginBottom: 18 }}>
-            <div className="eyebrow" style={{ marginBottom: 5 }}>Quick filters</div>
-            <h2 style={{ fontSize: 'clamp(20px, 2.8vw, 26px)', fontWeight: 800, color: '#1A2744', margin: 0 }}>Popular ways to explore</h2>
+          <div style={{ marginBottom: 28 }}>
+            <div className="eyebrow" style={{ marginBottom: 7 }}>Quick filters</div>
+            <h2 style={{ fontSize: 'clamp(22px, 3vw, 28px)', fontWeight: 800, color: '#1A2744', margin: 0 }}>Popular ways to explore</h2>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(148px, 1fr))', gap: 9 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
             {POPULAR_CHIPS.map((chip) => {
               const active = chipIsActive(chip);
               const hov    = chipHov === chip.label;
               return (
-                <button key={chip.label} onClick={() => handleChip(chip)} onMouseEnter={() => setChipHov(chip.label)} onMouseLeave={() => setChipHov(null)}
-                  style={{ padding: '13px 13px 11px', borderRadius: 14, border: active ? '1.5px solid #F5A623' : `1px solid ${hov ? '#D8E4F0' : '#E9EEF5'}`, background: active ? 'rgba(245,166,35,0.07)' : hov ? 'rgba(26,39,68,0.02)' : '#FAFBFF', cursor: 'pointer', textAlign: 'left', transition: 'all .14s', boxShadow: active ? '0 3px 12px rgba(245,166,35,0.12)' : '0 1px 4px rgba(26,39,68,0.03)' }}>
-                  <div style={{ fontSize: 20, marginBottom: 5, lineHeight: 1 }}>{chip.icon}</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: active ? '#B45309' : '#1A2744', marginBottom: 2 }}>{chip.label}</div>
-                  <div style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.46)', fontWeight: 500 }}>{chip.sub}</div>
+                <button
+                  key={chip.label}
+                  onClick={() => handleChip(chip)}
+                  onMouseEnter={() => setChipHov(chip.label)}
+                  onMouseLeave={() => setChipHov(null)}
+                  style={{
+                    padding: '18px 16px 16px', borderRadius: 18,
+                    border: active ? `1.5px solid ${chip.color}` : `1px solid ${hov ? '#D0DCF0' : '#E8EEF8'}`,
+                    background: active ? `${chip.color}09` : hov ? '#FAFCFF' : '#FFFFFF',
+                    cursor: 'pointer', textAlign: 'left', transition: 'all .15s',
+                    boxShadow: active ? `0 4px 18px ${chip.color}22` : hov ? '0 6px 18px rgba(26,39,68,0.07)' : '0 1px 4px rgba(26,39,68,0.04)',
+                    transform: hov && !active ? 'translateY(-2px)' : 'none',
+                  }}
+                >
+                  <div style={{ width: 38, height: 38, borderRadius: 11, background: active ? `${chip.color}18` : `${chip.color}0F`, display: 'grid', placeItems: 'center', marginBottom: 14 }}>
+                    <chip.Icon size={18} color={chip.color} strokeWidth={1.75} />
+                  </div>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: active ? chip.color : '#1A2744', marginBottom: 4, lineHeight: 1.3 }}>{chip.label}</div>
+                  <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.44)', fontWeight: 500 }}>{chip.sub}</div>
                 </button>
               );
             })}
@@ -1668,7 +1876,7 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
       </section>
 
       {/* ── Featured categories ──────────────────────────────────── */}
-      <section style={{ paddingTop: 52, paddingBottom: 20, background: '#FFFFFF' }}>
+      <section style={{ paddingTop: 64, paddingBottom: 36, background: '#FFFFFF' }}>
         <div className="container">
           <div style={{ marginBottom: 22 }}>
             <div className="eyebrow" style={{ marginBottom: 5 }}>Activity categories</div>
@@ -1750,11 +1958,11 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
       </section>
 
       {/* ── Activity listings growing ─────────────────────────────── */}
-      <section style={{ paddingTop: 48, paddingBottom: 48, background: 'linear-gradient(180deg, #F8FBFF 0%, #FFFFFF 100%)' }}>
+      <section style={{ paddingTop: 56, paddingBottom: 56, background: 'linear-gradient(180deg, #F8FBFF 0%, #FFFFFF 100%)' }}>
         <div className="container">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 18 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 24 }}>
             <div>
-              <div className="eyebrow" style={{ marginBottom: 5 }}>Activity listings</div>
+              <div className="eyebrow" style={{ marginBottom: 6 }}>Activity listings</div>
               <h2 style={{ fontSize: 'clamp(20px, 2.8vw, 26px)', fontWeight: 800, color: '#1A2744', margin: 0 }}>Activity listings are growing</h2>
             </div>
             <div style={{ display: 'flex', gap: 7 }}>
@@ -1762,10 +1970,10 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
               <button className="btn btn-ghost btn-sm" onClick={() => onNavigate('find-help')}>Suggest an activity</button>
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 12 }}>
-            <div className="card" onClick={() => goToWalks(localCounty)} style={{ padding: 0, overflow: 'hidden', cursor: 'pointer', border: '1px solid rgba(91,201,74,0.20)' }}
-              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 8px 24px rgba(91,201,74,0.12)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = ''; }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 14 }}>
+            <div className="card" onClick={() => goToWalks(localCounty)} style={{ padding: 0, overflow: 'hidden', cursor: 'pointer', border: '1px solid rgba(91,201,74,0.22)', borderRadius: 18, transition: 'transform .18s, box-shadow .18s' }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 28px rgba(91,201,74,0.14)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}>
               <div style={{ height: 5, background: 'linear-gradient(90deg, #5BC94A, #3DA832)' }} />
               <div style={{ padding: '16px 18px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -1780,7 +1988,7 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
               </div>
             </div>
             {/* Groups — routes to find-help, not walks */}
-            <div className="card" style={{ padding: 0, overflow: 'hidden', cursor: 'default', opacity: 0.75, border: '1px solid rgba(45,156,219,0.14)' }}>
+            <div className="card" style={{ padding: 0, overflow: 'hidden', cursor: 'default', opacity: 0.65, border: '1px solid rgba(45,156,219,0.14)', borderRadius: 18 }}>
               <div style={{ height: 5, background: 'linear-gradient(90deg, #2D9CDB66, #2D9CDB33)' }} />
               <div style={{ padding: '16px 18px' }}>
                 <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#2D9CDB' }}>Coming soon</span>
@@ -1789,9 +1997,9 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(26,39,68,0.35)' }}>Listings being added</div>
               </div>
             </div>
-            <div className="card" onClick={() => onNavigate('places-to-visit', localCounty || COUNTY_DEFAULT)} style={{ padding: 0, overflow: 'hidden', cursor: 'pointer', border: '1px solid rgba(123,92,245,0.22)' }}
-              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 8px 24px rgba(123,92,245,0.14)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = ''; }}>
+            <div className="card" onClick={() => onNavigate('places-to-visit', localCounty || COUNTY_DEFAULT)} style={{ padding: 0, overflow: 'hidden', cursor: 'pointer', border: '1px solid rgba(123,92,245,0.22)', borderRadius: 18, transition: 'transform .18s, box-shadow .18s' }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 28px rgba(123,92,245,0.14)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}>
               <div style={{ height: 5, background: 'linear-gradient(90deg, #7B5CF5, #6D4EE8)' }} />
               <div style={{ padding: '16px 18px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -1805,9 +2013,9 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#7B5CF5' }}>Explore places →</div>
               </div>
             </div>
-            <div className="card" onClick={() => onNavigate('wellbeing', localCounty || COUNTY_DEFAULT)} style={{ padding: 0, overflow: 'hidden', cursor: 'pointer', border: '1px solid rgba(13,148,136,0.22)' }}
-              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 8px 24px rgba(13,148,136,0.14)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = ''; }}>
+            <div className="card" onClick={() => onNavigate('wellbeing', localCounty || COUNTY_DEFAULT)} style={{ padding: 0, overflow: 'hidden', cursor: 'pointer', border: '1px solid rgba(13,148,136,0.22)', borderRadius: 18, transition: 'transform .18s, box-shadow .18s' }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 28px rgba(13,148,136,0.14)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}>
               <div style={{ height: 5, background: 'linear-gradient(90deg, #0D9488, #0B8075)' }} />
               <div style={{ padding: '16px 18px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -1826,31 +2034,33 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
       </section>
 
       {/* ── Partner / advertising inventory section ──────────────── */}
-      <section style={{ paddingTop: 28, paddingBottom: 32, background: 'linear-gradient(180deg, #F8FBFF 0%, #FFFFFF 100%)', borderTop: '1px solid #EEF1F7' }}>
+      <section style={{ paddingTop: 56, paddingBottom: 56, background: '#FFFFFF', borderTop: '1px solid #EEF1F7' }}>
         <div className="container">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
             <div>
-              <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: 'rgba(26,39,68,0.36)', marginBottom: 3 }}>Advertising inventory</div>
-              <div style={{ fontSize: 17, fontWeight: 800, color: '#1A2744' }}>Reach carers where they discover</div>
+              <div className="eyebrow" style={{ marginBottom: 6 }}>Partner with us</div>
+              <h2 style={{ fontSize: 'clamp(20px, 2.8vw, 28px)', fontWeight: 800, color: '#1A2744', margin: 0 }}>Reach carers where they discover</h2>
             </div>
-            <button className="btn btn-gold btn-sm" onClick={() => onNavigate('login')}>View options <IArrow s={11} /></button>
+            <button className="btn btn-gold btn-sm" onClick={() => onNavigate('advertise')}>View advertising options <IArrow s={11} /></button>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
             {[
-              { icon: '🏆', badge: 'Limited slots', title: 'County sponsorship',      desc: 'Headline partner for a full county — appears across all activity and discovery pages.' },
-              { icon: '📍', badge: 'Self-serve',    title: 'Featured activity listing', desc: 'Promoted placement for your venue, event or activity seen by carers searching nearby.' },
-              { icon: '🏷️', badge: 'Free to list',  title: 'Carer discount partner',   desc: 'Add your business to the carer discounts map and build loyalty with a growing audience.' },
+              { Icon: Trophy,        color: '#F5A623', bg: 'rgba(245,166,35,0.10)', badge: 'Limited slots', title: 'County sponsorship',   desc: 'Headline partner for a full county — appears across all activity and discovery pages.' },
+              { Icon: LMapPin,       color: '#2D9CDB', bg: 'rgba(45,156,219,0.10)', badge: 'Self-serve',    title: 'Featured listing',     desc: 'Promoted placement for your venue, event or activity seen by carers searching nearby.' },
+              { Icon: TicketPercent, color: '#0D9488', bg: 'rgba(13,148,136,0.10)', badge: 'Free to list',  title: 'Carer discount partner', desc: 'Add your business to the carer discounts map and build loyalty with a growing audience.' },
             ].map((c) => (
-              <div key={c.title} style={{ borderRadius: 16, border: '1px solid #E9EEF5', background: '#FAFBFF', padding: '15px 17px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <span style={{ fontSize: 22, lineHeight: 1 }}>{c.icon}</span>
-                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 5, background: 'rgba(245,166,35,0.12)', color: '#B45309' }}>{c.badge}</span>
+              <div key={c.title} style={{ borderRadius: 20, border: '1px solid #E8EEF8', background: '#FAFBFF', padding: '22px 20px', display: 'flex', flexDirection: 'column', gap: 14, boxShadow: '0 2px 8px rgba(26,39,68,0.04)' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 13, background: c.bg, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                    <c.Icon size={20} color={c.color} strokeWidth={1.75} />
+                  </div>
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: 'rgba(245,166,35,0.12)', color: '#92400E', border: '1px solid rgba(245,166,35,0.22)', whiteSpace: 'nowrap' }}>{c.badge}</span>
                 </div>
                 <div>
-                  <div style={{ fontSize: 13.5, fontWeight: 800, color: '#1A2744', marginBottom: 4 }}>{c.title}</div>
-                  <p style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.58)', lineHeight: 1.55, margin: 0 }}>{c.desc}</p>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: '#1A2744', marginBottom: 6 }}>{c.title}</div>
+                  <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.55)', lineHeight: 1.65, margin: 0 }}>{c.desc}</p>
                 </div>
-                <button onClick={() => onNavigate('login')} style={{ fontSize: 12, fontWeight: 700, color: '#B45309', background: 'rgba(245,166,35,0.10)', padding: '6px 12px', borderRadius: 7, border: 'none', cursor: 'pointer', alignSelf: 'flex-start', marginTop: 'auto' }}>
+                <button onClick={() => onNavigate('advertise')} style={{ fontSize: 12.5, fontWeight: 700, color: c.color, background: c.bg, padding: '8px 14px', borderRadius: 9, border: 'none', cursor: 'pointer', alignSelf: 'flex-start', marginTop: 'auto', transition: 'opacity .13s' }} onMouseEnter={e => { e.currentTarget.style.opacity = '0.78'; }} onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}>
                   Find out more →
                 </button>
               </div>
