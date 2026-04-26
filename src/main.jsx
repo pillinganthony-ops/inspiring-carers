@@ -503,20 +503,15 @@ const App = () => {
     if (key === 'find-help' || key === 'events') {
       setPage(key);
       setVenueSlug(null);
-      if (explicitCounty === null) {
+      if (explicitCounty) {
+        // Explicit truthy county → go directly to county page, no localStorage lookup
+        setCounty(explicitCounty);
+        try { localStorage.setItem('ic_county', explicitCounty); } catch {}
+        window.history.pushState({ page: key, county: explicitCounty }, '', `/${explicitCounty}/${key}`);
+      } else {
+        // null, undefined, or '' → always hub (no Cornwall fallback)
         setCounty(null);
         window.history.pushState({ page: key, county: null }, '', `/${key}`);
-      } else {
-        const stored = (() => { try { return localStorage.getItem('ic_county'); } catch { return null; } })();
-        const targetCounty = explicitCounty || stored || null;
-        if (!targetCounty) {
-          setCounty(null);
-          window.history.pushState({ page: key, county: null }, '', `/${key}`);
-        } else {
-          setCounty(targetCounty);
-          try { localStorage.setItem('ic_county', targetCounty); } catch {}
-          window.history.pushState({ page: key, county: targetCounty }, '', `/${targetCounty}/${key}`);
-        }
       }
       window.scrollTo({ top: 0, behavior: 'instant' });
       return;
