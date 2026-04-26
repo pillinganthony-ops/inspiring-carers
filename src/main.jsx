@@ -27,8 +27,9 @@ const PlacesToVisitPage    = React.lazy(() => import('./components/pages/PlacesT
 const WellbeingSupportPage = React.lazy(() => import('./components/pages/WellbeingSupport.jsx'));
 const GroupsPage           = React.lazy(() => import('./components/pages/Groups.jsx'));
 const VenueProfilePage     = React.lazy(() => import('./components/pages/VenueProfile.jsx'));
-// Events hub — county selector landing page for /events
-import EventsHubPage from './components/pages/EventsHub.jsx';
+// Hub pages — eagerly imported so county selectors render with zero loading flash
+import FindHelpLandingPage from './components/pages/FindHelpLanding.jsx';
+import EventsHubPage       from './components/pages/EventsHub.jsx';
 
 // Make icons global for JSX
 window.IDot = Icons.IDot;
@@ -366,9 +367,14 @@ const App = () => {
   const [county, setCounty] = React.useState(() => {
     const { county: urlCounty, page: urlPage } = parseRoute(window.location.pathname);
     // Hub pages (no county in URL) must not inherit county from localStorage
-    const HUB_PAGES = ['activities', 'events'];
+    const HUB_PAGES = ['activities', 'find-help', 'events'];
     if (HUB_PAGES.includes(urlPage) && !urlCounty) return null;
-    try { return urlCounty || localStorage.getItem('ic_county') || null; } catch { return urlCounty || null; }
+    // URL is source of truth: if URL contains a county, write it back to localStorage
+    if (urlCounty) {
+      try { localStorage.setItem('ic_county', urlCounty); } catch {}
+      return urlCounty;
+    }
+    try { return localStorage.getItem('ic_county') || null; } catch { return null; }
   });
   const [venueSlug, setVenueSlug] = React.useState(() => parseRoute(window.location.pathname).slug || null);
   const [authRouteGraceUntil, setAuthRouteGraceUntil] = React.useState(0);
@@ -418,7 +424,12 @@ const App = () => {
     const onPop = () => {
       const { page: pg, county: co, slug: sl } = parseRoute(window.location.pathname);
       setPage(pg);
-      setCounty(co || null); // always sync county from URL (clears on non-county pages)
+      // Apply HUB_PAGES guard — hub routes must never inherit a county from stale state
+      const HUB_PAGES_POP = ['activities', 'find-help', 'events'];
+      const resolvedCounty = (HUB_PAGES_POP.includes(pg) && !co) ? null : (co || null);
+      // URL is source of truth — sync localStorage when county is present in URL
+      if (resolvedCounty) { try { localStorage.setItem('ic_county', resolvedCounty); } catch {} }
+      setCounty(resolvedCounty);
       setVenueSlug(sl || null);
     };
     window.addEventListener('popstate', onPop);
@@ -502,12 +513,18 @@ const App = () => {
       return;
     }
 
-    // find-help always goes to /find-help with no county prefix, regardless of current county
+    // find-help: null/undefined → national landing at /find-help; county slug → /county/find-help
     if (key === 'find-help') {
       setPage('find-help');
       setVenueSlug(null);
-      setCounty(null);
-      window.history.pushState({ page: 'find-help', county: null }, '', '/find-help');
+      if (explicitCounty) {
+        setCounty(explicitCounty);
+        try { localStorage.setItem('ic_county', explicitCounty); } catch {}
+        window.history.pushState({ page: 'find-help', county: explicitCounty }, '', `/${explicitCounty}/find-help`);
+      } else {
+        setCounty(null);
+        window.history.pushState({ page: 'find-help', county: null }, '', '/find-help');
+      }
       window.scrollTo({ top: 0, behavior: 'instant' });
       return;
     }
@@ -566,7 +583,9 @@ const App = () => {
   switch (displayPage) {
     case 'login': content = <React.Suspense fallback={<RouteLoading />}><LoginPage onNavigate={navigate} session={session} /></React.Suspense>; break;
     case 'reset-password': content = <React.Suspense fallback={<RouteLoading />}><ResetPasswordPage onNavigate={navigate} /></React.Suspense>; break;
-    case 'find-help': content = <React.Suspense fallback={<RouteLoading />}><FindHelpPage onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;
+    case 'find-help': content = county
+      ? <React.Suspense key={county} fallback={<RouteLoading />}><FindHelpPage onNavigate={navigate} session={session} county={county} /></React.Suspense>
+      : <FindHelpLandingPage onNavigate={navigate} session={session} />; break;
     case 'events': content = county
       ? <React.Suspense key={county} fallback={<RouteLoading />}><EventsPage  onNavigate={navigate} session={session} county={county} /></React.Suspense>
       : <EventsHubPage   key="hub" onNavigate={navigate} session={session} />; break;

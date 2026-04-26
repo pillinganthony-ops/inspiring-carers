@@ -154,10 +154,10 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp,
     setMobileOpen(false); setMoreOpen(false); setAccountOpen(false); setActivitiesOpen(false);
     onNavigate('activities', null);
   };
-  // Find Help always routes to /find-help (absolute) — never county-prefixed.
+  // Find Help always opens the national landing at /find-help — explicit null, never county-prefixed.
   const handleFindHelpClick = () => {
     setMobileOpen(false); setMoreOpen(false); setAccountOpen(false); setActivitiesOpen(false);
-    onNavigate('find-help');
+    onNavigate('find-help', null);
   };
   const handleEventsClick = () => {
     setMobileOpen(false); setMoreOpen(false); setAccountOpen(false); setActivitiesOpen(false);

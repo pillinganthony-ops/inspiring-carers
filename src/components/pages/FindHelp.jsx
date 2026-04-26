@@ -2785,6 +2785,39 @@ const CountyEntrance = ({ onSelectCounty, onNavigate, session }) => {
 const FindHelpV2 = ({ onNavigate, session, county }) => {
   // county = URL county (e.g. 'cornwall') passed from main.jsx — used to keep
   // internal pushState URLs county-aware so browser back never shows the hub.
+
+  // SEO — update title/meta/canonical whenever county changes, restore on unmount
+  React.useEffect(() => {
+    const cap = (s) => s ? s[0].toUpperCase() + s.slice(1) : '';
+    const label = cap(county || '');
+    const prevTitle = document.title;
+    document.title = county
+      ? `Trusted Local Support in ${label} | Inspiring Carers`
+      : 'Find Help Near You | Inspiring Carers';
+
+    let metaDesc = document.querySelector('meta[name="description"]');
+    const createdDesc = !metaDesc;
+    if (createdDesc) { metaDesc = document.createElement('meta'); metaDesc.name = 'description'; document.head.appendChild(metaDesc); }
+    const prevDesc = metaDesc.content;
+    metaDesc.content = county
+      ? `Verified carer-friendly organisations and community services across ${label}.`
+      : 'Find trusted local carer support near you.';
+
+    let canonical = document.querySelector('link[rel="canonical"]');
+    const createdCanonical = !canonical;
+    if (createdCanonical) { canonical = document.createElement('link'); canonical.rel = 'canonical'; document.head.appendChild(canonical); }
+    const prevCanonical = canonical.href;
+    canonical.href = county
+      ? `${window.location.origin}/${county}/find-help`
+      : `${window.location.origin}/find-help`;
+
+    return () => {
+      document.title = prevTitle;
+      if (createdDesc) metaDesc.remove(); else metaDesc.content = prevDesc;
+      if (createdCanonical) canonical.remove(); else canonical.href = prevCanonical;
+    };
+  }, [county]);
+
   const isMobile = useIsMobile();
   const [selectedCounty, setSelectedCounty] = React.useState(null);
   const [view, setView] = React.useState('list');
