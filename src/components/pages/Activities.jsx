@@ -968,7 +968,7 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
 
   return (
     <>
-      <Nav activePage="activities" onNavigate={onNavigate} session={session} />
+      <Nav activePage="activities" onNavigate={onNavigate} session={session} county={county} />
 
       {/* ── Hero ── */}
       <section style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(150deg, #0C1A35 0%, #162C52 50%, #1A3460 100%)', paddingTop: 28, paddingBottom: 36 }}>
@@ -1374,7 +1374,7 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
 
   return (
     <>
-      <Nav activePage="activities" onNavigate={onNavigate} session={session} />
+      <Nav activePage="activities" onNavigate={onNavigate} session={session} county={county} />
 
       {/* ── Hero — premium dark navy search hub ─────────────────── */}
       <section style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(150deg, #0C1A35 0%, #162C52 50%, #1A3460 100%)', paddingTop: 36, paddingBottom: 36 }}>

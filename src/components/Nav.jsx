@@ -65,7 +65,7 @@ const DropDivider = () => (
 );
 
 /* ─── Nav ─────────────────────────────────────────────────── */
-const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp }) => {
+const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp, county = null }) => {
   const [scrolled, setScrolled] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [moreOpen, setMoreOpen] = React.useState(false);
@@ -149,6 +149,20 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp 
     onNavigate(key);
   };
 
+  // County-aware nav handlers: county selected → /county/page; no county → hub
+  const handleActivitiesClick = () => {
+    setMobileOpen(false); setMoreOpen(false); setAccountOpen(false); setActivitiesOpen(false);
+    onNavigate('activities', county || null);
+  };
+  const handleFindHelpClick = () => {
+    setMobileOpen(false); setMoreOpen(false); setAccountOpen(false); setActivitiesOpen(false);
+    onNavigate('find-help', county || null);
+  };
+  const handleEventsClick = () => {
+    setMobileOpen(false); setMoreOpen(false); setAccountOpen(false); setActivitiesOpen(false);
+    onNavigate('events', county || null);
+  };
+
   const handleLogout = async () => {
     if (supabase) await supabase.auth.signOut();
     handleNavigate('home');
@@ -190,15 +204,13 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp 
 
         {/* Centre nav */}
         <nav className="nav-desktop" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-          {/* Find Help first */}
-          {primaryNavItems.slice(0, 1).map((item) => (
-            <NavItem key={item.key} label={item.label} accent={item.accent} active={activePage === item.key} onClick={() => handleNavigate(item.key)} />
-          ))}
+          {/* Find Help — county-aware: hub when no county, county page when set */}
+          <NavItem label="Find help" accent="#2D9CDB" active={activePage === 'find-help'} onClick={handleFindHelpClick} />
 
-          {/* Activities — split button: label navigates to hub, caret opens dropdown */}
+          {/* Activities — split button: label navigates conditionally, caret opens dropdown */}
           <div ref={activitiesRef} style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
             <button
-              onClick={() => handleNavigate('activities')}
+              onClick={handleActivitiesClick}
               style={{
                 padding: '8px 8px 8px 14px', borderRadius: '999px 0 0 999px',
                 fontSize: 14, fontWeight: isActivitiesPage ? 700 : 600,
@@ -239,9 +251,10 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp 
             )}
           </div>
 
-          {/* Remaining primary items */}
+          {/* Remaining primary items — Events is county-aware, others use generic handler */}
           {primaryNavItems.slice(1).map((item) => (
-            <NavItem key={item.key} label={item.label} accent={item.accent} active={activePage === item.key} onClick={() => handleNavigate(item.key)} />
+            <NavItem key={item.key} label={item.label} accent={item.accent} active={activePage === item.key}
+              onClick={item.key === 'events' ? handleEventsClick : () => handleNavigate(item.key)} />
           ))}
 
           {/* More ▾ */}
@@ -326,13 +339,11 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp 
             <div style={{ fontSize: 10.5, fontWeight: 800, color: 'rgba(26,39,68,0.4)', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '4px 2px 2px' }}>
               Navigation
             </div>
-            {/* Find Help */}
-            {primaryNavItems.slice(0, 1).map((item) => (
-              <button key={item.key} onClick={() => handleNavigate(item.key)} style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', padding: '12px 14px', borderRadius: 14, border: 'none', cursor: 'pointer', width: '100%', background: activePage === item.key ? 'rgba(26,39,68,0.06)' : '#FAFBFF', color: '#1A2744', fontWeight: activePage === item.key ? 700 : 600 }}>
-                {item.accent && <span style={{ width: 8, height: 8, borderRadius: 2, background: item.accent, flexShrink: 0 }} />}
-                {item.label}
-              </button>
-            ))}
+            {/* Find Help — county-aware */}
+            <button onClick={handleFindHelpClick} style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', padding: '12px 14px', borderRadius: 14, border: 'none', cursor: 'pointer', width: '100%', background: activePage === 'find-help' ? 'rgba(26,39,68,0.06)' : '#FAFBFF', color: '#1A2744', fontWeight: activePage === 'find-help' ? 700 : 600 }}>
+              <span style={{ width: 8, height: 8, borderRadius: 2, background: '#2D9CDB', flexShrink: 0 }} />
+              Find help
+            </button>
 
             {/* Activities — Walks is the live entry */}
             <div style={{ fontSize: 10.5, fontWeight: 800, color: 'rgba(26,39,68,0.4)', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '6px 2px 2px' }}>Activities</div>
@@ -343,9 +354,11 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp 
               </button>
             ))}
 
-            {/* Remaining primary items */}
+            {/* Remaining primary items — Events is county-aware */}
             {primaryNavItems.slice(1).map((item) => (
-              <button key={item.key} onClick={() => handleNavigate(item.key)} style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', padding: '12px 14px', borderRadius: 14, border: 'none', cursor: 'pointer', width: '100%', background: activePage === item.key ? 'rgba(26,39,68,0.06)' : '#FAFBFF', color: '#1A2744', fontWeight: activePage === item.key ? 700 : 600 }}>
+              <button key={item.key}
+                onClick={item.key === 'events' ? handleEventsClick : () => handleNavigate(item.key)}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', padding: '12px 14px', borderRadius: 14, border: 'none', cursor: 'pointer', width: '100%', background: activePage === item.key ? 'rgba(26,39,68,0.06)' : '#FAFBFF', color: '#1A2744', fontWeight: activePage === item.key ? 700 : 600 }}>
                 {item.accent && <span style={{ width: 8, height: 8, borderRadius: 2, background: item.accent, flexShrink: 0 }} />}
                 {item.label}
               </button>

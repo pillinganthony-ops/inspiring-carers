@@ -271,7 +271,7 @@ const VenueProfile = ({ slug, county, backPage, onNavigate, session }) => {
 
   return (
     <>
-      <Nav activePage={backPage} onNavigate={onNavigate} session={session} />
+      <Nav activePage={backPage} onNavigate={onNavigate} session={session} county={county} />
 
       {/* ── Hero ─────────────────────────────────────────────────────── */}
       <section style={{ background: heroGrad, paddingTop: 24, paddingBottom: 44, position: 'relative', overflow: 'hidden' }}>

@@ -311,7 +311,7 @@ const PlacesToVisitPage = ({ onNavigate, session, county, venueSlug }) => {
 
   return (
     <>
-      <Nav activePage="places-to-visit" onNavigate={onNavigate} session={session} />
+      <Nav activePage="places-to-visit" onNavigate={onNavigate} session={session} county={county} />
 
       {/* ── Hero ──────────────────────────────────────────────────────── */}
       <section style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(150deg, #1A0C35 0%, #2C1452 50%, #341A60 100%)', paddingTop: 36, paddingBottom: 36 }}>

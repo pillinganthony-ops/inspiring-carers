@@ -313,7 +313,7 @@ const WellbeingSupportPage = ({ onNavigate, session, county, venueSlug }) => {
 
   return (
     <>
-      <Nav activePage="wellbeing" onNavigate={onNavigate} session={session} />
+      <Nav activePage="wellbeing" onNavigate={onNavigate} session={session} county={county} />
 
       {/* ── Hero — calm deep teal ──────────────────────────────────── */}
       <section style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(150deg, #0A1F25 0%, #0F2E38 50%, #133640 100%)', paddingTop: 36, paddingBottom: 36 }}>

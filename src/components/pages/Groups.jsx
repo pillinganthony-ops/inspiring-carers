@@ -290,7 +290,7 @@ const GroupsPage = ({ onNavigate, session, county, venueSlug }) => {
 
   return (
     <>
-      <Nav activePage="groups" onNavigate={onNavigate} session={session} />
+      <Nav activePage="groups" onNavigate={onNavigate} session={session} county={county} />
 
       {/* ── Hero — deep blue, community feel ─────────────────────────── */}
       <section style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(150deg, #0A1828 0%, #0E2340 50%, #122B4D 100%)', paddingTop: 36, paddingBottom: 36 }}>

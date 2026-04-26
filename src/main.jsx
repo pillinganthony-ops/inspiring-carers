@@ -27,6 +27,8 @@ const PlacesToVisitPage    = React.lazy(() => import('./components/pages/PlacesT
 const WellbeingSupportPage = React.lazy(() => import('./components/pages/WellbeingSupport.jsx'));
 const GroupsPage           = React.lazy(() => import('./components/pages/Groups.jsx'));
 const VenueProfilePage     = React.lazy(() => import('./components/pages/VenueProfile.jsx'));
+const FindHelpHubPage      = React.lazy(() => import('./components/pages/FindHelpHub.jsx'));
+const EventsHubPage        = React.lazy(() => import('./components/pages/EventsHub.jsx'));
 
 // Make icons global for JSX
 window.IDot = Icons.IDot;
@@ -306,7 +308,7 @@ const isAdminEmail = (email) => Boolean(email && ADMIN_EMAILS.includes(`${email}
 // County-aware routing constants
 // 'activities' intentionally excluded — it is a county-optional hub (/activities and /{county}/activities both work)
 const COUNTY_PAGES = new Set(['find-help', 'training', 'events', 'for-you', 'walks', 'places-to-visit', 'wellbeing', 'groups']);
-const COUNTY_SLUGS = ['cornwall', 'devon', 'dorset', 'somerset'];
+const COUNTY_SLUGS = ['cornwall', 'devon', 'dorset', 'somerset', 'bristol', 'wiltshire'];
 const COUNTY_DEFAULT = 'cornwall';
 
 // App component
@@ -333,9 +335,10 @@ const App = () => {
     const GLOBAL = ['admin', 'recognition', 'business', 'about', 'card'];
     if (GLOBAL.includes(segs[0])) return { page: segs[0], county: null };
 
-    // Activities hub: /activities → county selector hub (county: null)
-    // /{county}/activities → county listing (handled by COUNTY_SLUGS check below)
+    // Hub routes — standalone URLs without county prefix load county selector pages
     if (segs[0] === 'activities') return { page: 'activities', county: null };
+    if (segs[0] === 'find-help'  && segs.length === 1) return { page: 'find-help', county: null };
+    if (segs[0] === 'events'     && segs.length === 1) return { page: 'events',    county: null };
 
     // Walks hub — /walks loads all walks; /{county}/walks loads county view (via COUNTY_SLUGS above)
     // WalksPage does not filter by county so content is identical — but URL matters for clarity
@@ -347,7 +350,7 @@ const App = () => {
     }
 
     // Legacy flat routes — silently redirect and return new page/county
-    const LEGACY = { 'find-help': 'find-help', 'events': 'events', 'benefits': 'for-you', 'walks': 'walks' };
+    const LEGACY = { 'benefits': 'for-you', 'walks': 'walks' };
     if (LEGACY[segs[0]]) {
       const pg = LEGACY[segs[0]];
       const newPath = COUNTY_PAGES.has(pg) ? `/${COUNTY_DEFAULT}/${pg}` : `/${pg}`;
@@ -361,8 +364,9 @@ const App = () => {
   const [page, setPage] = React.useState(() => parseRoute(window.location.pathname).page);
   const [county, setCounty] = React.useState(() => {
     const { county: urlCounty, page: urlPage } = parseRoute(window.location.pathname);
-    // Hub pages that intentionally have no county must not inherit one from localStorage
-    if (urlPage === 'activities' && !urlCounty) return null;
+    // Hub pages (no county in URL) must not inherit county from localStorage
+    const HUB_PAGES = ['activities', 'find-help', 'events'];
+    if (HUB_PAGES.includes(urlPage) && !urlCounty) return null;
     try { return urlCounty || localStorage.getItem('ic_county') || null; } catch { return urlCounty || null; }
   });
   const [venueSlug, setVenueSlug] = React.useState(() => parseRoute(window.location.pathname).slug || null);
@@ -466,20 +470,53 @@ const App = () => {
 
     // Activities routing:
     // navigate('activities', 'cornwall') → /cornwall/activities
-    // navigate('activities') or navigate('activities', undefined) → use stored/current county or Cornwall
-    // navigate('activities', null) → /activities hub (explicit null only)
+    // navigate('activities') → use stored county (localStorage) if any, else hub
+    // navigate('activities', null) → /activities hub (explicit null)
     if (key === 'activities') {
       setPage('activities');
       setVenueSlug(null);
       if (explicitCounty === null) {
-        // Explicit null → national hub (accessible via back button in county view)
+        // Explicit null → hub regardless of stored county
         setCounty(null);
         window.history.pushState({ page: 'activities', county: null }, '', '/activities');
       } else {
-        const targetCounty = explicitCounty || county || COUNTY_DEFAULT;
-        setCounty(targetCounty);
-        try { localStorage.setItem('ic_county', targetCounty); } catch {}
-        window.history.pushState({ page: 'activities', county: targetCounty }, '', `/${targetCounty}/activities`);
+        const stored = (() => { try { return localStorage.getItem('ic_county'); } catch { return null; } })();
+        const targetCounty = explicitCounty || stored || null;
+        if (!targetCounty) {
+          // No county selected anywhere → hub
+          setCounty(null);
+          window.history.pushState({ page: 'activities', county: null }, '', '/activities');
+        } else {
+          setCounty(targetCounty);
+          try { localStorage.setItem('ic_county', targetCounty); } catch {}
+          window.history.pushState({ page: 'activities', county: targetCounty }, '', `/${targetCounty}/activities`);
+        }
+      }
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      return;
+    }
+
+    // find-help and events: county-optional hub pattern (same as activities)
+    // navigate('find-help', null) or navigate('events', null) → hub
+    // navigate('find-help') → stored county or hub
+    // navigate('find-help', 'cornwall') → /cornwall/find-help
+    if (key === 'find-help' || key === 'events') {
+      setPage(key);
+      setVenueSlug(null);
+      if (explicitCounty === null) {
+        setCounty(null);
+        window.history.pushState({ page: key, county: null }, '', `/${key}`);
+      } else {
+        const stored = (() => { try { return localStorage.getItem('ic_county'); } catch { return null; } })();
+        const targetCounty = explicitCounty || stored || null;
+        if (!targetCounty) {
+          setCounty(null);
+          window.history.pushState({ page: key, county: null }, '', `/${key}`);
+        } else {
+          setCounty(targetCounty);
+          try { localStorage.setItem('ic_county', targetCounty); } catch {}
+          window.history.pushState({ page: key, county: targetCounty }, '', `/${targetCounty}/${key}`);
+        }
       }
       window.scrollTo({ top: 0, behavior: 'instant' });
       return;
@@ -523,8 +560,12 @@ const App = () => {
   switch (displayPage) {
     case 'login': content = <React.Suspense fallback={<RouteLoading />}><LoginPage onNavigate={navigate} session={session} /></React.Suspense>; break;
     case 'reset-password': content = <React.Suspense fallback={<RouteLoading />}><ResetPasswordPage onNavigate={navigate} /></React.Suspense>; break;
-    case 'find-help': content = <React.Suspense fallback={<RouteLoading />}><FindHelpPage onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;
-    case 'events': content = <React.Suspense fallback={<RouteLoading />}><EventsPage onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;
+    case 'find-help': content = county
+      ? <React.Suspense fallback={<RouteLoading />}><FindHelpPage    onNavigate={navigate} session={session} county={county} /></React.Suspense>
+      : <React.Suspense fallback={<RouteLoading />}><FindHelpHubPage onNavigate={navigate} session={session} /></React.Suspense>; break;
+    case 'events': content = county
+      ? <React.Suspense fallback={<RouteLoading />}><EventsPage    onNavigate={navigate} session={session} county={county} /></React.Suspense>
+      : <React.Suspense fallback={<RouteLoading />}><EventsHubPage onNavigate={navigate} session={session} /></React.Suspense>; break;
     case 'for-you':
     case 'benefits': content = <React.Suspense fallback={<RouteLoading />}><BenefitsPage onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;
     case 'walks': content = <React.Suspense fallback={<RouteLoading />}><WalksPage onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;

@@ -495,7 +495,7 @@ const WalksPage = ({ onNavigate, session }) => {
 
   return (
     <>
-      <Nav activePage="walks" onNavigate={onNavigate} session={session} />
+      <Nav activePage="walks" onNavigate={onNavigate} session={session} county={county} />
 
       <section style={{ background: 'linear-gradient(160deg, #0F2A1A 0%, #1A3A2A 45%, #1A2744 100%)', paddingTop: 64, paddingBottom: 56, position: 'relative', overflow: 'hidden' }}>
         {/* Decorative orbs */}
