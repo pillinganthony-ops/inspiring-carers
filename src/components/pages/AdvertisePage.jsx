@@ -1,5 +1,5 @@
 // AdvertisePage — /advertise
-// Commercial advertising and sponsorship landing page.
+// High-converting commercial advertising and sponsorship landing page.
 // Interest form writes to partner_enquiries table in Supabase.
 
 import React from 'react';
@@ -7,6 +7,7 @@ import {
   Crown, Megaphone, BadgeCheck, MapPin, Sparkles,
   HandHeart, BarChart3, Users as UsersIcon, Target,
   CheckCircle2, Clock, Coffee, Waves, HeartPulse,
+  Zap, Globe, TrendingUp, ShieldCheck, Star,
 } from 'lucide-react';
 import Nav from '../Nav.jsx';
 import Footer from '../Footer.jsx';
@@ -15,8 +16,10 @@ import supabase, { isSupabaseConfigured } from '../../lib/supabaseClient.js';
 
 const { IArrow } = Icons;
 
-const NAVY = '#1A2744';
-const GOLD = '#F5A623';
+const NAVY  = '#1A2744';
+const GOLD  = '#F5A623';
+
+// ── Shared components ─────────────────────────────────────────────────────────
 
 const IconBadge = ({ Icon, color, bg, size = 52, iconSize = 24 }) => (
   <div style={{
@@ -28,7 +31,6 @@ const IconBadge = ({ Icon, color, bg, size = 52, iconSize = 24 }) => (
   </div>
 );
 
-// Demo placement preview — illustrates what a featured partner card looks like
 const PlacementCard = ({ name, category, offer, note, color, bg, Icon }) => (
   <div style={{
     borderRadius: 18, background: '#FFFFFF',
@@ -49,13 +51,15 @@ const PlacementCard = ({ name, category, offer, note, color, bg, Icon }) => (
         <span style={{ fontSize: 9.5, fontWeight: 800, padding: '2px 8px', borderRadius: 999, background: bg, color, letterSpacing: '0.05em', textTransform: 'uppercase', flexShrink: 0 }}>Featured</span>
       </div>
       <div style={{ padding: '10px 12px', borderRadius: 10, background: bg, border: `1px solid ${color}18` }}>
-        <div style={{ fontSize: 10, fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 2 }}>Offer preview</div>
+        <div style={{ fontSize: 10, fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 2 }}>Active offer</div>
         <div style={{ fontSize: 13.5, fontWeight: 700, color: NAVY }}>{offer}</div>
       </div>
       {note && <div style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.40)', fontStyle: 'italic' }}>{note}</div>}
     </div>
   </div>
 );
+
+// ── Page component ────────────────────────────────────────────────────────────
 
 const AdvertisePage = ({ onNavigate, session }) => {
   const scrollTo = id => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
@@ -68,13 +72,13 @@ const AdvertisePage = ({ onNavigate, session }) => {
     callToAction: '', logoUrl: '', imageUrl: '',
     description: '',
   };
-  const [form,         setForm]         = React.useState(EMPTY_FORM);
-  const [submitting,   setSubmitting]   = React.useState(false);
-  const [submitted,    setSubmitted]    = React.useState(false);
-  const [submitError,  setSubmitError]  = React.useState(null);
+  const [form,        setForm]       = React.useState(EMPTY_FORM);
+  const [submitting,  setSubmitting] = React.useState(false);
+  const [submitted,   setSubmitted]  = React.useState(false);
+  const [submitError, setSubmitError] = React.useState(null);
 
-  const fieldStyle   = { width: '100%', boxSizing: 'border-box', padding: '11px 14px', borderRadius: 10, border: '1px solid #E0E7F0', background: '#FFFFFF', fontSize: 13.5, color: NAVY, fontFamily: 'Inter, sans-serif', outline: 'none', transition: 'border-color .15s' };
-  const selectStyle  = { ...fieldStyle, cursor: 'pointer', appearance: 'auto' };
+  const fieldStyle  = { width: '100%', boxSizing: 'border-box', padding: '11px 14px', borderRadius: 10, border: '1px solid #E0E7F0', background: '#FFFFFF', fontSize: 13.5, color: NAVY, fontFamily: 'Inter, sans-serif', outline: 'none', transition: 'border-color .15s' };
+  const selectStyle = { ...fieldStyle, cursor: 'pointer', appearance: 'auto' };
   const onFocusField = e => { e.target.style.borderColor = GOLD; e.target.style.boxShadow = '0 0 0 3px rgba(245,166,35,0.10)'; };
   const onBlurField  = e => { e.target.style.borderColor = '#E0E7F0'; e.target.style.boxShadow = 'none'; };
   const set = key => e => setForm(f => ({ ...f, [key]: e.target.value }));
@@ -93,13 +97,13 @@ const AdvertisePage = ({ onNavigate, session }) => {
           website:              form.website            || null,
           business_type:        form.businessType       || null,
           promotion_type:       form.promotionType      || null,
-          advertising_interest: form.promotionType      || null,   // backward compat
+          advertising_interest: form.promotionType      || null,
           preferred_placement:  form.preferredPlacement || null,
           offer_title:          form.offerTitle         || null,
           offer_description:    form.offerDescription   || null,
           offer_category:       form.offerCategory      || null,
           target_county:        form.targetCounty       || null,
-          county:               form.targetCounty       || null,   // backward compat
+          county:               form.targetCounty       || null,
           target_area:          form.targetArea          || null,
           call_to_action:       form.callToAction        || null,
           logo_url:             form.logoUrl             || null,
@@ -123,138 +127,148 @@ const AdvertisePage = ({ onNavigate, session }) => {
     <>
       <Nav activePage="advertise" onNavigate={onNavigate} session={session} />
 
-      {/* ── 1. Hero ── */}
+      {/* ── 1. Hero ────────────────────────────────────────────────── */}
       <section style={{
         position: 'relative', overflow: 'hidden',
-        background: 'linear-gradient(150deg, #0C1A35 0%, #16204A 52%, #1C1E58 100%)',
-        paddingTop: 64, paddingBottom: 72,
+        background: 'linear-gradient(150deg, #080F24 0%, #0F1A3A 45%, #141D48 100%)',
+        paddingTop: 72, paddingBottom: 80,
       }}>
-        <div style={{ position: 'absolute', top: -80, right: -80, width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, rgba(245,166,35,0.13) 0%, transparent 65%)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', bottom: -80, left: '20%', width: 400, height: 400, borderRadius: '50%', background: 'radial-gradient(circle, rgba(123,92,245,0.09) 0%, transparent 65%)', pointerEvents: 'none' }} />
+        {/* Background atmosphere */}
+        <div style={{ position: 'absolute', top: -120, right: -80, width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle, rgba(245,166,35,0.14) 0%, transparent 60%)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: -80, left: '10%', width: 440, height: 440, borderRadius: '50%', background: 'radial-gradient(circle, rgba(45,156,219,0.09) 0%, transparent 60%)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: '30%', left: -60, width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(123,92,245,0.07) 0%, transparent 60%)', pointerEvents: 'none' }} />
 
         <div className="container" style={{ position: 'relative' }}>
-          <div style={{ maxWidth: 680 }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 14px', borderRadius: 999, background: 'rgba(245,166,35,0.18)', border: '1px solid rgba(245,166,35,0.30)', fontSize: 11, fontWeight: 800, color: '#FFD580', letterSpacing: '0.09em', textTransform: 'uppercase', marginBottom: 20 }}>
-              <Megaphone size={11} color="#FFD580" /> Advertising &amp; Sponsorship
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 56, alignItems: 'center' }}>
+
+            {/* Left — headline */}
+            <div>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 14px', borderRadius: 999, background: 'rgba(245,166,35,0.15)', border: '1px solid rgba(245,166,35,0.28)', fontSize: 11, fontWeight: 800, color: '#FFD580', letterSpacing: '0.09em', textTransform: 'uppercase', marginBottom: 24 }}>
+                <Megaphone size={11} color="#FFD580" /> Advertising &amp; Sponsorship
+              </div>
+              <h1 style={{ fontSize: 'clamp(32px, 5.5vw, 58px)', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.04em', lineHeight: 1.02, margin: '0 0 22px', textWrap: 'balance' }}>
+                Advertise to the<br />
+                <span style={{ background: 'linear-gradient(90deg, #F5A623 0%, #FFD580 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>People Who Care</span><br />
+                for Everyone Else.
+              </h1>
+              <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.60)', lineHeight: 1.78, margin: '0 0 36px', maxWidth: 480 }}>
+                Reach carers, NHS staff, support workers and families through the UK's new lifestyle and support platform.
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                <button
+                  onClick={() => scrollTo('interest-form')}
+                  className="btn btn-gold btn-lg"
+                  style={{ fontSize: 15, padding: '14px 30px', fontWeight: 800 }}
+                >
+                  Claim your spot <IArrow s={14} />
+                </button>
+                <button
+                  onClick={() => scrollTo('pricing')}
+                  style={{ padding: '14px 24px', borderRadius: 12, background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 15, cursor: 'pointer', transition: 'background .14s' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.16)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.09)'; }}
+                >
+                  See pricing
+                </button>
+              </div>
+              {/* Trust strip */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, marginTop: 36, paddingTop: 28, borderTop: '1px solid rgba(255,255,255,0.09)' }}>
+                {[
+                  { icon: ShieldCheck, text: 'Values-led audience' },
+                  { icon: MapPin,      text: '6 counties launching' },
+                  { icon: Zap,         text: 'Founding rates open now' },
+                ].map(({ icon: I, text }) => (
+                  <div key={text} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.55)' }}>
+                    <I size={14} color="rgba(255,255,255,0.38)" strokeWidth={2} /> {text}
+                  </div>
+                ))}
+              </div>
             </div>
-            <h1 style={{ fontSize: 'clamp(32px, 5vw, 56px)', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.03em', lineHeight: 1.04, margin: '0 0 20px', textWrap: 'balance' }}>
-              Advertise with<br />Inspiring Carers
-            </h1>
-            <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.62)', lineHeight: 1.75, margin: '0 0 36px', maxWidth: 540 }}>
-              Reach carers, care professionals and community-minded audiences through featured placements, local offers, activity promotion and county sponsorship opportunities.
-            </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+
+            {/* Right — platform snapshot */}
+            <div style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(14px)', borderRadius: 24, padding: '28px 26px', border: '1px solid rgba(255,255,255,0.11)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)' }}>
+              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.40)', marginBottom: 20 }}>
+                Platform at a glance
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 22 }}>
+                {[
+                  { n: '1 in 8',  l: 'UK workers is an unpaid carer',    color: '#FFD580' },
+                  { n: '6',       l: 'Counties in the first wave',         color: '#67E8F9' },
+                  { n: '333+',    l: 'Mapped walk routes live',            color: '#86EFAC' },
+                  { n: 'Free',    l: 'For carers — always',               color: '#C4B5FD' },
+                ].map(({ n, l, color }) => (
+                  <div key={l} style={{ padding: '14px 14px', borderRadius: 14, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.09)' }}>
+                    <div style={{ fontSize: 22, fontWeight: 800, color, lineHeight: 1, letterSpacing: '-0.02em', marginBottom: 5 }}>{n}</div>
+                    <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.44)', lineHeight: 1.45 }}>{l}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ padding: '16px', borderRadius: 14, background: 'rgba(245,166,35,0.12)', border: '1px solid rgba(245,166,35,0.24)', marginBottom: 16 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: GOLD, marginBottom: 6 }}>Founding partner offer</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF', lineHeight: 1.3, marginBottom: 6 }}>Lock in launch rates before they close.</div>
+                <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.55)', lineHeight: 1.55 }}>Limited county sponsor slots at introductory pricing. Cornwall is open now.</div>
+              </div>
               <button
                 onClick={() => scrollTo('interest-form')}
-                className="btn btn-gold btn-lg"
-                style={{ fontSize: 15, padding: '14px 28px', fontWeight: 800 }}
+                style={{ width: '100%', padding: '12px 16px', borderRadius: 12, background: 'linear-gradient(135deg, #F5A623, #D4AF37)', border: 'none', color: '#0F172A', fontWeight: 800, fontSize: 14, cursor: 'pointer', transition: 'opacity .14s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                onMouseEnter={e => { e.currentTarget.style.opacity = '0.88'; }}
+                onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
               >
-                Register interest <IArrow s={14} />
-              </button>
-              <button
-                onClick={() => scrollTo('ad-options')}
-                style={{ padding: '14px 24px', borderRadius: 12, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.22)', color: 'rgba(255,255,255,0.90)', fontWeight: 700, fontSize: 15, cursor: 'pointer', transition: 'background .14s' }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.18)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.10)'; }}
-              >
-                View options
+                Register early interest <IArrow s={13} />
               </button>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 28, paddingTop: 22, borderTop: '1px solid rgba(255,255,255,0.10)' }}>
-              <Clock size={14} color="rgba(255,255,255,0.38)" strokeWidth={2} />
-              <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.46)', fontWeight: 500 }}>
-                Early partner opportunities are opening as the platform grows.
-              </span>
-            </div>
+
           </div>
         </div>
       </section>
 
-      {/* ── 2. Advertising options ── */}
-      <section id="ad-options" style={{ paddingTop: 72, paddingBottom: 72, background: '#F7F9FC' }}>
+      {/* ── 2. Scarcity bar ────────────────────────────────────────── */}
+      <section style={{ background: 'linear-gradient(90deg, #1A1000 0%, #2A1A00 50%, #1A1000 100%)', padding: '18px 0', borderBottom: '1px solid rgba(245,166,35,0.20)' }}>
         <div className="container">
-          <div style={{ textAlign: 'center', marginBottom: 48 }}>
-            <div className="eyebrow" style={{ marginBottom: 8 }}>What we offer</div>
-            <h2 style={{ fontSize: 'clamp(24px, 3vw, 36px)', fontWeight: 800, color: NAVY, margin: '0 0 10px' }}>
-              Advertising and sponsorship options
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            <Crown size={14} color={GOLD} strokeWidth={2} />
+            <span style={{ fontSize: 13.5, fontWeight: 700, color: '#FFD580' }}>One county sponsor per county.</span>
+            <span style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.55)' }}>Cornwall is</span>
+            <span style={{ fontSize: 13.5, fontWeight: 800, color: '#86EFAC' }}>now open.</span>
+            <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'rgba(255,255,255,0.25)', display: 'inline-block', margin: '0 4px' }} />
+            <span style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.55)' }}>Founding rates are limited.</span>
+            <button
+              onClick={() => scrollTo('interest-form')}
+              style={{ fontSize: 12.5, fontWeight: 800, padding: '5px 14px', borderRadius: 999, background: 'rgba(245,166,35,0.18)', border: '1px solid rgba(245,166,35,0.35)', color: GOLD, cursor: 'pointer', marginLeft: 6, transition: 'background .13s' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(245,166,35,0.28)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(245,166,35,0.18)'; }}
+            >
+              Claim now →
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* ── 3. Why it works ────────────────────────────────────────── */}
+      <section style={{ paddingTop: 80, paddingBottom: 80, background: '#FFFFFF' }}>
+        <div className="container">
+          <div style={{ textAlign: 'center', marginBottom: 52 }}>
+            <div className="eyebrow" style={{ marginBottom: 8 }}>Why it works</div>
+            <h2 style={{ fontSize: 'clamp(26px, 3.5vw, 40px)', fontWeight: 800, color: NAVY, margin: '0 0 12px', letterSpacing: '-0.02em' }}>
+              An audience that actually acts on recommendations
             </h2>
-            <p style={{ fontSize: 15.5, color: 'rgba(26,39,68,0.55)', maxWidth: 500, margin: '0 auto' }}>
-              Choose the format that fits your organisation, audience and goals.
+            <p style={{ fontSize: 16, color: 'rgba(26,39,68,0.55)', maxWidth: 520, margin: '0 auto', lineHeight: 1.7 }}>
+              Carers and care workers are loyal, engaged and deeply community-oriented. They trust the platforms that support them.
             </p>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
             {[
-              {
-                Icon: Crown, color: GOLD, bg: 'rgba(245,166,35,0.10)',
-                title: 'Featured Listing',
-                desc: 'For venues, services, offers and activities that want stronger visibility in the discovery experience.',
-                includes: ['Featured placement on discovery pages', 'Enhanced category visibility', 'Premium card treatment', 'Activity map inclusion'],
-                audience: 'Cafés, attractions, wellbeing providers, shops and local services',
-              },
-              {
-                Icon: MapPin, color: '#7B5CF5', bg: 'rgba(123,92,245,0.10)',
-                title: 'County Sponsorship',
-                desc: 'For organisations that want high-profile regional association across an entire county area.',
-                includes: ['One exclusive sponsor per county', 'Visibility across county discovery areas', 'Association with carer support and wellbeing', 'Co-branded awareness opportunities'],
-                audience: 'Larger employers, councils, local sponsors and regional brands',
-              },
-              {
-                Icon: Megaphone, color: '#E11D48', bg: 'rgba(225,29,72,0.10)',
-                title: 'Campaign Promotion',
-                desc: 'For seasonal offers, awareness campaigns, community events or wellbeing initiatives with a clear timeframe.',
-                includes: ['Short-term campaign placement', 'Activity and event promotion', 'Discount and offer visibility', 'Seasonal awareness tie-ins'],
-                audience: 'Launches, community campaigns and awareness weeks',
-              },
-            ].map(({ Icon, color, bg, title, desc, includes, audience }) => (
-              <div key={title} style={{ padding: '28px 24px', borderRadius: 22, background: '#FFFFFF', border: '1px solid #E8EEF8', boxShadow: '0 2px 10px rgba(26,39,68,0.04)', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-                  <IconBadge Icon={Icon} color={color} bg={bg} size={48} iconSize={22} />
-                  <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: bg, color, border: `1px solid ${color}28`, whiteSpace: 'nowrap' }}>Coming soon</span>
-                </div>
-                <div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: NAVY, marginBottom: 8 }}>{title}</div>
-                  <p style={{ fontSize: 14, color: 'rgba(26,39,68,0.58)', lineHeight: 1.65, margin: 0 }}>{desc}</p>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {includes.map(item => (
-                    <div key={item} style={{ display: 'flex', alignItems: 'flex-start', gap: 9, fontSize: 13.5, color: NAVY, fontWeight: 500 }}>
-                      <CheckCircle2 size={15} color={color} strokeWidth={2} style={{ flexShrink: 0, marginTop: 1 }} /> {item}
-                    </div>
-                  ))}
-                </div>
-                <div style={{ marginTop: 'auto', paddingTop: 14, borderTop: '1px solid #EEF1F7' }}>
-                  <div style={{ fontSize: 11.5, fontWeight: 600, color: 'rgba(26,39,68,0.42)' }}>Best for</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginTop: 3 }}>{audience}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── 3. Why advertise here ── */}
-      <section style={{ paddingTop: 72, paddingBottom: 72, background: '#FFFFFF' }}>
-        <div className="container">
-          <div style={{ textAlign: 'center', marginBottom: 44 }}>
-            <div className="eyebrow" style={{ marginBottom: 8 }}>Why Inspiring Carers</div>
-            <h2 style={{ fontSize: 'clamp(24px, 3vw, 34px)', fontWeight: 800, color: NAVY, margin: 0 }}>
-              A values-led audience actively seeking local support
-            </h2>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
-            {[
-              { Icon: HandHeart,  color: '#E11D48', bg: 'rgba(225,29,72,0.09)',   title: 'Values-led audience',          desc: 'Members are motivated by care, community and wellbeing. They respond to brands that genuinely align with those values.' },
-              { Icon: BadgeCheck, color: '#0D9488', bg: 'rgba(13,148,136,0.09)', title: 'High trust environment',       desc: 'The platform exists to support people in caring roles. Advertising here carries positive association rather than intrusion.' },
-              { Icon: Target,     color: '#2563EB', bg: 'rgba(37,99,235,0.09)',   title: 'Active discovery behaviour',   desc: 'Users come to find activities, services and support — they are in an active exploration mindset, not passive browsing.' },
-              { Icon: Sparkles,   color: GOLD,      bg: 'rgba(245,166,35,0.10)',  title: 'Positive brand association',   desc: 'Partner with a platform that exists for community good. Every impression carries the brand equity of carer support.' },
-              { Icon: MapPin,     color: '#7B5CF5', bg: 'rgba(123,92,245,0.09)', title: 'County-level targeting',       desc: 'County sponsorships will offer exclusive regional positioning — one partner per area, high visibility and low competition.' },
-              { Icon: UsersIcon,  color: '#16A34A', bg: 'rgba(22,163,74,0.09)',   title: 'Community impact signal',      desc: 'Demonstrate real commitment to carers — valuable for employer brand, CSR reporting and community-facing organisations.' },
+              { Icon: ShieldCheck, color: '#0D9488', bg: 'rgba(13,148,136,0.09)', title: 'A trust audience',        desc: 'Carers seek reliable recommendations. A brand that appears here carries implicit community endorsement — not paid interruption.' },
+              { Icon: HandHeart,   color: '#E11D48', bg: 'rgba(225,29,72,0.09)',  title: 'Community goodwill',      desc: 'Supporting carers is visible, positive brand action. Every placement signals values alignment — ideal for B2C and employer brands.' },
+              { Icon: Target,      color: '#7B5CF5', bg: 'rgba(123,92,245,0.09)', title: 'Values-led users',        desc: 'Inspiring Carers attracts people motivated by care, wellness and community. They actively search for quality local services.' },
+              { Icon: TrendingUp,  color: GOLD,      bg: 'rgba(245,166,35,0.10)', title: 'Local spend influence',   desc: 'Carers make household and personal spending decisions. Reaching them at the point of local discovery drives real-world footfall and revenue.' },
+              { Icon: Zap,         color: '#2563EB', bg: 'rgba(37,99,235,0.09)',  title: 'Repeat visibility',      desc: 'This is not a one-time ad click. Featured partners appear across activity pages, map views and benefit feeds — sustained exposure for the same spend.' },
             ].map(({ Icon, color, bg, title, desc }) => (
-              <div key={title} style={{ padding: '22px 20px', borderRadius: 20, background: '#FAFBFF', border: '1px solid #E8EEF8', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <IconBadge Icon={Icon} color={color} bg={bg} size={46} iconSize={21} />
+              <div key={title} style={{ padding: '24px 22px', borderRadius: 20, background: '#FAFBFF', border: '1px solid #E8EEF8', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <IconBadge Icon={Icon} color={color} bg={bg} size={48} iconSize={22} />
                 <div>
-                  <div style={{ fontSize: 15, fontWeight: 800, color: NAVY, marginBottom: 6 }}>{title}</div>
-                  <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.58)', lineHeight: 1.65, margin: 0 }}>{desc}</p>
+                  <div style={{ fontSize: 15.5, fontWeight: 800, color: NAVY, marginBottom: 7 }}>{title}</div>
+                  <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.58)', lineHeight: 1.68, margin: 0 }}>{desc}</p>
                 </div>
               </div>
             ))}
@@ -262,176 +276,258 @@ const AdvertisePage = ({ onNavigate, session }) => {
         </div>
       </section>
 
-      {/* ── 4. Example placements ── */}
-      <section style={{ paddingTop: 72, paddingBottom: 72, background: '#F0F4FF' }}>
+      {/* ── 4. Pricing ─────────────────────────────────────────────── */}
+      <section id="pricing" style={{ paddingTop: 80, paddingBottom: 80, background: '#F7F9FC' }}>
         <div className="container">
-          <div style={{ marginBottom: 36 }}>
-            <div className="eyebrow" style={{ marginBottom: 8 }}>Example placements</div>
-            <h2 style={{ fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 800, color: NAVY, margin: '0 0 8px' }}>
-              How featured partners appear on the platform
+          <div style={{ textAlign: 'center', marginBottom: 52 }}>
+            <div className="eyebrow" style={{ marginBottom: 8 }}>Pricing</div>
+            <h2 style={{ fontSize: 'clamp(26px, 3.5vw, 40px)', fontWeight: 800, color: NAVY, margin: '0 0 10px', letterSpacing: '-0.02em' }}>
+              Simple packages. Meaningful reach.
             </h2>
-            <p style={{ fontSize: 15, color: 'rgba(26,39,68,0.55)', maxWidth: 540, margin: 0 }}>
-              Illustrative previews using fictional organisations — showing the placement format partners will use.
-            </p>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 14px', borderRadius: 999, background: 'rgba(245,166,35,0.10)', border: '1px solid rgba(245,166,35,0.25)', fontSize: 12, fontWeight: 700, color: '#92400E', marginTop: 8 }}>
+              <Clock size={13} color="#92400E" strokeWidth={2} /> Founding rates — held for early partners only
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 18, maxWidth: 1060, margin: '0 auto' }}>
+
+            {/* Local Spotlight */}
+            <div style={{ padding: '28px 24px', borderRadius: 22, border: '2px solid #E8EEF8', background: '#FFFFFF', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,39,68,0.50)', marginBottom: 8 }}>Local Spotlight</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                  <span style={{ fontSize: 38, fontWeight: 800, color: NAVY, letterSpacing: '-0.03em' }}>£49</span>
+                  <span style={{ fontSize: 14, color: 'rgba(26,39,68,0.50)', fontWeight: 600 }}>/mo</span>
+                </div>
+                <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)', lineHeight: 1.65, margin: '8px 0 0' }}>
+                  Perfect for local businesses, cafés, attractions and wellbeing providers wanting visible local reach.
+                </p>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+                {['Featured listing on discovery pages', 'Enhanced category visibility', 'Activity map inclusion', 'Offer card in For You section', 'Monthly reporting summary'].map(item => (
+                  <div key={item} style={{ display: 'flex', alignItems: 'flex-start', gap: 9, fontSize: 13.5, color: NAVY, fontWeight: 500 }}>
+                    <CheckCircle2 size={15} color="#16A34A" strokeWidth={2} style={{ flexShrink: 0, marginTop: 1 }} /> {item}
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => scrollTo('interest-form')} className="btn btn-navy" style={{ marginTop: 'auto', width: '100%', justifyContent: 'center', fontWeight: 800 }}>
+                Register interest <IArrow s={13} />
+              </button>
+            </div>
+
+            {/* County Sponsor — featured */}
+            <div style={{ padding: '28px 24px', borderRadius: 22, border: `2px solid ${GOLD}66`, background: 'linear-gradient(160deg, #FFFDF5 0%, #FFFBF0 100%)', display: 'flex', flexDirection: 'column', gap: 16, position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', top: 14, right: 14, fontSize: 10, fontWeight: 800, padding: '3px 10px', borderRadius: 999, background: 'rgba(245,166,35,0.18)', color: GOLD, border: '1px solid rgba(245,166,35,0.32)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                Most popular
+              </div>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,39,68,0.50)', marginBottom: 8 }}>County Sponsor</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                  <span style={{ fontSize: 38, fontWeight: 800, color: NAVY, letterSpacing: '-0.03em' }}>£199</span>
+                  <span style={{ fontSize: 14, color: 'rgba(26,39,68,0.50)', fontWeight: 600 }}>/mo</span>
+                </div>
+                <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)', lineHeight: 1.65, margin: '8px 0 0' }}>
+                  Exclusive regional positioning. One sponsor per county — Cornwall founding slot available now.
+                </p>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+                {['Everything in Local Spotlight', 'Exclusive county-level branding', 'Top placement across all county pages', 'Co-branded county recognition', 'Priority campaign inclusion', 'Quarterly strategy call'].map(item => (
+                  <div key={item} style={{ display: 'flex', alignItems: 'flex-start', gap: 9, fontSize: 13.5, color: NAVY, fontWeight: 500 }}>
+                    <CheckCircle2 size={15} color={GOLD} strokeWidth={2} style={{ flexShrink: 0, marginTop: 1 }} /> {item}
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => scrollTo('interest-form')} className="btn btn-gold" style={{ marginTop: 'auto', width: '100%', justifyContent: 'center', fontWeight: 800 }}>
+                Claim county slot <IArrow s={13} />
+              </button>
+            </div>
+
+            {/* National Partner */}
+            <div style={{ padding: '28px 24px', borderRadius: 22, border: '2px solid rgba(123,92,245,0.35)', background: 'linear-gradient(160deg, #F9F5FF 0%, #F2EEFF 100%)', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,39,68,0.50)', marginBottom: 8 }}>National Partner</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                  <span style={{ fontSize: 38, fontWeight: 800, color: NAVY, letterSpacing: '-0.03em' }}>£499</span>
+                  <span style={{ fontSize: 14, color: 'rgba(26,39,68,0.50)', fontWeight: 600 }}>+/mo</span>
+                </div>
+                <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)', lineHeight: 1.65, margin: '8px 0 0' }}>
+                  Multi-county visibility and national campaign presence. For employers, charities and national brands.
+                </p>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+                {['Featured across all active counties', 'National campaign placement', 'Priority discovery positioning', 'Bespoke co-branded campaigns', 'Direct analytics access', 'Dedicated account contact'].map(item => (
+                  <div key={item} style={{ display: 'flex', alignItems: 'flex-start', gap: 9, fontSize: 13.5, color: NAVY, fontWeight: 500 }}>
+                    <CheckCircle2 size={15} color="#7B5CF5" strokeWidth={2} style={{ flexShrink: 0, marginTop: 1 }} /> {item}
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => scrollTo('interest-form')} style={{ marginTop: 'auto', width: '100%', padding: '11px 20px', borderRadius: 12, background: 'rgba(123,92,245,0.12)', border: '1px solid rgba(123,92,245,0.28)', color: '#7B5CF5', fontWeight: 800, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                Enquire now <IArrow s={13} />
+              </button>
+            </div>
+
+            {/* Founding Partner */}
+            <div style={{ padding: '28px 24px', borderRadius: 22, border: '2px solid rgba(14,165,233,0.30)', background: 'linear-gradient(160deg, #F0F9FF 0%, #E8F5FF 100%)', display: 'flex', flexDirection: 'column', gap: 16, position: 'relative' }}>
+              <div style={{ position: 'absolute', top: 14, right: 14, fontSize: 10, fontWeight: 800, padding: '3px 10px', borderRadius: 999, background: 'rgba(14,165,233,0.12)', color: '#0E7490', border: '1px solid rgba(14,165,233,0.25)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                Limited
+              </div>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,39,68,0.50)', marginBottom: 8 }}>Founding Partner</div>
+                <div style={{ fontSize: 28, fontWeight: 800, color: NAVY, letterSpacing: '-0.02em', marginBottom: 4 }}>By invitation</div>
+                <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)', lineHeight: 1.65, margin: '8px 0 0' }}>
+                  Shape the platform from the ground up. Founding partners lock in permanent discounted rates and gain early-access influence.
+                </p>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+                {['Locked founding rate — never increases', 'Input into platform direction', 'Co-founding partner status', 'All National Partner features', 'Logo on About page', '12-month minimum commitment'].map(item => (
+                  <div key={item} style={{ display: 'flex', alignItems: 'flex-start', gap: 9, fontSize: 13.5, color: NAVY, fontWeight: 500 }}>
+                    <Star size={15} color="#0E7490" strokeWidth={2} style={{ flexShrink: 0, marginTop: 1 }} />  {item}
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => scrollTo('interest-form')} style={{ marginTop: 'auto', width: '100%', padding: '11px 20px', borderRadius: 12, background: 'rgba(14,165,233,0.12)', border: '1px solid rgba(14,165,233,0.28)', color: '#0E7490', fontWeight: 800, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                Express interest <IArrow s={13} />
+              </button>
+            </div>
+
+          </div>
+
+          <p style={{ textAlign: 'center', fontSize: 12.5, color: 'rgba(26,39,68,0.38)', marginTop: 24 }}>
+            All prices are indicative launch rates. Inventory not yet live — register now to be first.
+          </p>
+        </div>
+      </section>
+
+      {/* ── 5. Audience stats ──────────────────────────────────────── */}
+      <section style={{ paddingTop: 72, paddingBottom: 72, background: 'linear-gradient(150deg, #0C1A35 0%, #162C52 100%)', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', right: -80, top: -80, width: 460, height: 460, borderRadius: '50%', background: 'radial-gradient(circle, rgba(245,166,35,0.10) 0%, transparent 65%)', pointerEvents: 'none' }} />
+        <div className="container" style={{ position: 'relative' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 48, alignItems: 'center' }}>
+            <div>
+              <div className="eyebrow" style={{ marginBottom: 10, color: 'rgba(255,255,255,0.50)' }}>The audience</div>
+              <h2 style={{ fontSize: 'clamp(24px, 3.5vw, 38px)', fontWeight: 800, color: '#FFFFFF', margin: '0 0 14px', lineHeight: 1.15 }}>
+                7.5 million unpaid carers in the UK. Every one of them is a consumer.
+              </h2>
+              <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.60)', lineHeight: 1.75, margin: '0 0 28px' }}>
+                Carers are underserved, under-marketed to, and deeply loyal to brands that show they understand what caring actually costs.
+              </p>
+              <button
+                onClick={() => scrollTo('interest-form')}
+                className="btn btn-gold"
+                style={{ fontSize: 14, padding: '12px 24px', fontWeight: 800 }}
+              >
+                Reach them first <IArrow s={13} />
+              </button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              {[
+                { n: '7.5m',  l: 'unpaid carers in the UK',        color: '#FFD580' },
+                { n: '1 in 8', l: 'UK workers has caring responsibilities', color: '#67E8F9' },
+                { n: '£132bn', l: 'value of unpaid care annually',  color: '#86EFAC' },
+                { n: '600K',  l: 'carers leave work each year',     color: '#FCA5A5' },
+              ].map(({ n, l, color }) => (
+                <div key={l} style={{ padding: '20px 18px', borderRadius: 18, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.10)' }}>
+                  <div style={{ fontSize: 26, fontWeight: 800, color, letterSpacing: '-0.02em', marginBottom: 6 }}>{n}</div>
+                  <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.52)', lineHeight: 1.55, margin: 0 }}>{l}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── 6. Example placements ──────────────────────────────────── */}
+      <section style={{ paddingTop: 80, paddingBottom: 80, background: '#F0F4FF' }}>
+        <div className="container">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 40, flexWrap: 'wrap', gap: 14 }}>
+            <div>
+              <div className="eyebrow" style={{ marginBottom: 8 }}>How you appear</div>
+              <h2 style={{ fontSize: 'clamp(24px, 3vw, 36px)', fontWeight: 800, color: NAVY, margin: '0 0 8px', letterSpacing: '-0.02em' }}>
+                Your brand in front of carers every day
+              </h2>
+              <p style={{ fontSize: 15, color: 'rgba(26,39,68,0.55)', maxWidth: 500, margin: 0 }}>
+                These are illustrative previews. Your placement would look like this — reviewed and approved before going live.
+              </p>
+            </div>
+            <button
+              onClick={() => scrollTo('interest-form')}
+              className="btn btn-navy"
+              style={{ whiteSpace: 'nowrap', fontWeight: 800 }}
+            >
+              Get featured <IArrow s={13} />
+            </button>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14, marginBottom: 20 }}>
             <PlacementCard name="Harbour Wellness Studio" category="Wellness &amp; relaxation" offer="25% off all treatments for Inspiring Carers members" note={null} color="#0D9488" bg="rgba(13,148,136,0.09)" Icon={HeartPulse} />
             <PlacementCard name="Meadow Family Days" category="Family days out" offer="Carer goes free with any full-price adult ticket" note={null} color="#7B5CF5" bg="rgba(123,92,245,0.09)" Icon={Waves} />
             <PlacementCard name="Bloom Café Collective" category="Food &amp; drink" offer="Free drink upgrade with your Inspiring Carers card" note={null} color="#D97706" bg="rgba(217,119,6,0.09)" Icon={Coffee} />
-            <PlacementCard name="County sponsor space" category="County sponsorship" offer="Your organisation featured across the full county" note="Exclusive sponsor slot — one per county" color={GOLD} bg="rgba(245,166,35,0.09)" Icon={Crown} />
+            <PlacementCard name="County sponsor space" category="County sponsorship — 1 slot" offer="Exclusive county-wide presence for your organisation" note="Cornwall founding slot open" color={GOLD} bg="rgba(245,166,35,0.09)" Icon={Crown} />
           </div>
           <div style={{ padding: '14px 18px', borderRadius: 12, background: 'rgba(26,39,68,0.04)', border: '1px solid #DDE5F0', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
             <BadgeCheck size={16} color="rgba(26,39,68,0.38)" strokeWidth={2} style={{ flexShrink: 0, marginTop: 1 }} />
             <p style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.50)', margin: 0, lineHeight: 1.65 }}>
-              Example placements shown for preview only. These are fictional demonstration examples. Live advertising inventory will open as partner onboarding expands. No current live partnerships are implied.
+              Demo placements using fictional organisations. All partnerships reviewed before going live. No placement is published without admin approval.
             </p>
           </div>
         </div>
       </section>
 
-      {/* ── 5. Indicative future packages ── */}
-      <section style={{ paddingTop: 72, paddingBottom: 72, background: '#FFFFFF' }}>
-        <div className="container">
-          <div style={{ textAlign: 'center', marginBottom: 44 }}>
-            <div className="eyebrow" style={{ marginBottom: 8 }}>Future pricing</div>
-            <h2 style={{ fontSize: 'clamp(22px, 3vw, 34px)', fontWeight: 800, color: NAVY, margin: '0 0 12px' }}>
-              Indicative packages — for planning purposes
-            </h2>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 14px', borderRadius: 999, background: 'rgba(245,166,35,0.10)', border: '1px solid rgba(245,166,35,0.25)', fontSize: 12, fontWeight: 700, color: '#92400E' }}>
-              <Clock size={13} color="#92400E" strokeWidth={2} /> Indicative future pricing for planning only — not currently live
-            </div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(270px, 1fr))', gap: 20, maxWidth: 920, margin: '0 auto' }}>
-
-            {/* Starter */}
-            <div style={{ padding: '28px 24px', borderRadius: 22, border: '2px solid #E8EEF8', background: '#FAFBFF' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-                <IconBadge Icon={Sparkles} color="#2563EB" bg="rgba(37,99,235,0.09)" size={44} iconSize={20} />
-                <div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: NAVY }}>Starter Visibility</div>
-                  <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.50)', fontWeight: 600 }}>Indicative: from £49/month</div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                {['Featured listing', 'Category placement', 'Basic campaign visibility', 'Standard discovery placement'].map(item => (
-                  <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5, color: NAVY, fontWeight: 500 }}>
-                    <CheckCircle2 size={15} color="#2563EB" strokeWidth={2} style={{ flexShrink: 0 }} /> {item}
-                  </div>
-                ))}
-              </div>
-              <button onClick={() => scrollTo('interest-form')} className="btn btn-navy" style={{ marginTop: 22, width: '100%', justifyContent: 'center', fontWeight: 800 }}>
-                Register interest <IArrow s={13} />
-              </button>
-            </div>
-
-            {/* Local Growth */}
-            <div style={{ padding: '28px 24px', borderRadius: 22, border: `2px solid ${GOLD}55`, background: 'linear-gradient(160deg, #FFFDF5 0%, #FFFBF0 100%)', position: 'relative', overflow: 'hidden' }}>
-              <div style={{ position: 'absolute', top: 16, right: 16, fontSize: 10, fontWeight: 800, padding: '3px 10px', borderRadius: 999, background: 'rgba(245,166,35,0.15)', color: GOLD, border: '1px solid rgba(245,166,35,0.30)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                Popular
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-                <IconBadge Icon={BarChart3} color={GOLD} bg="rgba(245,166,35,0.12)" size={44} iconSize={20} />
-                <div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: NAVY }}>Local Growth</div>
-                  <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.50)', fontWeight: 600 }}>Indicative: from £149/month</div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                {['Featured listing', 'Activity and offer spotlight', 'Monthly campaign placement', 'Analytics dashboard'].map(item => (
-                  <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5, color: NAVY, fontWeight: 500 }}>
-                    <CheckCircle2 size={15} color={GOLD} strokeWidth={2} style={{ flexShrink: 0 }} /> {item}
-                  </div>
-                ))}
-              </div>
-              <button onClick={() => scrollTo('interest-form')} className="btn btn-gold" style={{ marginTop: 22, width: '100%', justifyContent: 'center', fontWeight: 800 }}>
-                Register interest <IArrow s={13} />
-              </button>
-            </div>
-
-            {/* County Sponsor */}
-            <div style={{ padding: '28px 24px', borderRadius: 22, border: '2px solid rgba(123,92,245,0.35)', background: 'linear-gradient(160deg, #F8F5FF 0%, #F2EEFF 100%)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-                <IconBadge Icon={Crown} color="#7B5CF5" bg="rgba(123,92,245,0.12)" size={44} iconSize={20} />
-                <div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: NAVY }}>County Sponsor</div>
-                  <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.50)', fontWeight: 600 }}>Indicative: from £500+/month</div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                {['Exclusive regional visibility', 'County-level sponsor positioning', 'Priority campaign visibility', 'Bespoke package and reporting'].map(item => (
-                  <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5, color: NAVY, fontWeight: 500 }}>
-                    <CheckCircle2 size={15} color="#7B5CF5" strokeWidth={2} style={{ flexShrink: 0 }} /> {item}
-                  </div>
-                ))}
-              </div>
-              <button onClick={() => scrollTo('interest-form')} style={{ marginTop: 22, width: '100%', padding: '11px 20px', borderRadius: 12, background: 'rgba(123,92,245,0.12)', border: '1px solid rgba(123,92,245,0.28)', color: '#7B5CF5', fontWeight: 800, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                Register interest <IArrow s={13} />
-              </button>
-            </div>
-
-          </div>
-          <p style={{ textAlign: 'center', fontSize: 12.5, color: 'rgba(26,39,68,0.36)', marginTop: 18 }}>
-            All pricing is indicative and for forward planning only. Advertising inventory is not yet live.
-          </p>
-        </div>
-      </section>
-
-      {/* ── 6. Interest form — profile-ready advertising intake ── */}
-      <section id="interest-form" style={{ paddingTop: 64, paddingBottom: 80, background: '#F7F9FC' }}>
+      {/* ── 7. Interest form ───────────────────────────────────────── */}
+      <section id="interest-form" style={{ paddingTop: 72, paddingBottom: 88, background: '#FFFFFF' }}>
         <div className="container">
           <div style={{ maxWidth: 720, margin: '0 auto' }}>
 
-            <div style={{ marginBottom: 32 }}>
+            <div style={{ marginBottom: 36 }}>
               <div className="eyebrow" style={{ marginBottom: 8 }}>Register interest</div>
-              <h2 style={{ fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 800, color: NAVY, margin: '0 0 8px' }}>
-                Express your interest early
+              <h2 style={{ fontSize: 'clamp(24px, 3.5vw, 38px)', fontWeight: 800, color: NAVY, margin: '0 0 10px', letterSpacing: '-0.02em' }}>
+                Claim your space on the platform
               </h2>
-              <p style={{ fontSize: 15, color: 'rgba(26,39,68,0.55)', margin: 0 }}>
-                Tell us about your organisation and what you would like to promote. We will be in touch when advertising inventory opens.
+              <p style={{ fontSize: 16, color: 'rgba(26,39,68,0.55)', margin: 0, lineHeight: 1.7 }}>
+                Tell us about your organisation and what you would like to promote. We will be in touch when advertising inventory opens — founding rates guaranteed for early registrations.
               </p>
             </div>
 
             {submitted ? (
-              <div style={{ padding: '44px 32px', borderRadius: 22, background: 'linear-gradient(160deg, #FFFDF5 0%, #FFFBF0 100%)', border: '1.5px solid rgba(245,166,35,0.25)', textAlign: 'center' }}>
-                <div style={{ width: 60, height: 60, borderRadius: 999, background: 'rgba(245,166,35,0.12)', display: 'grid', placeItems: 'center', margin: '0 auto 18px' }}>
-                  <CheckCircle2 size={28} color={GOLD} strokeWidth={1.75} />
+              <div style={{ padding: '52px 36px', borderRadius: 24, background: 'linear-gradient(160deg, #FFFDF5 0%, #FFFBF0 100%)', border: '1.5px solid rgba(245,166,35,0.25)', textAlign: 'center' }}>
+                <div style={{ width: 64, height: 64, borderRadius: 999, background: 'rgba(245,166,35,0.12)', display: 'grid', placeItems: 'center', margin: '0 auto 20px' }}>
+                  <CheckCircle2 size={30} color={GOLD} strokeWidth={1.75} />
                 </div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: NAVY, marginBottom: 10 }}>
+                <div style={{ fontSize: 24, fontWeight: 800, color: NAVY, marginBottom: 10 }}>
                   Thanks — we have received your advertising enquiry.
                 </div>
-                <p style={{ fontSize: 15, color: 'rgba(26,39,68,0.58)', lineHeight: 1.7, margin: '0 0 24px', maxWidth: 480, marginLeft: 'auto', marginRight: 'auto' }}>
+                <p style={{ fontSize: 15.5, color: 'rgba(26,39,68,0.60)', lineHeight: 1.75, margin: '0 0 28px', maxWidth: 480, marginLeft: 'auto', marginRight: 'auto' }}>
                   We will review your details and may use them to prepare a draft profile, offer card or featured placement — before anything goes live.
                 </p>
                 <button
                   onClick={() => { setSubmitted(false); setForm(EMPTY_FORM); }}
-                  style={{ padding: '10px 22px', borderRadius: 12, background: 'rgba(245,166,35,0.12)', border: '1px solid rgba(245,166,35,0.25)', color: '#92400E', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
+                  style={{ padding: '10px 24px', borderRadius: 12, background: 'rgba(245,166,35,0.12)', border: '1px solid rgba(245,166,35,0.25)', color: '#92400E', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
                 >
                   Submit another enquiry
                 </button>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} style={{ borderRadius: 22, border: '1px solid #E8EEF8', background: '#FFFFFF', overflow: 'hidden' }}>
+              <form onSubmit={handleSubmit} style={{ borderRadius: 24, border: '1px solid #E8EEF8', background: '#FAFBFF', overflow: 'hidden', boxShadow: '0 4px 24px rgba(26,39,68,0.06)' }}>
 
                 {/* Helper banner */}
                 <div style={{ padding: '16px 28px', background: 'rgba(245,166,35,0.06)', borderBottom: '1px solid rgba(245,166,35,0.14)', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                   <BadgeCheck size={16} color={GOLD} strokeWidth={2} style={{ flexShrink: 0, marginTop: 1 }} />
                   <p style={{ fontSize: 13, color: '#92400E', margin: 0, lineHeight: 1.6, fontWeight: 500 }}>
-                    This information helps us turn your enquiry into a draft profile, offer card or featured placement — everything is reviewed before anything goes live.
+                    This information helps us turn your enquiry into a profile, offer card or featured placement — everything is reviewed before anything goes live.
                   </p>
                 </div>
 
-                <div style={{ padding: '28px 28px 32px', display: 'flex', flexDirection: 'column', gap: 0 }}>
+                <div style={{ padding: '28px 28px 32px', display: 'flex', flexDirection: 'column', gap: 0, background: '#FFFFFF' }}>
 
-                  {/* ── Section 1: Organisation details ── */}
+                  {/* Section 1 */}
                   <div style={{ marginBottom: 28 }}>
                     <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: GOLD, marginBottom: 18 }}>
                       1 — Organisation details
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
                       {[
-                        { key: 'orgName',     label: 'Organisation name', placeholder: 'Your business or organisation name', type: 'text',  req: true },
-                        { key: 'contactName', label: 'Contact name',      placeholder: 'Your full name',                    type: 'text',  req: true },
-                        { key: 'email',       label: 'Email address',     placeholder: 'email@yourorganisation.com',        type: 'email', req: true },
+                        { key: 'orgName',     label: 'Organisation name', placeholder: 'Your business or organisation name', type: 'text',  req: true  },
+                        { key: 'contactName', label: 'Contact name',      placeholder: 'Your full name',                    type: 'text',  req: true  },
+                        { key: 'email',       label: 'Email address',     placeholder: 'email@yourorganisation.com',        type: 'email', req: true  },
                         { key: 'phone',       label: 'Phone number',      placeholder: 'Optional',                          type: 'tel',   req: false },
                         { key: 'website',     label: 'Website',           placeholder: 'https://yourorganisation.com',      type: 'url',   req: false },
                       ].map(({ key, label, placeholder, type, req }) => (
@@ -452,7 +548,7 @@ const AdvertisePage = ({ onNavigate, session }) => {
                     </div>
                   </div>
 
-                  {/* ── Section 2: Offer / promotion details ── */}
+                  {/* Section 2 */}
                   <div style={{ paddingTop: 24, borderTop: '1px solid #EEF1F7', marginBottom: 28 }}>
                     <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: GOLD, marginBottom: 18 }}>
                       2 — Offer / promotion details
@@ -464,7 +560,7 @@ const AdvertisePage = ({ onNavigate, session }) => {
                         </label>
                         <select value={form.promotionType} onChange={set('promotionType')} onFocus={onFocusField} onBlur={onBlurField} style={selectStyle} required>
                           <option value="">Select promotion type</option>
-                          {['Featured listing', 'Carer discount / offer', 'Activity promotion', 'County sponsorship', 'Campaign promotion', 'General partnership'].map(o => <option key={o} value={o}>{o}</option>)}
+                          {['Featured listing', 'Carer discount / offer', 'Activity promotion', 'County sponsorship', 'Campaign promotion', 'National partner', 'Founding partner', 'General partnership'].map(o => <option key={o} value={o}>{o}</option>)}
                         </select>
                       </div>
                       <div>
@@ -492,7 +588,7 @@ const AdvertisePage = ({ onNavigate, session }) => {
                     </div>
                   </div>
 
-                  {/* ── Section 3: Placement preferences ── */}
+                  {/* Section 3 */}
                   <div style={{ paddingTop: 24, borderTop: '1px solid #EEF1F7', marginBottom: 28 }}>
                     <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: GOLD, marginBottom: 18 }}>
                       3 — Placement preferences
@@ -504,7 +600,7 @@ const AdvertisePage = ({ onNavigate, session }) => {
                         </label>
                         <select value={form.preferredPlacement} onChange={set('preferredPlacement')} onFocus={onFocusField} onBlur={onBlurField} style={selectStyle} required>
                           <option value="">Select placement</option>
-                          {['Activities page', 'For You / discounts page', 'County sponsor area', 'Featured partner panel', 'Business profile', 'Not sure yet'].map(o => <option key={o} value={o}>{o}</option>)}
+                          {['Activities page', 'For You / discounts page', 'County sponsor area', 'Featured partner panel', 'Business profile', 'National — all pages', 'Not sure yet'].map(o => <option key={o} value={o}>{o}</option>)}
                         </select>
                       </div>
                       <div>
@@ -518,12 +614,12 @@ const AdvertisePage = ({ onNavigate, session }) => {
                     </div>
                   </div>
 
-                  {/* ── Section 4: Admin-ready assets ── */}
-                  <div style={{ paddingTop: 24, borderTop: '1px solid #EEF1F7', marginBottom: 24 }}>
+                  {/* Section 4 */}
+                  <div style={{ paddingTop: 24, borderTop: '1px solid #EEF1F7', marginBottom: 28 }}>
                     <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: GOLD, marginBottom: 4 }}>
                       4 — Assets &amp; additional notes
                     </div>
-                    <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.44)', marginBottom: 18 }}>Optional — helps us prepare a profile or card faster after review.</div>
+                    <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.44)', marginBottom: 18 }}>Optional — helps us prepare your profile or card faster after review.</div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
                       <div>
                         <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 6 }}>Logo URL</label>
@@ -549,7 +645,7 @@ const AdvertisePage = ({ onNavigate, session }) => {
                   <button
                     type="submit"
                     disabled={submitting}
-                    style={{ width: '100%', padding: '14px 20px', borderRadius: 12, background: submitting ? 'rgba(245,166,35,0.40)' : 'linear-gradient(135deg, #F5A623, #D4AF37)', border: 'none', color: '#0F172A', fontWeight: 800, fontSize: 15, cursor: submitting ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'opacity .14s' }}
+                    style={{ width: '100%', padding: '15px 20px', borderRadius: 12, background: submitting ? 'rgba(245,166,35,0.40)' : 'linear-gradient(135deg, #F5A623, #D4AF37)', border: 'none', color: '#0F172A', fontWeight: 800, fontSize: 16, cursor: submitting ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'opacity .14s', letterSpacing: '-0.01em' }}
                     onMouseEnter={e => { if (!submitting) e.currentTarget.style.opacity = '0.90'; }}
                     onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
                   >
@@ -564,7 +660,7 @@ const AdvertisePage = ({ onNavigate, session }) => {
               </form>
             )}
 
-            <p style={{ textAlign: 'center', fontSize: 12.5, color: 'rgba(26,39,68,0.36)', marginTop: 16 }}>
+            <p style={{ textAlign: 'center', fontSize: 12.5, color: 'rgba(26,39,68,0.36)', marginTop: 18 }}>
               Prefer to make direct contact?{' '}
               <button onClick={() => onNavigate('business')} style={{ fontSize: 12.5, color: NAVY, fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
                 Use the business partner page
@@ -574,30 +670,34 @@ const AdvertisePage = ({ onNavigate, session }) => {
         </div>
       </section>
 
-      {/* ── 7. Final CTA ── */}
-      <section style={{ paddingTop: 72, paddingBottom: 80, background: 'linear-gradient(150deg, #0C1A35 0%, #162C52 100%)', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', right: -80, top: -80, width: 460, height: 460, borderRadius: '50%', background: 'radial-gradient(circle, rgba(245,166,35,0.10) 0%, transparent 65%)', pointerEvents: 'none' }} />
+      {/* ── 8. Final CTA ───────────────────────────────────────────── */}
+      <section style={{ paddingTop: 80, paddingBottom: 88, background: 'linear-gradient(150deg, #080F24 0%, #0F1A3A 55%, #141D48 100%)', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', right: -80, top: -80, width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, rgba(245,166,35,0.12) 0%, transparent 65%)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', left: '10%', bottom: -60, width: 400, height: 400, borderRadius: '50%', background: 'radial-gradient(circle, rgba(45,156,219,0.08) 0%, transparent 65%)', pointerEvents: 'none' }} />
         <div className="container" style={{ position: 'relative' }}>
-          <div style={{ textAlign: 'center', maxWidth: 560, margin: '0 auto' }}>
-            <h2 style={{ fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 800, color: '#FFFFFF', margin: '0 0 14px', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
-              Ready to reach the care community?
+          <div style={{ textAlign: 'center', maxWidth: 620, margin: '0 auto' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 14px', borderRadius: 999, background: 'rgba(245,166,35,0.15)', border: '1px solid rgba(245,166,35,0.28)', fontSize: 11, fontWeight: 800, color: '#FFD580', letterSpacing: '0.09em', textTransform: 'uppercase', marginBottom: 20 }}>
+              <Zap size={11} color="#FFD580" /> Limited founding slots
+            </div>
+            <h2 style={{ fontSize: 'clamp(30px, 4.5vw, 48px)', fontWeight: 800, color: '#FFFFFF', margin: '0 0 16px', letterSpacing: '-0.03em', lineHeight: 1.08 }}>
+              Ready to reach the people who care for everyone else?
             </h2>
-            <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.58)', lineHeight: 1.75, margin: '0 0 32px' }}>
-              Join a growing national platform connecting carers, families and professionals with the services, activities and support they need.
+            <p style={{ fontSize: 16.5, color: 'rgba(255,255,255,0.58)', lineHeight: 1.75, margin: '0 0 36px' }}>
+              Cornwall is open now. Founding rates are limited. Be visible to a values-led audience before anyone else.
             </p>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
               <button
                 className="btn btn-gold btn-lg"
                 onClick={() => scrollTo('interest-form')}
-                style={{ fontSize: 15, padding: '14px 28px', fontWeight: 800 }}
+                style={{ fontSize: 15, padding: '15px 32px', fontWeight: 800 }}
               >
-                Register interest <IArrow s={14} />
+                Claim your space <IArrow s={14} />
               </button>
               <button
                 onClick={() => onNavigate('business')}
-                style={{ padding: '14px 24px', borderRadius: 12, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 15, cursor: 'pointer', transition: 'background .14s' }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.18)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.10)'; }}
+                style={{ padding: '15px 26px', borderRadius: 12, background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 15, cursor: 'pointer', transition: 'background .14s' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.16)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.09)'; }}
               >
                 Become a partner
               </button>
