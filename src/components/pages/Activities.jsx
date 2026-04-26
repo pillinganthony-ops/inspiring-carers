@@ -638,6 +638,44 @@ const ActivityListCard = ({ venue, onViewProfile }) => {
   );
 };
 
+// Walk card for county listing — routes to Walks page, no profile page needed
+const WalkListCard = ({ walk, onViewWalks }) => (
+  <div
+    className="card"
+    onClick={onViewWalks}
+    style={{ padding: 0, overflow: 'hidden', borderRadius: 16, border: '1px solid rgba(91,201,74,0.22)', display: 'flex', flexDirection: 'column', background: '#FFFFFF', cursor: 'pointer', transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.16s ease' }}
+    onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 12px 36px rgba(91,201,74,0.18), 0 4px 12px rgba(26,39,68,0.06)'; e.currentTarget.style.borderColor = 'rgba(91,201,74,0.55)'; }}
+    onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.borderColor = 'rgba(91,201,74,0.22)'; }}
+  >
+    <div style={{ height: 5, background: 'linear-gradient(90deg, #5BC94A, #3DA832)', flexShrink: 0 }} />
+    <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', flex: 1, gap: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 9.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', padding: '2px 7px', borderRadius: 5, background: 'rgba(91,201,74,0.14)', color: '#3DA832' }}>Walk</span>
+        {walk.difficulty && <span style={tagPill('rgba(26,39,68,0.45)')}>{walk.difficulty}</span>}
+      </div>
+      <div style={{ fontSize: 14.5, fontWeight: 800, color: '#1A2744', lineHeight: 1.3 }}>{walk.name}</div>
+      {walk.area && (
+        <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.52)', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <IPin s={11} /> {walk.area}
+        </div>
+      )}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+        {walk.distanceMiles && <span style={tagPill('#3DA832')}>{walk.distanceMiles} miles</span>}
+        <span style={tagPill('#0D7A55')}>Free</span>
+      </div>
+      <div style={{ marginTop: 'auto', paddingTop: 8 }}>
+        <button onClick={(e) => { e.stopPropagation(); onViewWalks(); }}
+          style={{ fontSize: 12.5, fontWeight: 700, color: '#3DA832', background: 'rgba(91,201,74,0.12)', padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', transition: 'background .14s' }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(91,201,74,0.22)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(91,201,74,0.12)'; }}
+        >
+          View route →
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
 const CountyActivitiesView = ({ county, onNavigate, session }) => {
   const dbCounty    = COUNTY_LABELS[county] || 'Cornwall';
   const countyLabel = COUNTY_LABELS[county] || county;
@@ -647,6 +685,7 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
   const [error,        setError]        = React.useState(null);
   const [showMap,      setShowMap]      = React.useState(false);
   const [visibleCount, setVisibleCount] = React.useState(PAGE_SIZE);
+  const [walkSearch,   setWalkSearch]   = React.useState('');
 
   const [search,           setSearch]           = React.useState('');
   const [filterCat,        setFilterCat]        = React.useState('');
@@ -712,10 +751,18 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
 
   const anyFilter = search || filterCat || filterSubcat || filterPrice || filterInOut || filterFamily || filterWheelchair || filterDog || filterCarer;
 
+  const filteredWalks = React.useMemo(() => {
+    const q = walkSearch.trim().toLowerCase();
+    if (!q) return walksData;
+    return walksData.filter((w) =>
+      w.name?.toLowerCase().includes(q) || w.area?.toLowerCase().includes(q)
+    );
+  }, [walkSearch]);
+
   const clearFilters = () => {
     setSearch(''); setFilterCat(''); setFilterSubcat(''); setFilterPrice(''); setFilterInOut('');
     setFilterFamily(false); setFilterWheelchair(false); setFilterDog(false); setFilterCarer(false);
-    setVisibleCount(PAGE_SIZE);
+    setWalkSearch(''); setVisibleCount(PAGE_SIZE);
   };
 
   const handleViewProfile = (venue) => {
@@ -723,11 +770,21 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
     onNavigate(dest, county, venue.slug);
   };
 
-  // Reset pagination when filters change
-  React.useEffect(() => { setVisibleCount(PAGE_SIZE); }, [filterCat, filterSubcat, filterPrice, filterInOut, filterFamily, filterWheelchair, filterDog, filterCarer, search]);
+  // Reset pagination and walk search when filters change
+  React.useEffect(() => { setVisibleCount(PAGE_SIZE); setWalkSearch(''); }, [filterCat, filterSubcat, filterPrice, filterInOut, filterFamily, filterWheelchair, filterDog, filterCarer, search]);
 
-  const visibleVenues  = filtered.slice(0, visibleCount);
+  const visibleVenues   = filtered.slice(0, visibleCount);
+  const visibleWalks    = filteredWalks.slice(0, visibleCount);
   const mapActivityType = MAP_CAT[filterCat] || '';
+
+  // Dynamic hero title and subtitle
+  const heroTitle = filterCat ? `${filterCat} in ${countyLabel}` : `Activities in ${countyLabel}`;
+  const heroSubtitle =
+    filterCat === 'Walks'       ? `Explore ${walksData.length}+ trails, coastal paths and accessible walking routes across ${countyLabel}.` :
+    filterCat === 'Days Out'    ? `Carer-friendly days out, gardens and family destinations in ${countyLabel}.` :
+    filterCat === 'Attractions' ? `Museums, heritage sites and cultural attractions in ${countyLabel}.` :
+    filterCat === 'Wellbeing'   ? `Calm, restorative and community wellbeing places in ${countyLabel}.` :
+    `Days out, attractions, wellbeing and ${walksData.length}+ walks in ${countyLabel}.`;
 
   // Sidebar section header style
   const sectionLabel = { fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.38)', marginBottom: 10 };
@@ -765,17 +822,14 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
           </button>
 
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 999, background: 'rgba(91,201,74,0.15)', border: '1px solid rgba(91,201,74,0.28)', fontSize: 11, fontWeight: 800, color: '#78E060', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
-            Activities · {countyLabel}
+            {filterCat || 'Activities'} · {countyLabel}
           </div>
 
           <h1 style={{ fontSize: 'clamp(24px, 4vw, 42px)', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.03em', lineHeight: 1.06, margin: '0 0 10px', textWrap: 'balance' }}>
-            Activities in {countyLabel}
+            {heroTitle}
           </h1>
           <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.68)', lineHeight: 1.6, margin: '0 0 16px', maxWidth: 520 }}>
-            Days out, attractions and wellbeing places in {countyLabel}.
-            {!loading && venues.length > 0 && (
-              <> Browse <strong style={{ color: '#FFFFFF' }}>{venues.length} places</strong>.</>
-            )}
+            {heroSubtitle}
           </p>
 
           {!loading && venues.length > 0 && (
@@ -795,6 +849,52 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
           )}
         </div>
       </section>
+
+      {/* ── Sponsor strip ── */}
+      <div style={{ background: '#FFFFFF', borderBottom: '1px solid #EEF1F7', paddingTop: 10, paddingBottom: 10 }}>
+        <div className="container">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.35)', padding: '3px 8px', borderRadius: 5, border: '1px solid rgba(26,39,68,0.10)', background: 'rgba(26,39,68,0.02)', whiteSpace: 'nowrap' }}>
+                County partner
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 500, color: 'rgba(26,39,68,0.48)' }}>
+                Reach carers discovering {countyLabel} · Sponsor this page
+              </span>
+            </div>
+            <button onClick={() => onNavigate('login')} style={{ fontSize: 12, fontWeight: 700, color: '#B45309', background: 'rgba(245,166,35,0.10)', padding: '5px 12px', borderRadius: 7, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              Become a partner →
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Interactive map — full-width, above listings ── */}
+      <div style={{ background: '#FFFFFF', borderBottom: '1px solid #EEF1F7', paddingTop: 14, paddingBottom: showMap ? 0 : 14 }}>
+        <div className="container">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showMap ? 12 : 0 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: 'rgba(26,39,68,0.50)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <IPin s={12} />
+              Activity map · {countyLabel} · {filterCat || 'All categories'}
+            </div>
+            <button
+              onClick={() => setShowMap((s) => !s)}
+              style={{ fontSize: 12.5, fontWeight: 700, padding: '6px 14px', borderRadius: 10, border: `1px solid ${showMap ? 'rgba(26,39,68,0.18)' : '#DEE8F4'}`, background: showMap ? 'rgba(26,39,68,0.05)' : '#F0F5FB', color: '#1A2744', cursor: 'pointer', transition: 'background .13s', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              {showMap ? '▲ Hide map' : '▼ Show map'}
+            </button>
+          </div>
+          {showMap && (
+            <ActivitiesMap
+              localCounty={county}
+              activityType={mapActivityType}
+              cost={''}
+              accessibility={''}
+              onNavigate={onNavigate}
+            />
+          )}
+        </div>
+      </div>
 
       {/* ── Main content — two-column sidebar + cards ── */}
       <div style={{ background: '#F7F9FC', paddingTop: 28, paddingBottom: 56 }}>
@@ -892,35 +992,15 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
             {/* ── RIGHT: map + cards ── */}
             <div style={{ flex: '1 1 400px', minWidth: 0 }}>
 
-              {/* Header: count + map toggle */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
-                <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)' }}>
-                  {loading ? 'Loading…' : error ? '' :
-                    filterCat === 'Walks'
-                      ? <><strong style={{ color: '#1A2744' }}>{walksData.length}+</strong> walks in {countyLabel}</>
-                      : filtered.length === venues.length
-                        ? <><strong style={{ color: '#1A2744' }}>{venues.length}</strong> {filterCat || 'activities'} in {countyLabel}</>
-                        : <><strong style={{ color: '#1A2744' }}>{filtered.length}</strong> of {venues.length}</>
+              {/* Count header */}
+              {!loading && !error && (
+                <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)', marginBottom: 14 }}>
+                  {filterCat === 'Walks'
+                    ? <><strong style={{ color: '#1A2744' }}>{filteredWalks.length}</strong> {walkSearch ? `of ${walksData.length}` : ''} walks in {countyLabel}</>
+                    : filtered.length === venues.length
+                      ? <><strong style={{ color: '#1A2744' }}>{venues.length}</strong> {filterCat || 'activities'} in {countyLabel}</>
+                      : <><strong style={{ color: '#1A2744' }}>{filtered.length}</strong> of {venues.length} {filterCat || 'activities'}</>
                   }
-                </div>
-                <button
-                  onClick={() => setShowMap((s) => !s)}
-                  style={{ fontSize: 12.5, fontWeight: 700, padding: '7px 14px', borderRadius: 10, border: `1px solid ${showMap ? 'rgba(26,39,68,0.20)' : '#EEF1F7'}`, background: showMap ? 'rgba(26,39,68,0.06)' : '#FAFBFF', color: '#1A2744', cursor: 'pointer', transition: 'background .13s', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                >
-                  <IPin s={12} /> {showMap ? 'Hide map' : 'Show map'}
-                </button>
-              </div>
-
-              {/* Map (reuses ActivitiesMap — already geocodes Cornwall walk pins) */}
-              {showMap && (
-                <div style={{ marginBottom: 20 }}>
-                  <ActivitiesMap
-                    localCounty={county}
-                    activityType={mapActivityType}
-                    cost={''}
-                    accessibility={''}
-                    onNavigate={onNavigate}
-                  />
                 </div>
               )}
 
@@ -949,30 +1029,52 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
                 </div>
               )}
 
-              {/* Walks category — overview card + CTA */}
+              {/* Walks category — search bar + walk cards */}
               {!loading && !error && filterCat === 'Walks' && (
                 <div>
-                  <div className="card" style={{ padding: 0, overflow: 'hidden', borderRadius: 16, border: '1px solid rgba(91,201,74,0.22)', marginBottom: 16 }}>
-                    <div style={{ height: 5, background: 'linear-gradient(90deg, #5BC94A, #3DA832)' }} />
-                    <div style={{ padding: '22px 24px' }}>
-                      <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#5BC94A', marginBottom: 6 }}>Live now</div>
-                      <div style={{ fontSize: 22, fontWeight: 800, color: '#1A2744', marginBottom: 8 }}>Walks in {countyLabel}</div>
-                      <p style={{ fontSize: 14, color: 'rgba(26,39,68,0.66)', lineHeight: 1.65, margin: '0 0 18px' }}>
-                        Explore {walksData.length}+ rated trails, coastal paths and accessible walking routes across {countyLabel}. From short family loops to long-distance coastal paths — all free, all rated.
-                      </p>
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {/* Walk search */}
+                  <div style={{ position: 'relative', marginBottom: 16 }}>
+                    <input
+                      type="text" value={walkSearch} onChange={(e) => setWalkSearch(e.target.value)}
+                      placeholder={`Search ${walksData.length}+ walks by name or area…`}
+                      style={{ ...iStyle, width: '100%', boxSizing: 'border-box', paddingLeft: 34, fontSize: 14 }}
+                    />
+                    <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'rgba(26,39,68,0.38)', display: 'flex', pointerEvents: 'none' }}>
+                      <ISearch s={14} />
+                    </span>
+                    {walkSearch && (
+                      <button onClick={() => setWalkSearch('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: 'rgba(26,39,68,0.40)', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>✕</button>
+                    )}
+                  </div>
+
+                  {/* Walk cards */}
+                  {visibleWalks.length > 0 ? (
+                    <>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14, marginBottom: 20 }}>
+                        {visibleWalks.map((walk, i) => (
+                          <WalkListCard key={walk.id || `${walk.name}-${i}`} walk={walk} onViewWalks={() => onNavigate('walks', county)} />
+                        ))}
+                      </div>
+                      {visibleCount < filteredWalks.length && (
+                        <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                          <button onClick={() => setVisibleCount((v) => v + PAGE_SIZE)} className="btn btn-ghost" style={{ minWidth: 200 }}>
+                            Load more <span style={{ fontSize: 12, fontWeight: 500, color: 'rgba(26,39,68,0.45)', marginLeft: 4 }}>({filteredWalks.length - visibleCount} remaining)</span>
+                          </button>
+                        </div>
+                      )}
+                      <div style={{ textAlign: 'center', paddingTop: 8, paddingBottom: 4 }}>
                         <button className="btn btn-gold" onClick={() => onNavigate('walks', county)}>
-                          Explore all walks <IArrow s={13} />
-                        </button>
-                        <button className="btn btn-ghost" onClick={() => { setFilterCat(''); setShowMap(true); }}>
-                          View on map
+                          Open full walks map <IArrow s={13} />
                         </button>
                       </div>
+                    </>
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>No walks found</div>
+                      <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)', marginBottom: 14 }}>Try a different search term.</div>
+                      <button onClick={() => setWalkSearch('')} className="btn btn-ghost btn-sm">Clear search</button>
                     </div>
-                  </div>
-                  <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.42)', fontStyle: 'italic', textAlign: 'center' }}>
-                    Walk routes are shown on the full Walks page with distances, difficulty ratings, and accessibility information.
-                  </div>
+                  )}
                 </div>
               )}
 
