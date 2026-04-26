@@ -347,8 +347,13 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp,
               Find help
             </button>
 
-            {/* Activities — Walks is the live entry */}
+            {/* Activities — hub button + sub-pages */}
             <div style={{ fontSize: 10.5, fontWeight: 800, color: 'rgba(26,39,68,0.4)', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '6px 2px 2px' }}>Activities</div>
+            {/* Hub button — navigates to /activities county selector */}
+            <button onClick={handleActivitiesClick} style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', padding: '12px 14px', borderRadius: 14, border: 'none', cursor: 'pointer', width: '100%', background: activePage === 'activities' ? 'rgba(91,201,74,0.10)' : '#FAFBFF', color: '#1A2744', fontWeight: activePage === 'activities' ? 700 : 600 }}>
+              <span style={{ width: 8, height: 8, borderRadius: 2, background: '#5BC94A', flexShrink: 0 }} />
+              Browse all activities
+            </button>
             {activitiesItems.map((item) => (
               <button key={item.key} onClick={() => handleNavigate(item.key)} style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', padding: '12px 14px', borderRadius: 14, border: 'none', cursor: 'pointer', width: '100%', background: activePage === item.key ? 'rgba(91,201,74,0.10)' : '#FAFBFF', color: '#1A2744', fontWeight: activePage === item.key ? 700 : 600 }}>
                 <span style={{ width: 8, height: 8, borderRadius: 2, background: '#5BC94A', flexShrink: 0 }} />
@@ -433,7 +438,7 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp,
                   Claim / Sign In
                 </button>
                 <button className="btn btn-gold btn-sm" onClick={() => handleNavigate('card')} style={{ justifyContent: 'center' }}>
-                  Get free card
+                  Team Benefits
                 </button>
               </div>
             )}
