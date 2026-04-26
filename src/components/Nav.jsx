@@ -152,7 +152,7 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp,
   // County-aware nav handlers: county selected → /county/page; no county → hub
   const handleActivitiesClick = () => {
     setMobileOpen(false); setMoreOpen(false); setAccountOpen(false); setActivitiesOpen(false);
-    onNavigate('activities', county || null);
+    onNavigate('activities', null);
   };
   // Find Help and Events always open the hub (county selector), never jump to a stored county.
   // Activities is different — it uses county context because it has discovery value there.
