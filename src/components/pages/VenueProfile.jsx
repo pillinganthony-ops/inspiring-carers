@@ -14,8 +14,7 @@ import {
   Route, Mountain, Leaf, Landmark, Waves, Castle, Train,
   Theater, Palette, Sailboat, Building2, TreePine,
   MapPin, Compass, FerrisWheel, Flower2, Users, PawPrint,
-  ShoppingBag, Gem, Bird, HeartHandshake, Sparkles, Star,
-  Heart, Tent, Coffee,
+  ShoppingBag, Gem, Bird, HeartHandshake, Sparkles, Star, Coffee,
 } from 'lucide-react';
 
 const { IPin, IArrow } = Icons;
@@ -49,7 +48,6 @@ const SUBCAT_ICONS = {
   'Adventure':            Compass,
   'Watersports':          Sailboat,
   'Boat Trip':            Sailboat,
-  'Tent':                 Tent,
   // Culture & heritage
   'Museum':               Landmark,
   'Historic Site':        Castle,
