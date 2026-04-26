@@ -307,7 +307,8 @@ const isAdminEmail = (email) => Boolean(email && ADMIN_EMAILS.includes(`${email}
 
 // County-aware routing constants
 // 'activities' intentionally excluded — it is a county-optional hub (/activities and /{county}/activities both work)
-const COUNTY_PAGES = new Set(['find-help', 'training', 'events', 'for-you', 'walks', 'places-to-visit', 'wellbeing', 'groups']);
+// find-help intentionally excluded — it always routes to /find-help (no county prefix)
+const COUNTY_PAGES = new Set(['training', 'events', 'for-you', 'walks', 'places-to-visit', 'wellbeing', 'groups']);
 const COUNTY_SLUGS = ['cornwall', 'devon', 'dorset', 'somerset', 'bristol', 'wiltshire'];
 const COUNTY_DEFAULT = 'cornwall';
 
@@ -497,6 +498,16 @@ const App = () => {
           window.history.pushState({ page: 'activities', county: targetCounty }, '', `/${targetCounty}/activities`);
         }
       }
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      return;
+    }
+
+    // find-help always goes to /find-help with no county prefix, regardless of current county
+    if (key === 'find-help') {
+      setPage('find-help');
+      setVenueSlug(null);
+      setCounty(null);
+      window.history.pushState({ page: 'find-help', county: null }, '', '/find-help');
       window.scrollTo({ top: 0, behavior: 'instant' });
       return;
     }

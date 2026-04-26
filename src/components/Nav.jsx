@@ -154,7 +154,7 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp,
     setMobileOpen(false); setMoreOpen(false); setAccountOpen(false); setActivitiesOpen(false);
     onNavigate('activities', null);
   };
-  // Find Help goes directly to the directory.
+  // Find Help always routes to /find-help (absolute) — never county-prefixed.
   const handleFindHelpClick = () => {
     setMobileOpen(false); setMoreOpen(false); setAccountOpen(false); setActivitiesOpen(false);
     onNavigate('find-help');
