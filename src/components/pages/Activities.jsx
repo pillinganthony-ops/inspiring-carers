@@ -523,15 +523,33 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
   );
 };
 
-// ── County-specific activities listing ────────────────────────────────────────
-// Rendered when /cornwall/activities (county prop is set).
-// Fetches all venue categories from venues_public for the selected county.
+// ── County-specific activities listing ─────────────────────────────────────────
+// Rendered at /{county}/activities. Two-column sidebar + card grid, map toggle, pagination.
 
 const CAT_ACCENT_LISTING = {
   'Days Out':    '#F5A623',
   'Attractions': '#7B5CF5',
   'Wellbeing':   '#0D9488',
+  'Walks':       '#5BC94A',
 };
+
+const LISTING_CATEGORIES = [
+  { value: '',            label: 'All activities', color: '#1A2744',  dot: 'rgba(26,39,68,0.35)' },
+  { value: 'Days Out',    label: 'Days Out',       color: '#F5A623',  dot: '#F5A623' },
+  { value: 'Attractions', label: 'Attractions',    color: '#7B5CF5',  dot: '#7B5CF5' },
+  { value: 'Wellbeing',   label: 'Wellbeing',      color: '#0D9488',  dot: '#0D9488' },
+  { value: 'Walks',       label: 'Walks',          color: '#5BC94A',  dot: '#5BC94A' },
+];
+
+const MAP_CAT = {
+  'Days Out':    'days-out',
+  'Attractions': 'attractions',
+  'Wellbeing':   'wellbeing',
+  'Walks':       'walks',
+  '':            '',
+};
+
+const PAGE_SIZE = 12;
 
 const tagPill = (color) => ({
   fontSize: 10.5, fontWeight: 600, padding: '2px 7px', borderRadius: 5,
@@ -624,9 +642,11 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
   const dbCounty    = COUNTY_LABELS[county] || 'Cornwall';
   const countyLabel = COUNTY_LABELS[county] || county;
 
-  const [venues,  setVenues]  = React.useState([]);
-  const [loading, setLoading] = React.useState(true);
-  const [error,   setError]   = React.useState(null);
+  const [venues,       setVenues]       = React.useState([]);
+  const [loading,      setLoading]      = React.useState(true);
+  const [error,        setError]        = React.useState(null);
+  const [showMap,      setShowMap]      = React.useState(false);
+  const [visibleCount, setVisibleCount] = React.useState(PAGE_SIZE);
 
   const [search,           setSearch]           = React.useState('');
   const [filterCat,        setFilterCat]        = React.useState('');
@@ -695,11 +715,36 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
   const clearFilters = () => {
     setSearch(''); setFilterCat(''); setFilterSubcat(''); setFilterPrice(''); setFilterInOut('');
     setFilterFamily(false); setFilterWheelchair(false); setFilterDog(false); setFilterCarer(false);
+    setVisibleCount(PAGE_SIZE);
   };
 
   const handleViewProfile = (venue) => {
     const dest = venue.category === 'Wellbeing' ? 'wellbeing' : 'places-to-visit';
     onNavigate(dest, county, venue.slug);
+  };
+
+  // Reset pagination when filters change
+  React.useEffect(() => { setVisibleCount(PAGE_SIZE); }, [filterCat, filterSubcat, filterPrice, filterInOut, filterFamily, filterWheelchair, filterDog, filterCarer, search]);
+
+  const visibleVenues  = filtered.slice(0, visibleCount);
+  const mapActivityType = MAP_CAT[filterCat] || '';
+
+  // Sidebar section header style
+  const sectionLabel = { fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.38)', marginBottom: 10 };
+
+  // Category filter button
+  const catBtn = (cat) => {
+    const active = filterCat === cat.value;
+    return (
+      <button key={cat.value} onClick={() => setFilterCat(cat.value)}
+        style={{ width: '100%', textAlign: 'left', padding: '8px 12px', borderRadius: 10, marginBottom: 4, border: active ? `1.5px solid ${cat.color}` : '1px solid #EEF1F7', background: active ? `${cat.color}10` : 'transparent', color: active ? cat.color : 'rgba(26,39,68,0.66)', fontWeight: active ? 700 : 500, fontSize: 13.5, cursor: 'pointer', transition: 'all .14s', display: 'flex', alignItems: 'center', gap: 8 }}
+        onMouseEnter={(e) => { if (!active) { e.currentTarget.style.background = '#F7F9FC'; e.currentTarget.style.color = '#1A2744'; }}}
+        onMouseLeave={(e) => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(26,39,68,0.66)'; }}}
+      >
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: cat.dot, flexShrink: 0 }} />
+        {cat.label}
+      </button>
+    );
   };
 
   return (
@@ -736,10 +781,10 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
           {!loading && venues.length > 0 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 0, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.10)' }}>
               {[
-                { n: venues.length,                                           l: 'Activities' },
-                { n: venues.filter((v) => v.free_or_paid === 'Free').length,  l: 'Free entry' },
-                { n: venues.filter((v) => v.wheelchair_access).length,        l: 'Accessible' },
-                { n: venues.filter((v) => v.family_friendly).length,          l: 'Family friendly' },
+                { n: venues.length,                                                l: 'Places' },
+                { n: `${walksData.length}+`,                                       l: 'Walks' },
+                { n: venues.filter((v) => v.free_or_paid === 'Free').length,       l: 'Free entry' },
+                { n: venues.filter((v) => v.wheelchair_access).length,             l: 'Accessible' },
               ].map(({ n, l }, i) => (
                 <div key={l} style={{ paddingRight: 18, paddingLeft: i > 0 ? 18 : 0, borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.12)' : 'none' }}>
                   <div style={{ fontSize: 18, fontWeight: 800, color: '#FFFFFF', lineHeight: 1 }}>{n}</div>
@@ -751,140 +796,232 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
         </div>
       </section>
 
-      {/* ── Sticky filter bar ── */}
-      <section style={{ background: '#FFFFFF', borderBottom: '1px solid #EEF1F7', paddingTop: 12, paddingBottom: 12, position: 'sticky', top: 72, zIndex: 40 }}>
+      {/* ── Main content — two-column sidebar + cards ── */}
+      <div style={{ background: '#F7F9FC', paddingTop: 28, paddingBottom: 56 }}>
         <div className="container">
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, alignItems: 'center' }}>
-            {/* Search */}
-            <div style={{ position: 'relative', flex: '1 1 180px', minWidth: 0 }}>
-              <input
-                type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by name or town…"
-                style={{ ...iStyle, width: '100%', boxSizing: 'border-box', paddingLeft: 30 }}
-              />
-              <span style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'rgba(26,39,68,0.38)', display: 'flex', pointerEvents: 'none' }}>
-                <ISearch s={12} />
-              </span>
+          <div style={{ display: 'flex', gap: 22, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+
+            {/* ── LEFT: filter sidebar ── */}
+            <div style={{ flex: '0 0 226px', minWidth: 0, position: 'sticky', top: 88 }}>
+              <div className="card" style={{ padding: '18px 16px', borderRadius: 16 }}>
+
+                {/* Search */}
+                <div style={{ marginBottom: 20 }}>
+                  <div style={sectionLabel}>Search</div>
+                  <div style={{ position: 'relative' }}>
+                    <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Name or town…"
+                      style={{ ...iStyle, width: '100%', boxSizing: 'border-box', paddingLeft: 30 }}
+                    />
+                    <span style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'rgba(26,39,68,0.38)', display: 'flex', pointerEvents: 'none' }}>
+                      <ISearch s={12} />
+                    </span>
+                  </div>
+                </div>
+
+                {/* Category */}
+                <div style={{ marginBottom: 20 }}>
+                  <div style={sectionLabel}>Category</div>
+                  {LISTING_CATEGORIES.map((cat) => catBtn(cat))}
+                </div>
+
+                {/* Subcategory — venue categories only */}
+                {filterCat !== 'Walks' && subcatOptions.length > 0 && (
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={sectionLabel}>Type</div>
+                    <select value={filterSubcat} onChange={(e) => setFilterSubcat(e.target.value)} style={{ ...iStyle, width: '100%' }}>
+                      <option value="">All types</option>
+                      {subcatOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                )}
+
+                {/* Price */}
+                <div style={{ marginBottom: 20 }}>
+                  <div style={sectionLabel}>Price</div>
+                  <select value={filterPrice} onChange={(e) => setFilterPrice(e.target.value)} style={{ ...iStyle, width: '100%' }}>
+                    <option value="">Any price</option>
+                    <option value="Free">Free</option>
+                    <option value="Paid">Paid</option>
+                    <option value="Mixed">Mixed</option>
+                  </select>
+                </div>
+
+                {/* Setting — venue categories only */}
+                {filterCat !== 'Walks' && (
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={sectionLabel}>Setting</div>
+                    <select value={filterInOut} onChange={(e) => setFilterInOut(e.target.value)} style={{ ...iStyle, width: '100%' }}>
+                      <option value="">Indoor or outdoor</option>
+                      <option value="Indoor">Indoor</option>
+                      <option value="Outdoor">Outdoor</option>
+                      <option value="Both">Both</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* Suitability */}
+                <div style={{ marginBottom: 14 }}>
+                  <div style={sectionLabel}>Suitability</div>
+                  {[
+                    { label: 'Family friendly', active: filterFamily,     set: setFilterFamily,     color: '#F5A623' },
+                    { label: 'Wheelchair',      active: filterWheelchair, set: setFilterWheelchair, color: '#7B5CF5' },
+                    { label: 'Dog friendly',    active: filterDog,        set: setFilterDog,        color: '#3DA832' },
+                    { label: 'Carer friendly',  active: filterCarer,      set: setFilterCarer,      color: '#F4613A' },
+                  ].map(({ label, active, set, color }) => (
+                    <button key={label} onClick={() => set(!active)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', padding: '7px 10px', borderRadius: 9, marginBottom: 5, border: active ? `1.5px solid ${color}` : '1px solid #EEF1F7', background: active ? `${color}10` : 'transparent', color: active ? color : 'rgba(26,39,68,0.65)', fontWeight: active ? 700 : 500, fontSize: 13, cursor: 'pointer', transition: 'all .13s' }}
+                    >
+                      <span style={{ width: 16, height: 16, borderRadius: 4, border: active ? `1.5px solid ${color}` : '1.5px solid rgba(26,39,68,0.22)', background: active ? color : 'transparent', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                        {active && <span style={{ fontSize: 9, color: 'white', fontWeight: 900, lineHeight: 1 }}>✓</span>}
+                      </span>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Clear all */}
+                {anyFilter && (
+                  <button onClick={clearFilters} style={{ fontSize: 12, fontWeight: 600, color: 'rgba(26,39,68,0.45)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0', width: '100%', textAlign: 'center' }}>
+                    Clear all filters
+                  </button>
+                )}
+              </div>
             </div>
-            {/* Category */}
-            <select value={filterCat} onChange={(e) => setFilterCat(e.target.value)} style={{ ...iStyle, flex: '1 1 130px' }}>
-              <option value="">All categories</option>
-              <option value="Days Out">Days Out</option>
-              <option value="Attractions">Attractions</option>
-              <option value="Wellbeing">Wellbeing</option>
-            </select>
-            {/* Subcategory */}
-            {subcatOptions.length > 0 && (
-              <select value={filterSubcat} onChange={(e) => setFilterSubcat(e.target.value)} style={{ ...iStyle, flex: '1 1 130px' }}>
-                <option value="">All types</option>
-                {subcatOptions.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
-            )}
-            {/* Price */}
-            <select value={filterPrice} onChange={(e) => setFilterPrice(e.target.value)} style={{ ...iStyle, flex: '1 1 110px' }}>
-              <option value="">Any price</option>
-              <option value="Free">Free</option>
-              <option value="Paid">Paid</option>
-              <option value="Mixed">Mixed</option>
-            </select>
-            {/* Indoor/outdoor */}
-            <select value={filterInOut} onChange={(e) => setFilterInOut(e.target.value)} style={{ ...iStyle, flex: '1 1 140px' }}>
-              <option value="">Indoor or outdoor</option>
-              <option value="Indoor">Indoor</option>
-              <option value="Outdoor">Outdoor</option>
-              <option value="Both">Both</option>
-            </select>
-            {/* Toggle chips */}
-            {[
-              { label: 'Family friendly', active: filterFamily,     set: setFilterFamily,     color: '#F5A623' },
-              { label: 'Wheelchair',      active: filterWheelchair, set: setFilterWheelchair, color: '#7B5CF5' },
-              { label: 'Dog friendly',    active: filterDog,        set: setFilterDog,        color: '#3DA832' },
-              { label: 'Carer friendly',  active: filterCarer,      set: setFilterCarer,      color: '#F4613A' },
-            ].map(({ label, active, set, color }) => (
-              <button key={label} onClick={() => set(!active)}
-                style={{ fontSize: 12.5, fontWeight: 700, padding: '8px 13px', borderRadius: 10, border: active ? `1.5px solid ${color}` : '1px solid #E9EEF5', background: active ? `${color}14` : '#FAFBFF', color: active ? color : 'rgba(26,39,68,0.60)', cursor: 'pointer', whiteSpace: 'nowrap' }}
-              >{label}</button>
-            ))}
-            {anyFilter && (
-              <button onClick={clearFilters} style={{ fontSize: 12, fontWeight: 600, color: 'rgba(26,39,68,0.45)', background: 'none', border: 'none', cursor: 'pointer', padding: '8px 4px', whiteSpace: 'nowrap' }}>
-                Clear all
-              </button>
-            )}
+
+            {/* ── RIGHT: map + cards ── */}
+            <div style={{ flex: '1 1 400px', minWidth: 0 }}>
+
+              {/* Header: count + map toggle */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
+                <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)' }}>
+                  {loading ? 'Loading…' : error ? '' :
+                    filterCat === 'Walks'
+                      ? <><strong style={{ color: '#1A2744' }}>{walksData.length}+</strong> walks in {countyLabel}</>
+                      : filtered.length === venues.length
+                        ? <><strong style={{ color: '#1A2744' }}>{venues.length}</strong> {filterCat || 'activities'} in {countyLabel}</>
+                        : <><strong style={{ color: '#1A2744' }}>{filtered.length}</strong> of {venues.length}</>
+                  }
+                </div>
+                <button
+                  onClick={() => setShowMap((s) => !s)}
+                  style={{ fontSize: 12.5, fontWeight: 700, padding: '7px 14px', borderRadius: 10, border: `1px solid ${showMap ? 'rgba(26,39,68,0.20)' : '#EEF1F7'}`, background: showMap ? 'rgba(26,39,68,0.06)' : '#FAFBFF', color: '#1A2744', cursor: 'pointer', transition: 'background .13s', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                >
+                  <IPin s={12} /> {showMap ? 'Hide map' : 'Show map'}
+                </button>
+              </div>
+
+              {/* Map (reuses ActivitiesMap — already geocodes Cornwall walk pins) */}
+              {showMap && (
+                <div style={{ marginBottom: 20 }}>
+                  <ActivitiesMap
+                    localCounty={county}
+                    activityType={mapActivityType}
+                    cost={''}
+                    accessibility={''}
+                    onNavigate={onNavigate}
+                  />
+                </div>
+              )}
+
+              {/* Loading skeletons */}
+              {loading && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="card" style={{ padding: 16, borderRadius: 16, minHeight: 180 }}>
+                      <div style={{ height: 5, background: '#EAF0FA', borderRadius: 2, marginBottom: 14 }} />
+                      <div style={{ height: 10, width: '55%', borderRadius: 6, background: '#EAF0FA', marginBottom: 10 }} />
+                      <div style={{ height: 14, width: '82%', borderRadius: 6, background: '#E4ECF8', marginBottom: 10 }} />
+                      <div style={{ height: 10, width: '38%', borderRadius: 6, background: '#EAF0FA', marginBottom: 12 }} />
+                      <div style={{ height: 10, width: '94%', borderRadius: 6, background: '#EAF0FA' }} />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Error */}
+              {!loading && error && (
+                <div style={{ textAlign: 'center', padding: '56px 20px' }}>
+                  <div style={{ fontSize: 34, marginBottom: 14 }}>⚠️</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>Could not load activities</div>
+                  <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)', marginBottom: 20 }}>{error}</div>
+                  <button className="btn btn-gold btn-sm" onClick={() => window.location.reload()}>Try again</button>
+                </div>
+              )}
+
+              {/* Walks category — overview card + CTA */}
+              {!loading && !error && filterCat === 'Walks' && (
+                <div>
+                  <div className="card" style={{ padding: 0, overflow: 'hidden', borderRadius: 16, border: '1px solid rgba(91,201,74,0.22)', marginBottom: 16 }}>
+                    <div style={{ height: 5, background: 'linear-gradient(90deg, #5BC94A, #3DA832)' }} />
+                    <div style={{ padding: '22px 24px' }}>
+                      <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#5BC94A', marginBottom: 6 }}>Live now</div>
+                      <div style={{ fontSize: 22, fontWeight: 800, color: '#1A2744', marginBottom: 8 }}>Walks in {countyLabel}</div>
+                      <p style={{ fontSize: 14, color: 'rgba(26,39,68,0.66)', lineHeight: 1.65, margin: '0 0 18px' }}>
+                        Explore {walksData.length}+ rated trails, coastal paths and accessible walking routes across {countyLabel}. From short family loops to long-distance coastal paths — all free, all rated.
+                      </p>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button className="btn btn-gold" onClick={() => onNavigate('walks', county)}>
+                          Explore all walks <IArrow s={13} />
+                        </button>
+                        <button className="btn btn-ghost" onClick={() => { setFilterCat(''); setShowMap(true); }}>
+                          View on map
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.42)', fontStyle: 'italic', textAlign: 'center' }}>
+                    Walk routes are shown on the full Walks page with distances, difficulty ratings, and accessibility information.
+                  </div>
+                </div>
+              )}
+
+              {/* Empty state */}
+              {!loading && !error && filterCat !== 'Walks' && filtered.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '56px 20px' }}>
+                  <div style={{ fontSize: 34, marginBottom: 14 }}>🗺️</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>
+                    {venues.length === 0 ? `No activities listed yet for ${countyLabel}` : 'No activities match your filters'}
+                  </div>
+                  <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)', marginBottom: 16 }}>
+                    {venues.length === 0 ? 'Check back soon — more listings are being added.' : 'Try adjusting or clearing your filters.'}
+                  </div>
+                  {anyFilter && <button onClick={clearFilters} className="btn btn-ghost btn-sm">Clear all filters</button>}
+                </div>
+              )}
+
+              {/* Cards grid + load more */}
+              {!loading && !error && filterCat !== 'Walks' && filtered.length > 0 && (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14, marginBottom: 20 }}>
+                    {visibleVenues.map((venue) => (
+                      <ActivityListCard key={venue.id} venue={venue} onViewProfile={handleViewProfile} />
+                    ))}
+                  </div>
+
+                  {visibleCount < filtered.length && (
+                    <div style={{ textAlign: 'center', paddingTop: 4 }}>
+                      <button onClick={() => setVisibleCount((v) => v + PAGE_SIZE)} className="btn btn-ghost" style={{ minWidth: 200 }}>
+                        Load more{' '}
+                        <span style={{ fontSize: 12, fontWeight: 500, color: 'rgba(26,39,68,0.45)', marginLeft: 4 }}>
+                          ({filtered.length - visibleCount} remaining)
+                        </span>
+                      </button>
+                    </div>
+                  )}
+
+                  {visibleCount >= filtered.length && filtered.length > PAGE_SIZE && (
+                    <div style={{ textAlign: 'center', fontSize: 13, color: 'rgba(26,39,68,0.38)', paddingTop: 8 }}>
+                      All {filtered.length} activities shown
+                    </div>
+                  )}
+                </>
+              )}
+
+            </div>
           </div>
         </div>
-      </section>
-
-      {/* ── Card grid ── */}
-      <section style={{ paddingTop: 32, paddingBottom: 56, background: '#FAFBFF', minHeight: '50vh' }}>
-        <div className="container">
-          {/* Count */}
-          {!loading && !error && venues.length > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 8 }}>
-              <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)' }}>
-                {filtered.length === venues.length
-                  ? <><strong style={{ color: '#1A2744' }}>{venues.length}</strong> activities in {countyLabel}</>
-                  : <><strong style={{ color: '#1A2744' }}>{filtered.length}</strong> of {venues.length} activities</>
-                }
-              </div>
-              {anyFilter && filtered.length === 0 && (
-                <button onClick={clearFilters} className="btn btn-ghost btn-sm">Clear filters</button>
-              )}
-            </div>
-          )}
-
-          {/* Loading */}
-          {loading && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
-              {Array.from({ length: 9 }).map((_, i) => (
-                <div key={i} className="card" style={{ padding: 16, borderRadius: 16, minHeight: 180 }}>
-                  <div style={{ height: 5, background: '#EAF0FA', borderRadius: 2, marginBottom: 14 }} />
-                  <div style={{ height: 10, width: '55%', borderRadius: 6, background: '#EAF0FA', marginBottom: 10 }} />
-                  <div style={{ height: 14, width: '82%', borderRadius: 6, background: '#E4ECF8', marginBottom: 10 }} />
-                  <div style={{ height: 10, width: '38%', borderRadius: 6, background: '#EAF0FA', marginBottom: 12 }} />
-                  <div style={{ height: 10, width: '94%', borderRadius: 6, background: '#EAF0FA' }} />
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Error */}
-          {!loading && error && (
-            <div style={{ textAlign: 'center', padding: '64px 20px' }}>
-              <div style={{ fontSize: 34, marginBottom: 14 }}>⚠️</div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>Could not load activities</div>
-              <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)', marginBottom: 22 }}>{error}</div>
-              <button className="btn btn-gold btn-sm" onClick={() => window.location.reload()}>Try again</button>
-            </div>
-          )}
-
-          {/* Empty */}
-          {!loading && !error && filtered.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '64px 20px' }}>
-              <div style={{ fontSize: 34, marginBottom: 14 }}>🗺️</div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>
-                {venues.length === 0
-                  ? `No activities listed yet for ${countyLabel}`
-                  : 'No activities match your filters'}
-              </div>
-              <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)', marginBottom: 16 }}>
-                {venues.length === 0
-                  ? 'Check back soon — more listings are being added.'
-                  : 'Try adjusting or clearing your filters.'}
-              </div>
-              {anyFilter && <button onClick={clearFilters} className="btn btn-ghost btn-sm">Clear all filters</button>}
-            </div>
-          )}
-
-          {/* Cards */}
-          {!loading && !error && filtered.length > 0 && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
-              {filtered.map((venue) => (
-                <ActivityListCard key={venue.id} venue={venue} onViewProfile={handleViewProfile} />
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
+      </div>
 
       <Footer onNavigate={onNavigate} />
     </>
