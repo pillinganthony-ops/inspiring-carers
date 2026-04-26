@@ -309,8 +309,8 @@ const isAdminEmail = (email) => Boolean(email && ADMIN_EMAILS.includes(`${email}
 
 // County-aware routing constants
 // 'activities' intentionally excluded — it is a county-optional hub (/activities and /{county}/activities both work)
-// find-help and training intentionally excluded — they always route to their flat URLs
-const COUNTY_PAGES = new Set(['events', 'for-you', 'walks', 'places-to-visit', 'wellbeing', 'groups']);
+// find-help, training, for-you intentionally excluded — they always route to their flat URLs
+const COUNTY_PAGES = new Set(['events', 'walks', 'places-to-visit', 'wellbeing', 'groups']);
 const COUNTY_SLUGS = ['cornwall', 'devon', 'dorset', 'somerset', 'bristol', 'wiltshire'];
 const COUNTY_DEFAULT = 'cornwall';
 
