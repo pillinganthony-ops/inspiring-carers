@@ -333,11 +333,15 @@ const isCoordinatePairSane = (lat, lng) => {
 };
 
 const getDetailSlugFromPath = () => {
-  const match = window.location.pathname.match(/^\/find-help\/([^/?#]+)/i);
+  // Matches both /find-help/slug and /cornwall/find-help/slug
+  const match = window.location.pathname.match(/\/find-help\/([^/?#]+)/i);
   return match ? decodeURIComponent(match[1]) : '';
 };
 
-const getListingUrl = (listing) => `${window.location.origin}/find-help/${listing.slug}`;
+const getListingUrl = (listing) => {
+    const base = county ? `/${county}/find-help` : '/find-help';
+    return `${window.location.origin}${base}/${listing.slug}`;
+  };
 
 const getMapsOpenUrl = (listing) => {
   if (listing.lat !== null && listing.lng !== null) {
@@ -2778,7 +2782,9 @@ const CountyEntrance = ({ onSelectCounty, onNavigate, session }) => {
   );
 };
 
-const FindHelpV2 = ({ onNavigate, session }) => {
+const FindHelpV2 = ({ onNavigate, session, county }) => {
+  // county = URL county (e.g. 'cornwall') passed from main.jsx — used to keep
+  // internal pushState URLs county-aware so browser back never shows the hub.
   const isMobile = useIsMobile();
   const [selectedCounty, setSelectedCounty] = React.useState(null);
   const [view, setView] = React.useState('list');
@@ -3060,13 +3066,15 @@ const FindHelpV2 = ({ onNavigate, session }) => {
   const openResource = (listing) => {
     setDetailSlug(listing.slug);
     setShareOpenId('');
-    window.history.pushState({ page: 'find-help', slug: listing.slug }, '', `/find-help/${listing.slug}`);
+    const base = county ? `/${county}/find-help` : '/find-help';
+    window.history.pushState({ page: 'find-help', slug: listing.slug }, '', `${base}/${listing.slug}`);
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
   const closeResource = () => {
     setDetailSlug('');
-    window.history.pushState({ page: 'find-help' }, '', '/find-help');
+    const base = county ? `/${county}/find-help` : '/find-help';
+    window.history.pushState({ page: 'find-help' }, '', base);
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
