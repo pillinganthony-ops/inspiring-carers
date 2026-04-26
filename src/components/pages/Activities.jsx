@@ -317,7 +317,8 @@ const heroInputStyle = {
 // Find Help / resource data is NOT used here.
 // Walk markers → navigate to walks page. Non-walk markers → info card only (no navigation CTA).
 
-const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavigate }) => {
+const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavigate, compactHeight }) => {
+  const mapH = compactHeight || mapH;
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'ic-activity-map',
@@ -418,7 +419,7 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
   const allPins = [...walkPins, ...samplePins];
 
   const Fallback = () => (
-    <div style={{ height: 'clamp(300px, calc(20vw + 225px), 460px)', borderRadius: 20, background: 'linear-gradient(160deg, #E8F5E4 0%, #EEF7FF 100%)', border: '1px solid #DEE8F4', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, textAlign: 'center', padding: 32 }}>
+    <div style={{ height: mapH, borderRadius: 20, background: 'linear-gradient(160deg, #E8F5E4 0%, #EEF7FF 100%)', border: '1px solid #DEE8F4', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, textAlign: 'center', padding: 32 }}>
       <div style={{ fontSize: 32, marginBottom: 4 }}>📍</div>
       <div style={{ fontSize: 15, fontWeight: 700, color: '#1A2744' }}>Activity map loading</div>
       <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)', maxWidth: 280, lineHeight: 1.6 }}>Explore walks, groups, days out, attractions and wellbeing activities by location.</div>
@@ -430,7 +431,7 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
 
   if (loadError) return <Fallback />;
   if (!isLoaded || geoLoading) return (
-    <div style={{ height: 'clamp(300px, calc(20vw + 225px), 460px)', borderRadius: 20, background: '#F0F5FB', border: '1px solid #DEE8F4', display: 'grid', placeItems: 'center' }}>
+    <div style={{ height: mapH, borderRadius: 20, background: '#F0F5FB', border: '1px solid #DEE8F4', display: 'grid', placeItems: 'center' }}>
       <div style={{ textAlign: 'center', color: 'rgba(26,39,68,0.5)', fontSize: 14 }}>
         <div style={{ fontSize: 28, marginBottom: 8 }}>🗺️</div>
         {geoLoading ? 'Locating activities…' : 'Loading map…'}
@@ -446,7 +447,7 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
     <div>
       <div style={{ borderRadius: 20, overflow: 'hidden', boxShadow: '0 8px 32px rgba(26,39,68,0.10)', border: '1px solid #EEF1F7' }}>
         <GoogleMap
-          mapContainerStyle={{ width: '100%', height: 'clamp(300px, calc(20vw + 225px), 460px)' }}
+          mapContainerStyle={{ width: '100%', height: mapH }}
           center={{ lat, lng }}
           zoom={zoom}
           options={{ streetViewControl: false, mapTypeControl: false, fullscreenControl: false, zoomControl: true, gestureHandling: 'cooperative' }}
@@ -927,7 +928,7 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
           </button>
 
           {/* Two-module hero: left = title/stats, right = sponsor panel */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 28, alignItems: 'center' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 28, alignItems: 'flex-start' }}>
 
             {/* ── Left: title + stats ── */}
             <div>
@@ -996,34 +997,7 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
         </div>
       </section>
 
-      {/* ── Interactive map — full-width, above listings ── */}
-      <div style={{ background: '#FFFFFF', borderBottom: '1px solid #EEF1F7', paddingTop: 14, paddingBottom: showMap ? 0 : 14 }}>
-        <div className="container">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showMap ? 12 : 0 }}>
-            <div style={{ fontSize: 12.5, fontWeight: 700, color: 'rgba(26,39,68,0.50)', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <IPin s={12} />
-              Activity map · {countyLabel} · {filterCat || 'All categories'}
-            </div>
-            <button
-              onClick={() => setShowMap((s) => !s)}
-              style={{ fontSize: 12.5, fontWeight: 700, padding: '6px 14px', borderRadius: 10, border: `1px solid ${showMap ? 'rgba(26,39,68,0.18)' : '#DEE8F4'}`, background: showMap ? 'rgba(26,39,68,0.05)' : '#F0F5FB', color: '#1A2744', cursor: 'pointer', transition: 'background .13s', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-            >
-              {showMap ? '▲ Hide map' : '▼ Show map'}
-            </button>
-          </div>
-          {showMap && (
-            <ActivitiesMap
-              localCounty={county}
-              activityType={mapActivityType}
-              cost={''}
-              accessibility={''}
-              onNavigate={onNavigate}
-            />
-          )}
-        </div>
-      </div>
-
-      {/* ── Main content — two-column sidebar + cards ── */}
+      {/* ── Main content — two-column sidebar + right (map + cards) ── */}
       <div style={{ background: '#F7F9FC', paddingTop: 28, paddingBottom: 56 }}>
         <div className="container">
           <div style={{ display: 'flex', gap: 22, alignItems: 'flex-start', flexWrap: 'wrap' }}>
@@ -1116,8 +1090,33 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
               </div>
             </div>
 
-            {/* ── RIGHT: map + cards ── */}
+            {/* ── RIGHT: compact map at top, then cards ── */}
             <div style={{ flex: '1 1 400px', minWidth: 0 }}>
+
+              {/* Compact map — sits above cards, toggleable */}
+              <div style={{ marginBottom: 18 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showMap ? 10 : 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,39,68,0.48)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <IPin s={12} /> {filterCat || 'All categories'} · {countyLabel}
+                  </div>
+                  <button
+                    onClick={() => setShowMap((s) => !s)}
+                    style={{ fontSize: 12, fontWeight: 700, padding: '5px 12px', borderRadius: 9, border: `1px solid ${showMap ? 'rgba(26,39,68,0.16)' : '#DEE8F4'}`, background: showMap ? 'rgba(26,39,68,0.04)' : '#F0F5FB', color: '#1A2744', cursor: 'pointer', transition: 'background .13s', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                  >
+                    <IPin s={11} /> {showMap ? 'Hide map' : 'Show map'}
+                  </button>
+                </div>
+                {showMap && (
+                  <ActivitiesMap
+                    localCounty={county}
+                    activityType={mapActivityType}
+                    cost={''}
+                    accessibility={''}
+                    onNavigate={onNavigate}
+                    compactHeight='290px'
+                  />
+                )}
+              </div>
 
               {/* Count header */}
               {!loading && !error && (
