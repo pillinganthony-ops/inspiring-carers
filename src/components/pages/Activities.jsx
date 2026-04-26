@@ -787,7 +787,7 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
   const [venues,       setVenues]       = React.useState([]);
   const [loading,      setLoading]      = React.useState(true);
   const [error,        setError]        = React.useState(null);
-  const [showMap,      setShowMap]      = React.useState(false);
+  const [showMap,      setShowMap]      = React.useState(true); // map shown by default above listings
   const [visibleCount, setVisibleCount] = React.useState(PAGE_SIZE);
   const [walkSearch,   setWalkSearch]   = React.useState('');
   const [expandedWalk, setExpandedWalk] = React.useState(null);
@@ -926,41 +926,72 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
             ← Activities
           </button>
 
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 999, background: 'rgba(91,201,74,0.15)', border: '1px solid rgba(91,201,74,0.28)', fontSize: 11, fontWeight: 800, color: '#78E060', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
-            {filterCat || 'Activities'} · {countyLabel}
-          </div>
+          {/* Two-module hero: left = title/stats, right = sponsor panel */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 28, alignItems: 'center' }}>
 
-          <h1 style={{ fontSize: 'clamp(24px, 4vw, 42px)', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.03em', lineHeight: 1.06, margin: '0 0 10px', textWrap: 'balance' }}>
-            {heroTitle}
-          </h1>
-          <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.68)', lineHeight: 1.6, margin: '0 0 16px', maxWidth: 520 }}>
-            {heroSubtitle}
-          </p>
-
-          {!loading && venues.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 0, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.10)' }}>
-              {[
-                { n: venues.length,                                                l: 'Places' },
-                { n: `${walksData.length}+`,                                       l: 'Walks' },
-                { n: venues.filter((v) => v.free_or_paid === 'Free').length,       l: 'Free entry' },
-                { n: venues.filter((v) => v.wheelchair_access).length,             l: 'Accessible' },
-              ].map(({ n, l }, i) => (
-                <div key={l} style={{ paddingRight: 18, paddingLeft: i > 0 ? 18 : 0, borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.12)' : 'none' }}>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: '#FFFFFF', lineHeight: 1 }}>{n}</div>
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.44)', fontWeight: 600, marginTop: 3 }}>{l}</div>
+            {/* ── Left: title + stats ── */}
+            <div>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 999, background: 'rgba(91,201,74,0.15)', border: '1px solid rgba(91,201,74,0.28)', fontSize: 11, fontWeight: 800, color: '#78E060', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
+                {filterCat || 'Activities'} · {countyLabel}
+              </div>
+              <h1 style={{ fontSize: 'clamp(24px, 4vw, 42px)', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.03em', lineHeight: 1.06, margin: '0 0 10px', textWrap: 'balance' }}>
+                {heroTitle}
+              </h1>
+              <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.68)', lineHeight: 1.6, margin: '0 0 16px', maxWidth: 480 }}>
+                {heroSubtitle}
+              </p>
+              {!loading && venues.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 0, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.10)' }}>
+                  {[
+                    { n: venues.length,                                                l: 'Places' },
+                    { n: `${walksData.length}+`,                                       l: 'Walks' },
+                    { n: venues.filter((v) => v.free_or_paid === 'Free').length,       l: 'Free entry' },
+                    { n: venues.filter((v) => v.wheelchair_access).length,             l: 'Accessible' },
+                  ].map(({ n, l }, i) => (
+                    <div key={l} style={{ paddingRight: 18, paddingLeft: i > 0 ? 18 : 0, borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.12)' : 'none' }}>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: '#FFFFFF', lineHeight: 1 }}>{n}</div>
+                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.44)', fontWeight: 600, marginTop: 3 }}>{l}</div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          )}
 
-          {/* Partner CTA — positioned in hero for consistent commercial placement */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 16, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.10)', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.44)', fontWeight: 500 }}>
-              Feature your organisation across {countyLabel} activities
-            </span>
-            <button onClick={() => onNavigate('login')} style={{ fontSize: 12, fontWeight: 700, color: '#F5A623', background: 'rgba(245,166,35,0.12)', border: '1px solid rgba(245,166,35,0.25)', padding: '5px 12px', borderRadius: 7, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-              Become a partner →
-            </button>
+            {/* ── Right: county sponsorship module ── */}
+            <div style={{ background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(10px)', borderRadius: 20, padding: '20px 22px', border: '1px solid rgba(255,255,255,0.12)' }}>
+              <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: 'rgba(255,255,255,0.40)', marginBottom: 8 }}>
+                County sponsorship
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF', marginBottom: 7, lineHeight: 1.3 }}>
+                Become the {countyLabel} activities partner
+              </div>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.52)', lineHeight: 1.6, margin: '0 0 16px' }}>
+                Feature your organisation across all {countyLabel} discovery pages and reach carers searching for local activities.
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9, marginBottom: 16 }}>
+                {[
+                  { n: `${walksData.length}+`, l: 'Walk routes' },
+                  { n: `${venues.length || 233}+`, l: 'Activity places' },
+                ].map(({ n, l }) => (
+                  <div key={l} style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.10)' }}>
+                    <div style={{ fontSize: 17, fontWeight: 800, color: '#FFFFFF', lineHeight: 1 }}>{n}</div>
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.40)', marginTop: 3 }}>{l}</div>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => onNavigate('login')}
+                style={{ width: '100%', padding: '11px 16px', borderRadius: 12, background: 'linear-gradient(135deg, #F5A623, #D4AF37)', color: '#0F172A', fontWeight: 800, fontSize: 14, border: 'none', cursor: 'pointer', transition: 'opacity .14s' }}
+                onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.90'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
+              >
+                Become a partner →
+              </button>
+              <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.28)', textAlign: 'center', marginTop: 8 }}>
+                Limited county slots available
+              </div>
+            </div>
+
           </div>
         </div>
       </section>
