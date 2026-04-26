@@ -127,6 +127,7 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp,
   const moreItems = [
     { key: 'recognition', label: 'Recognition' },
     { key: 'business',    label: 'For businesses' },
+    { key: 'advertise',   label: 'Advertise with us' },
     { key: 'about',       label: 'About' },
   ];
 

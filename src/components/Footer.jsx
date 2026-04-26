@@ -77,8 +77,8 @@ const Footer = ({ onNavigate = () => {} }) => {
             {col('Platform', [
               ['About', 'about'],
               ['For businesses', 'business'],
-              ['Apply for benefits', 'card'],
-              ['Community hubs', 'find-help'],
+              ['Advertise with us', 'advertise'],
+              ['Training', 'training'],
               ['Carer of the month', 'recognition'],
             ])}
           </div>

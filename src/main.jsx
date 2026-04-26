@@ -337,8 +337,8 @@ const App = () => {
     // Login
     if (segs[0] === 'login') return { page: 'login', county: null };
 
-    // Global pages — no county prefix
-    const GLOBAL = ['admin', 'recognition', 'business', 'advertise', 'about', 'card'];
+    // Global pages — no county prefix (flat routes that never take a county segment)
+    const GLOBAL = ['admin', 'recognition', 'business', 'advertise', 'training', 'for-you', 'about', 'card'];
     if (GLOBAL.includes(segs[0])) return { page: segs[0], county: null };
 
     // Hub routes — standalone URLs without county prefix load county selector pages

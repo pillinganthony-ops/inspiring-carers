@@ -296,12 +296,6 @@ const POPULAR_CHIPS = [
   { label: 'Carer discounts',    sub: 'Save money',    Icon: TicketPercent, color: '#5BC94A', type: 'discounts',  cost: 'discounted', access: '' },
 ];
 
-// Hero featured preview cards — walk routes to walks, others are info-only (no navigation)
-const HERO_FEATURED = [
-  { title: 'Porthcurno coastal walk', type: 'Walk',    tag: 'Free · 3.2 miles',    grad: 'linear-gradient(135deg, #D4F0C8 0%, #B8E4A4 100%)', accent: '#3DA832', dest: 'walks' },
-  { title: 'Carer coffee morning',    type: 'Group',   tag: 'Free · Weekly',        grad: 'linear-gradient(135deg, #C8E4F8 0%, #A8D4F0 100%)', accent: '#1c78b5', dest: null    },
-  { title: 'Accessible day out',      type: 'Day Out', tag: 'Discounted · Booking', grad: 'linear-gradient(135deg, #FDE8C4 0%, #F8D4A0 100%)', accent: '#B45309', dest: 'places-to-visit' },
-];
 
 // ── Editorial card header — layered gradient + icon + metadata overlay ──────────
 // Used in featured activity cards. Replaces flat colour blocks with intentional
