@@ -24,18 +24,18 @@ const Hero = ({ onNavigate }) => (
           {/* Badge */}
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 24, background: 'rgba(245,166,35,0.15)', border: '1px solid rgba(245,166,35,0.3)', borderRadius: 999, padding: '6px 16px', fontSize: 12.5, fontWeight: 700, color: GOLD }}>
             <div style={{ width: 6, height: 6, borderRadius: 999, background: GOLD, flexShrink: 0 }} />
-            Free community platform for carers
+            For carers, organisations &amp; communities
           </div>
 
           {/* Headline */}
           <h1 style={{ fontSize: 'clamp(40px, 5.5vw, 66px)', lineHeight: 1.06, fontWeight: 800, letterSpacing: '-0.04em', color: '#FFFFFF', WebkitTextFillColor: '#FFFFFF', margin: '0 0 20px' }}>
-            Support for carers<br />
-            <span style={{ color: '#7CC8F8', WebkitTextFillColor: '#7CC8F8' }}>in Cornwall.</span>
+            Support for carers.<br />
+            <span style={{ color: '#7CC8F8', WebkitTextFillColor: '#7CC8F8' }}>Growth tools for organisations.</span>
           </h1>
 
           {/* Subheadline */}
-          <p style={{ fontSize: 18, lineHeight: 1.7, color: 'rgba(255,255,255,0.80)', maxWidth: 490, fontWeight: 500, margin: '0 0 32px', fontFamily: 'Inter, sans-serif' }}>
-            Benefits, wellbeing support, local help, community groups and exclusive offers — all in one place.
+          <p style={{ fontSize: 18, lineHeight: 1.7, color: 'rgba(255,255,255,0.78)', maxWidth: 500, fontWeight: 500, margin: '0 0 32px', fontFamily: 'Inter, sans-serif' }}>
+            Benefits, local support, groups, events and powerful tools that help organisations engage carers, grow communities and save time.
           </p>
 
           {/* Primary CTAs */}
@@ -56,28 +56,39 @@ const Hero = ({ onNavigate }) => (
             </button>
           </div>
 
-          {/* Business text CTA */}
-          <div style={{ marginTop: 16 }}>
+          {/* Secondary text CTAs */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18, marginTop: 16 }}>
             <button
               onClick={() => onNavigate?.('offer-a-discount')}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'rgba(255,255,255,0.48)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5, padding: 0, transition: 'color .14s' }}
-              onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.80)'; }}
-              onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.48)'; }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'rgba(255,255,255,0.45)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4, padding: 0, transition: 'color .14s' }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.78)'; }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.45)'; }}
             >
-              Businesses: Offer a discount to carers →
+              Businesses: Offer a discount →
+            </button>
+            <button
+              onClick={() => onNavigate?.('business')}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'rgba(255,255,255,0.45)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4, padding: 0, transition: 'color .14s' }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.78)'; }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.45)'; }}
+            >
+              Organisations: Explore your platform →
             </button>
           </div>
 
-          {/* Trust signals */}
-          <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', marginTop: 28, fontSize: 13, color: 'rgba(255,255,255,0.72)', fontWeight: 600 }}>
+          {/* Premium feature strip */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 28 }}>
             {[
-              ['#10B981', '500+ local resources'],
-              ['#10B981', 'Free to use'],
-              [GOLD,      'Growing business offers'],
-            ].map(([dot, sig]) => (
-              <span key={sig} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ width: 5, height: 5, borderRadius: 999, background: dot, flexShrink: 0 }} />
-                {sig}
+              'Bookings & events',
+              'Feedback tools',
+              'Social media hub',
+              'Community growth',
+              'Insights & analytics',
+              'Organisation profiles',
+            ].map(f => (
+              <span key={f} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 999, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.68)', whiteSpace: 'nowrap' }}>
+                <span style={{ width: 5, height: 5, borderRadius: 999, background: '#10B981', flexShrink: 0 }} />
+                {f}
               </span>
             ))}
           </div>

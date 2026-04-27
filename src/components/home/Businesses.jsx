@@ -15,12 +15,12 @@ const Businesses = ({ onNavigate = () => {} }) => {
       <div className="container">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.8fr', gap: 64, alignItems: 'start' }}>
           <div>
-            <div className="eyebrow" style={{ color: '#F5A623', fontWeight: 800 }}>For you · Benefits</div>
-            <h2 style={{ fontSize: 'clamp(36px, 4.2vw, 52px)', fontWeight: 700, marginTop: 14, letterSpacing: '-0.03em', textWrap: 'balance', color: '#1A2744' }}>
-              Local businesses who support carers.
+            <div className="eyebrow" style={{ color: '#F5A623', fontWeight: 800 }}>For carers · Benefits</div>
+            <h2 style={{ fontSize: 'clamp(34px, 4vw, 50px)', fontWeight: 800, marginTop: 14, letterSpacing: '-0.03em', textWrap: 'balance', color: '#1A2744' }}>
+              Businesses supporting carers everywhere.
             </h2>
-            <p style={{ marginTop: 20, color: 'rgba(26,39,68,0.75)', fontSize: 17, lineHeight: 1.65, fontWeight: 500 }}>
-              Restaurants, gyms, gardens, cafés—they all offer discounts and perks to cardholders. Show your staff benefits card and save every day.
+            <p style={{ marginTop: 20, color: 'rgba(26,39,68,0.72)', fontSize: 17, lineHeight: 1.65, fontWeight: 500 }}>
+              Restaurants, gyms, wellbeing spaces, cafés — they offer real discounts and gestures of support to carers across the UK. Show your card and save.
             </p>
 
             <div style={{
@@ -44,7 +44,7 @@ const Businesses = ({ onNavigate = () => {} }) => {
                 }}>M</div>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: '#1A2744' }}>Maria Trelawney</div>
-                  <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.65)', marginTop: 2 }}>The Cornish Bakery · Partner since 2024</div>
+                  <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.65)', marginTop: 2 }}>Business partner · Supporting carers since 2024</div>
                 </div>
               </div>
             </div>
@@ -102,10 +102,10 @@ const Businesses = ({ onNavigate = () => {} }) => {
           <div style={{ maxWidth: 520 }}>
             <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(255,255,255,0.45)', marginBottom: 8 }}>For businesses &amp; organisations</div>
             <h3 style={{ fontSize: 22, fontWeight: 800, color: '#FFFFFF', margin: '0 0 8px', lineHeight: 1.2 }}>
-              Support carers in your community
+              Support carers. Grow with the platform.
             </h3>
             <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.65)', lineHeight: 1.65, margin: 0 }}>
-              Offer a discount, benefit or gesture of support to carers and care staff. Free to submit, reviewed personally, and helps carers feel seen and valued.
+              Offer a discount or benefit to carers — free to submit. Organisations can also access profiles, engagement tools, analytics and featured placement.
             </p>
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', flexShrink: 0 }}>
