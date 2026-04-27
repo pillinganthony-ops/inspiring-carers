@@ -315,6 +315,15 @@ const WellbeingSupportPage = ({ onNavigate, session, county, venueSlug }) => {
     <>
       <Nav activePage="wellbeing" onNavigate={onNavigate} session={session} county={county} />
 
+      {!county && (
+        <div style={{ background: 'rgba(245,166,35,0.07)', borderBottom: '1px solid rgba(245,166,35,0.14)', padding: '8px 0' }}>
+          <div className="container" style={{ fontSize: 13, color: '#92400E', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ width: 6, height: 6, borderRadius: 999, background: '#F5A623', flexShrink: 0 }} />
+            Showing Cornwall wellbeing support while we expand to more areas.
+          </div>
+        </div>
+      )}
+
       {/* ── Hero — calm deep teal ──────────────────────────────────── */}
       <section style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(150deg, #0A1F25 0%, #0F2E38 50%, #133640 100%)', paddingTop: 36, paddingBottom: 36 }}>
         <div style={{ position: 'absolute', top: -60, right: -60, width: 380, height: 380, borderRadius: '50%', background: 'radial-gradient(circle, rgba(13,148,136,0.14) 0%, transparent 65%)', pointerEvents: 'none' }} />

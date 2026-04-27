@@ -76,20 +76,12 @@ const BenefitsPage = ({ onNavigate, session }) => {
                 Businesses saying thank you, <span style={{ color: '#F5A623' }}>in your postcode.</span>
               </h1>
               <p style={{ marginTop: 16, fontSize: 17, color: 'rgba(26,39,68,0.72)', maxWidth: 560 }}>
-                Over 1,240 local and national partners support participating organisations and their teams. Show your card. Save favourites. Pick up your rewards.
+                Exclusive discounts and offers from businesses that support carers. New partner offers are added as organisations join the platform.
               </p>
 
-              <div style={{ display: 'flex', gap: 28, marginTop: 32, flexWrap: 'wrap' }}>
-                {[
-                  ['£384', 'avg. yearly saving'],
-                  ['1,240', 'partner businesses'],
-                  ['24', 'new this week'],
-                ].map(([n, l]) => (
-                  <div key={l}>
-                    <div style={{ fontFamily: 'Sora, sans-serif', fontSize: 28, fontWeight: 700 }}>{n}</div>
-                    <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.6)', marginTop: 2 }}>{l}</div>
-                  </div>
-                ))}
+              <div style={{ marginTop: 22, display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 10, background: 'rgba(245,166,35,0.10)', border: '1px solid rgba(245,166,35,0.25)' }}>
+                <span style={{ width: 6, height: 6, borderRadius: 999, background: '#F5A623', flexShrink: 0 }} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#92400E' }}>Preview offers shown — founding partner discounts launching now.</span>
               </div>
             </div>
 
@@ -180,14 +172,14 @@ const BenefitsPage = ({ onNavigate, session }) => {
       <section style={{ paddingTop: 24, paddingBottom: 40 }}>
         <div className="container">
 
-          {/* Results count + demo disclaimer */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
-            <div style={{ fontSize: 14, color: 'rgba(26,39,68,0.7)' }}>
-              <strong style={{ color: '#1A2744' }}>{filtered.length}</strong> offer{filtered.length !== 1 ? 's' : ''}{offerSearch && <> matching <em>"{offerSearch}"</em></>}
+          {/* Preview notice + results count */}
+          <div style={{ padding: '12px 16px', borderRadius: 12, background: 'rgba(245,166,35,0.07)', border: '1px solid rgba(245,166,35,0.18)', marginBottom: 18, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+            <div style={{ fontSize: 13, color: '#92400E', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 7 }}>
+              <span style={{ width: 7, height: 7, borderRadius: 999, background: '#F5A623', flexShrink: 0 }} />
+              These are preview offers. Real business discounts are being added as partners join.
             </div>
-            <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.42)', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: 5 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F5A623', display: 'inline-block', flexShrink: 0 }} />
-              Example offers shown for preview. Live partner discounts will be added as organisations join.
+            <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.55)' }}>
+              <strong style={{ color: '#1A2744' }}>{filtered.length}</strong> preview offer{filtered.length !== 1 ? 's' : ''}{offerSearch && <> matching <em>"{offerSearch}"</em></>}
             </div>
           </div>
 
@@ -256,6 +248,27 @@ const BenefitsPage = ({ onNavigate, session }) => {
               })}
             </div>
           )}
+        </div>
+      </section>
+
+      {/* ── Founding partner CTA ── */}
+      <section style={{ paddingTop: 0, paddingBottom: 40 }}>
+        <div className="container">
+          <div style={{ padding: '28px 32px', borderRadius: 20, background: 'linear-gradient(135deg, #1A2744 0%, #2D3E6B 100%)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 20 }}>
+            <div>
+              <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(255,255,255,0.45)', marginBottom: 6 }}>For businesses</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: '#FFFFFF', marginBottom: 6 }}>Offer a discount to carers</div>
+              <div style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.60)', maxWidth: 420, lineHeight: 1.55 }}>
+                Be one of the first businesses to support carers in your area. Free to submit, reviewed personally.
+              </div>
+            </div>
+            <button
+              onClick={() => onNavigate('offer-a-discount')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '11px 22px', borderRadius: 11, background: 'linear-gradient(135deg, #F5A623, #D4AF37)', color: '#0F172A', fontWeight: 800, fontSize: 14.5, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', boxShadow: '0 8px 24px rgba(245,166,35,0.28)', flexShrink: 0 }}
+            >
+              Become a founding partner
+            </button>
+          </div>
         </div>
       </section>
 

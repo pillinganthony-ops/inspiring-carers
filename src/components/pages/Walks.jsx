@@ -511,7 +511,7 @@ const WalksPage = ({ onNavigate, session }) => {
 
           {/* Headline */}
           <h1 style={{ fontSize: 'clamp(38px, 5.5vw, 64px)', fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.05, color: '#FFFFFF', WebkitTextFillColor: '#FFFFFF', marginBottom: 18, maxWidth: 720 }}>
-            Discover walks across Cornwall
+            Discover accessible walks and outdoor spaces
           </h1>
 
           {/* Subtext */}
@@ -525,7 +525,7 @@ const WalksPage = ({ onNavigate, session }) => {
               { label: 'Coastal routes', icon: '✓' },
               { label: 'Accessible options', icon: '✓' },
               { label: 'Mental wellbeing', icon: '✓' },
-              { label: 'Cornwall wide', icon: '✓' },
+              { label: 'Local routes', icon: '✓' },
             ].map(({ label, icon }) => (
               <span key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 999, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.18)', fontSize: 13.5, fontWeight: 700, color: 'rgba(255,255,255,0.9)' }}>
                 <span style={{ color: '#5BC94A', fontWeight: 900 }}>{icon}</span> {label}

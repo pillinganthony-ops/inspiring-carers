@@ -313,6 +313,15 @@ const PlacesToVisitPage = ({ onNavigate, session, county, venueSlug }) => {
     <>
       <Nav activePage="places-to-visit" onNavigate={onNavigate} session={session} county={county} />
 
+      {!county && (
+        <div style={{ background: 'rgba(245,166,35,0.07)', borderBottom: '1px solid rgba(245,166,35,0.14)', padding: '8px 0' }}>
+          <div className="container" style={{ fontSize: 13, color: '#92400E', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ width: 6, height: 6, borderRadius: 999, background: '#F5A623', flexShrink: 0 }} />
+            Showing Cornwall places to visit while we expand to more areas.
+          </div>
+        </div>
+      )}
+
       {/* ── Hero ──────────────────────────────────────────────────────── */}
       <section style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(150deg, #1A0C35 0%, #2C1452 50%, #341A60 100%)', paddingTop: 36, paddingBottom: 36 }}>
         <div style={{ position: 'absolute', top: -80, right: -80, width: 400, height: 400, borderRadius: '50%', background: 'radial-gradient(circle, rgba(123,92,245,0.13) 0%, transparent 65%)', pointerEvents: 'none' }} />

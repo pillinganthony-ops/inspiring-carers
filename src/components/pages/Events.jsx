@@ -269,6 +269,15 @@ const EventsPage = ({ onNavigate, session, county }) => {
         </div>
       </section>
 
+      {county && (
+        <div style={{ background: 'rgba(245,166,35,0.07)', borderBottom: '1px solid rgba(245,166,35,0.14)', padding: '8px 0' }}>
+          <div className="container" style={{ fontSize: 13, color: '#92400E', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ width: 6, height: 6, borderRadius: 999, background: '#F5A623', flexShrink: 0 }} />
+            Showing all events while county-specific filtering is being prepared.
+          </div>
+        </div>
+      )}
+
       <section style={{ paddingTop: 28, paddingBottom: 80, background: '#FAFBFF' }}>
         <div className="container">
           {loading ? (
@@ -290,7 +299,7 @@ const EventsPage = ({ onNavigate, session, county }) => {
                       <IEvent s={22} />
                     </div>
                   </div>
-                  <div style={{ marginTop: 10, fontSize: 13.5, color: 'rgba(26,39,68,0.72)', lineHeight: 1.65 }}>{event.description || 'Hosted by a local organisation in Cornwall.'}</div>
+                  <div style={{ marginTop: 10, fontSize: 13.5, color: 'rgba(26,39,68,0.72)', lineHeight: 1.65 }}>{event.description || 'Hosted by a local organisation.'}</div>
                   <div style={{ display: 'grid', gap: 7, marginTop: 14, fontSize: 13.5, color: '#1A2744' }}>
                     <div><strong>When:</strong> {formatDateTime(event.starts_at)}</div>
                     <div><strong>Where:</strong> {event.location || 'Location shared by organiser'}</div>
