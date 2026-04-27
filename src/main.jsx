@@ -409,7 +409,7 @@ const App = () => {
     }
 
     // Legacy flat routes — silently redirect and return new page/county
-    const LEGACY = { 'benefits': 'for-you', 'walks': 'walks' };
+    const LEGACY = { 'benefits': 'for-you' };
     if (LEGACY[segs[0]]) {
       const pg = LEGACY[segs[0]];
       const newPath = COUNTY_PAGES.has(pg) ? `/${COUNTY_DEFAULT}/${pg}` : `/${pg}`;
@@ -605,13 +605,14 @@ const App = () => {
       return;
     }
 
-    // walks — always canonical /walks regardless of county argument
-    // WalksPage uses static JSON and ignores county prop entirely
+    // walks — /walks (national hub) or /{county}/walks (county page)
     if (key === 'walks') {
+      const c = typeof explicitCounty === 'string' ? explicitCounty : null;
       setPage('walks');
       setVenueSlug(null);
-      setCounty(null);
-      window.history.pushState({ page: 'walks', county: null }, '', '/walks');
+      setCounty(c);
+      if (c) { try { localStorage.setItem('ic_county', c); } catch {} }
+      window.history.pushState({ page: 'walks', county: c }, '', c ? `/${c}/walks` : '/walks');
       window.scrollTo({ top: 0, behavior: 'instant' });
       return;
     }
@@ -669,13 +670,13 @@ const App = () => {
   switch (displayPage) {
     case 'login': content = <React.Suspense fallback={<RouteLoading />}><LoginPage onNavigate={navigate} session={session} /></React.Suspense>; break;
     case 'reset-password': content = <React.Suspense fallback={<RouteLoading />}><ResetPasswordPage onNavigate={navigate} /></React.Suspense>; break;
-    case 'find-help': content = <React.Suspense key={county || 'cornwall'} fallback={<RouteLoading />}><FindHelpPage onNavigate={navigate} session={session} county={county || 'cornwall'} venueSlug={venueSlug} /></React.Suspense>; break;
+    case 'find-help': content = <React.Suspense key={county || 'national'} fallback={<RouteLoading />}><FindHelpPage onNavigate={navigate} session={session} county={county} venueSlug={venueSlug} /></React.Suspense>; break;
     case 'events': content = county
       ? <React.Suspense key={county} fallback={<RouteLoading />}><EventsPage  onNavigate={navigate} session={session} county={county} /></React.Suspense>
       : <EventsHubPage   key="hub" onNavigate={navigate} session={session} />; break;
     case 'for-you':
     case 'benefits': content = <React.Suspense fallback={<RouteLoading />}><BenefitsPage onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;
-    case 'walks': content = <React.Suspense fallback={<RouteLoading />}><WalksPage onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;
+    case 'walks': content = <React.Suspense key={county || 'national'} fallback={<RouteLoading />}><WalksPage onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;
     case 'activities': content = <React.Suspense fallback={<RouteLoading />}><ActivitiesPage onNavigate={navigate} session={session} county={county} /></React.Suspense>; break;
     case 'places-to-visit': content = <React.Suspense fallback={<RouteLoading />}><PlacesToVisitPage    onNavigate={navigate} session={session} county={county} venueSlug={venueSlug} /></React.Suspense>; break;
     case 'wellbeing':       content = <React.Suspense fallback={<RouteLoading />}><WellbeingSupportPage onNavigate={navigate} session={session} county={county} venueSlug={venueSlug} /></React.Suspense>; break;
