@@ -9,6 +9,7 @@ import walksData from '../../data/walks.json';
 import Nav from '../Nav.jsx';
 import Footer from '../Footer.jsx';
 import Icons from '../Icons.jsx';
+import CountyBanner from '../CountyBanner.jsx';
 import supabase, { isSupabaseConfigured } from '../../lib/supabaseClient.js';
 import {
   Crown, MapPin as LMapPin, Ticket, Gift, Coffee, HeartHandshake,
@@ -1548,7 +1549,7 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-const ActivitiesPage = ({ onNavigate, session, county }) => {
+const ActivitiesCountyPage = ({ onNavigate, session, county }) => {
   const [localCounty,   setLocalCounty]   = React.useState(county || '');
   const [areaSearch,    setAreaSearch]    = React.useState('');
   const [activityType,  setActivityType]  = React.useState('');
@@ -2084,6 +2085,123 @@ const ActivitiesPage = ({ onNavigate, session, county }) => {
       <Footer onNavigate={onNavigate} />
     </>
   );
+};
+
+// ── National hub — shown when no county prop (/activities) ───────────────────
+const ACT_COUNTY_CARDS = [
+  { key: 'cornwall', label: 'Cornwall', status: 'live',        badge: 'Live now',    accent: '#5BC94A', badgeBg: 'rgba(22,163,74,0.10)',  badgeColor: '#166534' },
+  { key: 'devon',    label: 'Devon',    status: 'launching',   badge: 'Launching',   accent: '#D97706', badgeBg: 'rgba(217,119,6,0.10)',  badgeColor: '#92400E' },
+  { key: 'somerset', label: 'Somerset', status: 'coming-soon', badge: 'Coming soon', accent: 'rgba(26,39,68,0.22)', badgeBg: 'rgba(26,39,68,0.06)', badgeColor: 'rgba(26,39,68,0.48)' },
+  { key: 'bristol',  label: 'Bristol',  status: 'coming-soon', badge: 'Coming soon', accent: 'rgba(26,39,68,0.22)', badgeBg: 'rgba(26,39,68,0.06)', badgeColor: 'rgba(26,39,68,0.48)' },
+];
+
+const ActivitiesNationalHub = ({ onNavigate, session }) => (
+  <>
+    <Nav activePage="activities" onNavigate={onNavigate} session={session} />
+
+    {/* Hero */}
+    <section style={{ background: 'linear-gradient(150deg, #0A1A0A 0%, #0F2E12 50%, #132B16 100%)', paddingTop: 64, paddingBottom: 64, position: 'relative', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', top: -60, right: -60, width: 440, height: 440, borderRadius: '50%', background: 'radial-gradient(circle, rgba(91,201,74,0.18) 0%, transparent 65%)', filter: 'blur(32px)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', bottom: -60, left: '20%', width: 380, height: 380, borderRadius: '50%', background: 'radial-gradient(circle, rgba(245,166,35,0.08) 0%, transparent 65%)', filter: 'blur(24px)', pointerEvents: 'none' }} />
+      <div className="container" style={{ position: 'relative', maxWidth: 680, margin: '0 auto', textAlign: 'center' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 13px', borderRadius: 999, background: 'rgba(91,201,74,0.18)', border: '1px solid rgba(91,201,74,0.28)', fontSize: 10.5, fontWeight: 800, color: '#86EFAC', letterSpacing: '0.09em', textTransform: 'uppercase', marginBottom: 22 }}>
+          National hub
+        </div>
+        <h1 style={{ fontSize: 'clamp(28px, 4.5vw, 48px)', fontWeight: 800, color: '#FFFFFF', marginBottom: 16, letterSpacing: '-0.03em', lineHeight: 1.1, textWrap: 'balance' }}>
+          Activities for carers<br />across the UK
+        </h1>
+        <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.68)', lineHeight: 1.65, maxWidth: 540, margin: '0 auto' }}>
+          Find events, walks, groups, wellbeing activities and carer-friendly things to do in your local county.
+        </p>
+      </div>
+    </section>
+
+    {/* County cards */}
+    <section style={{ paddingTop: 56, paddingBottom: 56, background: '#FAFBFF' }}>
+      <div className="container" style={{ maxWidth: 820, margin: '0 auto' }}>
+        <div style={{ textAlign: 'center', marginBottom: 36 }}>
+          <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#5BC94A', marginBottom: 10 }}>Select your county</div>
+          <h2 style={{ fontSize: 'clamp(20px, 2.8vw, 28px)', fontWeight: 800, color: '#1A2744', margin: 0, letterSpacing: '-0.02em' }}>
+            Choose your area to find local activities
+          </h2>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+          {ACT_COUNTY_CARDS.map(c => {
+            const isLive = c.status === 'live';
+            const isLaunching = c.status === 'launching';
+            return (
+              <div key={c.key} className="card" style={{ padding: '22px 20px', borderRadius: 18, borderLeft: `3px solid ${c.accent}`, opacity: isLive || isLaunching ? 1 : 0.70 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 14 }}>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#1A2744' }}>{c.label}</div>
+                  <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: c.badgeBg, color: c.badgeColor, whiteSpace: 'nowrap' }}>{c.badge}</span>
+                </div>
+                {isLive ? (
+                  <button
+                    onClick={() => onNavigate('activities', c.key)}
+                    style={{ width: '100%', padding: '9px 0', borderRadius: 10, background: '#16A34A', color: 'white', fontWeight: 700, fontSize: 13.5, border: 'none', cursor: 'pointer', transition: 'opacity .13s' }}
+                    onMouseEnter={e => { e.currentTarget.style.opacity = '0.85'; }}
+                    onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+                  >
+                    Choose {c.label}
+                  </button>
+                ) : (
+                  <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.45)', fontStyle: 'italic', marginTop: 4 }}>
+                    {isLaunching ? 'Launching soon — register interest below.' : 'Being prepared. Register interest below.'}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+
+    {/* CTA section */}
+    <section style={{ paddingBottom: 64, background: '#FAFBFF' }}>
+      <div className="container" style={{ maxWidth: 820, margin: '0 auto' }}>
+        <div style={{ padding: '28px 32px', borderRadius: 22, background: 'linear-gradient(135deg, #1A2744 0%, #2D3E6B 100%)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 20 }}>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(255,255,255,0.42)', marginBottom: 7 }}>Get involved</div>
+            <h3 style={{ fontSize: 19, fontWeight: 800, color: '#FFFFFF', margin: '0 0 7px', lineHeight: 1.2 }}>
+              Add an activity or sponsor this category
+            </h3>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.58)', margin: 0, lineHeight: 1.55 }}>
+              Submit an activity, become a county activities sponsor, or offer a discount to carers near you.
+            </p>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9, flexShrink: 0 }}>
+            <button
+              onClick={() => onNavigate('activities', 'cornwall')}
+              className="btn btn-gold"
+              style={{ fontWeight: 800, fontSize: 14, padding: '10px 20px', whiteSpace: 'nowrap' }}
+            >
+              Choose Cornwall
+            </button>
+            <button
+              onClick={() => onNavigate('profile')}
+              style={{ padding: '9px 18px', borderRadius: 10, background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}
+            >
+              Submit an activity
+            </button>
+            <button
+              onClick={() => onNavigate('advertise')}
+              style={{ padding: '9px 18px', borderRadius: 10, background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}
+            >
+              Sponsor this category
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <Footer onNavigate={onNavigate} />
+  </>
+);
+
+// ── Public export — routes between national hub and county page ───────────────
+const ActivitiesPage = ({ onNavigate, session, county }) => {
+  if (!county) return <ActivitiesNationalHub onNavigate={onNavigate} session={session} />;
+  return <ActivitiesCountyPage onNavigate={onNavigate} session={session} county={county} />;
 };
 
 export default ActivitiesPage;
