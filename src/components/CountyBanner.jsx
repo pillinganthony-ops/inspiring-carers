@@ -30,7 +30,7 @@ const CountyBanner = ({ county, onChangeCounty, isFallback = false }) => {
       <div className="container" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
 
         <span style={{ fontSize: 13, color: 'rgba(26,39,68,0.52)', fontWeight: 500 }}>
-          {isFallback ? 'Showing default county:' : 'County:'}
+          {isFallback ? 'Available now in:' : 'County:'}
         </span>
 
         <div ref={ref} style={{ position: 'relative' }}>
@@ -102,7 +102,7 @@ const CountyBanner = ({ county, onChangeCounty, isFallback = false }) => {
 
         {isFallback && (
           <span style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.42)', fontStyle: 'italic' }}>
-            Select your county above to see local results.
+            Choose another county as we expand across the UK.
           </span>
         )}
       </div>
