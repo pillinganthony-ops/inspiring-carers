@@ -1,4 +1,5 @@
 import React from 'react';
+import { Mail, Phone, Globe, Copy, Check } from 'lucide-react';
 import Nav from '../Nav.jsx';
 import Footer from '../Footer.jsx';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient.js';
@@ -75,6 +76,19 @@ const LS_CFG = {
   high:   { label: 'High',   color: '#16A34A', bg: 'rgba(22,163,74,0.10)'   },
   medium: { label: 'Medium', color: '#D97706', bg: 'rgba(217,119,6,0.10)'   },
   low:    { label: 'Low',    color: 'rgba(26,39,68,0.40)', bg: 'rgba(26,39,68,0.06)' },
+};
+
+// Outreach helpers — used in table row and detail modal
+const buildOutreachBody = (enq) =>
+  `Hi ${enq.contact_name || 'there'},\n\nThank you for offering to support carers through Inspiring Carers.\n\nWe really appreciate businesses like ${enq.organisation_name || 'your organisation'} recognising the people who care for others.\n\nI'd love to confirm a few details about your offer:\n- What the discount includes\n- Who it applies to\n- How carers can claim it\n- Whether you'd like this featured locally\n\nBest wishes,`;
+
+const buildMailto = (enq) =>
+  `mailto:${enq.email || ''}?subject=${encodeURIComponent('Thank you for supporting carers')}&body=${encodeURIComponent(buildOutreachBody(enq))}`;
+
+const normalizeHref = (url) => {
+  if (!url) return null;
+  const v = `${url}`.trim();
+  return /^https?:\/\//i.test(v) ? v : `https://${v}`;
 };
 
 const getAnalyticsWindowDays = (windowKey) => ANALYTICS_WINDOWS.find((windowOption) => windowOption.key === windowKey)?.days ?? null;
@@ -873,6 +887,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   const [convertingEnquiryId,        setConvertingEnquiryId]        = React.useState(null);
   const [enquiryConversionDupWarn,   setEnquiryConversionDupWarn]  = React.useState(null);
   const [peFilter,                   setPeFilter]                   = React.useState('all');
+  const [partnerLeadMode,            setPartnerLeadMode]            = React.useState('discounts');
 
   const canAccessAdmin = React.useMemo(() => {
     const email = `${session?.user?.email || ''}`.trim().toLowerCase();
@@ -2157,6 +2172,17 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   const moderationWorkloadCount = pendingClaims.length + pendingResourceUpdates.length + inReviewResourceUpdates.length + approvedResourceUpdatesReady.length + pendingWalkUpdates.length + pendingWalkComments.length + contactLeads.length;
   const activeSubmissionsCount = pendingResourceUpdates.length + inReviewResourceUpdates.length + approvedResourceUpdatesReady.length;
   const newPartnerEnquiries = partnerEnquiries.filter(e => (e.admin_status || 'new') === 'new').length;
+
+  // Classify partner_enquiries into two commercial streams by existing fields
+  const isDiscountLead = (e) =>
+    e.source_page === 'offer-a-discount' ||
+    e.promotion_type === 'discount_offer' ||
+    e.preferred_placement === 'discount_lead';
+  const isSponsorshipLead = (e) => !isDiscountLead(e);
+
+  const discountLeadsAll    = partnerEnquiries.filter(isDiscountLead);
+  const sponsorshipLeadsAll = partnerEnquiries.filter(isSponsorshipLead);
+
   const tabCounts = {
     dashboard: 0,
     moderation: activeSubmissionsCount,
@@ -2167,6 +2193,8 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     contacts: contactLeads.length,
     'content-review': pendingWalkUpdates.length + pendingWalkComments.length,
     'partner-enquiries': partnerEnquiries.length,
+    'discount-offers':   discountLeadsAll.length,
+    'sponsorship-leads': sponsorshipLeadsAll.length,
     settings: 0,
   };
   const ownerPerformanceRows = profiles.map((profile) => {
@@ -2203,83 +2231,135 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   return (
     <>
       <Nav activePage="admin" onNavigate={onNavigate} />
-      <section style={{ paddingTop: 20, paddingBottom: 60, background: 'linear-gradient(180deg, #EEF7FF 0%, #FAFBFF 100%)' }}>
-        <div className="container" style={{ display: 'grid', gap: 10 }}>
-          {/* ── Admin command bar — nav + counts + refresh in one row ── */}
-          <div className="card" style={{ padding: '10px 14px', borderRadius: 16, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+      <section style={{ paddingTop: 16, paddingBottom: 60, background: 'linear-gradient(180deg, #EEF7FF 0%, #FAFBFF 100%)', minHeight: 'calc(100vh - 64px)' }}>
+        <div className="container" style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
 
+          {/* ── Left sidebar ────────────────────────────────────── */}
+          <div style={{
+            width: 192, flexShrink: 0,
+            position: 'sticky', top: 16,
+            display: 'flex', flexDirection: 'column', gap: 2,
+          }}>
             {/* Wordmark */}
-            <span style={{ fontSize: 13, fontWeight: 800, color: '#1A2744', letterSpacing: '-0.01em', marginRight: 6, flexShrink: 0 }}>Admin</span>
+            <div style={{ padding: '10px 12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 13, fontWeight: 800, color: '#1A2744', letterSpacing: '-0.01em' }}>Admin</span>
+              <button onClick={loadData} disabled={busy || loading} title="Refresh data"
+                style={{ width: 26, height: 26, borderRadius: 7, border: '1px solid rgba(26,39,68,0.12)', background: 'white', color: 'rgba(26,39,68,0.45)', fontSize: 13, cursor: busy || loading ? 'wait' : 'pointer', display: 'grid', placeItems: 'center' }}>
+                ↺
+              </button>
+            </div>
 
-            {/* Divider */}
-            <span style={{ width: 1, height: 18, background: 'rgba(26,39,68,0.12)', flexShrink: 0 }} />
-
-            {/* Nav buttons — each is clickable, shows live count */}
-            {[
-              { key: 'dashboard',         label: 'Dashboard',      revenue: false },
-              { key: 'moderation',        label: 'Moderation',     revenue: false },
-              { key: 'organisations',     label: 'Organisations',  revenue: false },
-              { key: 'resources',         label: 'Resources',      revenue: false },
-              { key: 'events',            label: 'Events',         revenue: false },
-              { key: 'claims',            label: 'Claims',         revenue: false },
-              { key: 'contacts',          label: 'Contacts',       revenue: false },
-              { key: 'partner-enquiries', label: 'Discount Leads', revenue: true  },
-              { key: 'settings',          label: 'Settings',       revenue: false },
-            ].map(({ key, label, revenue }) => {
-              const isActive = tab === key;
-              const count    = tabCounts[key];
-              return (
-                <button
-                  key={key}
-                  onClick={() => setTab(key)}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 5,
-                    padding: '5px 10px', borderRadius: 8, fontSize: 12.5, fontWeight: isActive ? 700 : 600,
-                    border: 'none', cursor: 'pointer', transition: 'all .12s', flexShrink: 0,
-                    background: isActive
-                      ? (revenue ? '#16A34A' : '#1A2744')
-                      : revenue ? 'rgba(22,163,74,0.07)' : 'transparent',
-                    color: isActive ? '#FFFFFF' : revenue ? '#16A34A' : 'rgba(26,39,68,0.70)',
-                  }}
-                  onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = revenue ? 'rgba(22,163,74,0.12)' : 'rgba(26,39,68,0.06)'; }}
-                  onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = revenue ? 'rgba(22,163,74,0.07)' : 'transparent'; }}
-                >
-                  {label}
-                  {count > 0 && (
-                    <span style={{
-                      fontSize: 11, fontWeight: 800, padding: '1px 5px', borderRadius: 6,
-                      background: isActive ? 'rgba(255,255,255,0.22)' : revenue ? 'rgba(22,163,74,0.14)' : 'rgba(26,39,68,0.08)',
-                      color: isActive ? '#FFFFFF' : revenue ? '#16A34A' : 'rgba(26,39,68,0.65)',
-                      lineHeight: 1.4,
-                    }}>{count}</span>
-                  )}
-                </button>
-              );
-            })}
-
-            {/* Spacer pushes refresh to far right */}
-            <span style={{ flex: 1 }} />
-
-            {/* Inline notices — ultra-muted */}
-            {(analyticsNotice || resourceUpdatesNotice) && (
-              <span style={{ fontSize: 10.5, color: 'rgba(26,39,68,0.35)', fontWeight: 500, flexShrink: 0, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {analyticsNotice || resourceUpdatesNotice}
-              </span>
+            {/* Status chips */}
+            {(error || toast) && (
+              <div style={{ padding: '0 8px 10px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {error ? <span style={{ padding: '3px 8px', borderRadius: 6, background: 'rgba(244,97,58,0.09)', color: '#A03A2D', fontSize: 11, fontWeight: 700 }}>{error}</span> : null}
+                {toast ? <span style={{ padding: '3px 8px', borderRadius: 6, background: 'rgba(16,185,129,0.09)', color: '#0D7A55', fontSize: 11, fontWeight: 700 }}>{toast}</span> : null}
+              </div>
             )}
 
-            {/* Error / toast chips */}
-            {error ? <span style={{ padding: '2px 8px', borderRadius: 6, background: 'rgba(244,97,58,0.09)', color: '#A03A2D', fontSize: 11.5, fontWeight: 700, flexShrink: 0 }}>{error}</span> : null}
-            {toast ? <span style={{ padding: '2px 8px', borderRadius: 6, background: 'rgba(16,185,129,0.09)', color: '#0D7A55', fontSize: 11.5, fontWeight: 700, flexShrink: 0 }}>{toast}</span> : null}
+            {/* Nav items */}
+            {(() => {
+              const SideItem = ({ navKey, label, count, accent, onClick }) => {
+                const isActive = tab === navKey && (
+                  navKey !== 'partner-enquiries' ||
+                  (navKey === 'partner-enquiries' && !['discount-offers','sponsorship-leads'].includes(tab))
+                );
+                return (
+                  <button onClick={onClick || (() => { setTab(navKey); })}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      width: '100%', padding: '7px 12px', borderRadius: 9, fontSize: 13, fontWeight: isActive ? 700 : 500,
+                      border: 'none', cursor: 'pointer', textAlign: 'left', transition: 'all .1s',
+                      background: isActive ? (accent ? accent : '#1A2744') : 'transparent',
+                      color: isActive ? '#FFFFFF' : accent ? accent : 'rgba(26,39,68,0.72)',
+                    }}
+                    onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(26,39,68,0.06)'; e.currentTarget.style.color = '#1A2744'; }}
+                    onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = accent || 'rgba(26,39,68,0.72)'; } }}
+                  >
+                    <span>{label}</span>
+                    {count > 0 && (
+                      <span style={{ fontSize: 10.5, fontWeight: 800, padding: '1px 6px', borderRadius: 5, lineHeight: 1.5,
+                        background: isActive ? 'rgba(255,255,255,0.22)' : accent ? `${accent}18` : 'rgba(26,39,68,0.08)',
+                        color: isActive ? '#fff' : accent || 'rgba(26,39,68,0.55)',
+                      }}>{count}</span>
+                    )}
+                  </button>
+                );
+              };
 
-            {/* Refresh */}
-            <button
-              onClick={loadData}
-              disabled={busy || loading}
-              style={{ padding: '4px 10px', borderRadius: 7, fontSize: 12, fontWeight: 600, border: '1px solid rgba(26,39,68,0.12)', background: 'rgba(255,255,255,0.80)', color: 'rgba(26,39,68,0.50)', cursor: busy || loading ? 'wait' : 'pointer', flexShrink: 0 }}
-            >
-              ↺
-            </button>
+              return (
+                <>
+                  <SideItem navKey="dashboard"     label="Dashboard"     count={0} />
+                  <SideItem navKey="moderation"    label="Moderation"    count={tabCounts.moderation} />
+                  <SideItem navKey="organisations" label="Organisations" count={tabCounts.organisations} />
+                  <SideItem navKey="resources"     label="Resources"     count={tabCounts.resources} />
+                  <SideItem navKey="events"        label="Events"        count={tabCounts.events} />
+                  <SideItem navKey="claims"        label="Claims"        count={tabCounts.claims} />
+                  <SideItem navKey="contacts"      label="Contacts"      count={tabCounts.contacts} />
+
+                  {/* Commercial section */}
+                  <div style={{ margin: '8px 12px 4px', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.35)' }}>Commercial</div>
+
+                  {/* Discount Offers — green accent */}
+                  <button
+                    onClick={() => { setTab('partner-enquiries'); setPartnerLeadMode('discounts'); setPeFilter('all'); }}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      width: '100%', padding: '7px 12px', borderRadius: 9, fontSize: 13, fontWeight: (tab === 'partner-enquiries' && partnerLeadMode === 'discounts') ? 700 : 500,
+                      border: 'none', cursor: 'pointer', textAlign: 'left', transition: 'all .1s',
+                      background: (tab === 'partner-enquiries' && partnerLeadMode === 'discounts') ? '#16A34A' : 'transparent',
+                      color: (tab === 'partner-enquiries' && partnerLeadMode === 'discounts') ? '#fff' : '#16A34A',
+                    }}
+                    onMouseEnter={e => { if (!(tab === 'partner-enquiries' && partnerLeadMode === 'discounts')) { e.currentTarget.style.background = 'rgba(22,163,74,0.08)'; } }}
+                    onMouseLeave={e => { if (!(tab === 'partner-enquiries' && partnerLeadMode === 'discounts')) { e.currentTarget.style.background = 'transparent'; } }}
+                  >
+                    <span>Discount Offers</span>
+                    {tabCounts['discount-offers'] > 0 && (
+                      <span style={{ fontSize: 10.5, fontWeight: 800, padding: '1px 6px', borderRadius: 5, lineHeight: 1.5,
+                        background: (tab === 'partner-enquiries' && partnerLeadMode === 'discounts') ? 'rgba(255,255,255,0.22)' : 'rgba(22,163,74,0.12)',
+                        color: (tab === 'partner-enquiries' && partnerLeadMode === 'discounts') ? '#fff' : '#16A34A',
+                      }}>{tabCounts['discount-offers']}</span>
+                    )}
+                  </button>
+
+                  {/* Sponsorship Leads — amber accent */}
+                  <button
+                    onClick={() => { setTab('partner-enquiries'); setPartnerLeadMode('sponsorship'); setPeFilter('all'); }}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      width: '100%', padding: '7px 12px', borderRadius: 9, fontSize: 13, fontWeight: (tab === 'partner-enquiries' && partnerLeadMode === 'sponsorship') ? 700 : 500,
+                      border: 'none', cursor: 'pointer', textAlign: 'left', transition: 'all .1s',
+                      background: (tab === 'partner-enquiries' && partnerLeadMode === 'sponsorship') ? '#B45309' : 'transparent',
+                      color: (tab === 'partner-enquiries' && partnerLeadMode === 'sponsorship') ? '#fff' : '#B45309',
+                    }}
+                    onMouseEnter={e => { if (!(tab === 'partner-enquiries' && partnerLeadMode === 'sponsorship')) { e.currentTarget.style.background = 'rgba(180,83,9,0.07)'; } }}
+                    onMouseLeave={e => { if (!(tab === 'partner-enquiries' && partnerLeadMode === 'sponsorship')) { e.currentTarget.style.background = 'transparent'; } }}
+                  >
+                    <span>Sponsorship Leads</span>
+                    {tabCounts['sponsorship-leads'] > 0 && (
+                      <span style={{ fontSize: 10.5, fontWeight: 800, padding: '1px 6px', borderRadius: 5, lineHeight: 1.5,
+                        background: (tab === 'partner-enquiries' && partnerLeadMode === 'sponsorship') ? 'rgba(255,255,255,0.22)' : 'rgba(180,83,9,0.10)',
+                        color: (tab === 'partner-enquiries' && partnerLeadMode === 'sponsorship') ? '#fff' : '#B45309',
+                      }}>{tabCounts['sponsorship-leads']}</span>
+                    )}
+                  </button>
+
+                  <div style={{ margin: '6px 0' }} />
+                  <SideItem navKey="settings" label="Settings" count={0} />
+
+                  {/* Notices */}
+                  {(analyticsNotice || resourceUpdatesNotice) && (
+                    <div style={{ marginTop: 16, padding: '0 12px', fontSize: 10.5, color: 'rgba(26,39,68,0.32)', lineHeight: 1.5 }}>
+                      {analyticsNotice || resourceUpdatesNotice}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
+
+          {/* ── Main content area ────────────────────────────────── */}
+          <div style={{ flex: 1, minWidth: 0, display: 'grid', gap: 12 }}>
 
           {!loading && (tab === 'dashboard' || tab === 'organisations') ? (
             <div className="card" style={{ padding: 16, borderRadius: 16 }}>
@@ -2936,14 +3016,27 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
             </div>
           ) : null}
 
-          {/* ── Partner Enquiries — Revenue Cockpit ───────────── */}
+          {/* ── Partner Enquiries — split by mode ────────────── */}
           {!loading && tab === 'partner-enquiries' ? (() => {
+            const isDiscount    = partnerLeadMode === 'discounts';
+            const modePool      = isDiscount ? discountLeadsAll : sponsorshipLeadsAll;
+            const modeAccent    = isDiscount ? '#16A34A' : '#B45309';
+            const modeTitle     = isDiscount ? 'Discount Offers' : 'Sponsorship Leads';
+            const modeDesc      = isDiscount
+              ? 'Businesses offering discounts or benefits to carers and care staff.'
+              : 'Businesses interested in featured placement, advertising, sponsorship or broader partnership.';
+            const modeEmpty     = isDiscount ? 'No discount offer submissions yet.' : 'No sponsorship enquiries yet.';
+            const modeOfferCol  = isDiscount ? 'Offer / Support reason' : 'Commercial interest';
+            const modeWonLabel  = isDiscount ? 'Support offers' : 'Won';
+            const modeHighLabel = isDiscount ? 'High-fit supporters' : 'High-fit leads';
+            const modeNewLabel  = isDiscount ? 'New offers' : 'New leads';
+
             const now = new Date();
             const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
             const activeStatuses = new Set(['contacted', 'qualified', 'proposal_sent', 'negotiating']);
-            const wonStatuses = new Set(['won', 'live', 'converted']);
+            const wonStatuses    = new Set(['won', 'live', 'converted']);
 
-            const peFiltered = partnerEnquiries.filter(e => {
+            const peFiltered = modePool.filter(e => {
               if (peFilter === 'all')        return true;
               if (peFilter === 'new')        return (e.admin_status || 'new') === 'new';
               if (peFilter === 'high_score') return leadScore(e) === 'high';
@@ -2953,37 +3046,37 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
               return true;
             });
 
-            const kpiNew      = partnerEnquiries.filter(e => (e.admin_status || 'new') === 'new').length;
-            const kpiActive   = partnerEnquiries.filter(e => activeStatuses.has(e.admin_status || '')).length;
-            const kpiWon      = partnerEnquiries.filter(e => wonStatuses.has(e.admin_status || '')).length;
-            const kpiHighScore = partnerEnquiries.filter(e => leadScore(e) === 'high').length;
-            const kpiThisMonth = partnerEnquiries.filter(e => e.created_at && new Date(e.created_at) >= thisMonthStart).length;
+            const kpiNew       = modePool.filter(e => (e.admin_status || 'new') === 'new').length;
+            const kpiActive    = modePool.filter(e => activeStatuses.has(e.admin_status || '')).length;
+            const kpiWon       = modePool.filter(e => wonStatuses.has(e.admin_status || '')).length;
+            const kpiHighScore = modePool.filter(e => leadScore(e) === 'high').length;
+            const kpiThisMonth = modePool.filter(e => e.created_at && new Date(e.created_at) >= thisMonthStart).length;
 
             return (
               <div style={{ display: 'grid', gap: 10 }}>
 
-                {/* Header */}
-                <div className="card" style={{ padding: '14px 18px', borderRadius: 16, background: 'linear-gradient(135deg, #1A2744 0%, #2D3E6B 100%)' }}>
+                {/* Header — colour-coded by mode */}
+                <div className="card" style={{ padding: '14px 18px', borderRadius: 16, background: isDiscount ? 'linear-gradient(135deg, #14532D 0%, #166534 100%)' : 'linear-gradient(135deg, #431407 0%, #7C2D12 100%)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
                     <div>
-                      <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(255,255,255,0.45)', marginBottom: 3 }}>Business Support Pipeline</div>
-                      <h2 style={{ fontSize: 18, fontWeight: 800, color: '#FFFFFF', margin: 0, lineHeight: 1.2 }}>Discount Leads</h2>
-                      <p style={{ marginTop: 3, color: 'rgba(255,255,255,0.55)', lineHeight: 1.4, fontSize: 12.5, maxWidth: 480 }}>Qualify businesses, agree the offer, then upsell to featured placement or county sponsorship.</p>
+                      <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(255,255,255,0.45)', marginBottom: 3 }}>Commercial Pipeline</div>
+                      <h2 style={{ fontSize: 18, fontWeight: 800, color: '#FFFFFF', margin: 0, lineHeight: 1.2 }}>{modeTitle}</h2>
+                      <p style={{ marginTop: 3, color: 'rgba(255,255,255,0.60)', lineHeight: 1.4, fontSize: 12.5, maxWidth: 480 }}>{modeDesc}</p>
                     </div>
                     <div style={{ fontSize: 24, fontWeight: 900, color: '#FFFFFF', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                      {partnerEnquiries.length} <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.50)' }}>leads</span>
+                      {modePool.length} <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.50)' }}>total</span>
                     </div>
                   </div>
                 </div>
 
                 {/* KPI cards */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 8 }}>
                   {[
-                    { label: 'New leads',            value: kpiNew,       accent: PE_STATUS.new.color,         filter: 'new'        },
-                    { label: 'Active conversations', value: kpiActive,    accent: PE_STATUS.negotiating.color,  filter: 'active'     },
-                    { label: 'Support offers',       value: kpiWon,       accent: PE_STATUS.won.color,          filter: 'won'        },
-                    { label: 'High-fit supporters',  value: kpiHighScore, accent: LS_CFG.high.color,            filter: 'high_score' },
-                    { label: 'This month',           value: kpiThisMonth, accent: 'rgba(26,39,68,0.40)',        filter: 'this_month' },
+                    { label: modeNewLabel,   value: kpiNew,       accent: PE_STATUS.new.color,        filter: 'new'        },
+                    { label: 'Active',       value: kpiActive,    accent: PE_STATUS.negotiating.color, filter: 'active'     },
+                    { label: modeWonLabel,   value: kpiWon,       accent: PE_STATUS.won.color,         filter: 'won'        },
+                    { label: modeHighLabel,  value: kpiHighScore, accent: LS_CFG.high.color,           filter: 'high_score' },
+                    { label: 'This month',   value: kpiThisMonth, accent: 'rgba(26,39,68,0.40)',       filter: 'this_month' },
                   ].map(({ label, value, accent, filter: f }) => {
                     const isActive = peFilter === f;
                     return (
@@ -2991,42 +3084,38 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                         key={label}
                         onClick={() => setPeFilter(isActive ? 'all' : f)}
                         className="card"
-                        style={{ padding: '13px 14px', borderRadius: 14, borderLeft: `3px solid ${accent}`, textAlign: 'left', cursor: 'pointer', border: isActive ? `2px solid ${accent}` : `1px solid transparent`, borderLeftWidth: 3, background: isActive ? `rgba(26,39,68,0.04)` : 'white', transition: 'all .12s', outline: 'none' }}
+                        style={{ padding: '11px 12px', borderRadius: 12, borderLeft: `3px solid ${accent}`, textAlign: 'left', cursor: 'pointer', border: isActive ? `2px solid ${accent}` : `1px solid transparent`, borderLeftWidth: 3, background: isActive ? `rgba(26,39,68,0.04)` : 'white', transition: 'all .12s', outline: 'none' }}
                       >
-                        <div style={{ fontSize: 10.5, color: 'rgba(26,39,68,0.50)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em' }}>{label}</div>
-                        <div style={{ marginTop: 5, fontSize: 26, fontWeight: 900, color: accent }}>{value}</div>
+                        <div style={{ fontSize: 10, color: 'rgba(26,39,68,0.50)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em' }}>{label}</div>
+                        <div style={{ marginTop: 4, fontSize: 22, fontWeight: 900, color: accent }}>{value}</div>
                       </button>
                     );
                   })}
                 </div>
 
                 {/* Filter bar */}
-                <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <span style={{ fontSize: 11.5, fontWeight: 700, color: 'rgba(26,39,68,0.44)', marginRight: 4 }}>Filter:</span>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(26,39,68,0.40)', marginRight: 2 }}>Filter:</span>
                   {[
-                    { key: 'all',        label: 'All' },
-                    { key: 'new',        label: 'New' },
-                    { key: 'high_score', label: 'High-fit' },
-                    { key: 'active',     label: 'Active' },
-                    { key: 'won',        label: 'Support offers' },
-                    { key: 'this_month', label: 'This month' },
-                  ].map(({ key, label }) => (
-                    <button
-                      key={key}
-                      onClick={() => setPeFilter(key)}
-                      style={{ fontSize: 12.5, fontWeight: 700, padding: '5px 13px', borderRadius: 999, border: peFilter === key ? '1.5px solid #1A2744' : '1px solid rgba(26,39,68,0.14)', background: peFilter === key ? '#1A2744' : 'white', color: peFilter === key ? 'white' : 'rgba(26,39,68,0.60)', cursor: 'pointer', transition: 'all .12s' }}
+                    { key: 'all',        label: 'All',          count: null },
+                    { key: 'new',        label: modeNewLabel,   count: kpiNew },
+                    { key: 'high_score', label: 'High-fit',     count: kpiHighScore },
+                    { key: 'active',     label: 'Active',       count: kpiActive },
+                    { key: 'won',        label: modeWonLabel,   count: kpiWon },
+                    { key: 'this_month', label: 'This month',   count: kpiThisMonth },
+                  ].map(({ key, label, count }) => (
+                    <button key={key} onClick={() => setPeFilter(key)}
+                      style={{ fontSize: 12, fontWeight: 600, padding: '4px 11px', borderRadius: 999, cursor: 'pointer', transition: 'all .12s',
+                        border: peFilter === key ? `1.5px solid ${modeAccent}` : '1px solid rgba(26,39,68,0.14)',
+                        background: peFilter === key ? modeAccent : 'white',
+                        color: peFilter === key ? 'white' : 'rgba(26,39,68,0.60)',
+                      }}
                     >
-                      {label}{key !== 'all' && peFilter !== key ? ` (${
-                        key === 'new'        ? kpiNew        :
-                        key === 'high_score' ? kpiHighScore  :
-                        key === 'active'     ? kpiActive     :
-                        key === 'won'        ? kpiWon        :
-                        key === 'this_month' ? kpiThisMonth  : 0
-                      })` : ''}
+                      {label}{key !== 'all' && peFilter !== key && count ? ` (${count})` : ''}
                     </button>
                   ))}
                   {peFilter !== 'all' && (
-                    <button onClick={() => setPeFilter('all')} style={{ fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 999, border: '1px solid rgba(220,38,38,0.30)', background: 'rgba(220,38,38,0.06)', color: '#DC2626', cursor: 'pointer', marginLeft: 4 }}>
+                    <button onClick={() => setPeFilter('all')} style={{ fontSize: 11.5, fontWeight: 600, padding: '3px 9px', borderRadius: 999, border: '1px solid rgba(220,38,38,0.25)', background: 'rgba(220,38,38,0.06)', color: '#DC2626', cursor: 'pointer' }}>
                       Clear ✕
                     </button>
                   )}
@@ -3034,10 +3123,9 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
 
                 {/* Enquiries table */}
                 <div className="card" style={{ padding: 0, borderRadius: 16, overflow: 'hidden' }}>
-                  {partnerEnquiries.length === 0 ? (
+                  {modePool.length === 0 ? (
                     <div style={{ padding: 40, textAlign: 'center' }}>
-                      <div style={{ fontSize: 17, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>No discount leads yet</div>
-                      <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.52)' }}>Businesses expressing support for carers via /advertise will appear here.</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>{modeEmpty}</div>
                     </div>
                   ) : peFiltered.length === 0 ? (
                     <div style={{ padding: 32, textAlign: 'center' }}>
@@ -3049,68 +3137,80 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                         <thead>
                           <tr style={{ borderBottom: '1px solid #EEF1F7', background: '#F8FAFD' }}>
-                            {['Organisation', 'Contact', 'Fit', 'Offer / Support', 'County', 'Status', 'Date', 'Quick actions', ''].map(h => (
-                              <th key={h} style={{ padding: '9px 13px', textAlign: 'left', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'rgba(26,39,68,0.50)', whiteSpace: 'nowrap' }}>{h}</th>
+                            {['Organisation & offer', 'Contact', 'Fit', 'County', 'Status', 'Date', 'Outreach', ''].map(h => (
+                              <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'rgba(26,39,68,0.45)', whiteSpace: 'nowrap' }}>{h}</th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
                           {peFiltered.map(enq => {
-                            const s      = PE_STATUS[enq.admin_status || 'new'] || PE_STATUS.new;
-                            const ls     = leadScore(enq);
-                            const lsCfg  = LS_CFG[ls];
-                            const saving = savingEnquiryId === enq.id;
+                            const s       = PE_STATUS[enq.admin_status || 'new'] || PE_STATUS.new;
+                            const ls      = leadScore(enq);
+                            const lsCfg   = LS_CFG[ls];
+                            const saving  = savingEnquiryId === enq.id;
+                            const website = normalizeHref(enq.website);
+                            const reason  = enq.description || enq.notes || '';
                             return (
                               <tr key={enq.id} style={{ borderBottom: '1px solid #F0F4FA' }}
                                 onMouseEnter={e => { e.currentTarget.style.background = '#FAFBFF'; }}
                                 onMouseLeave={e => { e.currentTarget.style.background = ''; }}
                               >
-                                <td style={{ padding: '9px 13px', fontWeight: 700, color: '#1A2744', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{enq.organisation_name}</td>
-                                <td style={{ padding: '9px 13px', color: 'rgba(26,39,68,0.68)', whiteSpace: 'nowrap', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{enq.contact_name}</div>
-                                  <div style={{ fontSize: 11, color: 'rgba(26,39,68,0.42)', overflow: 'hidden', textOverflow: 'ellipsis' }}>{enq.email}</div>
+                                {/* Organisation + offer title + support reason preview */}
+                                <td style={{ padding: '9px 12px', maxWidth: 200 }}>
+                                  <div style={{ fontWeight: 700, color: '#1A2744', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{enq.organisation_name}</div>
+                                  {enq.offer_title && <div style={{ fontSize: 11, color: 'rgba(26,39,68,0.52)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>{enq.offer_title}</div>}
+                                  {reason && <div style={{ fontSize: 10.5, color: '#B45309', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1, fontStyle: 'italic' }} title={reason}>{reason.length > 55 ? reason.slice(0, 55) + '…' : reason}</div>}
                                 </td>
-                                <td style={{ padding: '9px 13px', whiteSpace: 'nowrap' }}>
-                                  <span style={{ fontSize: 11, fontWeight: 800, padding: '3px 9px', borderRadius: 999, background: lsCfg.bg, color: lsCfg.color }}>{lsCfg.label}</span>
+                                {/* Contact */}
+                                <td style={{ padding: '9px 12px', maxWidth: 150 }}>
+                                  <div style={{ color: 'rgba(26,39,68,0.80)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{enq.contact_name}</div>
+                                  <div style={{ fontSize: 11, color: 'rgba(26,39,68,0.42)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{enq.email}</div>
                                 </td>
-                                <td style={{ padding: '9px 13px', color: 'rgba(26,39,68,0.60)', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{enq.preferred_placement || enq.promotion_type || enq.advertising_interest || '—'}</td>
-                                <td style={{ padding: '9px 13px', color: 'rgba(26,39,68,0.58)', whiteSpace: 'nowrap' }}>{enq.target_county || enq.county || '—'}</td>
-                                <td style={{ padding: '9px 13px' }}>
-                                  <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 999, background: s.bg, color: s.color, whiteSpace: 'nowrap' }}>{s.label}</span>
+                                {/* Fit score */}
+                                <td style={{ padding: '9px 12px', whiteSpace: 'nowrap' }}>
+                                  <span style={{ fontSize: 10.5, fontWeight: 800, padding: '2px 8px', borderRadius: 999, background: lsCfg.bg, color: lsCfg.color }}>{lsCfg.label}</span>
                                 </td>
-                                <td style={{ padding: '9px 13px', color: 'rgba(26,39,68,0.44)', whiteSpace: 'nowrap', fontSize: 12 }}>
+                                {/* County */}
+                                <td style={{ padding: '9px 12px', color: 'rgba(26,39,68,0.55)', whiteSpace: 'nowrap', fontSize: 12 }}>{enq.target_county || enq.county || '—'}</td>
+                                {/* Status */}
+                                <td style={{ padding: '9px 12px', whiteSpace: 'nowrap' }}>
+                                  <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: s.bg, color: s.color }}>{s.label}</span>
+                                </td>
+                                {/* Date */}
+                                <td style={{ padding: '9px 12px', color: 'rgba(26,39,68,0.40)', whiteSpace: 'nowrap', fontSize: 11.5 }}>
                                   {enq.created_at ? new Date(enq.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : '—'}
                                 </td>
-                                {/* Quick actions */}
+                                {/* Outreach icon buttons */}
                                 <td style={{ padding: '9px 10px', whiteSpace: 'nowrap' }}>
-                                  <div style={{ display: 'flex', gap: 5 }}>
-                                    {(enq.admin_status || 'new') === 'new' && (
-                                      <button disabled={saving} onClick={() => updateEnquiryStatus(enq.id, 'contacted')}
-                                        style={{ fontSize: 11, fontWeight: 700, padding: '4px 9px', borderRadius: 7, background: PE_STATUS.contacted.bg, color: PE_STATUS.contacted.color, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                        Mark contacted
-                                      </button>
+                                  <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                                    {/* Email */}
+                                    {enq.email && (
+                                      <a href={buildMailto(enq)} title={`Email ${enq.contact_name}`}
+                                        style={{ display: 'grid', placeItems: 'center', width: 28, height: 28, borderRadius: 7, background: 'rgba(37,99,235,0.08)', color: '#2563EB', textDecoration: 'none', flexShrink: 0 }}>
+                                        <Mail size={13} strokeWidth={2} />
+                                      </a>
                                     )}
-                                    {activeStatuses.has(enq.admin_status || '') && (
-                                      <button disabled={saving} onClick={() => updateEnquiryStatus(enq.id, 'won')}
-                                        style={{ fontSize: 11, fontWeight: 700, padding: '4px 9px', borderRadius: 7, background: PE_STATUS.won.bg, color: PE_STATUS.won.color, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                        Mark won
-                                      </button>
+                                    {/* Call */}
+                                    {enq.phone && (
+                                      <a href={`tel:${enq.phone}`} title={`Call ${enq.phone}`}
+                                        style={{ display: 'grid', placeItems: 'center', width: 28, height: 28, borderRadius: 7, background: 'rgba(22,163,74,0.08)', color: '#16A34A', textDecoration: 'none', flexShrink: 0 }}>
+                                        <Phone size={13} strokeWidth={2} />
+                                      </a>
                                     )}
-                                    {!wonStatuses.has(enq.admin_status || '') && (enq.admin_status || 'new') !== 'lost' && (
-                                      <button disabled={saving} onClick={() => updateEnquiryStatus(enq.id, 'lost')}
-                                        style={{ fontSize: 11, fontWeight: 600, padding: '4px 9px', borderRadius: 7, background: 'rgba(220,38,38,0.07)', color: '#DC2626', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                        Lost
-                                      </button>
+                                    {/* Website */}
+                                    {website && (
+                                      <a href={website} target="_blank" rel="noopener noreferrer" title={`Visit ${enq.website}`}
+                                        style={{ display: 'grid', placeItems: 'center', width: 28, height: 28, borderRadius: 7, background: 'rgba(124,58,237,0.08)', color: '#7C3AED', textDecoration: 'none', flexShrink: 0 }}>
+                                        <Globe size={13} strokeWidth={2} />
+                                      </a>
                                     )}
                                   </div>
                                 </td>
+                                {/* Open details */}
                                 <td style={{ padding: '9px 10px' }}>
-                                  <button
-                                    disabled={saving}
-                                    onClick={() => openEnquiryDetail(enq)}
-                                    style={{ fontSize: 12, fontWeight: 700, padding: '5px 12px', borderRadius: 8, background: '#EEF4FF', border: 'none', color: '#1A2744', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                                  >
-                                    Open →
+                                  <button disabled={saving} onClick={() => openEnquiryDetail(enq)}
+                                    style={{ fontSize: 11.5, fontWeight: 700, padding: '5px 11px', borderRadius: 7, background: '#EEF4FF', border: 'none', color: '#1A2744', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                    Details →
                                   </button>
                                 </td>
                               </tr>
@@ -3126,7 +3226,8 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
             );
           })() : null}
 
-        </div>
+          </div>{/* end main content */}
+        </div>{/* end sidebar+main flex */}
       </section>
       <CreateListingModal
         submission={listingCreationSubmission}
@@ -3443,16 +3544,46 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
           <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'rgba(15,23,42,0.55)', display: 'grid', placeItems: 'center', padding: 16 }} onClick={e => { if (e.target === e.currentTarget) closeEnquiryDetail(); }}>
             <div style={{ background: 'white', borderRadius: 22, width: '100%', maxWidth: 660, maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 40px 80px rgba(15,23,42,0.22)', position: 'relative' }}>
               {/* Header strip */}
-              <div style={{ padding: '18px 22px 16px', borderBottom: '1px solid #EEF1F7', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, position: 'sticky', top: 0, background: 'white', zIndex: 1, borderRadius: '22px 22px 0 0' }}>
-                <div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: '#1A2744', lineHeight: 1.2 }}>{enq.organisation_name}</div>
-                  <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.55)', marginTop: 3 }}>{enq.contact_name} · {enq.email}</div>
+              <div style={{ padding: '16px 20px 14px', borderBottom: '1px solid #EEF1F7', position: 'sticky', top: 0, background: 'white', zIndex: 1, borderRadius: '22px 22px 0 0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 17, fontWeight: 800, color: '#1A2744', lineHeight: 1.2 }}>{enq.organisation_name}</div>
+                    <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.52)', marginTop: 3 }}>{enq.contact_name} · {enq.email}</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                    <span style={{ fontSize: 10.5, fontWeight: 800, padding: '2px 8px', borderRadius: 999, background: lsCfg.bg, color: lsCfg.color }}>{lsCfg.label} fit</span>
+                    <span style={{ fontSize: 10.5, fontWeight: 800, padding: '2px 8px', borderRadius: 999, background: s.bg, color: s.color }}>{s.label}</span>
+                    <button onClick={closeEnquiryDetail} style={{ width: 30, height: 30, borderRadius: 999, border: '1px solid #EFF1F7', background: '#FAFBFF', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
+                      <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="#1A2744" strokeWidth={2.5} strokeLinecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+                    </button>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                  <span style={{ fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 999, background: lsCfg.bg, color: lsCfg.color }}>{lsCfg.label} score</span>
-                  <span style={{ fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 999, background: s.bg, color: s.color }}>{s.label}</span>
-                  <button onClick={closeEnquiryDetail} style={{ width: 32, height: 32, borderRadius: 999, border: '1px solid #EFF1F7', background: '#FAFBFF', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
-                    <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#1A2744" strokeWidth={2.5} strokeLinecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+                {/* Outreach action row */}
+                <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+                  {enq.email && (
+                    <a href={buildMailto(enq)} title="Open outreach email"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 8, background: 'rgba(37,99,235,0.07)', color: '#2563EB', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>
+                      <Mail size={13} strokeWidth={2} /> Email {enq.contact_name?.split(' ')[0]}
+                    </a>
+                  )}
+                  {enq.phone && (
+                    <a href={`tel:${enq.phone}`}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 8, background: 'rgba(22,163,74,0.07)', color: '#16A34A', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>
+                      <Phone size={13} strokeWidth={2} /> {enq.phone}
+                    </a>
+                  )}
+                  {enq.website && (
+                    <a href={normalizeHref(enq.website)} target="_blank" rel="noopener noreferrer"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 8, background: 'rgba(124,58,237,0.07)', color: '#7C3AED', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>
+                      <Globe size={13} strokeWidth={2} /> Website ↗
+                    </a>
+                  )}
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(buildOutreachBody(enq)).then(() => setToast('Outreach message copied to clipboard'));
+                    }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 8, background: 'rgba(26,39,68,0.05)', color: 'rgba(26,39,68,0.65)', fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer' }}>
+                    <Copy size={13} strokeWidth={2} /> Copy message
                   </button>
                 </div>
               </div>
