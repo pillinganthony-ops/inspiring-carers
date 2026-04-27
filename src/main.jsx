@@ -7,7 +7,7 @@ import Logo from './components/Logo.jsx';
 import Icons from './components/Icons.jsx';
 import Nav from './components/Nav.jsx';
 import Footer from './components/Footer.jsx';
-import { Hero, DualEntry } from './components/home/Hero.jsx'; // DualEntry is in Hero.jsx
+import { Hero, DualEntry, QuickActions } from './components/home/Hero.jsx';
 import PersonalStrip from './components/home/PersonalStrip.jsx';
 import IconDiscovery from './components/home/IconDiscovery.jsx';
 import Signposting from './components/home/Signposting.jsx';
@@ -281,16 +281,16 @@ const GlobalEnquiry = ({ visible }) => {
   );
 };
 
-// HomePage component
-const HomePage = ({ onNavigate, tweaks }) => (
+// HomePage — new flow: Hero → QuickActions → Businesses → Signposting → Categories → JoinStrip/Personal → ClosingBand
+const HomePage = ({ onNavigate, tweaks, session }) => (
   <>
     <Nav activePage="home" onNavigate={onNavigate} />
-    <Hero headline={tweaks.hero_headline} onNavigate={onNavigate} />
-    <DualEntry onNavigate={onNavigate} />
-    <PersonalStrip greeting={tweaks.greeting_name} location={tweaks.location} />
-    <IconDiscovery onNavigate={onNavigate} />
-    <Signposting onNavigate={onNavigate} />
+    <Hero onNavigate={onNavigate} />
+    <QuickActions onNavigate={onNavigate} />
     <Businesses onNavigate={onNavigate} />
+    <Signposting onNavigate={onNavigate} />
+    <IconDiscovery onNavigate={onNavigate} />
+    <PersonalStrip greeting={tweaks.greeting_name} location={tweaks.location} session={session} onNavigate={onNavigate} />
     <ClosingBand onNavigate={onNavigate} />
     <Footer onNavigate={onNavigate} />
   </>
@@ -618,7 +618,7 @@ const App = () => {
     case 'offer-a-discount':  content = <React.Suspense fallback={<RouteLoading />}><OfferADiscountPage    onNavigate={navigate} session={session} /></React.Suspense>; break;
     case 'about': content = <Placeholder title="About inspiring carers" activePage="about" onNavigate={navigate} session={session} note="Mission, the two-tier model, and the local-first national vision — next round." />; break;
     case 'card': content = <Placeholder title="Team Benefits" activePage="card" onNavigate={navigate} session={session} note="Approved organisations can apply for workforce benefit cards for eligible staff teams — organisation account required." />; break;
-    default: content = <HomePage onNavigate={navigate} tweaks={tweaks} />;
+    default: content = <HomePage onNavigate={navigate} tweaks={tweaks} session={session} />;
   }
 
   return (

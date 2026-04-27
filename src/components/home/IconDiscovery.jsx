@@ -3,20 +3,16 @@ import Icons from '../Icons.jsx';
 const { IDiscount, IWellbeing, IGroups, IWalks, IEvent, IAdvice, ILibrary, IHub, IReward, IRecognition, IFamily, IMind, IArrow, IconTile, ISparkle } = Icons;
 
 const IconDiscovery = ({ onNavigate }) => {
+  // Top 8 — show only priority categories on homepage
   const items = [
-    { icon: <IDiscount s={32}/>,    tone: 'gold',   label: 'Discounts & offers',        side: 'you',     count: 'Local & regional offers' },
-    { icon: <IWellbeing s={32}/>,   tone: 'coral',  label: 'Wellbeing Support',        side: 'both',    count: 'Calm & restorative',      route: 'wellbeing' },
-    { icon: <IGroups s={32}/>,      tone: 'sky',    label: 'Local groups & socials',   side: 'support', count: 'Cornwall & beyond' },
-    { icon: <IWalks s={32}/>,       tone: 'lime',   label: 'Walks & outdoors',         side: 'support', count: 'Trails & coastal paths', route: 'walks' },
-    { icon: <ISparkle s={32}/>,     tone: 'violet', label: 'Places to Visit',          side: 'support', count: 'Attractions & days out',  route: 'places-to-visit' },
-    { icon: <IEvent s={32}/>,       tone: 'violet', label: 'Events everywhere',        side: 'both',    count: 'Near you' },
-    { icon: <IAdvice s={32}/>,      tone: 'sky',    label: 'Expert advice',            side: 'support', count: 'Updated daily' },
-    { icon: <ILibrary s={32}/>,     tone: 'gold',   label: 'Libraries & hubs',        side: 'support', count: '38+ near you' },
-    { icon: <IHub s={32}/>,         tone: 'violet', label: 'Community centres',       side: 'support', count: '17 local hubs' },
-    { icon: <IReward s={32}/>,      tone: 'coral',  label: 'Rewards & cashback',      side: 'you',     count: 'Points you can spend' },
-    { icon: <IRecognition s={32}/>, tone: 'gold',   label: 'Recognition & awards',    side: 'you',     count: 'Get featured' },
-    { icon: <IFamily s={32}/>,      tone: 'lime',   label: 'Family support',          side: 'support', count: 'Local services' },
-    { icon: <IMind s={32}/>,        tone: 'violet', label: 'Mental wellbeing',        side: 'both',    count: '63 resources' },
+    { icon: <IDiscount s={32}/>,    tone: 'gold',   label: 'Discounts & Offers',    side: 'you',     count: 'Local & regional offers',  route: 'benefits' },
+    { icon: <IWellbeing s={32}/>,   tone: 'coral',  label: 'Wellbeing Support',     side: 'both',    count: 'Calm & restorative',       route: 'wellbeing' },
+    { icon: <IGroups s={32}/>,      tone: 'sky',    label: 'Groups & Social',       side: 'support', count: 'Cornwall & beyond',        route: 'find-help' },
+    { icon: <IWalks s={32}/>,       tone: 'lime',   label: 'Walks & Outdoors',      side: 'support', count: 'Trails & coastal paths',   route: 'walks' },
+    { icon: <IEvent s={32}/>,       tone: 'violet', label: 'Events',                side: 'both',    count: 'Near you',                 route: 'events' },
+    { icon: <IMind s={32}/>,        tone: 'violet', label: 'Mental Wellbeing',      side: 'both',    count: '63 resources',             route: 'wellbeing' },
+    { icon: <IAdvice s={32}/>,      tone: 'sky',    label: 'Money Help',            side: 'support', count: 'Benefits & grants',        route: 'find-help' },
+    { icon: <IReward s={32}/>,      tone: 'coral',  label: 'Training',              side: 'you',     count: 'Skills & development',     route: 'training' },
   ];
   const sideAccent = { you: '#F5A623', support: '#2D9CDB', both: '#7B5CF5' };
   const sideLabel = { you: 'For you', support: 'For clients', both: 'Both' };
@@ -39,32 +35,36 @@ const IconDiscovery = ({ onNavigate }) => {
           </button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
           {items.map((it, i) => (
-            <button key={i} className="card" style={{
-              padding: 24, textAlign: 'left', cursor: 'pointer',
-              display: 'flex', flexDirection: 'column', gap: 16,
-              minHeight: 180,
-            }}
-              onClick={() => onNavigate(it.route || (it.side === 'you' ? 'benefits' : 'find-help'))}
+            <button key={i} className="card" style={{ padding: '20px 20px', textAlign: 'left', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 14, borderRadius: 18, border: 'none', transition: 'box-shadow .14s, transform .14s' }}
+              onClick={() => onNavigate(it.route || 'find-help')}
+              onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 8px 28px rgba(26,39,68,0.12)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+              onMouseLeave={e => { e.currentTarget.style.boxShadow = ''; e.currentTarget.style.transform = ''; }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                <IconTile tone={it.tone} size={56} radius={16}>{it.icon}</IconTile>
-                <span style={{
-                  fontSize: 11, fontWeight: 800, padding: '5px 10px', borderRadius: 999,
-                  background: sideAccent[it.side] + '22', color: sideAccent[it.side],
-                  letterSpacing: '0.06em',
-                  textTransform: 'uppercase',
-                }}>
+                <IconTile tone={it.tone} size={50} radius={14}>{it.icon}</IconTile>
+                <span style={{ fontSize: 10.5, fontWeight: 800, padding: '3px 9px', borderRadius: 999, background: sideAccent[it.side] + '1A', color: sideAccent[it.side], letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                   {sideLabel[it.side]}
                 </span>
               </div>
               <div>
-                <div style={{ fontFamily: 'Sora, sans-serif', fontWeight: 700, fontSize: 18, color: '#1A2744' }}>{it.label}</div>
-                <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.6)', marginTop: 4, fontWeight: 500 }}>{it.count}</div>
+                <div style={{ fontFamily: 'Sora, sans-serif', fontWeight: 700, fontSize: 16.5, color: '#1A2744' }}>{it.label}</div>
+                <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.55)', marginTop: 3, fontWeight: 500 }}>{it.count}</div>
               </div>
             </button>
           ))}
+        </div>
+
+        {/* View all */}
+        <div style={{ textAlign: 'center', marginTop: 32 }}>
+          <button
+            onClick={() => onNavigate('find-help')}
+            className="btn btn-ghost"
+            style={{ fontSize: 15, padding: '11px 28px', fontWeight: 700 }}
+          >
+            View all support <IArrow s={15} />
+          </button>
         </div>
       </div>
     </section>
