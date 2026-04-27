@@ -33,7 +33,7 @@ const RecognitionPageComponent  = React.lazy(() => import('./components/pages/Re
 const OfferADiscountPage         = React.lazy(() => import('./components/pages/OfferADiscount.jsx'));
 const VenueProfilePage     = React.lazy(() => import('./components/pages/VenueProfile.jsx'));
 // Hub pages — eagerly imported so county selectors render with zero loading flash
-import FindHelpLandingPage from './components/pages/FindHelpLanding.jsx';
+// FindHelpLandingPage removed from routing — /find-help now renders the directory directly
 import EventsHubPage       from './components/pages/EventsHub.jsx';
 
 // Make icons global for JSX
@@ -664,9 +664,7 @@ const App = () => {
   switch (displayPage) {
     case 'login': content = <React.Suspense fallback={<RouteLoading />}><LoginPage onNavigate={navigate} session={session} /></React.Suspense>; break;
     case 'reset-password': content = <React.Suspense fallback={<RouteLoading />}><ResetPasswordPage onNavigate={navigate} /></React.Suspense>; break;
-    case 'find-help': content = county
-      ? <React.Suspense key={county} fallback={<RouteLoading />}><FindHelpPage onNavigate={navigate} session={session} county={county} venueSlug={venueSlug} /></React.Suspense>
-      : <FindHelpLandingPage onNavigate={navigate} session={session} />; break;
+    case 'find-help': content = <React.Suspense key={county || 'cornwall'} fallback={<RouteLoading />}><FindHelpPage onNavigate={navigate} session={session} county={county || 'cornwall'} venueSlug={venueSlug} /></React.Suspense>; break;
     case 'events': content = county
       ? <React.Suspense key={county} fallback={<RouteLoading />}><EventsPage  onNavigate={navigate} session={session} county={county} /></React.Suspense>
       : <EventsHubPage   key="hub" onNavigate={navigate} session={session} />; break;

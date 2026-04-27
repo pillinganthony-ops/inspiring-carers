@@ -2814,7 +2814,7 @@ const FindHelpV2 = ({ onNavigate, session, county, venueSlug }) => {
   }, [county]);
 
   const isMobile = useIsMobile();
-  const [selectedCounty, setSelectedCounty] = React.useState(null);
+  const [selectedCounty, setSelectedCounty] = React.useState(county || 'cornwall');
   const [view, setView] = React.useState('list');
   const [activeCat, setActiveCat] = React.useState('all');
   const [savedIds, setSavedIds] = React.useState(new Set());
