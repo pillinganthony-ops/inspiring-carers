@@ -424,7 +424,7 @@ const App = () => {
   const [county, setCounty] = React.useState(() => {
     const { county: urlCounty, page: urlPage } = parseRoute(window.location.pathname);
     // Hub pages (no county in URL) must not inherit county from localStorage
-    const HUB_PAGES = ['activities', 'find-help', 'events'];
+    const HUB_PAGES = ['activities', 'find-help', 'events', 'walks', 'wellbeing', 'places-to-visit'];
     if (HUB_PAGES.includes(urlPage) && !urlCounty) return null;
     // URL is source of truth: if URL contains a county, write it back to localStorage
     if (urlCounty) {
@@ -482,7 +482,7 @@ const App = () => {
       const { page: pg, county: co, slug: sl } = parseRoute(window.location.pathname);
       setPage(pg);
       // Apply HUB_PAGES guard — hub routes must never inherit a county from stale state
-      const HUB_PAGES_POP = ['activities', 'find-help', 'events'];
+      const HUB_PAGES_POP = ['activities', 'find-help', 'events', 'walks', 'wellbeing', 'places-to-visit'];
       const resolvedCounty = (HUB_PAGES_POP.includes(pg) && !co) ? null : (co || null);
       // URL is source of truth — sync localStorage when county is present in URL
       if (resolvedCounty) { try { localStorage.setItem('ic_county', resolvedCounty); } catch {} }
@@ -616,22 +616,27 @@ const App = () => {
       return;
     }
 
-    // wellbeing — canonical /wellbeing; page defaults to Cornwall data when county=null
+    // wellbeing — /wellbeing (national fallback) or /{county}/wellbeing (explicit county)
     if (key === 'wellbeing') {
+      const c = typeof explicitCounty === 'string' ? explicitCounty : null;
       setPage('wellbeing');
       setVenueSlug(null);
-      setCounty(null);
-      window.history.pushState({ page: 'wellbeing', county: null }, '', '/wellbeing');
+      setCounty(c);
+      if (c) { try { localStorage.setItem('ic_county', c); } catch {} }
+      window.history.pushState({ page: 'wellbeing', county: c }, '', c ? `/${c}/wellbeing` : '/wellbeing');
       window.scrollTo({ top: 0, behavior: 'instant' });
       return;
     }
 
-    // places-to-visit — canonical /places-to-visit
+    // places-to-visit — /places-to-visit or /{county}/places-to-visit[/slug]
     if (key === 'places-to-visit') {
+      const c = typeof explicitCounty === 'string' ? explicitCounty : null;
       setPage('places-to-visit');
-      setVenueSlug(null);
-      setCounty(null);
-      window.history.pushState({ page: 'places-to-visit', county: null }, '', '/places-to-visit');
+      setVenueSlug(slug || null);
+      setCounty(c);
+      if (c) { try { localStorage.setItem('ic_county', c); } catch {} }
+      const path = c ? (slug ? `/${c}/places-to-visit/${slug}` : `/${c}/places-to-visit`) : '/places-to-visit';
+      window.history.pushState({ page: 'places-to-visit', county: c, slug: slug || null }, '', path);
       window.scrollTo({ top: 0, behavior: 'instant' });
       return;
     }

@@ -10,6 +10,7 @@ import Footer from '../Footer.jsx';
 import Icons from '../Icons.jsx';
 import ClaimModal from '../ClaimModal.jsx';
 import VenueProfile from './VenueProfile.jsx';
+import CountyBanner from '../CountyBanner.jsx';
 
 const { IArrow, ISearch, IPin } = Icons;
 
@@ -312,15 +313,11 @@ const PlacesToVisitPage = ({ onNavigate, session, county, venueSlug }) => {
   return (
     <>
       <Nav activePage="places-to-visit" onNavigate={onNavigate} session={session} county={county} />
-
-      {!county && (
-        <div style={{ background: 'rgba(245,166,35,0.07)', borderBottom: '1px solid rgba(245,166,35,0.14)', padding: '8px 0' }}>
-          <div className="container" style={{ fontSize: 13, color: '#92400E', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ width: 6, height: 6, borderRadius: 999, background: '#F5A623', flexShrink: 0 }} />
-            Showing Cornwall places to visit while we expand to more areas.
-          </div>
-        </div>
-      )}
+      <CountyBanner
+        county={county}
+        isFallback={!county}
+        onChangeCounty={(c) => onNavigate('places-to-visit', c)}
+      />
 
       {/* ── Hero ──────────────────────────────────────────────────────── */}
       <section style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(150deg, #1A0C35 0%, #2C1452 50%, #341A60 100%)', paddingTop: 36, paddingBottom: 36 }}>
