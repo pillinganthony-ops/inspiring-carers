@@ -1,121 +1,137 @@
-// Events Hub — county selector landing page at /events
-// Lets carers choose their county before viewing local events listings.
+// EventsHubPage — national hub at /events
+// Standardised to match FindHelp, Activities, Walks, Wellbeing, PlacesToVisit hub design system.
 
 import React from 'react';
 import Nav from '../Nav.jsx';
 import Footer from '../Footer.jsx';
-import Icons from '../Icons.jsx';
 
-const { IPin, IArrow, ISearch } = Icons;
+const ACCENT = '#7B5CF5'; // indigo — consistent with Events county page
 
-const COUNTIES = [
-  { key: 'cornwall',  label: 'Cornwall',  desc: 'Local events, workshops and meetups for carers' },
-  { key: 'devon',     label: 'Devon',     desc: 'Carer events and community activities' },
-  { key: 'somerset',  label: 'Somerset',  desc: 'Events and sessions for carers in Somerset' },
-  { key: 'bristol',   label: 'Bristol',   desc: 'City events and support sessions' },
-  { key: 'dorset',    label: 'Dorset',    desc: 'Carer events across Dorset' },
-  { key: 'wiltshire', label: 'Wiltshire', desc: 'Events and workshops in Wiltshire' },
+const EVT_COUNTY_CARDS = [
+  { key: 'cornwall', label: 'Cornwall', status: 'live',        badge: 'Live now',    accent: ACCENT,               badgeBg: 'rgba(22,163,74,0.10)',  badgeColor: '#166534' },
+  { key: 'devon',    label: 'Devon',    status: 'launching',   badge: 'Launching',   accent: '#D97706',            badgeBg: 'rgba(217,119,6,0.10)',  badgeColor: '#92400E' },
+  { key: 'somerset', label: 'Somerset', status: 'coming-soon', badge: 'Coming soon', accent: 'rgba(26,39,68,0.22)', badgeBg: 'rgba(26,39,68,0.06)', badgeColor: 'rgba(26,39,68,0.48)' },
+  { key: 'bristol',  label: 'Bristol',  status: 'coming-soon', badge: 'Coming soon', accent: 'rgba(26,39,68,0.22)', badgeBg: 'rgba(26,39,68,0.06)', badgeColor: 'rgba(26,39,68,0.48)' },
 ];
 
-const ACCENT = '#7B5CF5';
+const EventsHubPage = ({ onNavigate, session }) => (
+  <>
+    <Nav activePage="events" onNavigate={onNavigate} session={session} />
 
-const EventsHubPage = ({ onNavigate, session }) => {
-  const [hovered, setHovered] = React.useState(null);
-  const [search, setSearch] = React.useState('');
+    {/* Hero — paddingTop/Bottom: 64 matching all other hubs */}
+    <section style={{ background: 'linear-gradient(150deg, #100A2A 0%, #1A0E40 55%, #1E1248 100%)', paddingTop: 64, paddingBottom: 64, position: 'relative', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', top: -60, right: -60, width: 440, height: 440, borderRadius: '50%', background: 'radial-gradient(circle, rgba(123,92,245,0.18) 0%, transparent 65%)', filter: 'blur(32px)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', bottom: -60, left: '20%', width: 380, height: 380, borderRadius: '50%', background: 'radial-gradient(circle, rgba(123,92,245,0.08) 0%, transparent 65%)', filter: 'blur(24px)', pointerEvents: 'none' }} />
+      <div className="container" style={{ position: 'relative', maxWidth: 680, margin: '0 auto', textAlign: 'center' }}>
 
-  const filtered = COUNTIES.filter((c) =>
-    c.label.toLowerCase().includes(search.toLowerCase())
-  );
+        {/* Eyebrow — fontSize: 10.5, letterSpacing: 0.09em matching system */}
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 13px', borderRadius: 999, background: 'rgba(123,92,245,0.18)', border: '1px solid rgba(123,92,245,0.28)', fontSize: 10.5, fontWeight: 800, color: '#C4B5FD', letterSpacing: '0.09em', textTransform: 'uppercase', marginBottom: 22 }}>
+          National hub
+        </div>
 
-  return (
-    <>
-      <Nav activePage="events" onNavigate={onNavigate} session={session} />
+        {/* H1 — clamp(28px,4.5vw,48px), lineHeight 1.1, marginBottom 16 */}
+        <h1 style={{ fontSize: 'clamp(28px, 4.5vw, 48px)', fontWeight: 800, color: '#FFFFFF', marginBottom: 16, letterSpacing: '-0.03em', lineHeight: 1.1, textWrap: 'balance' }}>
+          Events for carers<br />across the UK
+        </h1>
 
-      {/* ── Hero ── */}
-      <section style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(150deg, #100A2A 0%, #1A0E40 55%, #1E1248 100%)', paddingTop: 48, paddingBottom: 52 }}>
-        <div style={{ position: 'absolute', top: -80, right: -80, width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle, rgba(123,92,245,0.14) 0%, transparent 65%)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', bottom: -60, left: '25%', width: 360, height: 360, borderRadius: '50%', background: 'radial-gradient(circle, rgba(123,92,245,0.07) 0%, transparent 65%)', pointerEvents: 'none' }} />
+        {/* Subheadline — fontSize: 17, rgba(255,255,255,0.68), lineHeight 1.65 */}
+        <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.68)', lineHeight: 1.65, maxWidth: 540, margin: '0 auto' }}>
+          Discover local events, workshops, social meetups and training sessions for carers in your county.
+        </p>
 
-        <div className="container" style={{ position: 'relative' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 999, background: 'rgba(123,92,245,0.18)', border: '1px solid rgba(123,92,245,0.30)', fontSize: 11, fontWeight: 800, color: '#C4B5FD', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14 }}>
-            Events · Select your county
-          </div>
-          <h1 style={{ fontSize: 'clamp(26px, 4.5vw, 46px)', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.03em', lineHeight: 1.06, margin: '0 0 12px', textWrap: 'balance' }}>
-            Events for carers
-          </h1>
-          <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.65)', lineHeight: 1.65, margin: '0 0 24px', maxWidth: 520 }}>
-            Discover local events, workshops, training sessions and social meetups for carers. Select your county to see what's happening near you.
-          </p>
-
-          {/* County search */}
-          <div style={{ position: 'relative', maxWidth: 380 }}>
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Type your county…"
-              style={{ width: '100%', padding: '12px 14px 12px 40px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.08)', color: '#FFFFFF', fontSize: 14.5, fontFamily: 'Inter, sans-serif', boxSizing: 'border-box', outline: 'none' }}
-            />
-            <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.40)', display: 'flex', pointerEvents: 'none' }}>
-              <ISearch s={16} />
+        {/* Trust pills */}
+        <div style={{ display: 'flex', gap: 18, justifyContent: 'center', flexWrap: 'wrap', fontSize: 13, color: 'rgba(255,255,255,0.52)', fontWeight: 600, marginTop: 28 }}>
+          {['Free to attend', 'Local organisations', 'Carer-friendly sessions'].map(t => (
+            <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ width: 5, height: 5, borderRadius: 999, background: '#10B981', flexShrink: 0 }} />{t}
             </span>
-          </div>
+          ))}
         </div>
-      </section>
+      </div>
+    </section>
 
-      {/* ── County grid ── */}
-      <section style={{ background: '#F7F9FC', paddingTop: 40, paddingBottom: 64 }}>
-        <div className="container">
-          <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.50)', fontWeight: 600, marginBottom: 20 }}>
-            {filtered.length} {filtered.length === 1 ? 'county' : 'counties'} available
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
-            {filtered.map((c) => {
-              const active = hovered === c.key;
-              return (
-                <div
-                  key={c.key}
-                  className="card"
-                  onClick={() => onNavigate('events', c.key)}
-                  onMouseEnter={() => setHovered(c.key)}
-                  onMouseLeave={() => setHovered(null)}
-                  style={{ padding: 0, overflow: 'hidden', borderRadius: 16, border: `1px solid ${active ? ACCENT + '55' : ACCENT + '20'}`, cursor: 'pointer', transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.16s ease', transform: active ? 'translateY(-3px)' : 'none', boxShadow: active ? `0 14px 40px ${ACCENT}22, 0 4px 12px rgba(26,39,68,0.06)` : '0 2px 8px rgba(26,39,68,0.05)', background: '#FFFFFF' }}
-                >
-                  <div style={{ height: 5, background: `linear-gradient(90deg, ${ACCENT}, #A78BFA)`, flexShrink: 0 }} />
-                  <div style={{ padding: '18px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
-                        <IPin s={12} color={ACCENT} />
-                        <span style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: ACCENT }}>
-                          Events in
-                        </span>
-                      </div>
-                      <div style={{ fontSize: 19, fontWeight: 800, color: '#1A2744', marginBottom: 5 }}>{c.label}</div>
-                      <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.55)', lineHeight: 1.5 }}>{c.desc}</div>
-                    </div>
-                    <div style={{ width: 36, height: 36, borderRadius: 10, background: active ? ACCENT : `${ACCENT}14`, display: 'grid', placeItems: 'center', flexShrink: 0, transition: 'background .16s' }}>
-                      <IArrow s={14} color={active ? '#FFFFFF' : ACCENT} />
-                    </div>
-                  </div>
+    {/* County cards — minmax(180px,1fr), gap 14, matching system */}
+    <section style={{ paddingTop: 56, paddingBottom: 56, background: '#FAFBFF' }}>
+      <div className="container" style={{ maxWidth: 820, margin: '0 auto' }}>
+        <div style={{ textAlign: 'center', marginBottom: 36 }}>
+          <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: ACCENT, marginBottom: 10 }}>Select your county</div>
+          <h2 style={{ fontSize: 'clamp(20px, 2.8vw, 28px)', fontWeight: 800, color: '#1A2744', margin: 0, letterSpacing: '-0.02em' }}>
+            Choose your area to see local events
+          </h2>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+          {EVT_COUNTY_CARDS.map(c => {
+            const isLive = c.status === 'live';
+            const isLaunching = c.status === 'launching';
+            return (
+              /* card — padding: 22px 20px, borderRadius: 18, borderLeft: 3px solid matching system */
+              <div key={c.key} className="card" style={{ padding: '22px 20px', borderRadius: 18, borderLeft: `3px solid ${c.accent}`, opacity: isLive || isLaunching ? 1 : 0.70 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 14 }}>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#1A2744' }}>{c.label}</div>
+                  <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: c.badgeBg, color: c.badgeColor, whiteSpace: 'nowrap' }}>{c.badge}</span>
                 </div>
-              );
-            })}
-          </div>
-
-          {filtered.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '48px 20px' }}>
-              <div style={{ fontSize: 32, marginBottom: 12 }}>🔍</div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>No counties found</div>
-              <button onClick={() => setSearch('')} style={{ fontSize: 13, fontWeight: 600, color: ACCENT, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Clear search</button>
-            </div>
-          )}
+                {isLive ? (
+                  /* Live button — background: accent, padding: 9px 0, borderRadius: 10, fontWeight: 700, fontSize: 13.5 */
+                  <button
+                    onClick={() => onNavigate('events', c.key)}
+                    style={{ width: '100%', padding: '9px 0', borderRadius: 10, background: ACCENT, color: 'white', fontWeight: 700, fontSize: 13.5, border: 'none', cursor: 'pointer', transition: 'opacity .13s' }}
+                    onMouseEnter={e => { e.currentTarget.style.opacity = '0.85'; }}
+                    onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+                  >
+                    Choose {c.label}
+                  </button>
+                ) : (
+                  <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.45)', fontStyle: 'italic', marginTop: 4 }}>
+                    {isLaunching ? 'Launching soon — register interest below.' : 'Being prepared. Register interest below.'}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
-      </section>
+      </div>
+    </section>
 
-      <Footer onNavigate={onNavigate} />
-    </>
-  );
-};
+    {/* CTA sponsor strip — matching all other hubs exactly */}
+    <section style={{ paddingBottom: 64, background: '#FAFBFF' }}>
+      <div className="container" style={{ maxWidth: 820, margin: '0 auto' }}>
+        <div style={{ padding: '28px 32px', borderRadius: 22, background: 'linear-gradient(135deg, #1A2744 0%, #2D3E6B 100%)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 20 }}>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(255,255,255,0.42)', marginBottom: 7 }}>Get involved</div>
+            <h3 style={{ fontSize: 19, fontWeight: 800, color: '#FFFFFF', margin: '0 0 7px', lineHeight: 1.2 }}>
+              Add an event or sponsor this category
+            </h3>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.58)', margin: 0, lineHeight: 1.55 }}>
+              Register your organisation, submit events, or become a founding events sponsor in your county.
+            </p>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9, flexShrink: 0 }}>
+            <button
+              onClick={() => onNavigate('events', 'cornwall')}
+              className="btn btn-gold"
+              style={{ fontWeight: 800, fontSize: 14, padding: '10px 20px', whiteSpace: 'nowrap' }}
+            >
+              Choose Cornwall
+            </button>
+            <button
+              onClick={() => onNavigate('profile')}
+              style={{ padding: '9px 18px', borderRadius: 10, background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}
+            >
+              Submit an event
+            </button>
+            <button
+              onClick={() => onNavigate('advertise')}
+              style={{ padding: '9px 18px', borderRadius: 10, background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}
+            >
+              Sponsor this category
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <Footer onNavigate={onNavigate} />
+  </>
+);
 
 export default EventsHubPage;
