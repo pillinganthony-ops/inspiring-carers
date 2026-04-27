@@ -211,7 +211,7 @@ const SkeletonCard = () => (
 
 // ── Page component ─────────────────────────────────────────────────────────
 
-const WellbeingSupportPage = ({ onNavigate, session, county, venueSlug }) => {
+const WellbeingCountyPage = ({ onNavigate, session, county, venueSlug }) => {
   // Show venue profile if a slug is active
   if (venueSlug) {
     return (
@@ -311,6 +311,94 @@ const WellbeingSupportPage = ({ onNavigate, session, county, venueSlug }) => {
     setFilterIndoorOut(''); setFilterWheelchair(false);
     setFilterDog(false); setFilterFamily(false); setFilterCarer(false);
   };
+
+  // Opening-soon: explicit non-Cornwall county with no venues yet
+  if (!loading && !error && venues.length === 0 && county && county !== 'cornwall') {
+    return (
+      <>
+        <Nav activePage="wellbeing" onNavigate={onNavigate} session={session} county={county} />
+        <CountyBanner county={county} isFallback={false} onChangeCounty={(c) => onNavigate('wellbeing', c)} />
+
+        {/* A. Hero panel */}
+        <section style={{ background: 'linear-gradient(150deg, #0A1F25 0%, #0F2E38 50%, #133640 100%)', paddingTop: 64, paddingBottom: 64, position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: -60, right: -60, width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle, rgba(13,148,136,0.18) 0%, transparent 65%)', filter: 'blur(32px)', pointerEvents: 'none' }} />
+          <div className="container" style={{ position: 'relative', maxWidth: 680, margin: '0 auto', textAlign: 'center' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 13px', borderRadius: 999, background: 'rgba(13,148,136,0.20)', border: '1px solid rgba(13,148,136,0.32)', fontSize: 10.5, fontWeight: 800, color: '#5EEAD4', letterSpacing: '0.09em', textTransform: 'uppercase', marginBottom: 22 }}>
+              County Launch Page
+            </div>
+            <h1 style={{ fontSize: 'clamp(28px, 4.5vw, 46px)', fontWeight: 800, color: '#FFFFFF', marginBottom: 16, letterSpacing: '-0.03em', lineHeight: 1.1, textWrap: 'balance' }}>
+              {countyLabel} wellbeing support<br />is opening soon
+            </h1>
+            <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.68)', lineHeight: 1.65, maxWidth: 520, margin: '0 auto 28px' }}>
+              We are preparing trusted wellbeing places, support spaces and community resources for carers and families in {countyLabel}.
+            </p>
+            <div style={{ display: 'flex', gap: 18, justifyContent: 'center', flexWrap: 'wrap', fontSize: 13, color: 'rgba(255,255,255,0.52)', fontWeight: 600 }}>
+              {['Free to list', 'Carer-focused support', 'Verified local places'].map(t => (
+                <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ width: 5, height: 5, borderRadius: 999, background: '#10B981', flexShrink: 0 }} />{t}
+                </span>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* B. Three value cards */}
+        <section style={{ paddingTop: 56, paddingBottom: 48, background: '#FAFBFF' }}>
+          <div className="container" style={{ maxWidth: 860, margin: '0 auto' }}>
+            <div style={{ textAlign: 'center', marginBottom: 36 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#0D9488', marginBottom: 10 }}>Who benefits</div>
+              <h2 style={{ fontSize: 'clamp(20px, 2.8vw, 28px)', fontWeight: 800, color: '#1A2744', margin: 0, letterSpacing: '-0.02em' }}>
+                {countyLabel} is being built for everyone
+              </h2>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+              {[
+                { accent: '#2563EB', bg: 'rgba(37,99,235,0.08)',  title: 'For carers',        body: `Find calm, restorative and community wellbeing places across ${countyLabel}.` },
+                { accent: '#16A34A', bg: 'rgba(22,163,74,0.08)',  title: 'For organisations', body: 'Submit wellbeing spaces, support groups and community resources to the directory.' },
+                { accent: '#D97706', bg: 'rgba(217,119,6,0.08)',  title: 'For businesses',    body: 'Offer discounts, featured placement or founding sponsorship to reach carers.' },
+              ].map(({ accent, bg, title, body }) => (
+                <div key={title} className="card" style={{ padding: '22px 20px', borderRadius: 18, borderTop: `3px solid ${accent}` }}>
+                  <div style={{ width: 10, height: 10, borderRadius: 999, background: accent, marginBottom: 14 }} />
+                  <div style={{ fontSize: 15, fontWeight: 800, color: '#1A2744', marginBottom: 7 }}>{title}</div>
+                  <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.60)', lineHeight: 1.6 }}>{body}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* C. Sponsor CTA strip */}
+        <section style={{ paddingBottom: 64, background: '#FAFBFF' }}>
+          <div className="container" style={{ maxWidth: 860, margin: '0 auto' }}>
+            <div style={{ padding: '28px 32px', borderRadius: 22, background: 'linear-gradient(135deg, #1A2744 0%, #2D3E6B 100%)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 24 }}>
+              <div style={{ flex: 1, minWidth: 220 }}>
+                <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(255,255,255,0.42)', marginBottom: 7 }}>Founding partnership</div>
+                <h3 style={{ fontSize: 20, fontWeight: 800, color: '#FFFFFF', margin: '0 0 8px', lineHeight: 1.2 }}>
+                  Become a founding {countyLabel} partner
+                </h3>
+                <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.60)', margin: 0, lineHeight: 1.55 }}>
+                  Founding businesses and organisations can be featured early while this county launches.
+                </p>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
+                <button onClick={() => onNavigate('profile')} className="btn btn-gold" style={{ fontWeight: 800, fontSize: 14, padding: '10px 22px', whiteSpace: 'nowrap' }}>
+                  Submit organisation
+                </button>
+                <button onClick={() => onNavigate('offer-a-discount')} style={{ padding: '9px 22px', borderRadius: 10, background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  Offer a discount
+                </button>
+                <button onClick={() => onNavigate('advertise')} style={{ padding: '9px 22px', borderRadius: 10, background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  Featured sponsorship
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <Footer onNavigate={onNavigate} />
+      </>
+    );
+  }
 
   return (
     <>
@@ -496,6 +584,123 @@ const WellbeingSupportPage = ({ onNavigate, session, county, venueSlug }) => {
       <Footer onNavigate={onNavigate} />
     </>
   );
+};
+
+// ── National hub — shown when no county is set (/wellbeing) ──────────────────
+const COUNTY_CARDS = [
+  { key: 'cornwall', label: 'Cornwall',  status: 'live',         badge: 'Live now',     accent: '#16A34A', badgeBg: 'rgba(22,163,74,0.10)',  badgeColor: '#166534' },
+  { key: 'devon',    label: 'Devon',     status: 'launching',    badge: 'Launching',    accent: '#D97706', badgeBg: 'rgba(217,119,6,0.10)',  badgeColor: '#92400E' },
+  { key: 'somerset', label: 'Somerset',  status: 'coming-soon',  badge: 'Coming soon',  accent: 'rgba(26,39,68,0.25)', badgeBg: 'rgba(26,39,68,0.06)', badgeColor: 'rgba(26,39,68,0.50)' },
+  { key: 'bristol',  label: 'Bristol',   status: 'coming-soon',  badge: 'Coming soon',  accent: 'rgba(26,39,68,0.25)', badgeBg: 'rgba(26,39,68,0.06)', badgeColor: 'rgba(26,39,68,0.50)' },
+];
+
+const WellbeingNationalHub = ({ onNavigate, session }) => (
+  <>
+    <Nav activePage="wellbeing" onNavigate={onNavigate} session={session} />
+    <CountyBanner county={null} isFallback={true} onChangeCounty={(c) => onNavigate('wellbeing', c)} />
+
+    {/* Hero */}
+    <section style={{ background: 'linear-gradient(150deg, #0A1F25 0%, #0F2E38 50%, #133640 100%)', paddingTop: 64, paddingBottom: 64, position: 'relative', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', top: -60, right: -60, width: 440, height: 440, borderRadius: '50%', background: 'radial-gradient(circle, rgba(13,148,136,0.18) 0%, transparent 65%)', filter: 'blur(32px)', pointerEvents: 'none' }} />
+      <div className="container" style={{ position: 'relative', maxWidth: 680, margin: '0 auto', textAlign: 'center' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 13px', borderRadius: 999, background: 'rgba(13,148,136,0.20)', border: '1px solid rgba(13,148,136,0.30)', fontSize: 10.5, fontWeight: 800, color: '#5EEAD4', letterSpacing: '0.09em', textTransform: 'uppercase', marginBottom: 22 }}>
+          National hub
+        </div>
+        <h1 style={{ fontSize: 'clamp(28px, 4.5vw, 48px)', fontWeight: 800, color: '#FFFFFF', marginBottom: 16, letterSpacing: '-0.03em', lineHeight: 1.1, textWrap: 'balance' }}>
+          Wellbeing support for<br />carers across the UK
+        </h1>
+        <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.68)', lineHeight: 1.65, maxWidth: 520, margin: '0 auto' }}>
+          Find calm spaces, wellbeing venues, support groups and restorative places in your local county.
+        </p>
+      </div>
+    </section>
+
+    {/* County cards */}
+    <section style={{ paddingTop: 56, paddingBottom: 56, background: '#FAFBFF' }}>
+      <div className="container" style={{ maxWidth: 820, margin: '0 auto' }}>
+        <div style={{ textAlign: 'center', marginBottom: 36 }}>
+          <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#0D9488', marginBottom: 10 }}>Select your county</div>
+          <h2 style={{ fontSize: 'clamp(20px, 2.8vw, 28px)', fontWeight: 800, color: '#1A2744', margin: 0, letterSpacing: '-0.02em' }}>
+            Choose your area to see local wellbeing places
+          </h2>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+          {COUNTY_CARDS.map(c => {
+            const isLive = c.status === 'live';
+            const isLaunching = c.status === 'launching';
+            return (
+              <div key={c.key} className="card" style={{ padding: '22px 20px', borderRadius: 18, borderLeft: `3px solid ${c.accent}`, opacity: isLive || isLaunching ? 1 : 0.70 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 14 }}>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#1A2744' }}>{c.label}</div>
+                  <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: c.badgeBg, color: c.badgeColor, whiteSpace: 'nowrap' }}>{c.badge}</span>
+                </div>
+                {isLive ? (
+                  <button
+                    onClick={() => onNavigate('wellbeing', c.key)}
+                    style={{ width: '100%', padding: '9px 0', borderRadius: 10, background: '#0D9488', color: 'white', fontWeight: 700, fontSize: 13.5, border: 'none', cursor: 'pointer', transition: 'opacity .13s' }}
+                    onMouseEnter={e => { e.currentTarget.style.opacity = '0.85'; }}
+                    onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+                  >
+                    Choose {c.label}
+                  </button>
+                ) : (
+                  <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.45)', fontStyle: 'italic', marginTop: 4 }}>
+                    {isLaunching ? 'Launching soon — register interest below.' : 'Being prepared. Register interest below.'}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+
+    {/* CTA section */}
+    <section style={{ paddingBottom: 64, background: '#FAFBFF' }}>
+      <div className="container" style={{ maxWidth: 820, margin: '0 auto' }}>
+        <div style={{ padding: '28px 32px', borderRadius: 22, background: 'linear-gradient(135deg, #1A2744 0%, #2D3E6B 100%)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 20 }}>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(255,255,255,0.42)', marginBottom: 7 }}>Get involved</div>
+            <h3 style={{ fontSize: 19, fontWeight: 800, color: '#FFFFFF', margin: '0 0 7px', lineHeight: 1.2 }}>
+              Join the wellbeing network
+            </h3>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.58)', margin: 0, lineHeight: 1.55 }}>
+              Register your county, add a wellbeing venue or become a founding sponsor.
+            </p>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9, flexShrink: 0 }}>
+            <button
+              onClick={() => onNavigate('wellbeing', 'cornwall')}
+              className="btn btn-gold"
+              style={{ fontWeight: 800, fontSize: 14, padding: '10px 20px', whiteSpace: 'nowrap' }}
+            >
+              Choose Cornwall
+            </button>
+            <button
+              onClick={() => onNavigate('profile')}
+              style={{ padding: '9px 18px', borderRadius: 10, background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}
+            >
+              Register your county
+            </button>
+            <button
+              onClick={() => onNavigate('advertise')}
+              style={{ padding: '9px 18px', borderRadius: 10, background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}
+            >
+              Sponsor this category
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <Footer onNavigate={onNavigate} />
+  </>
+);
+
+// ── Public export — routes between national hub and county page ───────────────
+const WellbeingSupportPage = ({ onNavigate, session, county, venueSlug }) => {
+  if (!county) return <WellbeingNationalHub onNavigate={onNavigate} session={session} />;
+  return <WellbeingCountyPage onNavigate={onNavigate} session={session} county={county} venueSlug={venueSlug} />;
 };
 
 export default WellbeingSupportPage;
