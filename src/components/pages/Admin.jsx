@@ -41,16 +41,17 @@ const ANALYTICS_WINDOWS = [
 ];
 
 // Partner enquiry pipeline status config
+// label = badge text; action = workflow button text (human, action-oriented)
 const PE_STATUS = {
-  new:           { label: 'New',           color: '#2563EB', bg: 'rgba(37,99,235,0.09)'   },
-  contacted:     { label: 'Contacted',     color: '#0891B2', bg: 'rgba(8,145,178,0.09)'   },
-  qualified:     { label: 'Qualified',     color: '#7C3AED', bg: 'rgba(124,58,237,0.09)'  },
-  proposal_sent: { label: 'Proposal sent', color: '#9333EA', bg: 'rgba(147,51,234,0.09)'  },
-  negotiating:   { label: 'Negotiating',   color: '#D97706', bg: 'rgba(217,119,6,0.09)'   },
-  won:           { label: 'Won',           color: '#16A34A', bg: 'rgba(22,163,74,0.09)'   },
-  live:          { label: 'Live',          color: '#059669', bg: 'rgba(5,150,105,0.09)'   },
-  lost:          { label: 'Lost',          color: '#DC2626', bg: 'rgba(220,38,38,0.09)'   },
-  converted:     { label: 'Converted',     color: '#7B5CF5', bg: 'rgba(123,92,245,0.09)'  },
+  new:           { label: 'New',           action: 'New',             color: '#2563EB', bg: 'rgba(37,99,235,0.09)'   },
+  contacted:     { label: 'Contacted',     action: 'Mark contacted',  color: '#0891B2', bg: 'rgba(8,145,178,0.09)'   },
+  qualified:     { label: 'Qualified',     action: 'Mark qualified',  color: '#7C3AED', bg: 'rgba(124,58,237,0.09)'  },
+  proposal_sent: { label: 'Proposal sent', action: 'Proposal sent',   color: '#9333EA', bg: 'rgba(147,51,234,0.09)'  },
+  negotiating:   { label: 'Negotiating',   action: 'Negotiating',     color: '#D97706', bg: 'rgba(217,119,6,0.09)'   },
+  won:           { label: 'Won',           action: 'Won / live',      color: '#16A34A', bg: 'rgba(22,163,74,0.09)'   },
+  live:          { label: 'Live',          action: 'Mark live',       color: '#059669', bg: 'rgba(5,150,105,0.09)'   },
+  lost:          { label: 'Lost',          action: 'Lost',            color: '#DC2626', bg: 'rgba(220,38,38,0.09)'   },
+  converted:     { label: 'Converted',     action: 'Converted',       color: '#7B5CF5', bg: 'rgba(123,92,245,0.09)'  },
 };
 
 const PE_PIPELINE_STAGES = ['new', 'contacted', 'qualified', 'proposal_sent', 'negotiating', 'won', 'live', 'lost'];
@@ -58,10 +59,16 @@ const PE_PIPELINE_STAGES = ['new', 'contacted', 'qualified', 'proposal_sent', 'n
 const leadScore = (enq) => {
   const placement = (enq.preferred_placement || '').toLowerCase();
   const interest  = (enq.advertising_interest || enq.promotion_type || '').toLowerCase();
-  const isHighValue = placement.includes('county') || placement.includes('sponsor') || placement.includes('national') || interest.includes('sponsor') || interest.includes('national');
-  const hasFullForm = enq.offer_title && (enq.promotion_type || enq.advertising_interest) && enq.website;
-  if (isHighValue) return 'high';
-  if (hasFullForm) return 'medium';
+  // High: county/national sponsor, OR strong discount intent, OR submitted a "why support carers" reason
+  const isHighFit =
+    placement.includes('county') || placement.includes('sponsor') || placement.includes('national') ||
+    interest.includes('sponsor') || interest.includes('national') ||
+    interest.includes('discount') || interest.includes('benefit') ||
+    Boolean(enq.description && enq.description.trim().length > 20);
+  // Medium: has a clear offer + website (enough data to act)
+  const hasOffer = enq.offer_title && (enq.promotion_type || enq.advertising_interest) && enq.website;
+  if (isHighFit) return 'high';
+  if (hasOffer) return 'medium';
   return 'low';
 };
 const LS_CFG = {
@@ -2221,7 +2228,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                 ['Pending claims', pendingClaims.length, pendingClaims.length > 0 ? '#F5A623' : null],
                 ['Pending subs', pendingResourceUpdates.length, pendingResourceUpdates.length > 0 ? '#F5A623' : null],
                 ['Contacts', contactLeads.length, contactLeads.length > 0 ? '#7B5CF5' : null, () => { setTab('contacts'); }],
-                ['Partner enqs', partnerEnquiries.length, newPartnerEnquiries > 0 ? '#F5A623' : null, () => { setTab('partner-enquiries'); }],
+                ['Discount leads', partnerEnquiries.length, newPartnerEnquiries > 0 ? '#F5A623' : null, () => { setTab('partner-enquiries'); }],
                 ['Profile views', ownerPerformanceSummary.totalViews, null],
                 ['Enquiries', ownerPerformanceSummary.totalEnquiries, null],
               ].map(([label, value, accent, onClick]) => (
@@ -2244,7 +2251,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
               ['events', 'Events'],
               ['contacts', 'Contacts'],
               ['content-review', 'Content Review'],
-              ['partner-enquiries', 'Partner Enquiries'],
+              ['partner-enquiries', 'Discount Leads'],
               ['settings', 'Settings'],
             ].map(([key, label]) => (
               <button
@@ -2954,11 +2961,11 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
 
                 {/* Header */}
                 <div className="card" style={{ padding: '20px 24px', borderRadius: 22, background: 'linear-gradient(135deg, #1A2744 0%, #2D3E6B 100%)', boxShadow: '0 24px 44px rgba(26,39,68,0.18)' }}>
-                  <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(255,255,255,0.55)', marginBottom: 6 }}>Revenue cockpit · Advertising pipeline</div>
+                  <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(255,255,255,0.55)', marginBottom: 6 }}>Business Support Pipeline</div>
                   <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
                     <div>
-                      <h2 style={{ fontSize: 26, fontWeight: 800, color: '#FFFFFF', margin: 0, lineHeight: 1.2 }}>Partner Enquiries</h2>
-                      <p style={{ marginTop: 6, color: 'rgba(255,255,255,0.60)', lineHeight: 1.5, fontSize: 13.5, maxWidth: 520 }}>Submissions from <code style={{ background: 'rgba(255,255,255,0.10)', padding: '1px 5px', borderRadius: 4 }}>/advertise</code>. Track leads through the pipeline, score opportunities, and convert to live platform assets.</p>
+                      <h2 style={{ fontSize: 26, fontWeight: 800, color: '#FFFFFF', margin: 0, lineHeight: 1.2 }}>Discount Leads</h2>
+                      <p style={{ marginTop: 6, color: 'rgba(255,255,255,0.60)', lineHeight: 1.5, fontSize: 13.5, maxWidth: 520 }}>Businesses who want to offer discounts and benefits to carers. Qualify them, agree the offer, then upsell to featured placement, county sponsorship, or national partnership.</p>
                     </div>
                     <div style={{ fontSize: 28, fontWeight: 900, color: '#FFFFFF', whiteSpace: 'nowrap' }}>
                       {partnerEnquiries.length} <span style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.55)' }}>total leads</span>
@@ -2969,11 +2976,11 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                 {/* KPI cards */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8 }}>
                   {[
-                    { label: 'New leads',     value: kpiNew,       accent: PE_STATUS.new.color,       filter: 'new'        },
-                    { label: 'Active deals',  value: kpiActive,    accent: PE_STATUS.negotiating.color, filter: 'active'   },
-                    { label: 'Won / Live',    value: kpiWon,       accent: PE_STATUS.won.color,        filter: 'won'       },
-                    { label: 'High score',    value: kpiHighScore, accent: LS_CFG.high.color,          filter: 'high_score'},
-                    { label: 'This month',    value: kpiThisMonth, accent: 'rgba(26,39,68,0.40)',      filter: 'this_month'},
+                    { label: 'New leads',            value: kpiNew,       accent: PE_STATUS.new.color,         filter: 'new'        },
+                    { label: 'Active conversations', value: kpiActive,    accent: PE_STATUS.negotiating.color,  filter: 'active'     },
+                    { label: 'Support offers',       value: kpiWon,       accent: PE_STATUS.won.color,          filter: 'won'        },
+                    { label: 'High-fit supporters',  value: kpiHighScore, accent: LS_CFG.high.color,            filter: 'high_score' },
+                    { label: 'This month',           value: kpiThisMonth, accent: 'rgba(26,39,68,0.40)',        filter: 'this_month' },
                   ].map(({ label, value, accent, filter: f }) => {
                     const isActive = peFilter === f;
                     return (
@@ -2996,9 +3003,9 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                   {[
                     { key: 'all',        label: 'All' },
                     { key: 'new',        label: 'New' },
-                    { key: 'high_score', label: 'High score' },
-                    { key: 'active',     label: 'Active deals' },
-                    { key: 'won',        label: 'Won / Live' },
+                    { key: 'high_score', label: 'High-fit' },
+                    { key: 'active',     label: 'Active' },
+                    { key: 'won',        label: 'Support offers' },
                     { key: 'this_month', label: 'This month' },
                   ].map(({ key, label }) => (
                     <button
@@ -3026,8 +3033,8 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                 <div className="card" style={{ padding: 0, borderRadius: 16, overflow: 'hidden' }}>
                   {partnerEnquiries.length === 0 ? (
                     <div style={{ padding: 40, textAlign: 'center' }}>
-                      <div style={{ fontSize: 17, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>No enquiries yet</div>
-                      <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.52)' }}>Submissions from /advertise will appear here.</div>
+                      <div style={{ fontSize: 17, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>No discount leads yet</div>
+                      <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.52)' }}>Businesses expressing support for carers via /advertise will appear here.</div>
                     </div>
                   ) : peFiltered.length === 0 ? (
                     <div style={{ padding: 32, textAlign: 'center' }}>
@@ -3039,7 +3046,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                         <thead>
                           <tr style={{ borderBottom: '1px solid #EEF1F7', background: '#F8FAFD' }}>
-                            {['Organisation', 'Contact', 'Score', 'Placement', 'County', 'Status', 'Date', 'Quick actions', ''].map(h => (
+                            {['Organisation', 'Contact', 'Fit', 'Offer / Support', 'County', 'Status', 'Date', 'Quick actions', ''].map(h => (
                               <th key={h} style={{ padding: '9px 13px', textAlign: 'left', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'rgba(26,39,68,0.50)', whiteSpace: 'nowrap' }}>{h}</th>
                             ))}
                           </tr>
@@ -3465,7 +3472,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                           onMouseEnter={e => { if (!isCurrent) { e.currentTarget.style.background = cfg.bg; e.currentTarget.style.color = cfg.color; } }}
                           onMouseLeave={e => { if (!isCurrent) { e.currentTarget.style.background = 'rgba(26,39,68,0.05)'; e.currentTarget.style.color = 'rgba(26,39,68,0.60)'; } }}
                         >
-                          {cfg.label}
+                          {isCurrent ? `✓ ${cfg.label}` : cfg.action}
                         </button>
                       );
                     })}
@@ -3516,10 +3523,13 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                   </div>
                 )}
 
-                {/* Notes */}
-                {enq.description && (
+                {/* Support reason */}
+                {(enq.description || enq.notes) && (
                   <div style={{ paddingTop: 14, borderTop: '1px solid #EEF1F7' }}>
-                    <Field label="Submitted notes" value={enq.description} />
+                    <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#F5A623', marginBottom: 8 }}>Why they want to support carers</div>
+                    <div style={{ fontSize: 13.5, color: '#1A2744', lineHeight: 1.6, background: 'rgba(245,166,35,0.05)', borderLeft: '3px solid rgba(245,166,35,0.40)', padding: '10px 14px', borderRadius: '0 8px 8px 0' }}>
+                      {enq.description || enq.notes}
+                    </div>
                   </div>
                 )}
 
