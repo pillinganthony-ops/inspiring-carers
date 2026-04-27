@@ -75,6 +75,7 @@ const Footer = ({ onNavigate = () => {} }) => {
           </div>
           <div style={{ color: 'white' }}>
             {col('Platform', [
+              ['Offer a discount', 'offer-a-discount'],
               ['About', 'about'],
               ['For businesses', 'business'],
               ['Advertise with us', 'advertise'],

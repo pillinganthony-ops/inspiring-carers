@@ -125,10 +125,11 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp,
   const isActivitiesPage = activitiesItems.some((i) => i.key === activePage) || activePage === 'activities';
 
   const moreItems = [
-    { key: 'recognition', label: 'Recognition' },
-    { key: 'business',    label: 'For businesses' },
-    { key: 'advertise',   label: 'Advertise with us' },
-    { key: 'about',       label: 'About' },
+    { key: 'offer-a-discount', label: 'Offer a discount' },
+    { key: 'recognition',      label: 'Recognition' },
+    { key: 'business',         label: 'For businesses' },
+    { key: 'advertise',        label: 'Advertise with us' },
+    { key: 'about',            label: 'About' },
   ];
 
   const profileItems = [
