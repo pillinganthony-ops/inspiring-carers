@@ -281,7 +281,53 @@ const GlobalEnquiry = ({ visible }) => {
   );
 };
 
-// HomePage — new flow: Hero → QuickActions → Businesses → Signposting → Categories → JoinStrip/Personal → ClosingBand
+// ── Mid-page audience CTA — three paths, one page ──────────────────────────
+const AudienceCTA = ({ onNavigate, session }) => (
+  <section style={{ paddingTop: 60, paddingBottom: 60, background: '#F7F9FC' }}>
+    <div className="container">
+      <div style={{ textAlign: 'center', marginBottom: 36 }}>
+        <div className="eyebrow" style={{ marginBottom: 10 }}>Who are you here for?</div>
+        <h2 style={{ fontSize: 'clamp(26px, 3.5vw, 38px)', fontWeight: 800, color: '#1A2744', margin: 0, letterSpacing: '-0.02em' }}>
+          One platform. Three ways to use it.
+        </h2>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
+        {/* Carers */}
+        <div className="card" style={{ padding: '28px 26px', borderRadius: 20, borderTop: '3px solid #2563EB' }}>
+          <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#2563EB', marginBottom: 10 }}>For carers</div>
+          <h3 style={{ fontSize: 20, fontWeight: 800, color: '#1A2744', margin: '0 0 10px', lineHeight: 1.2 }}>Find support, offers and community</h3>
+          <p style={{ fontSize: 14, color: 'rgba(26,39,68,0.60)', lineHeight: 1.6, margin: '0 0 22px' }}>Benefits, local groups, walks, events and wellbeing support — all in one place. Free forever.</p>
+          <button onClick={() => onNavigate(session ? 'find-help' : 'profile')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 20px', borderRadius: 10, background: '#2563EB', color: 'white', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer' }}>
+            {session ? 'Find support near me' : 'Join free'} <IArrow s={14} />
+          </button>
+        </div>
+        {/* Businesses */}
+        <div className="card" style={{ padding: '28px 26px', borderRadius: 20, borderTop: '3px solid #F5A623' }}>
+          <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#B45309', marginBottom: 10 }}>For businesses</div>
+          <h3 style={{ fontSize: 20, fontWeight: 800, color: '#1A2744', margin: '0 0 10px', lineHeight: 1.2 }}>Support carers, grow your reputation</h3>
+          <p style={{ fontSize: 14, color: 'rgba(26,39,68,0.60)', lineHeight: 1.6, margin: '0 0 22px' }}>Offer a discount or benefit to carers. Free to submit, reviewed personally. Advertising and sponsorship available.</p>
+          <button onClick={() => onNavigate('offer-a-discount')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 20px', borderRadius: 10, background: 'linear-gradient(135deg, #F5A623, #D4AF37)', color: '#0F172A', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer' }}>
+            Offer a discount <IArrow s={14} />
+          </button>
+        </div>
+        {/* Organisations */}
+        <div className="card" style={{ padding: '28px 26px', borderRadius: 20, borderTop: '3px solid #16A34A' }}>
+          <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#16A34A', marginBottom: 10 }}>For organisations</div>
+          <h3 style={{ fontSize: 20, fontWeight: 800, color: '#1A2744', margin: '0 0 10px', lineHeight: 1.2 }}>Engage carers, grow your community</h3>
+          <p style={{ fontSize: 14, color: 'rgba(26,39,68,0.60)', lineHeight: 1.6, margin: '0 0 22px' }}>Staff benefits, organisation profiles, analytics, bookings and engagement tools. Built for charities, care providers and employers.</p>
+          <button onClick={() => onNavigate('business')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 20px', borderRadius: 10, background: '#16A34A', color: 'white', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer' }}>
+            Explore team benefits <IArrow s={14} />
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+);
+
+// HomePage — flow with tightened section spacing
 const HomePage = ({ onNavigate, tweaks, session }) => (
   <>
     <Nav activePage="home" onNavigate={onNavigate} />
@@ -290,6 +336,7 @@ const HomePage = ({ onNavigate, tweaks, session }) => (
     <Businesses onNavigate={onNavigate} />
     <Signposting onNavigate={onNavigate} />
     <IconDiscovery onNavigate={onNavigate} />
+    <AudienceCTA onNavigate={onNavigate} session={session} />
     <PersonalStrip greeting={tweaks.greeting_name} location={tweaks.location} session={session} onNavigate={onNavigate} />
     <ClosingBand onNavigate={onNavigate} />
     <Footer onNavigate={onNavigate} />
@@ -347,9 +394,14 @@ const App = () => {
     if (segs[0] === 'find-help'  && segs.length === 1) return { page: 'find-help', county: null };
     if (segs[0] === 'events'     && segs.length === 1) return { page: 'events',    county: null };
 
-    // Walks hub — /walks loads all walks; /{county}/walks loads county view (via COUNTY_SLUGS above)
-    // WalksPage does not filter by county so content is identical — but URL matters for clarity
+    // Walks hub — /walks loads all walks; /{county}/walks loads county view
     if (segs[0] === 'walks' && segs.length === 1) return { page: 'walks', county: null };
+
+    // County-optional hub routes — flat URLs work without a county prefix
+    // These pages handle county=null gracefully (show national/unfiltered view)
+    if (segs[0] === 'wellbeing'      && segs.length === 1) return { page: 'wellbeing',      county: null };
+    if (segs[0] === 'groups'         && segs.length === 1) return { page: 'groups',         county: null };
+    if (segs[0] === 'places-to-visit'&& segs.length === 1) return { page: 'places-to-visit', county: null };
 
     // County-prefixed routes: /cornwall/find-help, /cornwall, or /cornwall/places-to-visit/some-slug
     if (COUNTY_SLUGS.includes(segs[0])) {
@@ -553,13 +605,33 @@ const App = () => {
       return;
     }
 
-    // navigate('walks', null) — explicit all-county intent → /walks (county-agnostic hub)
-    // navigate('walks') or navigate('walks', 'cornwall') → /{county}/walks as normal
-    if (key === 'walks' && explicitCounty === null) {
+    // walks — always canonical /walks regardless of county argument
+    // WalksPage uses static JSON and ignores county prop entirely
+    if (key === 'walks') {
       setPage('walks');
       setVenueSlug(null);
       setCounty(null);
       window.history.pushState({ page: 'walks', county: null }, '', '/walks');
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      return;
+    }
+
+    // wellbeing — canonical /wellbeing; page defaults to Cornwall data when county=null
+    if (key === 'wellbeing') {
+      setPage('wellbeing');
+      setVenueSlug(null);
+      setCounty(null);
+      window.history.pushState({ page: 'wellbeing', county: null }, '', '/wellbeing');
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      return;
+    }
+
+    // places-to-visit — canonical /places-to-visit
+    if (key === 'places-to-visit') {
+      setPage('places-to-visit');
+      setVenueSlug(null);
+      setCounty(null);
+      window.history.pushState({ page: 'places-to-visit', county: null }, '', '/places-to-visit');
       window.scrollTo({ top: 0, behavior: 'instant' });
       return;
     }

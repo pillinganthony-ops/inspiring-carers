@@ -7,7 +7,7 @@ const IconDiscovery = ({ onNavigate }) => {
   const items = [
     { icon: <IDiscount s={32}/>,    tone: 'gold',   label: 'Discounts & Offers',    side: 'you',     count: 'Local & regional offers',  route: 'benefits' },
     { icon: <IWellbeing s={32}/>,   tone: 'coral',  label: 'Wellbeing Support',     side: 'both',    count: 'Calm & restorative',       route: 'wellbeing' },
-    { icon: <IGroups s={32}/>,      tone: 'sky',    label: 'Groups & Social',       side: 'support', count: 'Cornwall & beyond',        route: 'find-help' },
+    { icon: <IGroups s={32}/>,      tone: 'sky',    label: 'Groups & Social',       side: 'support', count: 'Local & online',           route: 'find-help' },
     { icon: <IWalks s={32}/>,       tone: 'lime',   label: 'Walks & Outdoors',      side: 'support', count: 'Trails & coastal paths',   route: 'walks' },
     { icon: <IEvent s={32}/>,       tone: 'violet', label: 'Events',                side: 'both',    count: 'Near you',                 route: 'events' },
     { icon: <IMind s={32}/>,        tone: 'violet', label: 'Mental Wellbeing',      side: 'both',    count: '63 resources',             route: 'wellbeing' },
@@ -18,7 +18,7 @@ const IconDiscovery = ({ onNavigate }) => {
   const sideLabel = { you: 'For you', support: 'For clients', both: 'Both' };
 
   return (
-    <section style={{ background: '#FFFDF7', paddingTop: 80, paddingBottom: 80 }}>
+    <section style={{ background: '#FFFDF7', paddingTop: 68, paddingBottom: 68 }}>
       <div className="container">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', marginBottom: 44, flexWrap: 'wrap', gap: 20 }}>
           <div>

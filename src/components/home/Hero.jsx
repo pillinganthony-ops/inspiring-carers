@@ -2,7 +2,7 @@
 import Icons from '../Icons.jsx';
 const {
   IDot, ICard, IPin, IArrow, ISparkle, IDiscount, IReward,
-  IRecognition, IChevron, IconTile, BloomMark, ICoffee,
+  IRecognition, IChevron, IconTile, BloomMark, ICoffee, IGroups,
 } = Icons;
 
 const NAVY = '#1A2744';
@@ -28,14 +28,14 @@ const Hero = ({ onNavigate }) => (
           </div>
 
           {/* Headline */}
-          <h1 style={{ fontSize: 'clamp(40px, 5.5vw, 66px)', lineHeight: 1.06, fontWeight: 800, letterSpacing: '-0.04em', color: '#FFFFFF', WebkitTextFillColor: '#FFFFFF', margin: '0 0 20px' }}>
-            Support for carers.<br />
-            <span style={{ color: '#7CC8F8', WebkitTextFillColor: '#7CC8F8' }}>Growth tools for organisations.</span>
+          <h1 style={{ fontSize: 'clamp(40px, 5.5vw, 68px)', lineHeight: 1.04, fontWeight: 800, letterSpacing: '-0.04em', color: '#FFFFFF', WebkitTextFillColor: '#FFFFFF', margin: '0 0 20px' }}>
+            Everything carers need.<br />
+            <span style={{ color: '#7CC8F8', WebkitTextFillColor: '#7CC8F8' }}>One smarter platform.</span>
           </h1>
 
           {/* Subheadline */}
-          <p style={{ fontSize: 18, lineHeight: 1.7, color: 'rgba(255,255,255,0.78)', maxWidth: 500, fontWeight: 500, margin: '0 0 32px', fontFamily: 'Inter, sans-serif' }}>
-            Benefits, local support, groups, events and powerful tools that help organisations engage carers, grow communities and save time.
+          <p style={{ fontSize: 17, lineHeight: 1.65, color: 'rgba(255,255,255,0.76)', maxWidth: 480, fontWeight: 500, margin: '0 0 30px', fontFamily: 'Inter, sans-serif' }}>
+            Benefits, local support, groups and events — plus smart tools that help organisations engage carers and grow their communities.
           </p>
 
           {/* Primary CTAs */}
@@ -103,10 +103,10 @@ const Hero = ({ onNavigate }) => (
 // ── Quick action strip — pulls out of hero, zIndex overlap ────────────────────
 const QuickActions = ({ onNavigate }) => {
   const actions = [
-    { icon: <IPin s={26} />,      tone: 'sky',   label: 'Find Help',        sub: 'Local services',      route: 'find-help'        },
-    { icon: <IDiscount s={26} />, tone: 'gold',  label: 'Benefits',         sub: 'Exclusive offers',    route: 'benefits'         },
-    { icon: <ICoffee s={26} />,   tone: 'lime',  label: 'Activities',       sub: 'Things to do',        route: 'activities'       },
-    { icon: <IReward s={26} />,   tone: 'coral', label: 'Offer a Discount', sub: 'For businesses',      route: 'offer-a-discount' },
+    { icon: <IPin s={26} />,      tone: 'sky',   label: 'Find Support',        sub: 'Services near you',   route: 'find-help'        },
+    { icon: <IDiscount s={26} />, tone: 'gold',  label: 'Rewards & Offers',    sub: 'Exclusive benefits',  route: 'benefits'         },
+    { icon: <IGroups s={26} />,   tone: 'lime',  label: 'Groups & Activities', sub: 'Community & events',  route: 'activities'       },
+    { icon: <IReward s={26} />,   tone: 'coral', label: 'For Businesses',      sub: 'Offer a discount',    route: 'offer-a-discount' },
   ];
 
   return (
@@ -150,7 +150,7 @@ const HeroVisual = () => (
       </div>
       <div style={{ marginTop: 48, fontFamily: 'Sora, sans-serif', fontSize: 24, fontWeight: 700, color: NAVY }}>Sarah M.</div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 12, opacity: 0.85, fontWeight: 500, color: NAVY }}>
-        <span>IC-228714</span><span>Cornwall</span>
+        <span>IC-228714</span><span>UK</span>
       </div>
     </div>
 
@@ -182,7 +182,7 @@ const HeroVisual = () => (
       </div>
       <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 9 }}>
         <MiniItem dot="#5BC94A" label="Coffee morning · Holy Trinity" time="10:30" />
-        <MiniItem dot="#2D9CDB" label="Memory walk · Menacuddle" time="13:00" />
+        <MiniItem dot="#2D9CDB" label="Memory walk · riverside path" time="13:00" />
         <MiniItem dot="#7B5CF5" label="Carer wellbeing session" time="15:15" />
       </div>
     </div>

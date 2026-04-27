@@ -6,7 +6,7 @@ const NAVY = '#1A2744';
 const GOLD = '#F5A623';
 
 const JoinStrip = ({ onNavigate }) => (
-  <section style={{ paddingTop: 64, paddingBottom: 64, background: 'linear-gradient(180deg, #EEF7FF 0%, #FAFBFF 100%)' }}>
+  <section style={{ paddingTop: 56, paddingBottom: 56, background: 'linear-gradient(180deg, #EEF7FF 0%, #FAFBFF 100%)' }}>
     <div className="container">
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 28, alignItems: 'center' }}>
         <div>
@@ -15,7 +15,7 @@ const JoinStrip = ({ onNavigate }) => (
             Join free for local support, offers and updates.
           </h2>
           <p style={{ fontSize: 15.5, color: 'rgba(26,39,68,0.62)', lineHeight: 1.65, margin: '0 0 26px' }}>
-            Get personalised recommendations, save local resources, and access exclusive carer discounts across Cornwall.
+            Get personalised recommendations, save local resources, and access exclusive carer discounts in your area.
           </p>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <button
@@ -60,7 +60,7 @@ const PersonalStrip = ({ greeting, location, session, onNavigate }) => {
     { tag: 'NEW',       tagTone: GOLD,      icon: <ISparkle s={22}/>, iconTone: 'gold',   title: '24 new deals just added',       meta: 'Fresh offers from your local partners', cta: "See what's new" },
     { tag: 'TODAY',     tagTone: '#5BC94A', icon: <IWalks s={22}/>,   iconTone: 'lime',   title: 'Memory walk near you',          meta: 'Wed 13:00 · 1.2 miles · fully accessible', cta: 'Save for a client' },
     { tag: '5 SPACES',  tagTone: '#F4613A', icon: <ICoffee s={22}/>,  iconTone: 'coral',  title: 'Coffee morning at Holy Trinity', meta: 'Thu 10:30 · dementia-friendly group', cta: 'Reserve now' },
-    { tag: 'NEW GROUP', tagTone: '#7B5CF5', icon: <IGroups s={22}/>,  iconTone: 'violet', title: "Parkinson's carers launch",     meta: 'St Austell · Mondays · 10am', cta: 'Invite a client' },
+    { tag: 'NEW GROUP', tagTone: '#7B5CF5', icon: <IGroups s={22}/>,  iconTone: 'violet', title: "Parkinson's carers launch",     meta: 'New group · Mondays · 10am', cta: 'Invite a client' },
   ];
 
   return (

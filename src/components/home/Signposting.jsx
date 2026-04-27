@@ -4,7 +4,7 @@ const { IGroups, ICoffee, IWalks, IEvent, ILibrary, IHub, IMind, IFinance, ITran
 
 const Signposting = ({ onNavigate }) => {
   const tiles = [
-    { icon: <IGroups s={24}/>,  tone: 'sky',   label: 'Support groups',    count: 'Across Cornwall', big: true },
+    { icon: <IGroups s={24}/>,  tone: 'sky',   label: 'Support groups',    count: 'Near you', big: true },
     { icon: <ICoffee s={24}/>,  tone: 'coral', label: 'Coffee mornings',   count: 'Regular sessions' },
     { icon: <IWalks s={24}/>,   tone: 'lime',  label: 'Walks & outdoors',  count: 'Walks & trails' },
     { icon: <IEvent s={24}/>,   tone: 'violet',label: 'Events',            count: 'Near you' },
@@ -43,7 +43,8 @@ const Signposting = ({ onNavigate }) => {
                 <IPin s={20} style={{ color: '#2D9CDB' }} />
                 <input
                   type="text"
-                  defaultValue="PL25 5QP"
+                  placeholder="Enter your postcode…"
+                  defaultValue=""
                   style={{
                     flex: 1, border: 'none', outline: 'none',
                     fontFamily: 'Inter, sans-serif', fontSize: 15, fontWeight: 600, color: '#1A2744',

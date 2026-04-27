@@ -5,13 +5,13 @@ const { IStar, IArrow, ISave } = Icons;
 const Businesses = ({ onNavigate = () => {} }) => {
   const partners = [
     { name: 'The Cornish Bakery', cat: 'Food & drink', discount: '20% off', tone: 'gold', badge: 'Local hero' },
-    { name: 'St Austell Leisure', cat: 'Wellbeing',    discount: 'Free guest pass', tone: 'lime', badge: 'Carer favourite' },
+    { name: 'Coastline Leisure',   cat: 'Wellbeing',    discount: 'Free guest pass', tone: 'lime', badge: 'Carer favourite' },
     { name: 'Trelawney Garden',   cat: 'Outdoors',     discount: '£5 day ticket',   tone: 'sky', badge: 'New partner' },
     { name: 'Moor & Mist',        cat: 'Cafés',        discount: '1-for-1 brunch',  tone: 'coral', badge: 'Local hero' },
   ];
 
   return (
-    <section style={{ background: '#FFFDF7', paddingTop: 80, paddingBottom: 80 }}>
+    <section style={{ background: '#FFFDF7', paddingTop: 68, paddingBottom: 68 }}>
       <div className="container">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.8fr', gap: 64, alignItems: 'start' }}>
           <div>

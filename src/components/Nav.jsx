@@ -115,12 +115,12 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp,
     { key: 'for-you',    label: 'For you',     accent: '#F5A623' },
   ];
 
-  // Activities sub-pages — Walks, Places to Visit, and Wellbeing Support are live.
+  // Activities sub-pages — only include routes with confirmed live data
+  // Groups removed: page loads but has no data in current DB
   const activitiesItems = [
-    { key: 'walks',           label: 'Walks',             note: 'Trails and routes'     },
+    { key: 'walks',           label: 'Walks',             note: 'Trails and routes'      },
     { key: 'places-to-visit', label: 'Places to Visit',   note: 'Attractions & days out' },
-    { key: 'wellbeing',       label: 'Wellbeing Support', note: 'Calm & restorative'    },
-    { key: 'groups',          label: 'Groups',            note: 'Social & peer support'  },
+    { key: 'wellbeing',       label: 'Wellbeing Support', note: 'Calm & restorative'     },
   ];
   const isActivitiesPage = activitiesItems.some((i) => i.key === activePage) || activePage === 'activities';
 
@@ -129,7 +129,6 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp,
     { key: 'recognition',      label: 'Recognition' },
     { key: 'business',         label: 'For businesses' },
     { key: 'advertise',        label: 'Featured & Sponsorship' },
-    { key: 'about',            label: 'About' },
   ];
 
   const profileItems = [
