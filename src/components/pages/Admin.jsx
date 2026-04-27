@@ -40,13 +40,34 @@ const ANALYTICS_WINDOWS = [
   { key: 'all', label: 'All time', days: null },
 ];
 
-// Partner enquiry status config — colours and labels for badge rendering
+// Partner enquiry pipeline status config
 const PE_STATUS = {
-  new:       { label: 'New',       color: '#2563EB', bg: 'rgba(37,99,235,0.09)'  },
-  reviewing: { label: 'Reviewing', color: '#D97706', bg: 'rgba(217,119,6,0.09)'  },
-  approved:  { label: 'Approved',  color: '#16A34A', bg: 'rgba(22,163,74,0.09)'  },
-  rejected:  { label: 'Rejected',  color: '#DC2626', bg: 'rgba(220,38,38,0.09)'  },
-  converted: { label: 'Converted', color: '#7B5CF5', bg: 'rgba(123,92,245,0.09)' },
+  new:           { label: 'New',           color: '#2563EB', bg: 'rgba(37,99,235,0.09)'   },
+  contacted:     { label: 'Contacted',     color: '#0891B2', bg: 'rgba(8,145,178,0.09)'   },
+  qualified:     { label: 'Qualified',     color: '#7C3AED', bg: 'rgba(124,58,237,0.09)'  },
+  proposal_sent: { label: 'Proposal sent', color: '#9333EA', bg: 'rgba(147,51,234,0.09)'  },
+  negotiating:   { label: 'Negotiating',   color: '#D97706', bg: 'rgba(217,119,6,0.09)'   },
+  won:           { label: 'Won',           color: '#16A34A', bg: 'rgba(22,163,74,0.09)'   },
+  live:          { label: 'Live',          color: '#059669', bg: 'rgba(5,150,105,0.09)'   },
+  lost:          { label: 'Lost',          color: '#DC2626', bg: 'rgba(220,38,38,0.09)'   },
+  converted:     { label: 'Converted',     color: '#7B5CF5', bg: 'rgba(123,92,245,0.09)'  },
+};
+
+const PE_PIPELINE_STAGES = ['new', 'contacted', 'qualified', 'proposal_sent', 'negotiating', 'won', 'live', 'lost'];
+
+const leadScore = (enq) => {
+  const placement = (enq.preferred_placement || '').toLowerCase();
+  const interest  = (enq.advertising_interest || enq.promotion_type || '').toLowerCase();
+  const isHighValue = placement.includes('county') || placement.includes('sponsor') || placement.includes('national') || interest.includes('sponsor') || interest.includes('national');
+  const hasFullForm = enq.offer_title && (enq.promotion_type || enq.advertising_interest) && enq.website;
+  if (isHighValue) return 'high';
+  if (hasFullForm) return 'medium';
+  return 'low';
+};
+const LS_CFG = {
+  high:   { label: 'High',   color: '#16A34A', bg: 'rgba(22,163,74,0.10)'   },
+  medium: { label: 'Medium', color: '#D97706', bg: 'rgba(217,119,6,0.10)'   },
+  low:    { label: 'Low',    color: 'rgba(26,39,68,0.40)', bg: 'rgba(26,39,68,0.06)' },
 };
 
 const getAnalyticsWindowDays = (windowKey) => ANALYTICS_WINDOWS.find((windowOption) => windowOption.key === windowKey)?.days ?? null;
@@ -844,6 +865,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   const [enquiryNotesDraft,          setEnquiryNotesDraft]          = React.useState('');
   const [convertingEnquiryId,        setConvertingEnquiryId]        = React.useState(null);
   const [enquiryConversionDupWarn,   setEnquiryConversionDupWarn]  = React.useState(null);
+  const [peFilter,                   setPeFilter]                   = React.useState('all');
 
   const canAccessAdmin = React.useMemo(() => {
     const email = `${session?.user?.email || ''}`.trim().toLowerCase();
@@ -2904,89 +2926,195 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
             </div>
           ) : null}
 
-          {/* ── Partner Enquiries tab ─────────────────────────── */}
-          {!loading && tab === 'partner-enquiries' ? (
-            <div style={{ display: 'grid', gap: 14 }}>
+          {/* ── Partner Enquiries — Revenue Cockpit ───────────── */}
+          {!loading && tab === 'partner-enquiries' ? (() => {
+            const now = new Date();
+            const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+            const activeStatuses = new Set(['contacted', 'qualified', 'proposal_sent', 'negotiating']);
+            const wonStatuses = new Set(['won', 'live', 'converted']);
 
-              {/* Header */}
-              <div className="card" style={{ padding: 20, borderRadius: 22, background: 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,255,1) 100%)', boxShadow: '0 24px 44px rgba(26,39,68,0.08)' }}>
-                <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.56)' }}>Advertising intake pipeline</div>
-                <h2 style={{ marginTop: 8, fontSize: 28, fontWeight: 800, color: '#1A2744' }}>Partner enquiries</h2>
-                <p style={{ marginTop: 6, color: 'rgba(26,39,68,0.68)', lineHeight: 1.6 }}>Submissions from <code>/advertise</code>. Review, update status, add notes and mark profile-ready before manual conversion to live platform assets.</p>
-              </div>
+            const peFiltered = partnerEnquiries.filter(e => {
+              if (peFilter === 'all')        return true;
+              if (peFilter === 'new')        return (e.admin_status || 'new') === 'new';
+              if (peFilter === 'high_score') return leadScore(e) === 'high';
+              if (peFilter === 'active')     return activeStatuses.has(e.admin_status || 'new');
+              if (peFilter === 'won')        return wonStatuses.has(e.admin_status);
+              if (peFilter === 'this_month') return e.created_at && new Date(e.created_at) >= thisMonthStart;
+              return true;
+            });
 
-              {/* Summary stats */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 8 }}>
-                {[
-                  ['Total',     partnerEnquiries.length, null],
-                  ['New',       partnerEnquiries.filter(e => (e.admin_status || 'new') === 'new').length,          PE_STATUS.new.color],
-                  ['Reviewing', partnerEnquiries.filter(e => e.admin_status === 'reviewing').length,               PE_STATUS.reviewing.color],
-                  ['Approved',  partnerEnquiries.filter(e => e.admin_status === 'approved').length,                PE_STATUS.approved.color],
-                  ['Converted', partnerEnquiries.filter(e => e.admin_status === 'converted').length,               PE_STATUS.converted.color],
-                  ['Rejected',  partnerEnquiries.filter(e => e.admin_status === 'rejected').length,                PE_STATUS.rejected.color],
-                ].map(([label, value, accent]) => (
-                  <div key={label} className="card" style={{ padding: '12px 14px', borderRadius: 14, borderLeft: accent ? `3px solid ${accent}` : undefined }}>
-                    <div style={{ fontSize: 11, color: 'rgba(26,39,68,0.52)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em' }}>{label}</div>
-                    <div style={{ marginTop: 5, fontSize: 24, fontWeight: 800, color: accent || '#1A2744' }}>{value}</div>
+            const kpiNew      = partnerEnquiries.filter(e => (e.admin_status || 'new') === 'new').length;
+            const kpiActive   = partnerEnquiries.filter(e => activeStatuses.has(e.admin_status || '')).length;
+            const kpiWon      = partnerEnquiries.filter(e => wonStatuses.has(e.admin_status || '')).length;
+            const kpiHighScore = partnerEnquiries.filter(e => leadScore(e) === 'high').length;
+            const kpiThisMonth = partnerEnquiries.filter(e => e.created_at && new Date(e.created_at) >= thisMonthStart).length;
+
+            return (
+              <div style={{ display: 'grid', gap: 14 }}>
+
+                {/* Header */}
+                <div className="card" style={{ padding: '20px 24px', borderRadius: 22, background: 'linear-gradient(135deg, #1A2744 0%, #2D3E6B 100%)', boxShadow: '0 24px 44px rgba(26,39,68,0.18)' }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(255,255,255,0.55)', marginBottom: 6 }}>Revenue cockpit · Advertising pipeline</div>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+                    <div>
+                      <h2 style={{ fontSize: 26, fontWeight: 800, color: '#FFFFFF', margin: 0, lineHeight: 1.2 }}>Partner Enquiries</h2>
+                      <p style={{ marginTop: 6, color: 'rgba(255,255,255,0.60)', lineHeight: 1.5, fontSize: 13.5, maxWidth: 520 }}>Submissions from <code style={{ background: 'rgba(255,255,255,0.10)', padding: '1px 5px', borderRadius: 4 }}>/advertise</code>. Track leads through the pipeline, score opportunities, and convert to live platform assets.</p>
+                    </div>
+                    <div style={{ fontSize: 28, fontWeight: 900, color: '#FFFFFF', whiteSpace: 'nowrap' }}>
+                      {partnerEnquiries.length} <span style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.55)' }}>total leads</span>
+                    </div>
                   </div>
-                ))}
-              </div>
+                </div>
 
-              {/* Enquiries table */}
-              <div className="card" style={{ padding: 0, borderRadius: 16, overflow: 'hidden' }}>
-                {partnerEnquiries.length === 0 ? (
-                  <div style={{ padding: 40, textAlign: 'center' }}>
-                    <div style={{ fontSize: 17, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>No enquiries yet</div>
-                    <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.52)' }}>Submissions from /advertise will appear here.</div>
-                  </div>
-                ) : (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                      <thead>
-                        <tr style={{ borderBottom: '1px solid #EEF1F7', background: '#F8FAFD' }}>
-                          {['Organisation', 'Contact', 'Biz type', 'Promotion', 'Placement', 'County', 'Status', 'Date', ''].map(h => (
-                            <th key={h} style={{ padding: '9px 13px', textAlign: 'left', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'rgba(26,39,68,0.50)', whiteSpace: 'nowrap' }}>{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {partnerEnquiries.map(enq => {
-                          const s = PE_STATUS[enq.admin_status || 'new'] || PE_STATUS.new;
-                          const saving = savingEnquiryId === enq.id;
-                          return (
-                            <tr key={enq.id} style={{ borderBottom: '1px solid #F0F4FA' }} onMouseEnter={e => { e.currentTarget.style.background = '#FAFBFF'; }} onMouseLeave={e => { e.currentTarget.style.background = ''; }}>
-                              <td style={{ padding: '9px 13px', fontWeight: 700, color: '#1A2744', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{enq.organisation_name}</td>
-                              <td style={{ padding: '9px 13px', color: 'rgba(26,39,68,0.72)', whiteSpace: 'nowrap' }}>{enq.contact_name}</td>
-                              <td style={{ padding: '9px 13px', color: 'rgba(26,39,68,0.58)', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{enq.business_type || '—'}</td>
-                              <td style={{ padding: '9px 13px', color: 'rgba(26,39,68,0.70)', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{enq.promotion_type || enq.advertising_interest || '—'}</td>
-                              <td style={{ padding: '9px 13px', color: 'rgba(26,39,68,0.58)', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{enq.preferred_placement || '—'}</td>
-                              <td style={{ padding: '9px 13px', color: 'rgba(26,39,68,0.58)', whiteSpace: 'nowrap' }}>{enq.target_county || enq.county || '—'}</td>
-                              <td style={{ padding: '9px 13px' }}>
-                                <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 999, background: s.bg, color: s.color }}>{s.label}</span>
-                              </td>
-                              <td style={{ padding: '9px 13px', color: 'rgba(26,39,68,0.48)', whiteSpace: 'nowrap', fontSize: 12 }}>
-                                {enq.created_at ? new Date(enq.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : '—'}
-                              </td>
-                              <td style={{ padding: '9px 13px' }}>
-                                <button
-                                  disabled={saving}
-                                  onClick={() => openEnquiryDetail(enq)}
-                                  style={{ fontSize: 12, fontWeight: 700, padding: '5px 11px', borderRadius: 8, background: '#EEF4FF', border: 'none', color: '#1A2744', cursor: 'pointer' }}
-                                >
-                                  Open →
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
+                {/* KPI cards */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8 }}>
+                  {[
+                    { label: 'New leads',     value: kpiNew,       accent: PE_STATUS.new.color,       filter: 'new'        },
+                    { label: 'Active deals',  value: kpiActive,    accent: PE_STATUS.negotiating.color, filter: 'active'   },
+                    { label: 'Won / Live',    value: kpiWon,       accent: PE_STATUS.won.color,        filter: 'won'       },
+                    { label: 'High score',    value: kpiHighScore, accent: LS_CFG.high.color,          filter: 'high_score'},
+                    { label: 'This month',    value: kpiThisMonth, accent: 'rgba(26,39,68,0.40)',      filter: 'this_month'},
+                  ].map(({ label, value, accent, filter: f }) => {
+                    const isActive = peFilter === f;
+                    return (
+                      <button
+                        key={label}
+                        onClick={() => setPeFilter(isActive ? 'all' : f)}
+                        className="card"
+                        style={{ padding: '13px 14px', borderRadius: 14, borderLeft: `3px solid ${accent}`, textAlign: 'left', cursor: 'pointer', border: isActive ? `2px solid ${accent}` : `1px solid transparent`, borderLeftWidth: 3, background: isActive ? `rgba(26,39,68,0.04)` : 'white', transition: 'all .12s', outline: 'none' }}
+                      >
+                        <div style={{ fontSize: 10.5, color: 'rgba(26,39,68,0.50)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em' }}>{label}</div>
+                        <div style={{ marginTop: 5, fontSize: 26, fontWeight: 900, color: accent }}>{value}</div>
+                      </button>
+                    );
+                  })}
+                </div>
 
-            </div>
-          ) : null}
+                {/* Filter bar */}
+                <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: 'rgba(26,39,68,0.44)', marginRight: 4 }}>Filter:</span>
+                  {[
+                    { key: 'all',        label: 'All' },
+                    { key: 'new',        label: 'New' },
+                    { key: 'high_score', label: 'High score' },
+                    { key: 'active',     label: 'Active deals' },
+                    { key: 'won',        label: 'Won / Live' },
+                    { key: 'this_month', label: 'This month' },
+                  ].map(({ key, label }) => (
+                    <button
+                      key={key}
+                      onClick={() => setPeFilter(key)}
+                      style={{ fontSize: 12.5, fontWeight: 700, padding: '5px 13px', borderRadius: 999, border: peFilter === key ? '1.5px solid #1A2744' : '1px solid rgba(26,39,68,0.14)', background: peFilter === key ? '#1A2744' : 'white', color: peFilter === key ? 'white' : 'rgba(26,39,68,0.60)', cursor: 'pointer', transition: 'all .12s' }}
+                    >
+                      {label}{key !== 'all' && peFilter !== key ? ` (${
+                        key === 'new'        ? kpiNew        :
+                        key === 'high_score' ? kpiHighScore  :
+                        key === 'active'     ? kpiActive     :
+                        key === 'won'        ? kpiWon        :
+                        key === 'this_month' ? kpiThisMonth  : 0
+                      })` : ''}
+                    </button>
+                  ))}
+                  {peFilter !== 'all' && (
+                    <button onClick={() => setPeFilter('all')} style={{ fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 999, border: '1px solid rgba(220,38,38,0.30)', background: 'rgba(220,38,38,0.06)', color: '#DC2626', cursor: 'pointer', marginLeft: 4 }}>
+                      Clear ✕
+                    </button>
+                  )}
+                </div>
+
+                {/* Enquiries table */}
+                <div className="card" style={{ padding: 0, borderRadius: 16, overflow: 'hidden' }}>
+                  {partnerEnquiries.length === 0 ? (
+                    <div style={{ padding: 40, textAlign: 'center' }}>
+                      <div style={{ fontSize: 17, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>No enquiries yet</div>
+                      <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.52)' }}>Submissions from /advertise will appear here.</div>
+                    </div>
+                  ) : peFiltered.length === 0 ? (
+                    <div style={{ padding: 32, textAlign: 'center' }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>No results for this filter</div>
+                      <button onClick={() => setPeFilter('all')} style={{ fontSize: 13, fontWeight: 700, padding: '6px 14px', borderRadius: 9, background: '#EEF4FF', border: 'none', color: '#1A2744', cursor: 'pointer', marginTop: 4 }}>Clear filter</button>
+                    </div>
+                  ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                        <thead>
+                          <tr style={{ borderBottom: '1px solid #EEF1F7', background: '#F8FAFD' }}>
+                            {['Organisation', 'Contact', 'Score', 'Placement', 'County', 'Status', 'Date', 'Quick actions', ''].map(h => (
+                              <th key={h} style={{ padding: '9px 13px', textAlign: 'left', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'rgba(26,39,68,0.50)', whiteSpace: 'nowrap' }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {peFiltered.map(enq => {
+                            const s      = PE_STATUS[enq.admin_status || 'new'] || PE_STATUS.new;
+                            const ls     = leadScore(enq);
+                            const lsCfg  = LS_CFG[ls];
+                            const saving = savingEnquiryId === enq.id;
+                            return (
+                              <tr key={enq.id} style={{ borderBottom: '1px solid #F0F4FA' }}
+                                onMouseEnter={e => { e.currentTarget.style.background = '#FAFBFF'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = ''; }}
+                              >
+                                <td style={{ padding: '9px 13px', fontWeight: 700, color: '#1A2744', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{enq.organisation_name}</td>
+                                <td style={{ padding: '9px 13px', color: 'rgba(26,39,68,0.68)', whiteSpace: 'nowrap', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{enq.contact_name}</div>
+                                  <div style={{ fontSize: 11, color: 'rgba(26,39,68,0.42)', overflow: 'hidden', textOverflow: 'ellipsis' }}>{enq.email}</div>
+                                </td>
+                                <td style={{ padding: '9px 13px', whiteSpace: 'nowrap' }}>
+                                  <span style={{ fontSize: 11, fontWeight: 800, padding: '3px 9px', borderRadius: 999, background: lsCfg.bg, color: lsCfg.color }}>{lsCfg.label}</span>
+                                </td>
+                                <td style={{ padding: '9px 13px', color: 'rgba(26,39,68,0.60)', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{enq.preferred_placement || enq.promotion_type || enq.advertising_interest || '—'}</td>
+                                <td style={{ padding: '9px 13px', color: 'rgba(26,39,68,0.58)', whiteSpace: 'nowrap' }}>{enq.target_county || enq.county || '—'}</td>
+                                <td style={{ padding: '9px 13px' }}>
+                                  <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 999, background: s.bg, color: s.color, whiteSpace: 'nowrap' }}>{s.label}</span>
+                                </td>
+                                <td style={{ padding: '9px 13px', color: 'rgba(26,39,68,0.44)', whiteSpace: 'nowrap', fontSize: 12 }}>
+                                  {enq.created_at ? new Date(enq.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : '—'}
+                                </td>
+                                {/* Quick actions */}
+                                <td style={{ padding: '9px 10px', whiteSpace: 'nowrap' }}>
+                                  <div style={{ display: 'flex', gap: 5 }}>
+                                    {(enq.admin_status || 'new') === 'new' && (
+                                      <button disabled={saving} onClick={() => updateEnquiryStatus(enq.id, 'contacted')}
+                                        style={{ fontSize: 11, fontWeight: 700, padding: '4px 9px', borderRadius: 7, background: PE_STATUS.contacted.bg, color: PE_STATUS.contacted.color, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                        Mark contacted
+                                      </button>
+                                    )}
+                                    {activeStatuses.has(enq.admin_status || '') && (
+                                      <button disabled={saving} onClick={() => updateEnquiryStatus(enq.id, 'won')}
+                                        style={{ fontSize: 11, fontWeight: 700, padding: '4px 9px', borderRadius: 7, background: PE_STATUS.won.bg, color: PE_STATUS.won.color, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                        Mark won
+                                      </button>
+                                    )}
+                                    {!wonStatuses.has(enq.admin_status || '') && (enq.admin_status || 'new') !== 'lost' && (
+                                      <button disabled={saving} onClick={() => updateEnquiryStatus(enq.id, 'lost')}
+                                        style={{ fontSize: 11, fontWeight: 600, padding: '4px 9px', borderRadius: 7, background: 'rgba(220,38,38,0.07)', color: '#DC2626', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                        Lost
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                                <td style={{ padding: '9px 10px' }}>
+                                  <button
+                                    disabled={saving}
+                                    onClick={() => openEnquiryDetail(enq)}
+                                    style={{ fontSize: 12, fontWeight: 700, padding: '5px 12px', borderRadius: 8, background: '#EEF4FF', border: 'none', color: '#1A2744', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                  >
+                                    Open →
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            );
+          })() : null}
 
         </div>
       </section>
@@ -3290,9 +3418,11 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       {/* ── Partner enquiry detail modal ─────────────────────── */}
       {selectedEnquiry && (() => {
         const enq = selectedEnquiry;
-        const s = PE_STATUS[enq.admin_status || 'new'] || PE_STATUS.new;
+        const s      = PE_STATUS[enq.admin_status || 'new'] || PE_STATUS.new;
+        const ls     = leadScore(enq);
+        const lsCfg  = LS_CFG[ls];
         const saving = savingEnquiryId === enq.id;
-        const STATUS_FLOW = ['new', 'reviewing', 'approved', 'rejected', 'converted'];
+        const STATUS_FLOW = PE_PIPELINE_STAGES;
         const Field = ({ label, value }) => value ? (
           <div style={{ marginBottom: 10 }}>
             <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'rgba(26,39,68,0.44)', marginBottom: 2 }}>{label}</div>
@@ -3308,7 +3438,8 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                   <div style={{ fontSize: 18, fontWeight: 800, color: '#1A2744', lineHeight: 1.2 }}>{enq.organisation_name}</div>
                   <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.55)', marginTop: 3 }}>{enq.contact_name} · {enq.email}</div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 999, background: lsCfg.bg, color: lsCfg.color }}>{lsCfg.label} score</span>
                   <span style={{ fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 999, background: s.bg, color: s.color }}>{s.label}</span>
                   <button onClick={closeEnquiryDetail} style={{ width: 32, height: 32, borderRadius: 999, border: '1px solid #EFF1F7', background: '#FAFBFF', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
                     <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#1A2744" strokeWidth={2.5} strokeLinecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
