@@ -128,7 +128,7 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp,
     { key: 'offer-a-discount', label: 'Offer a discount' },
     { key: 'recognition',      label: 'Recognition' },
     { key: 'business',         label: 'For businesses' },
-    { key: 'advertise',        label: 'Advertise with us' },
+    { key: 'advertise',        label: 'Featured & Sponsorship' },
     { key: 'about',            label: 'About' },
   ];
 

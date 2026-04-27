@@ -2,7 +2,7 @@
 import Icons from '../Icons.jsx';
 const { IStar, IArrow, ISave } = Icons;
 
-const Businesses = () => {
+const Businesses = ({ onNavigate = () => {} }) => {
   const partners = [
     { name: 'The Cornish Bakery', cat: 'Food & drink', discount: '20% off', tone: 'gold', badge: 'Local hero' },
     { name: 'St Austell Leisure', cat: 'Wellbeing',    discount: 'Free guest pass', tone: 'lime', badge: 'Carer favourite' },
@@ -89,6 +89,41 @@ const Businesses = () => {
             ))}
           </div>
         </div>
+
+        {/* ── Business CTA strip ──────────────────────────────── */}
+        <div style={{
+          marginTop: 56,
+          padding: '28px 36px',
+          borderRadius: 24,
+          background: 'linear-gradient(135deg, #1A2744 0%, #2D3E6B 100%)',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          flexWrap: 'wrap', gap: 24,
+        }}>
+          <div style={{ maxWidth: 520 }}>
+            <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(255,255,255,0.45)', marginBottom: 8 }}>For businesses &amp; organisations</div>
+            <h3 style={{ fontSize: 22, fontWeight: 800, color: '#FFFFFF', margin: '0 0 8px', lineHeight: 1.2 }}>
+              Support carers in your community
+            </h3>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.65)', lineHeight: 1.65, margin: 0 }}>
+              Offer a discount, benefit or gesture of support to carers and care staff. Free to submit, reviewed personally, and helps carers feel seen and valued.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', flexShrink: 0 }}>
+            <button
+              onClick={() => onNavigate('offer-a-discount')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '12px 22px', borderRadius: 12, background: 'linear-gradient(135deg, #F5A623, #D4AF37)', color: '#0F172A', fontWeight: 800, fontSize: 14.5, border: 'none', cursor: 'pointer', boxShadow: '0 8px 24px rgba(245,166,35,0.28)' }}
+            >
+              Offer a discount <IArrow s={14} />
+            </button>
+            <button
+              onClick={() => onNavigate('advertise')}
+              style={{ padding: '12px 20px', borderRadius: 12, background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
+            >
+              Explore featured sponsorship
+            </button>
+          </div>
+        </div>
+
       </div>
     </section>
   );

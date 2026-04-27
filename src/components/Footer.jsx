@@ -78,7 +78,7 @@ const Footer = ({ onNavigate = () => {} }) => {
               ['Offer a discount', 'offer-a-discount'],
               ['About', 'about'],
               ['For businesses', 'business'],
-              ['Advertise with us', 'advertise'],
+              ['Featured & Sponsorship', 'advertise'],
               ['Training', 'training'],
               ['Carer of the month', 'recognition'],
             ])}

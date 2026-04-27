@@ -289,6 +289,21 @@ const AdvertisePage = ({ onNavigate, session }) => {
         </div>
       </section>
 
+      {/* ── Bridge — discount-first businesses ─────────────────────── */}
+      <div style={{ background: 'rgba(245,166,35,0.07)', borderBottom: '1px solid rgba(245,166,35,0.14)', padding: '12px 0' }}>
+        <div className="container" style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 13.5, color: '#92400E', lineHeight: 1.5, flex: 1 }}>
+            <strong>Already offering a discount?</strong> Featured placement and sponsorship can help your offer reach more carers.
+          </span>
+          <button
+            onClick={() => onNavigate('offer-a-discount')}
+            style={{ fontSize: 12.5, fontWeight: 700, padding: '6px 14px', borderRadius: 8, background: 'rgba(245,166,35,0.16)', border: '1px solid rgba(245,166,35,0.30)', color: '#92400E', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}
+          >
+            Submit a discount offer instead →
+          </button>
+        </div>
+      </div>
+
       {/* ── 2. Scarcity bar ────────────────────────────────────────── */}
       <section style={{ background: 'linear-gradient(90deg, #1A1000 0%, #2A1A00 50%, #1A1000 100%)', padding: '18px 0', borderBottom: '1px solid rgba(245,166,35,0.20)' }}>
         <div className="container">

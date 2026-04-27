@@ -290,7 +290,7 @@ const HomePage = ({ onNavigate, tweaks }) => (
     <PersonalStrip greeting={tweaks.greeting_name} location={tweaks.location} />
     <IconDiscovery onNavigate={onNavigate} />
     <Signposting onNavigate={onNavigate} />
-    <Businesses />
+    <Businesses onNavigate={onNavigate} />
     <ClosingBand onNavigate={onNavigate} />
     <Footer onNavigate={onNavigate} />
   </>

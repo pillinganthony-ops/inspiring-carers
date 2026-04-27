@@ -124,18 +124,18 @@ const BusinessPageComponent = ({ onNavigate, session }) => {
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
                 <button
                   className="btn btn-gold btn-lg"
-                  onClick={scrollToForm}
+                  onClick={() => onNavigate('offer-a-discount')}
                   style={{ fontSize: 15, padding: '14px 28px', fontWeight: 800 }}
                 >
-                  Become a partner <IArrow s={14} />
+                  Offer a discount <IArrow s={14} />
                 </button>
                 <button
-                  onClick={() => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })}
+                  onClick={() => onNavigate('advertise')}
                   style={{ padding: '14px 24px', borderRadius: 12, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.22)', color: 'rgba(255,255,255,0.90)', fontWeight: 700, fontSize: 15, cursor: 'pointer', transition: 'background .14s' }}
                   onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.18)'; }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.10)'; }}
                 >
-                  Explore options
+                  Featured &amp; Sponsorship
                 </button>
               </div>
               {/* Trust line */}
@@ -389,19 +389,19 @@ const BusinessPageComponent = ({ onNavigate, session }) => {
               Ready to support carers?
             </h2>
             <p style={{ fontSize: 16, color: 'rgba(26,39,68,0.60)', lineHeight: 1.7, margin: '0 0 32px' }}>
-              Join free today. Add your business, submit an offer, and be part of a growing national platform that helps carers and the communities around them.
+              Start by submitting a discount or benefit — free, reviewed personally, and shared with carers in your area. Featured placement and sponsorship are available once you're in.
             </p>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <button className="btn btn-gold btn-lg" onClick={scrollToForm} style={{ fontSize: 15, padding: '14px 28px', fontWeight: 800 }}>
-                Become a partner <IArrow s={14} />
+              <button className="btn btn-gold btn-lg" onClick={() => onNavigate('offer-a-discount')} style={{ fontSize: 15, padding: '14px 28px', fontWeight: 800 }}>
+                Offer a discount <IArrow s={14} />
               </button>
               <button
-                onClick={() => onNavigate('find-help')}
+                onClick={() => onNavigate('advertise')}
                 style={{ padding: '14px 24px', borderRadius: 12, background: '#FFFFFF', border: '1px solid #D8E4F0', color: NAVY, fontWeight: 700, fontSize: 15, cursor: 'pointer', transition: 'box-shadow .14s' }}
                 onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 4px 14px rgba(26,39,68,0.10)'; }}
                 onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; }}
               >
-                Talk to us
+                Featured &amp; Sponsorship
               </button>
             </div>
           </div>
