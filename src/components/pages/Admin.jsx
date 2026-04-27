@@ -2203,79 +2203,82 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   return (
     <>
       <Nav activePage="admin" onNavigate={onNavigate} />
-      <section style={{ paddingTop: 36, paddingBottom: 74, background: 'linear-gradient(180deg, #EEF7FF 0%, #FAFBFF 100%)' }}>
-        <div className="container" style={{ display: 'grid', gap: 14 }}>
-          <div className="card" style={{ padding: 22, borderRadius: 20 }}>
-            <h1 style={{ fontSize: 36, fontWeight: 800 }}>Admin Dashboard</h1>
-            <p style={{ marginTop: 8, color: 'rgba(26,39,68,0.7)' }}>Live schema mode: categories, resources, organisation_profiles, organisation_events, listing_claims, resource_update_submissions, walk_risk_updates, walk_comments.</p>
-            {error ? <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 10, background: 'rgba(244,97,58,0.08)', color: '#A03A2D', fontSize: 13, fontWeight: 600 }}>{error}</div> : null}
-            {toast ? <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 10, background: 'rgba(16,185,129,0.08)', color: '#0D7A55', fontSize: 13, fontWeight: 600 }}>{toast}</div> : null}
-            {(analyticsNotice || resourceUpdatesNotice) ? (
-              <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {analyticsNotice ? <span style={{ padding: '3px 10px', borderRadius: 999, background: 'rgba(245,166,35,0.10)', color: '#8a5a0b', fontSize: 11.5, fontWeight: 600 }}>{analyticsNotice}</span> : null}
-                {resourceUpdatesNotice ? <span style={{ padding: '3px 10px', borderRadius: 999, background: 'rgba(245,166,35,0.10)', color: '#8a5a0b', fontSize: 11.5, fontWeight: 600 }}>{resourceUpdatesNotice}</span> : null}
-              </div>
-            ) : null}
-          </div>
+      <section style={{ paddingTop: 20, paddingBottom: 60, background: 'linear-gradient(180deg, #EEF7FF 0%, #FAFBFF 100%)' }}>
+        <div className="container" style={{ display: 'grid', gap: 10 }}>
+          {/* ── Admin command bar — nav + counts + refresh in one row ── */}
+          <div className="card" style={{ padding: '10px 14px', borderRadius: 16, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
 
-          {!loading && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8 }}>
-              {[
-                ['Categories', categories.length, null],
-                ['Resources', resources.length, null],
-                ['Profiles', profiles.length, null],
-                ['Events', events.length, null],
-                ['Pending claims', pendingClaims.length, pendingClaims.length > 0 ? '#F5A623' : null],
-                ['Pending subs', pendingResourceUpdates.length, pendingResourceUpdates.length > 0 ? '#F5A623' : null],
-                ['Contacts', contactLeads.length, contactLeads.length > 0 ? '#7B5CF5' : null, () => { setTab('contacts'); }],
-                ['Discount leads', partnerEnquiries.length, newPartnerEnquiries > 0 ? '#F5A623' : null, () => { setTab('partner-enquiries'); }],
-                ['Profile views', ownerPerformanceSummary.totalViews, null],
-                ['Enquiries', ownerPerformanceSummary.totalEnquiries, null],
-              ].map(([label, value, accent, onClick]) => (
-                <div key={label} className="card" onClick={onClick || undefined} style={{ padding: '12px 14px', borderRadius: 14, borderLeft: accent ? `3px solid ${accent}` : undefined, cursor: onClick ? 'pointer' : undefined, transition: onClick ? 'box-shadow 0.15s' : undefined }} onMouseEnter={onClick ? (e) => { e.currentTarget.style.boxShadow = '0 4px 16px rgba(26,39,68,0.14)'; } : undefined} onMouseLeave={onClick ? (e) => { e.currentTarget.style.boxShadow = ''; } : undefined}>
-                  <div style={{ fontSize: 11, color: 'rgba(26,39,68,0.52)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em' }}>{label}</div>
-                  <div style={{ marginTop: 5, fontSize: 26, fontWeight: 800, color: accent || '#1A2744' }}>{value}</div>
-                  {onClick && <div style={{ marginTop: 3, fontSize: 10, color: 'rgba(26,39,68,0.38)', fontWeight: 600 }}>Click to view →</div>}
-                </div>
-              ))}
-            </div>
-          )}
+            {/* Wordmark */}
+            <span style={{ fontSize: 13, fontWeight: 800, color: '#1A2744', letterSpacing: '-0.01em', marginRight: 6, flexShrink: 0 }}>Admin</span>
 
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {/* Divider */}
+            <span style={{ width: 1, height: 18, background: 'rgba(26,39,68,0.12)', flexShrink: 0 }} />
+
+            {/* Nav buttons — each is clickable, shows live count */}
             {[
-              ['dashboard', 'Dashboard'],
-              ['moderation', 'Moderation'],
-              ['organisations', 'Organisations'],
-              ['claims', 'Claims & Ownership'],
-              ['resources', 'Resources'],
-              ['events', 'Events'],
-              ['contacts', 'Contacts'],
-              ['content-review', 'Content Review'],
-              ['partner-enquiries', 'Discount Leads'],
-              ['settings', 'Settings'],
-            ].map(([key, label]) => (
-              <button
-                key={key}
-                className="btn btn-ghost btn-sm"
-                onClick={() => setTab(key)}
-                style={{
-                  borderColor: tab === key ? '#1A2744' : 'rgba(26,39,68,0.12)',
-                  background: tab === key ? '#1A2744' : 'rgba(255,255,255,0.76)',
-                  color: tab === key ? 'white' : '#1A2744',
-                  fontWeight: 700,
-                  boxShadow: tab === key ? '0 16px 28px rgba(26,39,68,0.18)' : '0 8px 16px rgba(26,39,68,0.06)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  borderRadius: 999,
-                  padding: '10px 14px',
-                }}
-              >
-                <span>{label}</span>
-                <span style={{ minWidth: 24, height: 24, borderRadius: 999, display: 'grid', placeItems: 'center', background: tab === key ? 'rgba(255,255,255,0.16)' : '#EEF4FF', color: tab === key ? 'white' : '#1A2744', fontSize: 12, fontWeight: 800 }}>{tabCounts[key]}</span>
-              </button>
-            ))}
-            <button className="btn btn-ghost btn-sm" disabled={busy || loading} onClick={loadData}>Refresh</button>
+              { key: 'dashboard',         label: 'Dashboard',      revenue: false },
+              { key: 'moderation',        label: 'Moderation',     revenue: false },
+              { key: 'organisations',     label: 'Organisations',  revenue: false },
+              { key: 'resources',         label: 'Resources',      revenue: false },
+              { key: 'events',            label: 'Events',         revenue: false },
+              { key: 'claims',            label: 'Claims',         revenue: false },
+              { key: 'contacts',          label: 'Contacts',       revenue: false },
+              { key: 'partner-enquiries', label: 'Discount Leads', revenue: true  },
+              { key: 'settings',          label: 'Settings',       revenue: false },
+            ].map(({ key, label, revenue }) => {
+              const isActive = tab === key;
+              const count    = tabCounts[key];
+              return (
+                <button
+                  key={key}
+                  onClick={() => setTab(key)}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    padding: '5px 10px', borderRadius: 8, fontSize: 12.5, fontWeight: isActive ? 700 : 600,
+                    border: 'none', cursor: 'pointer', transition: 'all .12s', flexShrink: 0,
+                    background: isActive
+                      ? (revenue ? '#16A34A' : '#1A2744')
+                      : revenue ? 'rgba(22,163,74,0.07)' : 'transparent',
+                    color: isActive ? '#FFFFFF' : revenue ? '#16A34A' : 'rgba(26,39,68,0.70)',
+                  }}
+                  onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = revenue ? 'rgba(22,163,74,0.12)' : 'rgba(26,39,68,0.06)'; }}
+                  onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = revenue ? 'rgba(22,163,74,0.07)' : 'transparent'; }}
+                >
+                  {label}
+                  {count > 0 && (
+                    <span style={{
+                      fontSize: 11, fontWeight: 800, padding: '1px 5px', borderRadius: 6,
+                      background: isActive ? 'rgba(255,255,255,0.22)' : revenue ? 'rgba(22,163,74,0.14)' : 'rgba(26,39,68,0.08)',
+                      color: isActive ? '#FFFFFF' : revenue ? '#16A34A' : 'rgba(26,39,68,0.65)',
+                      lineHeight: 1.4,
+                    }}>{count}</span>
+                  )}
+                </button>
+              );
+            })}
+
+            {/* Spacer pushes refresh to far right */}
+            <span style={{ flex: 1 }} />
+
+            {/* Inline notices — ultra-muted */}
+            {(analyticsNotice || resourceUpdatesNotice) && (
+              <span style={{ fontSize: 10.5, color: 'rgba(26,39,68,0.35)', fontWeight: 500, flexShrink: 0, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {analyticsNotice || resourceUpdatesNotice}
+              </span>
+            )}
+
+            {/* Error / toast chips */}
+            {error ? <span style={{ padding: '2px 8px', borderRadius: 6, background: 'rgba(244,97,58,0.09)', color: '#A03A2D', fontSize: 11.5, fontWeight: 700, flexShrink: 0 }}>{error}</span> : null}
+            {toast ? <span style={{ padding: '2px 8px', borderRadius: 6, background: 'rgba(16,185,129,0.09)', color: '#0D7A55', fontSize: 11.5, fontWeight: 700, flexShrink: 0 }}>{toast}</span> : null}
+
+            {/* Refresh */}
+            <button
+              onClick={loadData}
+              disabled={busy || loading}
+              style={{ padding: '4px 10px', borderRadius: 7, fontSize: 12, fontWeight: 600, border: '1px solid rgba(26,39,68,0.12)', background: 'rgba(255,255,255,0.80)', color: 'rgba(26,39,68,0.50)', cursor: busy || loading ? 'wait' : 'pointer', flexShrink: 0 }}
+            >
+              ↺
+            </button>
           </div>
 
           {!loading && (tab === 'dashboard' || tab === 'organisations') ? (
@@ -2957,18 +2960,18 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
             const kpiThisMonth = partnerEnquiries.filter(e => e.created_at && new Date(e.created_at) >= thisMonthStart).length;
 
             return (
-              <div style={{ display: 'grid', gap: 14 }}>
+              <div style={{ display: 'grid', gap: 10 }}>
 
                 {/* Header */}
-                <div className="card" style={{ padding: '20px 24px', borderRadius: 22, background: 'linear-gradient(135deg, #1A2744 0%, #2D3E6B 100%)', boxShadow: '0 24px 44px rgba(26,39,68,0.18)' }}>
-                  <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(255,255,255,0.55)', marginBottom: 6 }}>Business Support Pipeline</div>
-                  <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+                <div className="card" style={{ padding: '14px 18px', borderRadius: 16, background: 'linear-gradient(135deg, #1A2744 0%, #2D3E6B 100%)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
                     <div>
-                      <h2 style={{ fontSize: 26, fontWeight: 800, color: '#FFFFFF', margin: 0, lineHeight: 1.2 }}>Discount Leads</h2>
-                      <p style={{ marginTop: 6, color: 'rgba(255,255,255,0.60)', lineHeight: 1.5, fontSize: 13.5, maxWidth: 520 }}>Businesses who want to offer discounts and benefits to carers. Qualify them, agree the offer, then upsell to featured placement, county sponsorship, or national partnership.</p>
+                      <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(255,255,255,0.45)', marginBottom: 3 }}>Business Support Pipeline</div>
+                      <h2 style={{ fontSize: 18, fontWeight: 800, color: '#FFFFFF', margin: 0, lineHeight: 1.2 }}>Discount Leads</h2>
+                      <p style={{ marginTop: 3, color: 'rgba(255,255,255,0.55)', lineHeight: 1.4, fontSize: 12.5, maxWidth: 480 }}>Qualify businesses, agree the offer, then upsell to featured placement or county sponsorship.</p>
                     </div>
-                    <div style={{ fontSize: 28, fontWeight: 900, color: '#FFFFFF', whiteSpace: 'nowrap' }}>
-                      {partnerEnquiries.length} <span style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.55)' }}>total leads</span>
+                    <div style={{ fontSize: 24, fontWeight: 900, color: '#FFFFFF', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                      {partnerEnquiries.length} <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.50)' }}>leads</span>
                     </div>
                   </div>
                 </div>
