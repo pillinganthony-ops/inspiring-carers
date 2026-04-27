@@ -4,6 +4,7 @@ import { MarkerClusterer } from '@googlemaps/markerclusterer';
 import Icons from '../Icons.jsx';
 import Nav from '../Nav.jsx';
 import Footer from '../Footer.jsx';
+import CountyBanner from '../CountyBanner.jsx';
 import LogoLockup from '../Logo.jsx';
 import supabase, { isSupabaseConfigured } from '../../lib/supabaseClient.js';
 
@@ -2862,11 +2863,15 @@ const FindHelpV2 = ({ onNavigate, session, county, venueSlug }) => {
             .eq('active', true)
             .order('sort_order', { ascending: true })
             .order('name', { ascending: true }),
-          supabase
-            .from('resources')
-            .select('*')
-            .eq('is_archived', false)
-            .order('name', { ascending: true }),
+          (() => {
+            // For explicit non-Cornwall county routes, filter server-side.
+            // /find-help and /cornwall/find-help load all data (Cornwall is the default dataset).
+            const rq = supabase.from('resources').select('*').eq('is_archived', false);
+            const isExplicitForeignCounty = county && county !== 'cornwall';
+            return isExplicitForeignCounty
+              ? rq.eq('county', county.charAt(0).toUpperCase() + county.slice(1)).order('name', { ascending: true })
+              : rq.order('name', { ascending: true });
+          })(),
           supabase
             .from('organisation_profiles')
             .select('*'),
@@ -3158,9 +3163,55 @@ const FindHelpV2 = ({ onNavigate, session, county, venueSlug }) => {
     return <CountyEntrance onSelectCounty={setSelectedCounty} onNavigate={onNavigate} session={session} />;
   }
 
+  // County opening-soon: explicit non-Cornwall county with no listings yet
+  if (!loading && !error && resources.length === 0 && county && county !== 'cornwall') {
+    const countyLabel = county.charAt(0).toUpperCase() + county.slice(1);
+    return (
+      <>
+        <Nav activePage="find-help" onNavigate={onNavigate} session={session} />
+        <CountyBanner county={county} isFallback={false} onChangeCounty={(c) => onNavigate('find-help', c)} />
+        <section style={{ paddingTop: 80, paddingBottom: 80, background: 'linear-gradient(180deg, #EEF7FF 0%, #FAFBFF 100%)' }}>
+          <div className="container" style={{ maxWidth: 580, margin: '0 auto', textAlign: 'center' }}>
+            <div style={{ width: 64, height: 64, borderRadius: 20, background: 'rgba(45,156,219,0.10)', display: 'grid', placeItems: 'center', margin: '0 auto 22px', color: '#2D9CDB' }}>
+              <IPin s={28} />
+            </div>
+            <h1 style={{ fontSize: 'clamp(26px, 4vw, 34px)', fontWeight: 800, color: '#1A2744', marginBottom: 14, letterSpacing: '-0.02em' }}>
+              {countyLabel} is opening soon
+            </h1>
+            <p style={{ fontSize: 16, color: 'rgba(26,39,68,0.65)', lineHeight: 1.65, marginBottom: 32, maxWidth: 460, margin: '0 auto 32px' }}>
+              We are preparing local support listings for {countyLabel}. Organisations can submit a listing or offer a discount to carers while this county is being built.
+            </p>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => onNavigate('profile')}
+                className="btn btn-gold"
+                style={{ fontWeight: 800, fontSize: 15, padding: '13px 24px' }}
+              >
+                Submit organisation
+              </button>
+              <button
+                onClick={() => onNavigate('offer-a-discount')}
+                className="btn"
+                style={{ fontWeight: 700, fontSize: 15, padding: '13px 24px', background: '#1A2744', color: 'white', border: 'none' }}
+              >
+                Offer a discount
+              </button>
+            </div>
+          </div>
+        </section>
+        <Footer onNavigate={onNavigate} />
+      </>
+    );
+  }
+
   return (
     <>
       <Nav activePage="find-help" onNavigate={onNavigate} session={session} />
+      <CountyBanner
+        county={county}
+        isFallback={!county}
+        onChangeCounty={(c) => onNavigate('find-help', c)}
+      />
 
       <section style={{ paddingTop: 40, paddingBottom: 36, background: 'linear-gradient(180deg, #E7F3FB 0%, #FAFBFF 100%)' }}>
         <div className="container">
@@ -3169,7 +3220,7 @@ const FindHelpV2 = ({ onNavigate, session, county, venueSlug }) => {
             <IChevron s={12} />
             <button onClick={() => setSelectedCounty(null)} style={{ color: 'inherit', background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit' }}>Find help near you</button>
             <IChevron s={12} />
-            <span style={{ color: '#1A2744', fontWeight: 600 }}>{detailSlug ? (selectedResource?.title || 'Resource detail') : 'Cornwall'}</span>
+            <span style={{ color: '#1A2744', fontWeight: 600 }}>{detailSlug ? (selectedResource?.title || 'Resource detail') : (county ? county.charAt(0).toUpperCase() + county.slice(1) : 'Cornwall')}</span>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: isMobile ? 20 : 40, alignItems: 'end' }}>
