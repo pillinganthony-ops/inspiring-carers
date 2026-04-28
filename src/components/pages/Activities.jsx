@@ -1550,15 +1550,13 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 const ActivitiesCountyPage = ({ onNavigate, session, county }) => {
-  const [localCounty,   setLocalCounty]   = React.useState(county || '');
+  const localCounty = county || '';
   const [areaSearch,    setAreaSearch]    = React.useState('');
   const [activityType,  setActivityType]  = React.useState('');
   const [accessibility, setAccessibility] = React.useState('');
   const [cost,          setCost]          = React.useState('');
   const [chipHov,       setChipHov]       = React.useState(null);
   const [catHov,        setCatHov]        = React.useState(null);
-
-  React.useEffect(() => { setLocalCounty(county || ''); }, [county]);
 
   const countyLabel = localCounty ? (COUNTY_LABELS[localCounty] || localCounty) : null;
   const isHubView   = !localCounty;
@@ -1575,7 +1573,6 @@ const ActivitiesCountyPage = ({ onNavigate, session, county }) => {
   // County selector in hub: selecting a county navigates to the county listing.
   const handleCountyChange = (e) => {
     const val = e.target.value;
-    setLocalCounty(val);
     if (val) onNavigate('activities', val);
   };
 
