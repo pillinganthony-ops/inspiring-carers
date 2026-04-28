@@ -62,12 +62,13 @@ const CountyInterestModal = ({ county, label, sourcePage }) => {
     setError('');
     try {
       const { error: dbErr } = await supabase.from('resource_update_submissions').insert({
-        update_type:     'county_interest',
-        description:     message.trim() || `County interest registration: ${label}`,
-        submitter_name:  name.trim()    || null,
-        submitter_email: email.trim(),
-        status:          'pending',
-        payload: { county, source_page: sourcePage, role: role || null },
+        update_type:                 'county_interest',
+        reason:                      message.trim() || `County interest registration: ${label}`,
+        submitter_name:              name.trim()    || null,
+        submitter_email:             email.trim(),
+        relationship_to_organisation: role           || null,
+        resource_name:               label,
+        status:                      'pending',
       });
       if (dbErr) throw dbErr;
       setDone(true);
