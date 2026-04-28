@@ -8,16 +8,6 @@ import { supabase, isSupabaseConfigured } from '../lib/supabaseClient.js';
 
 const { IChevron, IClose, IMenu, IArrow } = Icons;
 
-// Single source of truth for page → display label used in the Activities nav button.
-// When the active page is an activities sub-page the split button shows its specific
-// name instead of the generic "Activities" label.
-const PAGE_LABELS = {
-  activities:       'Activities',
-  walks:            'Walks',
-  wellbeing:        'Wellbeing',
-  'places-to-visit':'Places to Visit',
-  events:           'Events',
-};
 
 const ADMIN_EMAIL_ALLOWLIST = (import.meta.env.VITE_ADMIN_EMAIL_ALLOWLIST || 'pillinganthony@gmail.com')
   .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
@@ -126,17 +116,14 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp,
     { key: 'for-you',    label: 'For you',     accent: '#F5A623' },
   ];
 
-  // Activities sub-pages — only include routes with confirmed live data
-  // Groups removed: page loads but has no data in current DB
+  // Activities group — hub + all sub-pages
   const activitiesItems = [
-    { key: 'walks',           label: 'Walks',             note: 'Trails and routes'      },
-    { key: 'places-to-visit', label: 'Places to Visit',   note: 'Attractions & days out' },
-    { key: 'wellbeing',       label: 'Wellbeing Support', note: 'Calm & restorative'     },
+    { key: 'activities',      label: 'Activities'      },
+    { key: 'walks',           label: 'Walks'           },
+    { key: 'places-to-visit', label: 'Places to Visit' },
+    { key: 'wellbeing',       label: 'Wellbeing'       },
   ];
-  const isActivitiesPage = activitiesItems.some((i) => i.key === activePage) || activePage === 'activities';
-  // Derive label from current route — shows page-specific name when on a sub-page,
-  // falls back to 'Activities' for the hub and all unrelated pages.
-  const activitiesLabel = PAGE_LABELS[activePage] || 'Activities';
+  const isActivitiesPage = activitiesItems.some((i) => i.key === activePage);
 
   const moreItems = [
     { key: 'offer-a-discount', label: 'Offer a discount' },
@@ -240,7 +227,7 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp,
               onMouseLeave={e => { if (!isActivitiesPage) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(26,39,68,0.68)'; }}}
             >
               <span style={{ width: 7, height: 7, borderRadius: 2, background: '#5BC94A', display: 'inline-block', flexShrink: 0 }} />
-              {activitiesLabel}
+              Activities
             </button>
             <button
               onClick={() => setActivitiesOpen((o) => !o)}
@@ -261,7 +248,8 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp,
             {activitiesOpen && (
               <div style={{ ...dropCard, left: '50%', transform: 'translateX(-50%)', minWidth: 200 }}>
                 {activitiesItems.map((item) => (
-                  <DropItem key={item.key} label={item.label} active={activePage === item.key} onClick={() => handleNavigate(item.key)} />
+                  <DropItem key={item.key} label={item.label} active={activePage === item.key}
+                    onClick={item.key === 'activities' ? handleActivitiesClick : () => handleNavigate(item.key)} />
                 ))}
               </div>
             )}
@@ -361,15 +349,12 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp,
               Find help
             </button>
 
-            {/* Activities — hub button + sub-pages */}
+            {/* Activities — hub + sub-pages */}
             <div style={{ fontSize: 10.5, fontWeight: 800, color: 'rgba(26,39,68,0.4)', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '6px 2px 2px' }}>Activities</div>
-            {/* Hub button — navigates to /activities county selector */}
-            <button onClick={handleActivitiesClick} style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', padding: '12px 14px', borderRadius: 14, border: 'none', cursor: 'pointer', width: '100%', background: activePage === 'activities' ? 'rgba(91,201,74,0.10)' : '#FAFBFF', color: '#1A2744', fontWeight: activePage === 'activities' ? 700 : 600 }}>
-              <span style={{ width: 8, height: 8, borderRadius: 2, background: '#5BC94A', flexShrink: 0 }} />
-              Browse all activities
-            </button>
             {activitiesItems.map((item) => (
-              <button key={item.key} onClick={() => handleNavigate(item.key)} style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', padding: '12px 14px', borderRadius: 14, border: 'none', cursor: 'pointer', width: '100%', background: activePage === item.key ? 'rgba(91,201,74,0.10)' : '#FAFBFF', color: '#1A2744', fontWeight: activePage === item.key ? 700 : 600 }}>
+              <button key={item.key}
+                onClick={item.key === 'activities' ? handleActivitiesClick : () => handleNavigate(item.key)}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', padding: '12px 14px', borderRadius: 14, border: 'none', cursor: 'pointer', width: '100%', background: activePage === item.key ? 'rgba(91,201,74,0.10)' : '#FAFBFF', color: '#1A2744', fontWeight: activePage === item.key ? 700 : 600 }}>
                 <span style={{ width: 8, height: 8, borderRadius: 2, background: '#5BC94A', flexShrink: 0 }} />
                 {item.label}
               </button>
