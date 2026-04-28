@@ -208,12 +208,17 @@ const EventsPage = ({ onNavigate, session, county }) => {
         const [eventsResult, profilesResult, resourcesResult] = await Promise.all([
           supabase.from('organisation_events').select('*').in('status', ['scheduled', 'completed']).order('starts_at', { ascending: true }),
           supabase.from('organisation_profiles').select('id,resource_id,slug,organisation_name,display_name,verified_status,featured,is_active,contact_email,email').eq('is_active', true),
-          supabase.from('resources').select('id,slug,town,email,website').eq('is_archived', false),
+          supabase.from('resources').select('id,slug,town,county,email,website').eq('is_archived', false),
         ]);
         if (cancelled) return;
         if (eventsResult.error) throw eventsResult.error;
         const profiles = new Map((profilesResult.data || []).map((profile) => [profile.id, profile]));
         const resources = new Map((resourcesResult.data || []).map((resource) => [resource.id, resource]));
+
+        // No-SQL stopgap: attach inferred county from the resources chain so we can
+        // filter county pages correctly.  Replace this block once organisation_events
+        // has its own county column (see audit 2026-04-28).
+        // Chain: event.organisation_profile_id → profiles.resource_id → resources.county
         const merged = (eventsResult.data || []).map((event) => {
           const profile = profiles.get(event.organisation_profile_id) || null;
           const resource = profile?.resource_id ? resources.get(profile.resource_id) : null;
@@ -221,12 +226,27 @@ const EventsPage = ({ onNavigate, session, county }) => {
             ...event,
             profile,
             resource,
+            // Normalised to lowercase so county prop comparisons are case-insensitive.
+            // Empty string '' means no county attribution (profile has no linked resource).
+            resourceCounty: (resource?.county || '').toLowerCase(),
             contact_email: event.contact_email || profile?.contact_email || profile?.email || resource?.email || null,
             orgName: profile?.organisation_name || profile?.display_name || null,
             publicSlug: resource?.slug || profile?.slug || '',
           };
         });
-        setEvents(merged);
+
+        // County filter — applied before setEvents so opening-soon fires correctly.
+        // Cornwall: include events whose resource county is 'cornwall' OR has no
+        //           county attribution (unlinked profiles default to Cornwall).
+        // Others:   strict match only — Devon events must not show on Cornwall page.
+        const countyFiltered = county
+          ? merged.filter((ev) => {
+              const rc = ev.resourceCounty;
+              return county === 'cornwall' ? (!rc || rc === 'cornwall') : rc === county;
+            })
+          : merged;
+
+        setEvents(countyFiltered);
       } catch (loadError) {
         setEvents([]);
         setError(loadError.message || 'Unable to load events right now.');
