@@ -493,6 +493,16 @@ const App = () => {
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
+  // Hub-page safety net — URL is the authoritative source of truth.
+  // If county state is non-null while the URL contains no county prefix,
+  // reset to null. Catches any code path that bypassed the useState init guard.
+  React.useEffect(() => {
+    const HUB_PAGES_ALL = ['activities', 'find-help', 'events', 'walks', 'wellbeing', 'places-to-visit'];
+    if (!HUB_PAGES_ALL.includes(page) || county === null) return;
+    const { county: urlCounty } = parseRoute(window.location.pathname);
+    if (!urlCounty) setCounty(null);
+  }, [page, county]);
+
   // Preload Events county page chunk while the hub is visible
   React.useEffect(() => {
     if (page === 'events' && !county) import('./components/pages/Events.jsx').catch(() => {});
