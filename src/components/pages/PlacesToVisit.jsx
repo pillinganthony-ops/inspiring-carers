@@ -40,6 +40,8 @@ const COUNTY_LABELS = {
 // "Places to Visit" maps to these two DB categories
 const PLACES_CATEGORIES = ['Days Out', 'Attractions'];
 
+const PTV_PAGE_SIZE = 12;
+
 const FREE_PAID_OPTS = [
   { value: '', label: 'Any price' },
   { value: 'Free', label: 'Free' },
@@ -245,7 +247,8 @@ const PlacesToVisitCountyPage = ({ onNavigate, session, county, venueSlug }) => 
   const [venues,     setVenues]     = React.useState([]);
   const [loading,    setLoading]    = React.useState(true);
   const [error,      setError]      = React.useState(null);
-  const [claimVenue, setClaimVenue] = React.useState(null); // venue being claimed (null = modal closed)
+  const [claimVenue,    setClaimVenue]    = React.useState(null);
+  const [visibleCount,  setVisibleCount]  = React.useState(PTV_PAGE_SIZE);
 
   // Filter state
   const [search,           setSearch]           = React.useState('');
@@ -261,7 +264,11 @@ const PlacesToVisitCountyPage = ({ onNavigate, session, county, venueSlug }) => 
     setSearch(''); setFilterSubcat(''); setFilterPrice('');
     setFilterIndoorOut(''); setFilterFamily(false);
     setFilterWheelchair(false); setFilterDog(false);
+    setVisibleCount(PTV_PAGE_SIZE);
   }, [dbCounty]);
+
+  // Reset pagination when any filter or search changes
+  React.useEffect(() => { setVisibleCount(PTV_PAGE_SIZE); }, [search, filterSubcat, filterPrice, filterIndoorOut, filterFamily, filterWheelchair, filterDog]);
 
   // Load venues from Supabase
   React.useEffect(() => {
@@ -622,18 +629,37 @@ const PlacesToVisitCountyPage = ({ onNavigate, session, county, venueSlug }) => 
             </div>
           )}
 
-          {/* Venue cards */}
+          {/* Venue cards + load more */}
           {!loading && !error && filtered.length > 0 && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
-              {filtered.map((venue) => (
-                <VenueCard
-                  key={venue.id}
-                  venue={venue}
-                  onClaim={setClaimVenue}
-                  onViewProfile={(slug) => onNavigate('places-to-visit', county, slug)}
-                />
-              ))}
-            </div>
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14, marginBottom: 20 }}>
+                {filtered.slice(0, visibleCount).map((venue) => (
+                  <VenueCard
+                    key={venue.id}
+                    venue={venue}
+                    onClaim={setClaimVenue}
+                    onViewProfile={(slug) => onNavigate('places-to-visit', county, slug)}
+                  />
+                ))}
+              </div>
+
+              {visibleCount < filtered.length && (
+                <div style={{ textAlign: 'center', paddingTop: 4 }}>
+                  <button onClick={() => setVisibleCount((v) => v + PTV_PAGE_SIZE)} className="btn btn-ghost" style={{ minWidth: 200 }}>
+                    Load more places{' '}
+                    <span style={{ fontSize: 12, fontWeight: 500, color: 'rgba(26,39,68,0.45)', marginLeft: 4 }}>
+                      ({filtered.length - visibleCount} remaining)
+                    </span>
+                  </button>
+                </div>
+              )}
+
+              {visibleCount >= filtered.length && filtered.length > PTV_PAGE_SIZE && (
+                <div style={{ textAlign: 'center', fontSize: 13, color: 'rgba(26,39,68,0.38)', paddingTop: 8 }}>
+                  All {filtered.length} places shown
+                </div>
+              )}
+            </>
           )}
 
         </div>
