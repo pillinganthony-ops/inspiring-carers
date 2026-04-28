@@ -738,11 +738,24 @@ const ProfileDashboard = ({ onNavigate, session, section = 'dashboard' }) => {
 
   const isClaimed = activeProfile?.claim_status === 'claimed' || profileStatus.claimStatus === 'claimed';
 
+  // Sidebar nav items — badges show unactioned counts
+  const newEnquiryCount  = enquiryPipeline?.new?.length || 0;
+  const newReferralCount = referrals.filter((r) => r.status === 'new').length;
+  const sidebarNavItems = [
+    { key: 'overview',  label: 'Dashboard',   badge: null },
+    { key: 'profile',   label: 'Profile',     badge: null },
+    { key: 'events',    label: 'Events',      badge: null },
+    { key: 'enquiries', label: 'Enquiries',   badge: newEnquiryCount  > 0 ? newEnquiryCount  : null },
+    ...(entitlementState.status === 'active' ? [{ key: 'referrals', label: 'Referrals', badge: newReferralCount > 0 ? newReferralCount : null }] : []),
+    { key: 'plan',      label: 'Plan',        badge: null },
+    { key: 'settings',  label: 'Settings',    badge: null },
+  ];
+
   return (
     <>
       <Nav activePage={activeNavPage} onNavigate={onNavigate} session={session} />
-      <section style={{ paddingTop: 40, paddingBottom: 74, background: 'linear-gradient(180deg, #EEF7FF 0%, #FAFBFF 100%)' }}>
-        <div className="container" style={{ display: 'grid', gap: 16 }}>
+      <section style={{ paddingTop: 32, paddingBottom: 64, background: 'linear-gradient(180deg, #EEF7FF 0%, #FAFBFF 100%)' }}>
+        <div className="container" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
           {/* ── Welcome header ─────────────────────────── */}
           <div className="card" style={{ padding: 22, borderRadius: 20 }}>
@@ -768,73 +781,94 @@ const ProfileDashboard = ({ onNavigate, session, section = 'dashboard' }) => {
             {toast ? <div style={{ marginTop: 10, color: '#2D6B1F', fontWeight: 600, fontSize: 13.5 }}>{toast}</div> : null}
           </div>
 
-          {/* ── Primary action card ─────────────────────── */}
-          {!loading && activeProfile && (
-            <div className="card" style={{ padding: 22, borderRadius: 20, border: '1px solid rgba(45,156,219,0.2)', background: 'linear-gradient(145deg, rgba(45,156,219,0.04) 0%, #FAFBFF 100%)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                <div style={{ flex: '1 1 280px' }}>
-                  <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: isClaimed ? '#0D7A55' : '#8a5a0b', marginBottom: 6 }}>
-                    {isClaimed ? '✓ Organisation access active' : titleCase(profileStatus.claimStatus)}
-                  </div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: '#1A2744', marginBottom: 10 }}>Complete your organisation profile</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                    <div style={{ flex: 1, height: 8, borderRadius: 999, background: '#E9EEF5', overflow: 'hidden' }}>
-                      <div style={{ width: `${onboardingChecklist.score}%`, height: '100%', background: 'linear-gradient(90deg, #2D9CDB 0%, #10B981 100%)', transition: 'width .3s' }} />
-                    </div>
-                    <span style={{ fontSize: 14, fontWeight: 800, color: '#1A2744', whiteSpace: 'nowrap' }}>{onboardingChecklist.score}%</span>
-                  </div>
-                  <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.58)' }}>{onboardingChecklist.completed} of {onboardingChecklist.total} steps complete</div>
-                </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignSelf: 'flex-end' }}>
-                  <button className="btn btn-gold" onClick={() => setActiveTab('profile')}>Edit profile</button>
-                  <button className="btn btn-ghost" onClick={() => setActiveTab('events')}>Add event</button>
-                  {activeProfile.resource_id && resourceSlugMap[activeProfile.resource_id] && (
-                    <a href={`/find-help/${resourceSlugMap[activeProfile.resource_id]}`} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}>View listing ↗</a>
-                  )}
-                </div>
+          {/* ── Two-column layout: sidebar + content ───── */}
+          <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+
+            {/* ── Sidebar nav ── */}
+            <div style={{ flex: '0 0 230px', maxWidth: '100%', position: 'sticky', top: 88 }}>
+              <div className="card" style={{ padding: 8, borderRadius: 20, border: '1px solid #EEF1F7' }}>
+                {sidebarNavItems.map(({ key, label, badge }) => {
+                  const active = activeTab === key;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setActiveTab(key)}
+                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', textAlign: 'left', padding: '10px 14px', borderRadius: 12, border: 'none', cursor: 'pointer', background: active ? '#1A2744' : 'transparent', color: active ? '#FFFFFF' : 'rgba(26,39,68,0.68)', fontWeight: active ? 700 : 500, fontSize: 14, transition: 'all .12s', marginBottom: 2 }}
+                      onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'rgba(26,39,68,0.05)'; }}
+                      onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      <span>{label}</span>
+                      {badge != null && (
+                        <span style={{ fontSize: 11, fontWeight: 800, padding: '2px 7px', borderRadius: 999, background: active ? 'rgba(255,255,255,0.22)' : 'rgba(45,156,219,0.12)', color: active ? '#FFFFFF' : '#1c78b5', flexShrink: 0 }}>
+                          {badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+                <div style={{ height: 1, background: '#EEF1F7', margin: '8px 6px' }} />
+                <button
+                  onClick={handleLogout}
+                  style={{ display: 'flex', alignItems: 'center', width: '100%', textAlign: 'left', padding: '10px 14px', borderRadius: 12, border: 'none', cursor: 'pointer', background: 'transparent', color: '#A03A2D', fontWeight: 500, fontSize: 14, transition: 'background .12s' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(160,58,45,0.06)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  Sign out
+                </button>
               </div>
             </div>
-          )}
 
-          {/* ── Stats row ───────────────────────────────── */}
-          {!loading && activeProfile && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
-              {[
-                ['Profile views', dashboardKpis.profileViews, 'number'],
-                ['Enquiries', dashboardKpis.enquiryCount, 'number'],
-                ['Active events', dashboardKpis.activeEvents, 'number'],
-                ['Claim status', titleCase(profileStatus.claimStatus), 'text'],
-              ].map(([label, value, type]) => (
-                <div key={label} className="card" style={{ padding: 14, borderRadius: 14 }}>
-                  <div style={{ fontSize: 11, color: 'rgba(26,39,68,0.6)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em' }}>{label}</div>
-                  <div style={{ marginTop: 6, fontSize: type === 'number' ? 26 : 16, fontWeight: 800, color: '#1A2744' }}>{value}</div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* ── Internal tab bar ────────────────────────── */}
-          <div style={{ display: 'flex', gap: 2, padding: 4, background: '#EFF2F8', borderRadius: 14, width: 'fit-content', flexWrap: 'wrap' }}>
-            {[
-              { key: 'overview',   label: 'Overview' },
-              { key: 'profile',    label: 'Profile' },
-              { key: 'events',     label: 'Events' },
-              { key: 'enquiries',  label: 'Enquiries' },
-              ...(entitlementState.status === 'active' ? [{ key: 'referrals', label: `Referrals${referrals.length ? ` (${referrals.filter(r=>r.status==='new').length || referrals.length})` : ''}` }] : []),
-              { key: 'plan',       label: 'Plan' },
-              { key: 'settings',   label: 'Settings' },
-            ].map(({ key, label }) => (
-              <button key={key} onClick={() => setActiveTab(key)} style={{ padding: '7px 15px', borderRadius: 10, fontSize: 13.5, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all .12s', fontWeight: activeTab === key ? 700 : 500, background: activeTab === key ? 'white' : 'transparent', color: activeTab === key ? '#1A2744' : 'rgba(26,39,68,0.58)', boxShadow: activeTab === key ? '0 1px 4px rgba(26,39,68,0.1)' : 'none' }}>
-                {label}
-              </button>
-            ))}
-          </div>
+            {/* ── Main content ── */}
+            <div style={{ flex: '1 1 420px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
 
           {loading && <div className="card" style={{ padding: 20 }}>Loading account data…</div>}
 
           {/* ── OVERVIEW TAB ─────────────────────────────── */}
           {!loading && activeTab === 'overview' && (
             <>
+              {/* Profile completion card */}
+              {activeProfile && (
+                <div className="card" style={{ padding: 22, borderRadius: 20, border: '1px solid rgba(45,156,219,0.2)', background: 'linear-gradient(145deg, rgba(45,156,219,0.04) 0%, #FAFBFF 100%)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                    <div style={{ flex: '1 1 240px' }}>
+                      <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: isClaimed ? '#0D7A55' : '#8a5a0b', marginBottom: 6 }}>
+                        {isClaimed ? '✓ Organisation access active' : titleCase(profileStatus.claimStatus)}
+                      </div>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: '#1A2744', marginBottom: 10 }}>Complete your organisation profile</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                        <div style={{ flex: 1, height: 8, borderRadius: 999, background: '#E9EEF5', overflow: 'hidden' }}>
+                          <div style={{ width: `${onboardingChecklist.score}%`, height: '100%', background: 'linear-gradient(90deg, #2D9CDB 0%, #10B981 100%)', transition: 'width .3s' }} />
+                        </div>
+                        <span style={{ fontSize: 14, fontWeight: 800, color: '#1A2744', whiteSpace: 'nowrap' }}>{onboardingChecklist.score}%</span>
+                      </div>
+                      <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.58)' }}>{onboardingChecklist.completed} of {onboardingChecklist.total} steps complete</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignSelf: 'flex-end' }}>
+                      <button className="btn btn-gold" onClick={() => setActiveTab('profile')}>Edit profile</button>
+                      <button className="btn btn-ghost" onClick={() => setActiveTab('events')}>Add event</button>
+                      {activeProfile.resource_id && resourceSlugMap[activeProfile.resource_id] && (
+                        <a href={`/find-help/${resourceSlugMap[activeProfile.resource_id]}`} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}>View listing ↗</a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {/* Stats row */}
+              {activeProfile && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
+                  {[
+                    ['Profile views', dashboardKpis.profileViews, 'number'],
+                    ['Enquiries', dashboardKpis.enquiryCount, 'number'],
+                    ['Active events', dashboardKpis.activeEvents, 'number'],
+                    ['Claim status', titleCase(profileStatus.claimStatus), 'text'],
+                  ].map(([label, value, type]) => (
+                    <div key={label} className="card" style={{ padding: 14, borderRadius: 14 }}>
+                      <div style={{ fontSize: 11, color: 'rgba(26,39,68,0.6)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em' }}>{label}</div>
+                      <div style={{ marginTop: 6, fontSize: type === 'number' ? 24 : 15, fontWeight: 800, color: '#1A2744' }}>{value}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
               {profiles.length === 0 && (
                 <div className="card" style={{ padding: 32, borderRadius: 20, textAlign: 'center' }}>
                   <div style={{ fontSize: 40, marginBottom: 14 }}>🏢</div>
@@ -1160,7 +1194,6 @@ const ProfileDashboard = ({ onNavigate, session, section = 'dashboard' }) => {
                 </div>
               )}
 
-              <button onClick={handleLogout} style={{ padding: '11px 24px', borderRadius: 12, background: 'rgba(160,58,45,0.07)', color: '#A03A2D', fontWeight: 700, fontSize: 14, border: '1px solid rgba(160,58,45,0.18)', cursor: 'pointer' }}>Sign out</button>
             </div>
           )}
 
@@ -1247,6 +1280,8 @@ const ProfileDashboard = ({ onNavigate, session, section = 'dashboard' }) => {
             </div>
           )}
 
+            </div>{/* end main content */}
+          </div>{/* end two-column layout */}
         </div>
       </section>
 
