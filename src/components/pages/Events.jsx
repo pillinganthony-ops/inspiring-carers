@@ -244,6 +244,39 @@ const EventsPage = ({ onNavigate, session, county }) => {
     return events.filter((event) => `${event.title} ${event.location || ''} ${event.profile?.display_name || ''}`.toLowerCase().includes(needle));
   }, [events, query]);
 
+  // Opening-soon: explicit non-Cornwall county with no events yet
+  if (!loading && !error && events.length === 0 && county && county !== 'cornwall') {
+    const countyLabel = county.charAt(0).toUpperCase() + county.slice(1);
+    return (
+      <>
+        <Nav activePage="events" onNavigate={onNavigate} session={session} />
+        <CountyBanner county={county} isFallback={false} onChangeCounty={(c) => onNavigate('events', c)} />
+        <section style={{ paddingTop: 80, paddingBottom: 80, background: 'linear-gradient(180deg, #EAF5FF 0%, #FAFBFF 100%)' }}>
+          <div className="container" style={{ maxWidth: 580, margin: '0 auto', textAlign: 'center' }}>
+            <div style={{ width: 64, height: 64, borderRadius: 20, background: 'rgba(45,156,219,0.10)', display: 'grid', placeItems: 'center', margin: '0 auto 22px', color: '#2D9CDB' }}>
+              <IEvent s={28} />
+            </div>
+            <h1 style={{ fontSize: 'clamp(24px, 4vw, 32px)', fontWeight: 800, color: '#1A2744', marginBottom: 14, letterSpacing: '-0.02em' }}>
+              {countyLabel} is opening soon
+            </h1>
+            <p style={{ fontSize: 16, color: 'rgba(26,39,68,0.65)', lineHeight: 1.65, marginBottom: 32, maxWidth: 460, margin: '0 auto 32px' }}>
+              We are preparing trusted local options for {countyLabel}. Businesses and organisations can join early while this county launches.
+            </p>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button onClick={() => onNavigate('profile')} className="btn btn-gold" style={{ fontWeight: 800, fontSize: 15, padding: '13px 24px' }}>
+                Submit organisation
+              </button>
+              <button onClick={() => onNavigate('offer-a-discount')} className="btn" style={{ fontWeight: 700, fontSize: 15, padding: '13px 24px', background: '#1A2744', color: 'white', border: 'none' }}>
+                Offer a discount
+              </button>
+            </div>
+          </div>
+        </section>
+        <Footer onNavigate={onNavigate} />
+      </>
+    );
+  }
+
   return (
     <>
       <Nav activePage="events" onNavigate={onNavigate} session={session} />

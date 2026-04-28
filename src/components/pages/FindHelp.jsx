@@ -2778,7 +2778,7 @@ const CountyEntrance = ({ onSelectCounty, onNavigate, session }) => {
   );
 };
 
-const FindHelpV2 = ({ onNavigate, session, county, venueSlug }) => {
+const FindHelpCountyPage = ({ onNavigate, session, county, venueSlug }) => {
   // detailSlug is now driven entirely by the router via venueSlug prop.
   // No internal pushState, no popstate listener — history is owned by main.jsx.
 
@@ -3521,6 +3521,123 @@ const FindHelpV2 = ({ onNavigate, session, county, venueSlug }) => {
       <Toast toast={toast} onClose={() => setToast('')} />
     </>
   );
+};
+
+// ── National hub — shown when no county prop (/find-help) ────────────────────
+const FH_COUNTY_CARDS = [
+  { key: 'cornwall', label: 'Cornwall', status: 'live',        badge: 'Live now',    accent: '#2D9CDB', badgeBg: 'rgba(22,163,74,0.10)',  badgeColor: '#166534' },
+  { key: 'devon',    label: 'Devon',    status: 'launching',   badge: 'Launching',   accent: '#D97706', badgeBg: 'rgba(217,119,6,0.10)',  badgeColor: '#92400E' },
+  { key: 'somerset', label: 'Somerset', status: 'coming-soon', badge: 'Coming soon', accent: 'rgba(26,39,68,0.22)', badgeBg: 'rgba(26,39,68,0.06)', badgeColor: 'rgba(26,39,68,0.48)' },
+  { key: 'bristol',  label: 'Bristol',  status: 'coming-soon', badge: 'Coming soon', accent: 'rgba(26,39,68,0.22)', badgeBg: 'rgba(26,39,68,0.06)', badgeColor: 'rgba(26,39,68,0.48)' },
+];
+
+const FindHelpNationalHub = ({ onNavigate, session }) => (
+  <>
+    <Nav activePage="find-help" onNavigate={onNavigate} session={session} />
+
+    {/* Hero */}
+    <section style={{ background: 'linear-gradient(150deg, #091426 0%, #0F1F38 50%, #152744 100%)', paddingTop: 64, paddingBottom: 64, position: 'relative', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', top: -60, right: -60, width: 440, height: 440, borderRadius: '50%', background: 'radial-gradient(circle, rgba(45,156,219,0.16) 0%, transparent 65%)', filter: 'blur(32px)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', bottom: -80, left: '20%', width: 380, height: 380, borderRadius: '50%', background: 'radial-gradient(circle, rgba(91,201,74,0.08) 0%, transparent 65%)', filter: 'blur(24px)', pointerEvents: 'none' }} />
+      <div className="container" style={{ position: 'relative', maxWidth: 680, margin: '0 auto', textAlign: 'center' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 13px', borderRadius: 999, background: 'rgba(45,156,219,0.18)', border: '1px solid rgba(45,156,219,0.28)', fontSize: 10.5, fontWeight: 800, color: '#7CC8F8', letterSpacing: '0.09em', textTransform: 'uppercase', marginBottom: 22 }}>
+          National directory
+        </div>
+        <h1 style={{ fontSize: 'clamp(28px, 4.5vw, 48px)', fontWeight: 800, color: '#FFFFFF', marginBottom: 16, letterSpacing: '-0.03em', lineHeight: 1.1, textWrap: 'balance' }}>
+          Find help for carers<br />across the UK
+        </h1>
+        <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.68)', lineHeight: 1.65, maxWidth: 540, margin: '0 auto' }}>
+          Choose your county to find local support services, community organisations, groups and trusted help near you.
+        </p>
+      </div>
+    </section>
+
+    {/* County cards */}
+    <section style={{ paddingTop: 56, paddingBottom: 56, background: '#FAFBFF' }}>
+      <div className="container" style={{ maxWidth: 820, margin: '0 auto' }}>
+        <div style={{ textAlign: 'center', marginBottom: 36 }}>
+          <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#2D9CDB', marginBottom: 10 }}>Select your county</div>
+          <h2 style={{ fontSize: 'clamp(20px, 2.8vw, 28px)', fontWeight: 800, color: '#1A2744', margin: 0, letterSpacing: '-0.02em' }}>
+            Choose your area to find local support
+          </h2>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+          {FH_COUNTY_CARDS.map(c => {
+            const isLive = c.status === 'live';
+            const isLaunching = c.status === 'launching';
+            return (
+              <div key={c.key} className="card" style={{ padding: '22px 20px', borderRadius: 18, borderLeft: `3px solid ${c.accent}`, opacity: isLive || isLaunching ? 1 : 0.70 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 14 }}>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#1A2744' }}>{c.label}</div>
+                  <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: c.badgeBg, color: c.badgeColor, whiteSpace: 'nowrap' }}>{c.badge}</span>
+                </div>
+                {isLive ? (
+                  <button
+                    onClick={() => onNavigate('find-help', c.key)}
+                    style={{ width: '100%', padding: '9px 0', borderRadius: 10, background: '#1A2744', color: 'white', fontWeight: 700, fontSize: 13.5, border: 'none', cursor: 'pointer', transition: 'opacity .13s' }}
+                    onMouseEnter={e => { e.currentTarget.style.opacity = '0.82'; }}
+                    onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+                  >
+                    Choose {c.label}
+                  </button>
+                ) : (
+                  <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.45)', fontStyle: 'italic', marginTop: 4 }}>
+                    {isLaunching ? 'Launching soon — register interest below.' : 'Being prepared. Register interest below.'}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+
+    {/* CTA section */}
+    <section style={{ paddingBottom: 64, background: '#FAFBFF' }}>
+      <div className="container" style={{ maxWidth: 820, margin: '0 auto' }}>
+        <div style={{ padding: '28px 32px', borderRadius: 22, background: 'linear-gradient(135deg, #1A2744 0%, #2D3E6B 100%)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 20 }}>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(255,255,255,0.42)', marginBottom: 7 }}>Get involved</div>
+            <h3 style={{ fontSize: 19, fontWeight: 800, color: '#FFFFFF', margin: '0 0 7px', lineHeight: 1.2 }}>
+              Add your organisation or offer a discount
+            </h3>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.58)', margin: 0, lineHeight: 1.55 }}>
+              Register your organisation, submit a listing or offer a discount to carers in your county.
+            </p>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9, flexShrink: 0 }}>
+            <button
+              onClick={() => onNavigate('find-help', 'cornwall')}
+              className="btn btn-gold"
+              style={{ fontWeight: 800, fontSize: 14, padding: '10px 20px', whiteSpace: 'nowrap' }}
+            >
+              Choose Cornwall
+            </button>
+            <button
+              onClick={() => onNavigate('profile')}
+              style={{ padding: '9px 18px', borderRadius: 10, background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}
+            >
+              Submit organisation
+            </button>
+            <button
+              onClick={() => onNavigate('offer-a-discount')}
+              style={{ padding: '9px 18px', borderRadius: 10, background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}
+            >
+              Offer a discount
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <Footer onNavigate={onNavigate} />
+  </>
+);
+
+// ── Public export — routes between national hub and county directory ──────────
+const FindHelpV2 = ({ onNavigate, session, county, venueSlug }) => {
+  if (!county) return <FindHelpNationalHub onNavigate={onNavigate} session={session} />;
+  return <FindHelpCountyPage onNavigate={onNavigate} session={session} county={county} venueSlug={venueSlug} />;
 };
 
 export default FindHelpV2;
