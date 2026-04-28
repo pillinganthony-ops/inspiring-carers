@@ -246,7 +246,7 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp,
               <IChevron s={13} />
             </button>
             {activitiesOpen && (
-              <div style={{ ...dropCard, left: '50%', transform: 'translateX(-50%)', minWidth: 264, borderRadius: 20, padding: '10px', gap: 0 }}>
+              <div style={{ ...dropCard, top: 'calc(100% + 10px)', left: 0, minWidth: 264, borderRadius: 20, padding: '10px', gap: 0, zIndex: 9999 }}>
                 {/* Dropdown header */}
                 <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: 'rgba(26,39,68,0.36)', padding: '5px 10px 9px' }}>
                   Explore activities
