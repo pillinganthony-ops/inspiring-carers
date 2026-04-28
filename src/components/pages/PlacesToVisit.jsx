@@ -212,19 +212,6 @@ const SkeletonCard = () => (
 // ── Page component ─────────────────────────────────────────────────────────
 
 const PlacesToVisitCountyPage = ({ onNavigate, session, county, venueSlug }) => {
-  // Show venue profile if a slug is active
-  if (venueSlug) {
-    return (
-      <VenueProfile
-        slug={venueSlug}
-        county={county}
-        backPage="places-to-visit"
-        onNavigate={onNavigate}
-        session={session}
-      />
-    );
-  }
-
   const dbCounty    = COUNTY_DB[county]    || 'Cornwall';
   const countyLabel = COUNTY_LABELS[county] || 'Cornwall';
 
@@ -300,6 +287,19 @@ const PlacesToVisitCountyPage = ({ onNavigate, session, county, venueSlug }) => 
       return true;
     });
   }, [venues, search, filterSubcat, filterPrice, filterIndoorOut, filterFamily, filterWheelchair, filterDog]);
+
+  // Venue profile — rendered after all hooks so hook count stays constant
+  if (venueSlug) {
+    return (
+      <VenueProfile
+        slug={venueSlug}
+        county={county}
+        backPage="places-to-visit"
+        onNavigate={onNavigate}
+        session={session}
+      />
+    );
+  }
 
   const anyFilter = search || filterSubcat || filterPrice || filterIndoorOut || filterFamily || filterWheelchair || filterDog;
   const hasCoords = venues.some((v) => v.latitude && v.longitude);
@@ -564,7 +564,7 @@ const PlacesToVisitCountyPage = ({ onNavigate, session, county, venueSlug }) => 
                   key={venue.id}
                   venue={venue}
                   onClaim={setClaimVenue}
-                  onViewProfile={(slug) => onNavigate('places-to-visit', county || 'cornwall', slug)}
+                  onViewProfile={(slug) => onNavigate('places-to-visit', county, slug)}
                 />
               ))}
             </div>
