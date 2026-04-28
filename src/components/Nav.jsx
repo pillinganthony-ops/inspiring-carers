@@ -118,10 +118,10 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp,
 
   // Activities group — hub + all sub-pages
   const activitiesItems = [
-    { key: 'activities',      label: 'Activities'      },
-    { key: 'walks',           label: 'Walks'           },
-    { key: 'places-to-visit', label: 'Places to Visit' },
-    { key: 'wellbeing',       label: 'Wellbeing'       },
+    { key: 'activities',      label: 'All activities',    note: 'Browse everything'   },
+    { key: 'walks',           label: 'Walks',             note: 'Outdoor routes'      },
+    { key: 'places-to-visit', label: 'Places to Visit',   note: 'Days out and venues' },
+    { key: 'wellbeing',       label: 'Wellbeing Support', note: 'Calm spaces'         },
   ];
   const isActivitiesPage = activitiesItems.some((i) => i.key === activePage);
 
@@ -246,11 +246,29 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp,
               <IChevron s={13} />
             </button>
             {activitiesOpen && (
-              <div style={{ ...dropCard, left: '50%', transform: 'translateX(-50%)', minWidth: 200 }}>
-                {activitiesItems.map((item) => (
-                  <DropItem key={item.key} label={item.label} active={activePage === item.key}
-                    onClick={item.key === 'activities' ? handleActivitiesClick : () => handleNavigate(item.key)} />
-                ))}
+              <div style={{ ...dropCard, left: '50%', transform: 'translateX(-50%)', minWidth: 264, borderRadius: 20, padding: '10px', gap: 0 }}>
+                {/* Dropdown header */}
+                <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: 'rgba(26,39,68,0.36)', padding: '5px 10px 9px' }}>
+                  Explore activities
+                </div>
+                {activitiesItems.map((item) => {
+                  const active = activePage === item.key;
+                  return (
+                    <button
+                      key={item.key}
+                      onClick={item.key === 'activities' ? handleActivitiesClick : () => handleNavigate(item.key)}
+                      style={{ textAlign: 'left', width: '100%', padding: '10px 12px', borderRadius: 12, background: active ? 'rgba(91,201,74,0.08)' : 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, transition: 'background .12s' }}
+                      onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'rgba(26,39,68,0.04)'; }}
+                      onMouseLeave={e => { if (!active) e.currentTarget.style.background = active ? 'rgba(91,201,74,0.08)' : 'transparent'; }}
+                    >
+                      <span style={{ width: 6, height: 6, borderRadius: 999, background: active ? '#5BC94A' : 'rgba(26,39,68,0.18)', flexShrink: 0 }} />
+                      <div>
+                        <div style={{ fontSize: 13.5, fontWeight: active ? 700 : 600, color: '#1A2744', lineHeight: 1.2 }}>{item.label}</div>
+                        <div style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.44)', lineHeight: 1.3, marginTop: 2 }}>{item.note}</div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
