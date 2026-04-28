@@ -496,6 +496,22 @@ const PlacesToVisitCountyPage = ({ onNavigate, session, county, venueSlug }) => 
         </div>
       </section>
 
+      {/* ── Walks cross-link ──────────────────────────────────────────── */}
+      <div style={{ background: '#F0FDF4', borderBottom: '1px solid #BBF7D0', padding: '12px 0' }}>
+        <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+          <p style={{ margin: 0, fontSize: 13.5, color: '#166534', lineHeight: 1.5 }}>
+            <strong>Outdoor routes and green spaces can support days out.</strong>{' '}
+            Find accessible walks and local routes nearby.
+          </p>
+          <button
+            onClick={() => onNavigate('walks', county)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 10, background: '#16A34A', color: '#FFFFFF', fontWeight: 700, fontSize: 13.5, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}
+          >
+            Explore local walks <IArrow s={13} />
+          </button>
+        </div>
+      </div>
+
       {/* ── Sticky filter bar ─────────────────────────────────────────── */}
       <section id="ptv-filters" style={{ background: '#FFFFFF', borderBottom: '1px solid #EEF1F7', paddingTop: 12, paddingBottom: 12, position: 'sticky', top: 72, zIndex: 40 }}>
         <div className="container">
