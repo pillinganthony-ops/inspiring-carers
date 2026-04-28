@@ -4,6 +4,7 @@
 // No SQL required: public insert RLS on resource_update_submissions allows anon + authenticated.
 
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient.js';
 
 const ROLE_OPTIONS = [
@@ -38,6 +39,14 @@ const CountyInterestModal = ({ county, label, sourcePage }) => {
   };
   const handleOpen  = () => { reset(); setOpen(true); };
   const handleClose = () => { setOpen(false); reset(); };
+
+  // Body scroll lock — prevents page jumping when the overlay is open
+  React.useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
 
   const handleSubmit = async () => {
     if (!email.trim()) { setError('Email is required.'); return; }
@@ -83,13 +92,16 @@ const CountyInterestModal = ({ county, label, sourcePage }) => {
         Be first to access support, events and local resources when we launch.
       </p>
 
-      {/* Modal */}
-      {open && (
+      {/* Modal — portalled to document.body so parent card layout cannot affect it */}
+      {open && createPortal(
         <div
-          onClick={e => { if (e.target === e.currentTarget) handleClose(); }}
+          onClick={handleClose}
           style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
         >
-          <div style={{ background: 'white', borderRadius: 22, padding: '28px 26px', width: 'min(92vw, 460px)', boxSizing: 'border-box', maxHeight: 'calc(100vh - 48px)', overflowY: 'auto', boxShadow: '0 24px 64px rgba(15,23,42,0.22)', position: 'relative' }}>
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background: 'white', borderRadius: 22, padding: '28px 26px', width: 'min(92vw, 460px)', boxSizing: 'border-box', maxHeight: 'calc(100vh - 48px)', overflowY: 'auto', boxShadow: '0 24px 64px rgba(15,23,42,0.22)', position: 'relative' }}
+          >
 
             {/* Close */}
             <button
@@ -171,7 +183,8 @@ const CountyInterestModal = ({ county, label, sourcePage }) => {
               </>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
