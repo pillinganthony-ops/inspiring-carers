@@ -647,28 +647,27 @@ const WellbeingNationalHub = ({ onNavigate, session }) => (
     </section>
 
     {/* County cards */}
-    <section style={{ paddingTop: 56, paddingBottom: 56, background: '#FAFBFF' }}>
-      <div className="container" style={{ maxWidth: 820, margin: '0 auto' }}>
-        <div style={{ textAlign: 'center', marginBottom: 36 }}>
+    <section style={{ paddingTop: 60, paddingBottom: 60, background: '#FAFBFF' }}>
+      <div className="container">
+        <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#0D9488', marginBottom: 10 }}>Select your county</div>
-          <h2 style={{ fontSize: 'clamp(20px, 2.8vw, 28px)', fontWeight: 800, color: '#1A2744', margin: 0, letterSpacing: '-0.02em' }}>
+          <h2 style={{ fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 800, color: '#1A2744', margin: 0, letterSpacing: '-0.02em' }}>
             Choose your area to see local wellbeing places
           </h2>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 16, maxWidth: 960, margin: '0 auto' }}>
           {COUNTY_CARDS.map(c => {
             const isLive = c.status === 'live';
-            const isLaunching = c.status === 'launching';
             return (
-              <div key={c.key} className="card" style={{ padding: '22px 20px', borderRadius: 18, borderLeft: `3px solid ${c.accent}`, opacity: isLive || isLaunching ? 1 : 0.70 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 14 }}>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: '#1A2744' }}>{c.label}</div>
-                  <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: c.badgeBg, color: c.badgeColor, whiteSpace: 'nowrap' }}>{c.badge}</span>
+              <div key={c.key} className="card" style={{ padding: '28px 24px', borderRadius: 20, borderLeft: `4px solid ${c.accent}`, display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 16 }}>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: '#1A2744' }}>{c.label}</div>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: c.badgeBg, color: c.badgeColor, whiteSpace: 'nowrap' }}>{c.badge}</span>
                 </div>
                 {isLive ? (
                   <button
                     onClick={() => onNavigate('wellbeing', c.key)}
-                    style={{ width: '100%', padding: '9px 0', borderRadius: 10, background: '#0D9488', color: 'white', fontWeight: 700, fontSize: 13.5, border: 'none', cursor: 'pointer', transition: 'opacity .13s' }}
+                    style={{ width: '100%', padding: '11px 0', borderRadius: 11, background: '#0D9488', color: 'white', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer', transition: 'opacity .13s', marginTop: 'auto' }}
                     onMouseEnter={e => { e.currentTarget.style.opacity = '0.85'; }}
                     onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
                   >
@@ -681,28 +680,29 @@ const WellbeingNationalHub = ({ onNavigate, session }) => (
             );
           })}
         </div>
-        <p style={{ textAlign: 'center', fontSize: 13.5, color: 'rgba(26,39,68,0.50)', marginTop: 20, lineHeight: 1.6, maxWidth: 560, margin: '20px auto 0' }}>
+        <p style={{ textAlign: 'center', fontSize: 14, color: 'rgba(26,39,68,0.50)', marginTop: 24, lineHeight: 1.6, maxWidth: 560, margin: '24px auto 0' }}>
           Discover calm, restorative and supportive places. Choose your county above to find wellbeing support near you.
         </p>
       </div>
     </section>
 
     {/* What you can find */}
-    <section style={{ paddingTop: 56, paddingBottom: 56, background: '#FFFFFF' }}>
-      <div className="container" style={{ maxWidth: 820, margin: '0 auto' }}>
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+    <section style={{ paddingTop: 60, paddingBottom: 60, background: '#FFFFFF' }}>
+      <div className="container">
+        <div style={{ textAlign: 'center', marginBottom: 36 }}>
           <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#0D9488', marginBottom: 10 }}>Discover</div>
-          <h2 style={{ fontSize: 'clamp(20px, 2.8vw, 28px)', fontWeight: 800, color: '#1A2744', margin: 0, letterSpacing: '-0.02em' }}>What you can find</h2>
+          <h2 style={{ fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 800, color: '#1A2744', margin: 0, letterSpacing: '-0.02em' }}>What you can find</h2>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 18 }}>
           {[
             { title: 'Calm spaces',           body: 'Quiet, supportive venues where carers can rest, reflect and reset away from caring responsibilities.' },
             { title: 'Supportive venues',      body: 'Community centres, health hubs and wellbeing spaces that actively welcome carers near you.' },
             { title: 'Restorative activities', body: 'Classes, gentle sessions and therapeutic activities designed specifically for carers and their families.' },
           ].map(({ title, body }) => (
-            <div key={title} className="card" style={{ padding: '24px 22px', borderRadius: 20, borderTop: '3px solid #0D9488' }}>
-              <h3 style={{ fontSize: 15.5, fontWeight: 800, color: '#1A2744', margin: '0 0 8px' }}>{title}</h3>
-              <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.58)', lineHeight: 1.65, margin: 0 }}>{body}</p>
+            <div key={title} className="card" style={{ padding: '28px 26px', borderRadius: 20, borderTop: '4px solid #0D9488' }}>
+              <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(13,148,136,0.10)', marginBottom: 16 }} />
+              <h3 style={{ fontSize: 16.5, fontWeight: 800, color: '#1A2744', margin: '0 0 10px' }}>{title}</h3>
+              <p style={{ fontSize: 14, color: 'rgba(26,39,68,0.58)', lineHeight: 1.7, margin: 0 }}>{body}</p>
             </div>
           ))}
         </div>
@@ -710,22 +710,22 @@ const WellbeingNationalHub = ({ onNavigate, session }) => (
     </section>
 
     {/* How it works */}
-    <section style={{ paddingTop: 56, paddingBottom: 56, background: '#F7F9FC' }}>
-      <div className="container" style={{ maxWidth: 820, margin: '0 auto' }}>
-        <div style={{ textAlign: 'center', marginBottom: 36 }}>
-          <h2 style={{ fontSize: 'clamp(20px, 2.8vw, 28px)', fontWeight: 800, color: '#1A2744', margin: 0, letterSpacing: '-0.02em' }}>How it works</h2>
+    <section style={{ paddingTop: 60, paddingBottom: 60, background: '#F7F9FC' }}>
+      <div className="container">
+        <div style={{ textAlign: 'center', marginBottom: 40 }}>
+          <h2 style={{ fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 800, color: '#1A2744', margin: 0, letterSpacing: '-0.02em' }}>How it works</h2>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 28 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
           {[
             { n: '1', title: 'Choose your county',        body: 'Select your area above to discover wellbeing places and supportive spaces near you.' },
             { n: '2', title: 'Explore trusted venues',    body: 'Browse verified wellbeing spaces from local organisations, health hubs and community groups.' },
             { n: '3', title: 'Register where launching',  body: 'Devon and Somerset are coming soon. Register interest to be first to know when we open.' },
           ].map(({ n, title, body }) => (
-            <div key={n} style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-              <div style={{ width: 38, height: 38, borderRadius: 12, background: '#0D9488', color: 'white', fontWeight: 800, fontSize: 16, display: 'grid', placeItems: 'center', flexShrink: 0 }}>{n}</div>
+            <div key={n} style={{ display: 'flex', gap: 18, alignItems: 'flex-start', padding: '24px 22px', background: '#FFFFFF', borderRadius: 18, boxShadow: '0 2px 12px rgba(26,39,68,0.06)' }}>
+              <div style={{ width: 48, height: 48, borderRadius: 14, background: '#0D9488', color: 'white', fontWeight: 800, fontSize: 18, display: 'grid', placeItems: 'center', flexShrink: 0 }}>{n}</div>
               <div>
-                <h3 style={{ fontSize: 15, fontWeight: 800, color: '#1A2744', margin: '0 0 6px', lineHeight: 1.2 }}>{title}</h3>
-                <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.58)', lineHeight: 1.6, margin: 0 }}>{body}</p>
+                <h3 style={{ fontSize: 15.5, fontWeight: 800, color: '#1A2744', margin: '0 0 7px', lineHeight: 1.2 }}>{title}</h3>
+                <p style={{ fontSize: 14, color: 'rgba(26,39,68,0.58)', lineHeight: 1.65, margin: 0 }}>{body}</p>
               </div>
             </div>
           ))}
@@ -734,19 +734,19 @@ const WellbeingNationalHub = ({ onNavigate, session }) => (
     </section>
 
     {/* For organisations */}
-    <section style={{ paddingTop: 56, paddingBottom: 56, background: '#FFFFFF' }}>
-      <div className="container" style={{ maxWidth: 820, margin: '0 auto' }}>
-        <div style={{ padding: '28px 32px', borderRadius: 22, background: 'rgba(13,148,136,0.05)', border: '1px solid rgba(13,148,136,0.20)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 20 }}>
-          <div style={{ flex: 1, minWidth: 220 }}>
-            <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#0D9488', marginBottom: 7 }}>For organisations</div>
-            <h3 style={{ fontSize: 19, fontWeight: 800, color: '#1A2744', margin: '0 0 7px', lineHeight: 1.2 }}>Add your wellbeing venue or service</h3>
-            <p style={{ fontSize: 14, color: 'rgba(26,39,68,0.60)', margin: 0, lineHeight: 1.55 }}>
+    <section style={{ paddingTop: 60, paddingBottom: 60, background: '#FFFFFF' }}>
+      <div className="container">
+        <div style={{ padding: '36px 40px', borderRadius: 24, background: 'rgba(13,148,136,0.05)', border: '1px solid rgba(13,148,136,0.20)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 24 }}>
+          <div style={{ flex: 1, minWidth: 260 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#0D9488', marginBottom: 8 }}>For organisations</div>
+            <h3 style={{ fontSize: 24, fontWeight: 800, color: '#1A2744', margin: '0 0 10px', lineHeight: 1.15 }}>Add your wellbeing venue or service</h3>
+            <p style={{ fontSize: 15, color: 'rgba(26,39,68,0.60)', margin: 0, lineHeight: 1.6 }}>
               List wellbeing spaces, calm venues and community resources to help carers find the support they need in your area.
             </p>
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9, flexShrink: 0 }}>
-            <button onClick={() => onNavigate('profile')} style={{ padding: '10px 20px', borderRadius: 10, background: '#0D9488', color: 'white', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>Get involved</button>
-            <button onClick={() => onNavigate('advertise')} style={{ padding: '9px 18px', borderRadius: 10, background: 'transparent', border: '1px solid rgba(13,148,136,0.30)', color: '#0D9488', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}>Advertise with us</button>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, flexShrink: 0 }}>
+            <button onClick={() => onNavigate('profile')} style={{ padding: '13px 26px', borderRadius: 11, background: '#0D9488', color: 'white', fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>Get involved</button>
+            <button onClick={() => onNavigate('advertise')} style={{ padding: '12px 22px', borderRadius: 11, background: 'transparent', border: '1.5px solid rgba(13,148,136,0.30)', color: '#0D9488', fontWeight: 700, fontSize: 15, cursor: 'pointer', whiteSpace: 'nowrap' }}>Advertise with us</button>
           </div>
         </div>
       </div>
@@ -754,7 +754,7 @@ const WellbeingNationalHub = ({ onNavigate, session }) => (
 
     {/* CTA section */}
     <section style={{ paddingBottom: 64, background: '#FAFBFF' }}>
-      <div className="container" style={{ maxWidth: 820, margin: '0 auto' }}>
+      <div className="container">
         <div style={{ padding: '28px 32px', borderRadius: 22, background: 'linear-gradient(135deg, #1A2744 0%, #2D3E6B 100%)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 20 }}>
           <div style={{ flex: 1, minWidth: 220 }}>
             <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(255,255,255,0.42)', marginBottom: 7 }}>Get involved</div>
