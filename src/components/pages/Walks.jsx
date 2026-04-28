@@ -619,13 +619,13 @@ const WalksCountyPage = ({ onNavigate, session, county }) => {
 
           {/* Subtext */}
           <p style={{ fontSize: 18, lineHeight: 1.72, color: 'rgba(255,255,255,0.8)', maxWidth: 580, fontWeight: 500, marginBottom: 28, fontFamily: 'Inter, sans-serif' }}>
-            Find accessible walks, nature routes, coastal paths and wellbeing-friendly places to explore.
+            Find accessible walks, nature routes, parks, trails and green spaces to explore.
           </p>
 
           {/* Trust chips */}
           <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', marginBottom: 32 }}>
             {[
-              { label: 'Coastal routes', icon: '✓' },
+              { label: 'Local routes', icon: '✓' },
               { label: 'Accessible options', icon: '✓' },
               { label: 'Mental wellbeing', icon: '✓' },
               { label: 'Local routes', icon: '✓' },
@@ -1805,7 +1805,7 @@ const WalksNationalHub = ({ onNavigate, session }) => (
           Walks and outdoor wellbeing<br />for carers across the UK
         </h1>
         <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.68)', lineHeight: 1.65, maxWidth: 540, margin: '0 auto' }}>
-          Discover accessible walks, nature routes, coastal paths and restorative outdoor spaces in your county.
+          Discover accessible walks, nature routes, parks, trails and restorative outdoor spaces in your county.
         </p>
         <div style={{ display: 'flex', gap: 18, justifyContent: 'center', flexWrap: 'wrap', fontSize: 13, color: 'rgba(255,255,255,0.52)', fontWeight: 600, marginTop: 28 }}>
           {['Accessible routes', 'Nature spaces', 'Carer-friendly trails'].map(t => (
@@ -1852,7 +1852,7 @@ const WalksNationalHub = ({ onNavigate, session }) => (
           })}
         </div>
         <p style={{ textAlign: 'center', fontSize: 14, color: 'rgba(26,39,68,0.50)', marginTop: 24, lineHeight: 1.6, maxWidth: 560, margin: '24px auto 0' }}>
-          Explore accessible routes, coastal paths and outdoor spaces. Choose your county above to find walks near you.
+          Explore accessible routes, parks, trails and green spaces. Choose your county above to find walks near you.
         </p>
       </div>
     </section>
@@ -1866,7 +1866,7 @@ const WalksNationalHub = ({ onNavigate, session }) => (
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 18 }}>
           {[
-            { title: 'Coastal routes',    body: 'Accessible cliff paths and coastal walks with sea views across the county.' },
+            { title: 'Local routes',      body: 'Accessible outdoor routes, trails and paths to explore in your local area.' },
             { title: 'Accessible walks',  body: 'Flat trails, boardwalks and routes suitable for all abilities and mobility levels.' },
             { title: 'Nature spaces',     body: 'Woodland trails, nature reserves and restorative green spaces to explore at your own pace.' },
           ].map(({ title, body }) => (
