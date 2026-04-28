@@ -311,8 +311,8 @@ const EventsPage = ({ onNavigate, session, county }) => {
           <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 0.9fr', gap: 28, alignItems: 'end' }}>
             <div>
               <div className="eyebrow" style={{ color: '#2D9CDB' }}>Events</div>
-              <h1 style={{ marginTop: 10, fontSize: 'clamp(34px, 4vw, 56px)', letterSpacing: '-0.03em', fontWeight: 800 }}>Events, groups, walks, and wellbeing sessions.</h1>
-              <p style={{ marginTop: 14, fontSize: 17, color: 'rgba(26,39,68,0.7)', maxWidth: 680 }}>Discover upcoming sessions from local organisations and send a booking or contact request in one step.</p>
+              <h1 style={{ marginTop: 10, fontSize: 'clamp(34px, 4vw, 56px)', letterSpacing: '-0.03em', fontWeight: 800 }}>Events and community sessions</h1>
+              <p style={{ marginTop: 14, fontSize: 17, color: 'rgba(26,39,68,0.7)', maxWidth: 680 }}>Discover upcoming local events, workshops, meetups and support sessions from organisations in your area.</p>
             </div>
             <div className="card" style={{ padding: 18, borderRadius: 22 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 13px', borderRadius: 14, background: '#FAFBFF', border: '1px solid #EFF1F7' }}>
