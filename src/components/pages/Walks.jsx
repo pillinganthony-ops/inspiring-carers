@@ -444,7 +444,18 @@ const WalkMapView = ({ walks: mapWalks, onSelectWalk, isVisible = true }) => {
   );
 };
 
+// County metadata — add isCoastal: true to any county that has meaningful coastal routes.
+// Used only for copy; does not affect routing, data or layout.
+const WALK_COUNTY_META = {
+  cornwall: { isCoastal: true },
+  devon:    { isCoastal: true },
+  somerset: { isCoastal: true },
+  bristol:  { isCoastal: false },
+};
+
 const WalksCountyPage = ({ onNavigate, session, county }) => {
+  const isCoastalCounty = WALK_COUNTY_META[county]?.isCoastal === true;
+
   const [query, setQuery] = React.useState('');
   const [area, setArea] = React.useState('');
   const [difficulty, setDifficulty] = React.useState('Any');
@@ -619,16 +630,18 @@ const WalksCountyPage = ({ onNavigate, session, county }) => {
 
           {/* Subtext */}
           <p style={{ fontSize: 18, lineHeight: 1.72, color: 'rgba(255,255,255,0.8)', maxWidth: 580, fontWeight: 500, marginBottom: 28, fontFamily: 'Inter, sans-serif' }}>
-            Find accessible walks, nature routes, parks, trails and green spaces to explore.
+            {isCoastalCounty
+              ? 'Find accessible walks, nature routes, coastal paths and wellbeing-friendly places to explore.'
+              : 'Find accessible walks, nature routes, parks, trails and green spaces to explore.'}
           </p>
 
           {/* Trust chips */}
           <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', marginBottom: 32 }}>
             {[
-              { label: 'Local routes', icon: '✓' },
+              { label: isCoastalCounty ? 'Coastal routes' : 'Local routes', icon: '✓' },
               { label: 'Accessible options', icon: '✓' },
               { label: 'Mental wellbeing', icon: '✓' },
-              { label: 'Local routes', icon: '✓' },
+              { label: 'Nature spaces', icon: '✓' },
             ].map(({ label, icon }) => (
               <span key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 999, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.18)', fontSize: 13.5, fontWeight: 700, color: 'rgba(255,255,255,0.9)' }}>
                 <span style={{ color: '#5BC94A', fontWeight: 900 }}>{icon}</span> {label}
