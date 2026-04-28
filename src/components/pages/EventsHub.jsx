@@ -88,6 +88,9 @@ const EventsHubPage = ({ onNavigate, session }) => (
             );
           })}
         </div>
+        <p style={{ textAlign: 'center', fontSize: 13.5, color: 'rgba(26,39,68,0.50)', marginTop: 20, lineHeight: 1.6, maxWidth: 560, margin: '20px auto 0' }}>
+          Find local sessions, workshops and community activities. Choose your county above to explore what's on near you.
+        </p>
       </div>
     </section>
 

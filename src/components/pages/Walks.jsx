@@ -1807,6 +1807,13 @@ const WalksNationalHub = ({ onNavigate, session }) => (
         <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.68)', lineHeight: 1.65, maxWidth: 540, margin: '0 auto' }}>
           Discover accessible walks, nature routes, coastal paths and restorative outdoor spaces in your county.
         </p>
+        <div style={{ display: 'flex', gap: 18, justifyContent: 'center', flexWrap: 'wrap', fontSize: 13, color: 'rgba(255,255,255,0.52)', fontWeight: 600, marginTop: 28 }}>
+          {['Accessible routes', 'Nature spaces', 'Carer-friendly trails'].map(t => (
+            <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ width: 5, height: 5, borderRadius: 999, background: '#10B981', flexShrink: 0 }} />{t}
+            </span>
+          ))}
+        </div>
       </div>
     </section>
 
@@ -1845,6 +1852,9 @@ const WalksNationalHub = ({ onNavigate, session }) => (
             );
           })}
         </div>
+        <p style={{ textAlign: 'center', fontSize: 13.5, color: 'rgba(26,39,68,0.50)', marginTop: 20, lineHeight: 1.6, maxWidth: 560, margin: '20px auto 0' }}>
+          Explore accessible routes, coastal paths and outdoor spaces. Choose your county above to find walks near you.
+        </p>
       </div>
     </section>
 

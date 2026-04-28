@@ -603,7 +603,6 @@ const PTV_COUNTY_CARDS = [
 const PlacesToVisitNationalHub = ({ onNavigate, session }) => (
   <>
     <Nav activePage="places-to-visit" onNavigate={onNavigate} session={session} />
-    <CountyBanner county={null} isFallback={true} onChangeCounty={(c) => onNavigate('places-to-visit', c)} />
 
     {/* Hero */}
     <section style={{ background: 'linear-gradient(150deg, #1A0C35 0%, #2C1452 50%, #341A60 100%)', paddingTop: 64, paddingBottom: 64, position: 'relative', overflow: 'hidden' }}>
@@ -619,6 +618,13 @@ const PlacesToVisitNationalHub = ({ onNavigate, session }) => (
         <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.68)', lineHeight: 1.65, maxWidth: 540, margin: '0 auto' }}>
           Find accessible attractions, restorative places, family-friendly days out and supportive venues in your local county.
         </p>
+        <div style={{ display: 'flex', gap: 18, justifyContent: 'center', flexWrap: 'wrap', fontSize: 13, color: 'rgba(255,255,255,0.52)', fontWeight: 600, marginTop: 28 }}>
+          {['Family-friendly', 'Carer discounts available', 'Accessible venues'].map(t => (
+            <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ width: 5, height: 5, borderRadius: 999, background: '#10B981', flexShrink: 0 }} />{t}
+            </span>
+          ))}
+        </div>
       </div>
     </section>
 
@@ -657,6 +663,9 @@ const PlacesToVisitNationalHub = ({ onNavigate, session }) => (
             );
           })}
         </div>
+        <p style={{ textAlign: 'center', fontSize: 13.5, color: 'rgba(26,39,68,0.50)', marginTop: 20, lineHeight: 1.6, maxWidth: 560, margin: '20px auto 0' }}>
+          Find carer-friendly days out, attractions and venues. Choose your county above to discover local places.
+        </p>
       </div>
     </section>
 
