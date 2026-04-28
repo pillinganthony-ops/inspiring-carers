@@ -10,6 +10,7 @@ import Nav from '../Nav.jsx';
 import Footer from '../Footer.jsx';
 import Icons from '../Icons.jsx';
 import CountyBanner from '../CountyBanner.jsx';
+import CountyInterestModal from '../CountyInterestModal.jsx';
 import supabase, { isSupabaseConfigured } from '../../lib/supabaseClient.js';
 import {
   Crown, MapPin as LMapPin, Ticket, Gift, Coffee, HeartHandshake,
@@ -1337,65 +1338,146 @@ const ActivitiesNationalHub = ({ onNavigate, session }) => (
           National hub
         </div>
         <h1 style={{ fontSize: 'clamp(28px, 4.5vw, 48px)', fontWeight: 800, color: '#FFFFFF', marginBottom: 16, letterSpacing: '-0.03em', lineHeight: 1.1, textWrap: 'balance' }}>
-          Activities for carers<br />across the UK
+          Everything to do<br />for carers across the UK
         </h1>
         <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.68)', lineHeight: 1.65, maxWidth: 540, margin: '0 auto' }}>
-          Find events, walks, groups, wellbeing activities and carer-friendly things to do in your local county.
+          Events, walks, wellbeing spaces and days out — all in one place. Find what's happening in your county.
         </p>
+        <div style={{ display: 'flex', gap: 18, justifyContent: 'center', flexWrap: 'wrap', fontSize: 13, color: 'rgba(255,255,255,0.52)', fontWeight: 600, marginTop: 28 }}>
+          {['Events & sessions', 'Outdoor walks', 'Wellbeing places', 'Days out'].map(t => (
+            <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ width: 5, height: 5, borderRadius: 999, background: '#10B981', flexShrink: 0 }} />{t}
+            </span>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    {/* Explore activity types */}
+    <section style={{ paddingTop: 60, paddingBottom: 60, background: '#FFFFFF' }}>
+      <div className="container">
+        <div style={{ textAlign: 'center', marginBottom: 36 }}>
+          <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#5BC94A', marginBottom: 10 }}>Browse by type</div>
+          <h2 style={{ fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 800, color: '#1A2744', margin: 0, letterSpacing: '-0.02em' }}>Explore activity types</h2>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+          {[
+            { label: 'Events',          sub: 'Workshops, sessions and community meetups',    accent: '#2D9CDB', bg: 'rgba(45,156,219,0.08)',  page: 'events'          },
+            { label: 'Walks',           sub: 'Accessible routes, trails and outdoor spaces', accent: '#5BC94A', bg: 'rgba(91,201,74,0.08)',   page: 'walks'           },
+            { label: 'Places to Visit', sub: 'Days out, attractions and carer-friendly venues', accent: '#7B5CF5', bg: 'rgba(123,92,245,0.08)', page: 'places-to-visit' },
+            { label: 'Wellbeing',       sub: 'Calm spaces, support venues and restorative places', accent: '#0D9488', bg: 'rgba(13,148,136,0.08)', page: 'wellbeing' },
+          ].map(({ label, sub, accent, bg, page }) => (
+            <button
+              key={label}
+              onClick={() => onNavigate(page)}
+              style={{ padding: '28px 26px', borderRadius: 20, borderTop: `4px solid ${accent}`, background: '#FFFFFF', boxShadow: '0 2px 10px rgba(26,39,68,0.06)', textAlign: 'left', border: 'none', cursor: 'pointer', transition: 'transform .15s, box-shadow .15s', display: 'flex', flexDirection: 'column', gap: 0 }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = `0 12px 32px ${accent}22`; e.currentTarget.style.borderTop = `4px solid ${accent}`; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 2px 10px rgba(26,39,68,0.06)'; }}
+            >
+              <div style={{ width: 44, height: 44, borderRadius: 13, background: bg, marginBottom: 16 }} />
+              <div style={{ fontSize: 16.5, fontWeight: 800, color: '#1A2744', marginBottom: 8 }}>{label}</div>
+              <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.58)', lineHeight: 1.65, margin: '0 0 16px', flex: 1 }}>{sub}</p>
+              <span style={{ fontSize: 13, fontWeight: 700, color: accent }}>Explore {label} →</span>
+            </button>
+          ))}
+        </div>
       </div>
     </section>
 
     {/* County cards */}
-    <section style={{ paddingTop: 56, paddingBottom: 56, background: '#FAFBFF' }}>
-      <div className="container" style={{ maxWidth: 820, margin: '0 auto' }}>
-        <div style={{ textAlign: 'center', marginBottom: 36 }}>
+    <section style={{ paddingTop: 60, paddingBottom: 60, background: '#FAFBFF' }}>
+      <div className="container">
+        <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#5BC94A', marginBottom: 10 }}>Select your county</div>
-          <h2 style={{ fontSize: 'clamp(20px, 2.8vw, 28px)', fontWeight: 800, color: '#1A2744', margin: 0, letterSpacing: '-0.02em' }}>
+          <h2 style={{ fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 800, color: '#1A2744', margin: 0, letterSpacing: '-0.02em' }}>
             Choose your area to find local activities
           </h2>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 16, maxWidth: 960, margin: '0 auto' }}>
           {ACT_COUNTY_CARDS.map(c => {
             const isLive = c.status === 'live';
-            const isLaunching = c.status === 'launching';
             return (
-              <div key={c.key} className="card" style={{ padding: '22px 20px', borderRadius: 18, borderLeft: `3px solid ${c.accent}`, opacity: isLive || isLaunching ? 1 : 0.70 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 14 }}>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: '#1A2744' }}>{c.label}</div>
-                  <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: c.badgeBg, color: c.badgeColor, whiteSpace: 'nowrap' }}>{c.badge}</span>
+              <div key={c.key} className="card" style={{ padding: '28px 24px', borderRadius: 20, borderLeft: `4px solid ${c.accent}`, display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 16 }}>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: '#1A2744' }}>{c.label}</div>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: c.badgeBg, color: c.badgeColor, whiteSpace: 'nowrap' }}>{c.badge}</span>
                 </div>
                 {isLive ? (
                   <button
                     onClick={() => onNavigate('activities', c.key)}
-                    style={{ width: '100%', padding: '9px 0', borderRadius: 10, background: '#16A34A', color: 'white', fontWeight: 700, fontSize: 13.5, border: 'none', cursor: 'pointer', transition: 'opacity .13s' }}
+                    style={{ width: '100%', padding: '11px 0', borderRadius: 11, background: '#16A34A', color: 'white', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer', transition: 'opacity .13s', marginTop: 'auto' }}
                     onMouseEnter={e => { e.currentTarget.style.opacity = '0.85'; }}
                     onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
                   >
                     Choose {c.label}
                   </button>
                 ) : (
-                  <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.45)', fontStyle: 'italic', marginTop: 4 }}>
-                    {isLaunching ? 'Launching soon — register interest below.' : 'Being prepared. Register interest below.'}
-                  </div>
+                  <CountyInterestModal county={c.key} label={c.label} sourcePage="activities" />
                 )}
               </div>
             );
           })}
         </div>
+        <p style={{ textAlign: 'center', fontSize: 14, color: 'rgba(26,39,68,0.50)', marginTop: 24, lineHeight: 1.6, maxWidth: 560, margin: '24px auto 0' }}>
+          Discover events, walks and wellbeing places. Choose your county above to explore what's available near you.
+        </p>
       </div>
     </section>
 
-    {/* CTA section */}
+    {/* How it works */}
+    <section style={{ paddingTop: 60, paddingBottom: 60, background: '#F7F9FC' }}>
+      <div className="container">
+        <div style={{ textAlign: 'center', marginBottom: 40 }}>
+          <h2 style={{ fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 800, color: '#1A2744', margin: 0, letterSpacing: '-0.02em' }}>How it works</h2>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
+          {[
+            { n: '1', title: 'Choose the type of activity', body: 'Pick from events, walks, wellbeing places or days out — whatever fits your needs today.' },
+            { n: '2', title: 'Pick your county',            body: 'Select your area to see what\'s available near you from local organisations and venues.' },
+            { n: '3', title: 'Explore or register interest', body: 'Cornwall is live now. Devon and Somerset are coming soon — register interest to be first to know.' },
+          ].map(({ n, title, body }) => (
+            <div key={n} style={{ display: 'flex', gap: 18, alignItems: 'flex-start', padding: '24px 22px', background: '#FFFFFF', borderRadius: 18, boxShadow: '0 2px 12px rgba(26,39,68,0.06)' }}>
+              <div style={{ width: 48, height: 48, borderRadius: 14, background: '#16A34A', color: 'white', fontWeight: 800, fontSize: 18, display: 'grid', placeItems: 'center', flexShrink: 0 }}>{n}</div>
+              <div>
+                <h3 style={{ fontSize: 15.5, fontWeight: 800, color: '#1A2744', margin: '0 0 7px', lineHeight: 1.2 }}>{title}</h3>
+                <p style={{ fontSize: 14, color: 'rgba(26,39,68,0.58)', lineHeight: 1.65, margin: 0 }}>{body}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    {/* For organisations */}
+    <section style={{ paddingTop: 60, paddingBottom: 60, background: '#FFFFFF' }}>
+      <div className="container">
+        <div style={{ padding: '36px 40px', borderRadius: 24, background: 'rgba(91,201,74,0.05)', border: '1px solid rgba(91,201,74,0.20)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 24 }}>
+          <div style={{ flex: 1, minWidth: 260 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#16A34A', marginBottom: 8 }}>For organisations</div>
+            <h3 style={{ fontSize: 24, fontWeight: 800, color: '#1A2744', margin: '0 0 10px', lineHeight: 1.15 }}>Add activities, events and venues</h3>
+            <p style={{ fontSize: 15, color: 'rgba(26,39,68,0.60)', margin: 0, lineHeight: 1.6 }}>
+              Submit events, walks, wellbeing places or carer-friendly venues. Organisations, community groups and businesses can all get involved.
+            </p>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, flexShrink: 0 }}>
+            <button onClick={() => onNavigate('advertise')} style={{ padding: '13px 26px', borderRadius: 11, background: '#16A34A', color: 'white', fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>Get involved</button>
+            <button onClick={() => onNavigate('offer-a-discount')} style={{ padding: '12px 22px', borderRadius: 11, background: 'transparent', border: '1.5px solid rgba(91,201,74,0.38)', color: '#16A34A', fontWeight: 700, fontSize: 15, cursor: 'pointer', whiteSpace: 'nowrap' }}>Offer a discount</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {/* Navy CTA strip */}
     <section style={{ paddingBottom: 64, background: '#FAFBFF' }}>
-      <div className="container" style={{ maxWidth: 820, margin: '0 auto' }}>
+      <div className="container">
         <div style={{ padding: '28px 32px', borderRadius: 22, background: 'linear-gradient(135deg, #1A2744 0%, #2D3E6B 100%)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 20 }}>
           <div style={{ flex: 1, minWidth: 220 }}>
-            <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(255,255,255,0.42)', marginBottom: 7 }}>Get involved</div>
+            <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(255,255,255,0.42)', marginBottom: 7 }}>Get started</div>
             <h3 style={{ fontSize: 19, fontWeight: 800, color: '#FFFFFF', margin: '0 0 7px', lineHeight: 1.2 }}>
-              Add an activity or sponsor this category
+              Start exploring in Cornwall
             </h3>
             <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.58)', margin: 0, lineHeight: 1.55 }}>
-              Submit an activity, become a county activities sponsor, or offer a discount to carers near you.
+              Cornwall is live now with events, walks, wellbeing places and days out.
             </p>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9, flexShrink: 0 }}>
@@ -1411,12 +1493,6 @@ const ActivitiesNationalHub = ({ onNavigate, session }) => (
               style={{ padding: '9px 18px', borderRadius: 10, background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}
             >
               Submit an activity
-            </button>
-            <button
-              onClick={() => onNavigate('advertise')}
-              style={{ padding: '9px 18px', borderRadius: 10, background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}
-            >
-              Sponsor this category
             </button>
           </div>
         </div>
