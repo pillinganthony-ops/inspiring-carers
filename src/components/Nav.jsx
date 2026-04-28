@@ -121,8 +121,8 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp,
 
   const primaryNavItems = [
     { key: 'find-help',  label: 'Find help',  accent: '#2D9CDB' },
-    { key: 'training',   label: 'Training',    accent: '#7B5CF5' },
     { key: 'events',     label: 'Events',      accent: '#2D9CDB' },
+    { key: 'training',   label: 'Training',    accent: '#7B5CF5' },
     { key: 'for-you',    label: 'For you',     accent: '#F5A623' },
   ];
 
