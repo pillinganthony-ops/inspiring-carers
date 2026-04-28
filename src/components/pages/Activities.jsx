@@ -15,6 +15,7 @@ import supabase, { isSupabaseConfigured } from '../../lib/supabaseClient.js';
 import {
   Crown, MapPin as LMapPin, Ticket, Gift, Coffee, HeartHandshake,
   Waves, Accessibility, HeartPulse, TicketPercent, Tag, Trophy, Users as LUsers,
+  Palmtree, Landmark, Leaf, Footprints, Heart,
 } from 'lucide-react';
 
 const { IWalks, IGroups, IWellbeing, IArrow, ISparkle, ISearch, IPin } = Icons;
@@ -576,13 +577,16 @@ const CAT_ACCENT_LISTING = {
   'Walks':       '#5BC94A',
 };
 
-// Premium category icon + gradient badge system.
+// Premium category icon system — vector icons from lucide-react.
 // Extend by adding/updating entries here — no other changes needed.
-const CAT_ICON = {
-  'Days Out':    '🎡',
-  'Attractions': '🏛️',
-  'Wellbeing':   '🧘',
-  'Walks':       '🥾',
+const CATEGORY_ICON_COMPONENTS = {
+  'Days Out':    Palmtree,
+  'Attractions': Landmark,
+  'Wellbeing':   Leaf,
+  'Walks':       Footprints,
+  'Food':        Coffee,
+  'Community':   LUsers,
+  'Family':      Heart,
 };
 const CAT_BADGE_BG = {
   'Days Out':    'linear-gradient(135deg, rgba(245,166,35,0.18), rgba(245,166,35,0.07))',
@@ -615,9 +619,9 @@ const tagPill = (color) => ({
 });
 
 const ActivityListCard = ({ venue, onViewProfile }) => {
-  const accent  = CAT_ACCENT_LISTING[venue.category] || '#7B5CF5';
-  const icon    = CAT_ICON[venue.category]    || '📍';
-  const badgeBg = CAT_BADGE_BG[venue.category] || `linear-gradient(135deg, rgba(123,92,245,0.18), rgba(123,92,245,0.07))`;
+  const accent       = CAT_ACCENT_LISTING[venue.category] || '#7B5CF5';
+  const CategoryIcon = CATEGORY_ICON_COMPONENTS[venue.category] || LMapPin;
+  const badgeBg      = CAT_BADGE_BG[venue.category] || `linear-gradient(135deg, rgba(123,92,245,0.18), rgba(123,92,245,0.07))`;
 
   const tags = [];
   if (venue.free_or_paid)      tags.push({ label: venue.free_or_paid,  color: venue.free_or_paid === 'Free' ? '#0D7A55' : '#1A2744' });
@@ -649,8 +653,8 @@ const ActivityListCard = ({ venue, onViewProfile }) => {
       <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', flex: 1, gap: 10 }}>
         {/* Premium icon badge + category row */}
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-          <div style={{ width: 48, height: 48, borderRadius: 14, background: badgeBg, border: `1px solid ${accent}22`, display: 'grid', placeItems: 'center', fontSize: 24, flexShrink: 0, boxShadow: `0 3px 10px ${accent}18` }}>
-            {icon}
+          <div style={{ width: 48, height: 48, borderRadius: 14, background: badgeBg, border: `1px solid ${accent}22`, display: 'grid', placeItems: 'center', flexShrink: 0, boxShadow: `0 3px 10px ${accent}18` }}>
+            <CategoryIcon size={22} color={accent} strokeWidth={2.2} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: accent, marginBottom: 3 }}>
