@@ -8,6 +8,7 @@ import CountyBanner from '../CountyBanner.jsx';
 import LogoLockup from '../Logo.jsx';
 import supabase, { isSupabaseConfigured } from '../../lib/supabaseClient.js';
 import ReferralModal from '../ReferralModal.jsx';
+import SponsorCTA from '../SponsorCTA.jsx';
 
 const BloomMark = ({ size = 32 }) => (
   <svg width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden="true">
@@ -3609,43 +3610,12 @@ const FindHelpNationalHub = ({ onNavigate, session }) => (
       </div>
     </section>
 
-    {/* CTA section */}
-    <section style={{ paddingBottom: 64, background: '#FAFBFF' }}>
-      <div className="container" style={{ maxWidth: 820, margin: '0 auto' }}>
-        <div style={{ padding: '28px 32px', borderRadius: 22, background: 'linear-gradient(135deg, #1A2744 0%, #2D3E6B 100%)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 20 }}>
-          <div style={{ flex: 1, minWidth: 220 }}>
-            <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(255,255,255,0.42)', marginBottom: 7 }}>Get involved</div>
-            <h3 style={{ fontSize: 19, fontWeight: 800, color: '#FFFFFF', margin: '0 0 7px', lineHeight: 1.2 }}>
-              Add your organisation or offer a discount
-            </h3>
-            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.58)', margin: 0, lineHeight: 1.55 }}>
-              Register your organisation, submit a listing or offer a discount to carers in your county.
-            </p>
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9, flexShrink: 0 }}>
-            <button
-              onClick={() => onNavigate('find-help', 'cornwall')}
-              className="btn btn-gold"
-              style={{ fontWeight: 800, fontSize: 14, padding: '10px 20px', whiteSpace: 'nowrap' }}
-            >
-              Choose Cornwall
-            </button>
-            <button
-              onClick={() => onNavigate('profile')}
-              style={{ padding: '9px 18px', borderRadius: 10, background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}
-            >
-              Submit organisation
-            </button>
-            <button
-              onClick={() => onNavigate('offer-a-discount')}
-              style={{ padding: '9px 18px', borderRadius: 10, background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}
-            >
-              Offer a discount
-            </button>
-          </div>
-        </div>
-      </div>
-    </section>
+    <SponsorCTA
+      accent="#2D9CDB"
+      title="Reach carers looking for support"
+      body="List your organisation, submit a service or offer a discount to carers in your area. Free to submit, verified by the Inspiring Carers team."
+      onNavigate={onNavigate}
+    />
 
     <Footer onNavigate={onNavigate} />
   </>

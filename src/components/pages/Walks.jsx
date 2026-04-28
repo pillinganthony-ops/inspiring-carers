@@ -5,6 +5,7 @@ import Nav from '../Nav.jsx';
 import Footer from '../Footer.jsx';
 import CountyBanner from '../CountyBanner.jsx';
 import CountyInterestModal from '../CountyInterestModal.jsx';
+import SponsorCTA from '../SponsorCTA.jsx';
 import CountyCategoryNav from '../CountyCategoryNav.jsx';
 import walks from '../../data/walks.json';
 import { RiskAssessmentDisclaimer, WalkRiskSummary, SubmitRiskUpdateModal, downloadRiskAssessmentPDF } from '../WalkRiskAssessment.jsx';
@@ -1944,62 +1945,12 @@ const WalksNationalHub = ({ onNavigate, session }) => (
       </div>
     </section>
 
-    {/* For organisations */}
-    <section style={{ paddingTop: 60, paddingBottom: 60, background: '#FFFFFF' }}>
-      <div className="container">
-        <div style={{ padding: '36px 40px', borderRadius: 24, background: 'rgba(91,201,74,0.05)', border: '1px solid rgba(91,201,74,0.22)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 24 }}>
-          <div style={{ flex: 1, minWidth: 260 }}>
-            <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#16A34A', marginBottom: 8 }}>For organisations</div>
-            <h3 style={{ fontSize: 24, fontWeight: 800, color: '#1A2744', margin: '0 0 10px', lineHeight: 1.15 }}>Support carers getting outdoors</h3>
-            <p style={{ fontSize: 15, color: 'rgba(26,39,68,0.60)', margin: 0, lineHeight: 1.6 }}>
-              Submit walk routes, add outdoor venues or sponsor walks in your county. Help carers access nature and open spaces.
-            </p>
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, flexShrink: 0 }}>
-            <button onClick={() => onNavigate('profile')} style={{ padding: '13px 26px', borderRadius: 11, background: '#16A34A', color: 'white', fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>Get involved</button>
-            <button onClick={() => onNavigate('advertise')} style={{ padding: '12px 22px', borderRadius: 11, background: 'transparent', border: '1.5px solid rgba(91,201,74,0.38)', color: '#16A34A', fontWeight: 700, fontSize: 15, cursor: 'pointer', whiteSpace: 'nowrap' }}>Sponsor this page</button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    {/* CTA section */}
-    <section style={{ paddingBottom: 64, background: '#FAFBFF' }}>
-      <div className="container">
-        <div style={{ padding: '28px 32px', borderRadius: 22, background: 'linear-gradient(135deg, #1A2744 0%, #2D3E6B 100%)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 20 }}>
-          <div style={{ flex: 1, minWidth: 220 }}>
-            <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(255,255,255,0.42)', marginBottom: 7 }}>Get involved</div>
-            <h3 style={{ fontSize: 19, fontWeight: 800, color: '#FFFFFF', margin: '0 0 7px', lineHeight: 1.2 }}>
-              Add routes or sponsor this category
-            </h3>
-            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.58)', margin: 0, lineHeight: 1.55 }}>
-              Register your county, submit walk routes, or become a founding walks sponsor.
-            </p>
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9, flexShrink: 0 }}>
-            <button
-              onClick={() => onNavigate('walks', 'cornwall')}
-              className="btn btn-gold"
-              style={{ fontWeight: 800, fontSize: 14, padding: '10px 20px', whiteSpace: 'nowrap' }}
-            >
-              Choose Cornwall
-            </button>
-            <button
-              onClick={() => onNavigate('profile')}
-              style={{ padding: '9px 18px', borderRadius: 10, background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}
-            >
-              Register your county
-            </button>
-            <button
-              onClick={() => onNavigate('advertise')}
-              style={{ padding: '9px 18px', borderRadius: 10, background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}
-            >
-              Sponsor this category
-            </button>
-          </div>
-        </div>
-      </div>
-    </section>
+    <SponsorCTA
+      accent="#5BC94A"
+      title="Support carers getting outdoors"
+      body="Submit walk routes, add outdoor venues or sponsor walks in your county. Help carers access nature and open spaces."
+      onNavigate={onNavigate}
+    />
 
     <Footer onNavigate={onNavigate} />
   </>

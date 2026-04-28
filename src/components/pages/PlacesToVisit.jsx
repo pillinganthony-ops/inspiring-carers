@@ -12,6 +12,7 @@ import ClaimModal from '../ClaimModal.jsx';
 import VenueProfile from './VenueProfile.jsx';
 import CountyBanner from '../CountyBanner.jsx';
 import CountyInterestModal from '../CountyInterestModal.jsx';
+import SponsorCTA from '../SponsorCTA.jsx';
 import CountyCategoryNav from '../CountyCategoryNav.jsx';
 import { Compass, Building2, MapPin as LMapPin } from 'lucide-react';
 
@@ -818,62 +819,12 @@ const PlacesToVisitNationalHub = ({ onNavigate, session }) => (
       </div>
     </section>
 
-    {/* For organisations */}
-    <section style={{ paddingTop: 60, paddingBottom: 60, background: '#FFFFFF' }}>
-      <div className="container">
-        <div style={{ padding: '36px 40px', borderRadius: 24, background: 'rgba(123,92,245,0.05)', border: '1px solid rgba(123,92,245,0.18)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 24 }}>
-          <div style={{ flex: 1, minWidth: 260 }}>
-            <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#7B5CF5', marginBottom: 8 }}>For organisations</div>
-            <h3 style={{ fontSize: 24, fontWeight: 800, color: '#1A2744', margin: '0 0 10px', lineHeight: 1.15 }}>Reach carers looking for days out</h3>
-            <p style={{ fontSize: 15, color: 'rgba(26,39,68,0.60)', margin: 0, lineHeight: 1.6 }}>
-              Add your attraction, venue or destination to be found by carers searching for accessible places to visit in your county.
-            </p>
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, flexShrink: 0 }}>
-            <button onClick={() => onNavigate('profile')} style={{ padding: '13px 26px', borderRadius: 11, background: '#7B5CF5', color: 'white', fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>Get involved</button>
-            <button onClick={() => onNavigate('offer-a-discount')} style={{ padding: '12px 22px', borderRadius: 11, background: 'transparent', border: '1.5px solid rgba(123,92,245,0.28)', color: '#7B5CF5', fontWeight: 700, fontSize: 15, cursor: 'pointer', whiteSpace: 'nowrap' }}>Offer a discount</button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    {/* CTA section */}
-    <section style={{ paddingBottom: 64, background: '#FAFBFF' }}>
-      <div className="container">
-        <div style={{ padding: '28px 32px', borderRadius: 22, background: 'linear-gradient(135deg, #1A2744 0%, #2D3E6B 100%)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 20 }}>
-          <div style={{ flex: 1, minWidth: 220 }}>
-            <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(255,255,255,0.42)', marginBottom: 7 }}>Get involved</div>
-            <h3 style={{ fontSize: 19, fontWeight: 800, color: '#FFFFFF', margin: '0 0 7px', lineHeight: 1.2 }}>
-              Join the places to visit network
-            </h3>
-            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.58)', margin: 0, lineHeight: 1.55 }}>
-              Register your county, add a venue or become a founding sponsor of places in your area.
-            </p>
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9, flexShrink: 0 }}>
-            <button
-              onClick={() => onNavigate('places-to-visit', 'cornwall')}
-              className="btn btn-gold"
-              style={{ fontWeight: 800, fontSize: 14, padding: '10px 20px', whiteSpace: 'nowrap' }}
-            >
-              Choose Cornwall
-            </button>
-            <button
-              onClick={() => onNavigate('profile')}
-              style={{ padding: '9px 18px', borderRadius: 10, background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}
-            >
-              Register your county
-            </button>
-            <button
-              onClick={() => onNavigate('advertise')}
-              style={{ padding: '9px 18px', borderRadius: 10, background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}
-            >
-              Sponsor this category
-            </button>
-          </div>
-        </div>
-      </div>
-    </section>
+    <SponsorCTA
+      accent="#7B5CF5"
+      title="Promote days out and accessible venues"
+      body="Add your attraction, venue or destination to be found by carers searching for accessible places to visit in your county."
+      onNavigate={onNavigate}
+    />
 
     <Footer onNavigate={onNavigate} />
   </>

@@ -12,6 +12,7 @@ import {
 import Nav from '../Nav.jsx';
 import Footer from '../Footer.jsx';
 import Icons from '../Icons.jsx';
+import SponsorCTA from '../SponsorCTA.jsx';
 
 const { IArrow, ISparkle } = Icons;
 
@@ -281,53 +282,13 @@ const TrainingPage = ({ onNavigate, session }) => (
       </div>
     </section>
 
-    {/* ── Provider / partner CTA ── */}
-    <section style={{ paddingTop: 64, paddingBottom: 72, background: '#FFFFFF' }}>
-      <div className="container">
-        <div style={{ borderRadius: 28, background: 'linear-gradient(135deg, #1A1245 0%, #1F1652 100%)', padding: '52px 48px', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', right: -60, top: -60, width: 360, height: 360, borderRadius: '50%', background: 'radial-gradient(circle, rgba(123,92,245,0.22) 0%, transparent 65%)', pointerEvents: 'none' }} />
-          <div style={{ position: 'absolute', left: -40, bottom: -40, width: 280, height: 280, borderRadius: '50%', background: 'radial-gradient(circle, rgba(245,166,35,0.12) 0%, transparent 65%)', pointerEvents: 'none' }} />
-
-          <div style={{ position: 'relative', maxWidth: 600 }}>
-            <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.10em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', marginBottom: 10 }}>
-              For training providers
-            </div>
-            <h2 style={{ fontSize: 'clamp(22px, 3vw, 34px)', fontWeight: 800, color: '#FFFFFF', margin: '0 0 14px', lineHeight: 1.2 }}>
-              List your training and reach the people who need it most
-            </h2>
-            <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.62)', lineHeight: 1.65, margin: '0 0 28px', maxWidth: 520 }}>
-              We're inviting training providers, charities, NHS partners, councils and community organisations to list their training opportunities on Inspiring Carers. Reach carers, care workers and employers across the UK.
-            </p>
-
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 28 }}>
-              {['Training providers', 'Charities', 'Councils', 'NHS partners', 'Community organisations'].map((t) => (
-                <span key={t} style={{ fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 999, background: 'rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.78)', border: '1px solid rgba(255,255,255,0.16)' }}>
-                  {t}
-                </span>
-              ))}
-            </div>
-
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              <button
-                className="btn btn-gold"
-                onClick={() => onNavigate('login')}
-                style={{ fontSize: 14, padding: '12px 24px', fontWeight: 800 }}
-              >
-                Express interest <IArrow s={13} />
-              </button>
-              <button
-                onClick={() => onNavigate('find-help')}
-                style={{ padding: '12px 20px', borderRadius: 12, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.85)', fontWeight: 700, fontSize: 14, cursor: 'pointer', transition: 'background .14s' }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.18)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.10)'; }}
-              >
-                Learn more
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
+    <SponsorCTA
+      accent="#7B5CF5"
+      title="Promote training for carers and care teams"
+      body="We invite training providers, charities, NHS partners, councils and community organisations to list their training opportunities on Inspiring Carers."
+      primaryLabel="List your training"
+      onNavigate={onNavigate}
+    />
 
     <Footer onNavigate={onNavigate} />
   </>
