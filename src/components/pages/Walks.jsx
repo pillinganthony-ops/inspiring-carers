@@ -5,6 +5,7 @@ import Nav from '../Nav.jsx';
 import Footer from '../Footer.jsx';
 import CountyBanner from '../CountyBanner.jsx';
 import CountyInterestModal from '../CountyInterestModal.jsx';
+import CountyCategoryNav from '../CountyCategoryNav.jsx';
 import walks from '../../data/walks.json';
 import { RiskAssessmentDisclaimer, WalkRiskSummary, SubmitRiskUpdateModal, downloadRiskAssessmentPDF } from '../WalkRiskAssessment.jsx';
 import supabase, { isSupabaseConfigured } from '../../lib/supabaseClient.js';
@@ -602,6 +603,7 @@ const WalksCountyPage = ({ onNavigate, session, county }) => {
     <>
       <Nav activePage="walks" onNavigate={onNavigate} session={session} />
       <CountyBanner county={county} isFallback={!county} onChangeCounty={(c) => onNavigate('walks', c)} />
+      <CountyCategoryNav county={county} activePage="walks" onNavigate={onNavigate} />
 
       <section style={{ background: 'linear-gradient(160deg, #0F2A1A 0%, #1A3A2A 45%, #1A2744 100%)', paddingTop: 64, paddingBottom: 56, position: 'relative', overflow: 'hidden' }}>
         {/* Decorative orbs */}

@@ -11,6 +11,7 @@ import Footer from '../Footer.jsx';
 import Icons from '../Icons.jsx';
 import CountyBanner from '../CountyBanner.jsx';
 import CountyInterestModal from '../CountyInterestModal.jsx';
+import CountyCategoryNav from '../CountyCategoryNav.jsx';
 import supabase, { isSupabaseConfigured } from '../../lib/supabaseClient.js';
 import {
   Crown, MapPin as LMapPin, Ticket, Gift, Coffee, HeartHandshake,
@@ -1012,6 +1013,7 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
   return (
     <>
       <Nav activePage="activities" onNavigate={onNavigate} session={session} county={county} />
+      <CountyCategoryNav county={county} activePage="activities" onNavigate={onNavigate} />
 
       {/* ── Hero ── */}
       <section style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(150deg, #0C1A35 0%, #162C52 50%, #1A3460 100%)', paddingTop: 28, paddingBottom: 36 }}>

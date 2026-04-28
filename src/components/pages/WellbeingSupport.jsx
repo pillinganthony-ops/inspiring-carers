@@ -12,6 +12,7 @@ import ClaimModal from '../ClaimModal.jsx';
 import VenueProfile from './VenueProfile.jsx';
 import CountyBanner from '../CountyBanner.jsx';
 import CountyInterestModal from '../CountyInterestModal.jsx';
+import CountyCategoryNav from '../CountyCategoryNav.jsx';
 import { Leaf } from 'lucide-react';
 
 const { ISearch, IPin, IArrow, IChevron } = Icons;
@@ -422,6 +423,7 @@ const WellbeingCountyPage = ({ onNavigate, session, county, venueSlug }) => {
         isFallback={!county}
         onChangeCounty={(c) => onNavigate('wellbeing', c)}
       />
+      <CountyCategoryNav county={county} activePage="wellbeing" onNavigate={onNavigate} />
 
       {/* ── Hero — calm deep teal ──────────────────────────────────── */}
       <section style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(150deg, #0A1F25 0%, #0F2E38 50%, #133640 100%)', paddingTop: 48, paddingBottom: 48 }}>

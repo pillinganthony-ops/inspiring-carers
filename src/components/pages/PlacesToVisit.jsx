@@ -12,6 +12,7 @@ import ClaimModal from '../ClaimModal.jsx';
 import VenueProfile from './VenueProfile.jsx';
 import CountyBanner from '../CountyBanner.jsx';
 import CountyInterestModal from '../CountyInterestModal.jsx';
+import CountyCategoryNav from '../CountyCategoryNav.jsx';
 import { Compass, Building2, MapPin as LMapPin } from 'lucide-react';
 
 const { IArrow, ISearch, IPin, IChevron } = Icons;
@@ -440,6 +441,7 @@ const PlacesToVisitCountyPage = ({ onNavigate, session, county, venueSlug }) => 
         isFallback={!county}
         onChangeCounty={(c) => onNavigate('places-to-visit', c)}
       />
+      <CountyCategoryNav county={county} activePage="places-to-visit" onNavigate={onNavigate} />
 
       {/* ── Hero ──────────────────────────────────────────────────────── */}
       <section style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(150deg, #1A0C35 0%, #2C1452 50%, #341A60 100%)', paddingTop: 48, paddingBottom: 48 }}>
