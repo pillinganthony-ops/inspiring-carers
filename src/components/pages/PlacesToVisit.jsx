@@ -669,6 +669,71 @@ const PlacesToVisitNationalHub = ({ onNavigate, session }) => (
       </div>
     </section>
 
+    {/* What you can find */}
+    <section style={{ paddingTop: 56, paddingBottom: 56, background: '#FFFFFF' }}>
+      <div className="container" style={{ maxWidth: 820, margin: '0 auto' }}>
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#7B5CF5', marginBottom: 10 }}>Discover</div>
+          <h2 style={{ fontSize: 'clamp(20px, 2.8vw, 28px)', fontWeight: 800, color: '#1A2744', margin: 0, letterSpacing: '-0.02em' }}>What you can find</h2>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+          {[
+            { title: 'Days out',               body: 'Carer-friendly attractions, parks and destinations the whole family can enjoy together.' },
+            { title: 'Attractions',            body: 'Heritage sites, museums and cultural venues with accessible facilities and carer support.' },
+            { title: 'Carer-friendly venues',  body: 'Places that actively welcome carers with accessible facilities, discounts and special access.' },
+          ].map(({ title, body }) => (
+            <div key={title} className="card" style={{ padding: '24px 22px', borderRadius: 20, borderTop: '3px solid #7B5CF5' }}>
+              <h3 style={{ fontSize: 15.5, fontWeight: 800, color: '#1A2744', margin: '0 0 8px' }}>{title}</h3>
+              <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.58)', lineHeight: 1.65, margin: 0 }}>{body}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    {/* How it works */}
+    <section style={{ paddingTop: 56, paddingBottom: 56, background: '#F7F9FC' }}>
+      <div className="container" style={{ maxWidth: 820, margin: '0 auto' }}>
+        <div style={{ textAlign: 'center', marginBottom: 36 }}>
+          <h2 style={{ fontSize: 'clamp(20px, 2.8vw, 28px)', fontWeight: 800, color: '#1A2744', margin: 0, letterSpacing: '-0.02em' }}>How it works</h2>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 28 }}>
+          {[
+            { n: '1', title: 'Choose your county',        body: 'Select your area above to see accessible attractions and carer-friendly venues near you.' },
+            { n: '2', title: 'Explore trusted places',    body: 'Browse verified days out, attractions and venues that actively welcome carers and families.' },
+            { n: '3', title: 'Register where launching',  body: 'Devon and Somerset are coming soon. Register interest to be first to know when we open.' },
+          ].map(({ n, title, body }) => (
+            <div key={n} style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+              <div style={{ width: 38, height: 38, borderRadius: 12, background: '#7B5CF5', color: 'white', fontWeight: 800, fontSize: 16, display: 'grid', placeItems: 'center', flexShrink: 0 }}>{n}</div>
+              <div>
+                <h3 style={{ fontSize: 15, fontWeight: 800, color: '#1A2744', margin: '0 0 6px', lineHeight: 1.2 }}>{title}</h3>
+                <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.58)', lineHeight: 1.6, margin: 0 }}>{body}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    {/* For organisations */}
+    <section style={{ paddingTop: 56, paddingBottom: 56, background: '#FFFFFF' }}>
+      <div className="container" style={{ maxWidth: 820, margin: '0 auto' }}>
+        <div style={{ padding: '28px 32px', borderRadius: 22, background: 'rgba(123,92,245,0.05)', border: '1px solid rgba(123,92,245,0.18)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 20 }}>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#7B5CF5', marginBottom: 7 }}>For organisations</div>
+            <h3 style={{ fontSize: 19, fontWeight: 800, color: '#1A2744', margin: '0 0 7px', lineHeight: 1.2 }}>Reach carers looking for days out</h3>
+            <p style={{ fontSize: 14, color: 'rgba(26,39,68,0.60)', margin: 0, lineHeight: 1.55 }}>
+              Add your attraction, venue or destination to be found by carers searching for accessible places to visit in your county.
+            </p>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9, flexShrink: 0 }}>
+            <button onClick={() => onNavigate('profile')} style={{ padding: '10px 20px', borderRadius: 10, background: '#7B5CF5', color: 'white', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>Get involved</button>
+            <button onClick={() => onNavigate('offer-a-discount')} style={{ padding: '9px 18px', borderRadius: 10, background: 'transparent', border: '1px solid rgba(123,92,245,0.28)', color: '#7B5CF5', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}>Offer a discount</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     {/* CTA section */}
     <section style={{ paddingBottom: 64, background: '#FAFBFF' }}>
       <div className="container" style={{ maxWidth: 820, margin: '0 auto' }}>
