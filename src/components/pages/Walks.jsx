@@ -461,6 +461,8 @@ const WalksCountyPage = ({ onNavigate, session, county }) => {
     setVisibleCount(24);
   }, [query, area, difficulty, maxDistance, maxDuration, filters]);
 
+  const countyLabel = county ? county.charAt(0).toUpperCase() + county.slice(1) : '';
+
   const difficultyOptions = ['Any', 'Easy', 'Moderate', 'Hard'];
 
   const filteredWalks = React.useMemo(() => validWalks.filter((walk) => {
@@ -595,6 +597,14 @@ const WalksCountyPage = ({ onNavigate, session, county }) => {
         <div style={{ position: 'absolute', left: -100, bottom: -120, width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle at 50% 50%, rgba(45,156,219,0.14), transparent 70%)', filter: 'blur(20px)', pointerEvents: 'none' }} />
 
         <div className="container" style={{ position: 'relative' }}>
+          {/* Breadcrumb */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'rgba(255,255,255,0.45)', fontSize: 13, marginBottom: 20 }}>
+            <button onClick={() => onNavigate('home')} style={{ color: 'inherit', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', fontSize: 'inherit' }}>Home</button>
+            <IChevron s={12} />
+            <button onClick={() => onNavigate('walks', null)} style={{ color: 'inherit', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', fontSize: 'inherit' }}>Walks</button>
+            {countyLabel && <><IChevron s={12} /><span style={{ color: '#FFFFFF', fontWeight: 600 }}>{countyLabel}</span></>}
+          </div>
+
           {/* Eyebrow */}
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 24, background: 'rgba(91,201,74,0.15)', border: '1px solid rgba(91,201,74,0.3)', borderRadius: 999, padding: '6px 16px', fontSize: 12.5, fontWeight: 800, color: '#7FDE6A', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
             <div style={{ width: 6, height: 6, borderRadius: 999, background: '#5BC94A', flexShrink: 0 }} />

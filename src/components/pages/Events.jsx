@@ -265,9 +265,10 @@ const EventsPage = ({ onNavigate, session, county }) => {
     return events.filter((event) => `${event.title} ${event.location || ''} ${event.profile?.display_name || ''}`.toLowerCase().includes(needle));
   }, [events, query]);
 
+  const countyLabel = county ? county.charAt(0).toUpperCase() + county.slice(1) : '';
+
   // Opening-soon: explicit non-Cornwall county with no events yet
   if (!loading && !error && events.length === 0 && county && county !== 'cornwall') {
-    const countyLabel = county.charAt(0).toUpperCase() + county.slice(1);
     return (
       <>
         <Nav activePage="events" onNavigate={onNavigate} session={session} />
@@ -304,9 +305,10 @@ const EventsPage = ({ onNavigate, session, county }) => {
       <section style={{ paddingTop: 46, paddingBottom: 32, background: 'linear-gradient(180deg, #EAF5FF 0%, #FAFBFF 100%)' }}>
         <div className="container">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'rgba(26,39,68,0.5)', fontSize: 13, marginBottom: 16 }}>
-            <button onClick={() => onNavigate('home')} style={{ color: 'inherit' }}>Home</button>
+            <button onClick={() => onNavigate('home')} style={{ color: 'inherit', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', fontSize: 'inherit' }}>Home</button>
             <IChevron s={12} />
-            <span style={{ color: '#1A2744', fontWeight: 600 }}>Events</span>
+            <button onClick={() => onNavigate('events', null)} style={{ color: 'inherit', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', fontSize: 'inherit' }}>Events</button>
+            {countyLabel && <><IChevron s={12} /><span style={{ color: '#1A2744', fontWeight: 600 }}>{countyLabel}</span></>}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 0.9fr', gap: 28, alignItems: 'end' }}>
             <div>

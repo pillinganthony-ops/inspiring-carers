@@ -12,7 +12,7 @@ import ClaimModal from '../ClaimModal.jsx';
 import VenueProfile from './VenueProfile.jsx';
 import CountyBanner from '../CountyBanner.jsx';
 
-const { IArrow, ISearch, IPin } = Icons;
+const { IArrow, ISearch, IPin, IChevron } = Icons;
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -413,6 +413,14 @@ const PlacesToVisitCountyPage = ({ onNavigate, session, county, venueSlug }) => 
         <div style={{ position: 'absolute', bottom: -60, left: '30%', width: 360, height: 360, borderRadius: '50%', background: 'radial-gradient(circle, rgba(245,166,35,0.07) 0%, transparent 65%)', pointerEvents: 'none' }} />
 
         <div className="container" style={{ position: 'relative' }}>
+          {/* Breadcrumb */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'rgba(255,255,255,0.45)', fontSize: 13, marginBottom: 14 }}>
+            <button onClick={() => onNavigate('home')} style={{ color: 'inherit', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', fontSize: 'inherit' }}>Home</button>
+            <IChevron s={12} />
+            <button onClick={() => onNavigate('places-to-visit', null)} style={{ color: 'inherit', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', fontSize: 'inherit' }}>Places to Visit</button>
+            {countyLabel && <><IChevron s={12} /><span style={{ color: '#FFFFFF', fontWeight: 600 }}>{countyLabel}</span></>}
+          </div>
+
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 999, background: 'rgba(123,92,245,0.18)', border: '1px solid rgba(123,92,245,0.30)', fontSize: 11, fontWeight: 800, color: '#B89EF8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
             Places to Visit · {countyLabel}
           </div>
