@@ -512,6 +512,31 @@ const PlacesToVisitCountyPage = ({ onNavigate, session, county, venueSlug }) => 
         </div>
       </div>
 
+      {/* ── Sponsorship strip ─────────────────────────────────────────── */}
+      <div style={{ background: '#FAFBFF', borderBottom: '1px solid #EEF1F7', padding: '14px 0' }}>
+        <div className="container">
+          <div style={{ padding: '20px 24px', borderRadius: 22, background: 'rgba(123,92,245,0.05)', border: '1px solid rgba(123,92,245,0.14)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: '#7B5CF5', marginBottom: 5 }}>County sponsorship</div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#1A2744', marginBottom: 4, lineHeight: 1.28 }}>
+                Become the {countyLabel} days out partner
+              </div>
+              <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.56)', margin: 0, lineHeight: 1.55 }}>
+                Promote accessible attractions, venues and experiences to carers and families across {countyLabel}.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flexShrink: 0 }}>
+              <button onClick={() => onNavigate('advertise')} style={{ padding: '9px 18px', borderRadius: 10, background: '#7B5CF5', color: 'white', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'opacity .13s' }} onMouseEnter={e => { e.currentTarget.style.opacity = '0.88'; }} onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}>
+                Become a sponsor
+              </button>
+              <button onClick={() => onNavigate('offer-a-discount')} style={{ padding: '9px 16px', borderRadius: 10, background: 'transparent', border: '1.5px solid rgba(123,92,245,0.28)', color: '#7B5CF5', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                Offer a discount
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* ── Sticky filter bar ─────────────────────────────────────────── */}
       <section id="ptv-filters" style={{ background: '#FFFFFF', borderBottom: '1px solid #EEF1F7', paddingTop: 12, paddingBottom: 12, position: 'sticky', top: 72, zIndex: 40 }}>
         <div className="container">
@@ -565,29 +590,6 @@ const PlacesToVisitCountyPage = ({ onNavigate, session, county, venueSlug }) => 
       {/* ── Main content ──────────────────────────────────────────────── */}
       <section style={{ paddingTop: 32, paddingBottom: 56, background: '#FAFBFF', minHeight: '50vh' }}>
         <div className="container">
-
-          {/* Sponsorship strip — Cornwall county partner CTA */}
-          <div style={{ marginBottom: 24 }}>
-            <div style={{ padding: '20px 24px', borderRadius: 22, background: 'rgba(123,92,245,0.05)', border: '1px solid rgba(123,92,245,0.14)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-              <div style={{ flex: 1, minWidth: 220 }}>
-                <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: '#7B5CF5', marginBottom: 5 }}>County sponsorship</div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: '#1A2744', marginBottom: 4, lineHeight: 1.28 }}>
-                  Become the {countyLabel} days out partner
-                </div>
-                <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.56)', margin: 0, lineHeight: 1.55 }}>
-                  Promote accessible attractions, venues and experiences to carers and families across {countyLabel}.
-                </p>
-              </div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flexShrink: 0 }}>
-                <button onClick={() => onNavigate('advertise')} style={{ padding: '9px 18px', borderRadius: 10, background: '#7B5CF5', color: 'white', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'opacity .13s' }} onMouseEnter={e => { e.currentTarget.style.opacity = '0.88'; }} onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}>
-                  Become a sponsor
-                </button>
-                <button onClick={() => onNavigate('offer-a-discount')} style={{ padding: '9px 16px', borderRadius: 10, background: 'transparent', border: '1.5px solid rgba(123,92,245,0.28)', color: '#7B5CF5', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                  Offer a discount
-                </button>
-              </div>
-            </div>
-          </div>
 
           {/* Section header */}
           {!loading && !error && venues.length > 0 && (
