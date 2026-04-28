@@ -589,11 +589,21 @@ const CATEGORY_ICON_COMPONENTS = {
   'Family':      Heart,
 };
 const CAT_BADGE_BG = {
-  'Days Out':    'linear-gradient(135deg, rgba(245,166,35,0.18), rgba(245,166,35,0.07))',
-  'Attractions': 'linear-gradient(135deg, rgba(123,92,245,0.18), rgba(123,92,245,0.07))',
-  'Wellbeing':   'linear-gradient(135deg, rgba(13,148,136,0.18), rgba(13,148,136,0.07))',
-  'Walks':       'linear-gradient(135deg, rgba(91,201,74,0.18),  rgba(91,201,74,0.07))',
+  'Days Out':    'linear-gradient(135deg, rgba(245,166,35,0.22), rgba(245,166,35,0.08))',
+  'Attractions': 'linear-gradient(135deg, rgba(123,92,245,0.22), rgba(123,92,245,0.07))',
+  'Wellbeing':   'linear-gradient(135deg, rgba(13,148,136,0.16),  rgba(13,148,136,0.06))',
+  'Walks':       'linear-gradient(135deg, rgba(91,201,74,0.18),   rgba(91,201,74,0.07))',
 };
+
+// Per-category radial overlay — gives the "glass" inner highlight.
+// Subtle tone variation differentiates categories without relying on colour alone.
+const CAT_BADGE_OVERLAY = {
+  'Days Out':    'radial-gradient(circle at 32% 28%, rgba(255,245,210,0.50), transparent 62%)',  // warmer
+  'Attractions': 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.22), transparent 55%)',  // sharper/cooler
+  'Wellbeing':   'radial-gradient(circle at 30% 30%, rgba(230,255,252,0.48), transparent 65%)',  // calmer/lighter
+  'Walks':       'radial-gradient(circle at 35% 32%, rgba(230,255,230,0.32), transparent 68%)',  // organic/softer
+};
+const DEFAULT_BADGE_OVERLAY = 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.30), transparent 60%)';
 
 const LISTING_CATEGORIES = [
   { value: '',            label: 'All activities', color: '#1A2744',  dot: 'rgba(26,39,68,0.35)' },
@@ -619,9 +629,11 @@ const tagPill = (color) => ({
 });
 
 const ActivityListCard = ({ venue, onViewProfile }) => {
+  const [hovered, setHovered] = React.useState(false);
   const accent       = CAT_ACCENT_LISTING[venue.category] || '#7B5CF5';
   const CategoryIcon = CATEGORY_ICON_COMPONENTS[venue.category] || LMapPin;
   const badgeBg      = CAT_BADGE_BG[venue.category] || `linear-gradient(135deg, rgba(123,92,245,0.18), rgba(123,92,245,0.07))`;
+  const overlay      = CAT_BADGE_OVERLAY[venue.category] || DEFAULT_BADGE_OVERLAY;
 
   const tags = [];
   if (venue.free_or_paid)      tags.push({ label: venue.free_or_paid,  color: venue.free_or_paid === 'Free' ? '#0D7A55' : '#1A2744' });
@@ -644,8 +656,8 @@ const ActivityListCard = ({ venue, onViewProfile }) => {
       className="card"
       onClick={() => onViewProfile(venue)}
       style={{ padding: 0, overflow: 'hidden', borderRadius: 22, border: `1px solid ${accent}22`, display: 'flex', flexDirection: 'column', background: '#FFFFFF', cursor: 'pointer', transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.16s ease' }}
-      onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = `0 16px 40px ${accent}22, 0 4px 14px rgba(26,39,68,0.07)`; e.currentTarget.style.borderColor = `${accent}44`; }}
-      onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.borderColor = `${accent}22`; }}
+      onMouseEnter={(e) => { setHovered(true);  e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = `0 16px 40px ${accent}22, 0 4px 14px rgba(26,39,68,0.07)`; e.currentTarget.style.borderColor = `${accent}44`; }}
+      onMouseLeave={(e) => { setHovered(false); e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.borderColor = `${accent}22`; }}
     >
       {/* Accent top strip */}
       <div style={{ height: 4, background: `linear-gradient(90deg, ${accent}, ${accent}66)`, flexShrink: 0 }} />
@@ -653,8 +665,18 @@ const ActivityListCard = ({ venue, onViewProfile }) => {
       <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', flex: 1, gap: 10 }}>
         {/* Premium icon badge + category row */}
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-          <div style={{ width: 48, height: 48, borderRadius: 14, background: badgeBg, border: `1px solid ${accent}22`, display: 'grid', placeItems: 'center', flexShrink: 0, boxShadow: `0 3px 10px ${accent}18` }}>
-            <CategoryIcon size={22} color={accent} strokeWidth={2.2} />
+          <div style={{
+            width: 52, height: 52, borderRadius: 15, flexShrink: 0,
+            background: `${overlay}, ${badgeBg}`,
+            border: `1px solid ${accent}40`,
+            boxShadow: hovered
+              ? `0 10px 24px ${accent}30, inset 0 1px 0 rgba(255,255,255,0.50)`
+              : `0 6px 18px ${accent}18, inset 0 1px 0 rgba(255,255,255,0.40)`,
+            display: 'grid', placeItems: 'center',
+            transform: hovered ? 'translateY(-2px) scale(1.03)' : 'none',
+            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+          }}>
+            <CategoryIcon size={24} color={accent} strokeWidth={2} style={{ opacity: 0.9 }} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: accent, marginBottom: 3 }}>
