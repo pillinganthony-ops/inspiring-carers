@@ -598,7 +598,7 @@ const WalksCountyPage = ({ onNavigate, session, county }) => {
           {/* Eyebrow */}
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 24, background: 'rgba(91,201,74,0.15)', border: '1px solid rgba(91,201,74,0.3)', borderRadius: 999, padding: '6px 16px', fontSize: 12.5, fontWeight: 800, color: '#7FDE6A', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
             <div style={{ width: 6, height: 6, borderRadius: 999, background: '#5BC94A', flexShrink: 0 }} />
-            Walks &amp; Wellbeing
+            Walks
           </div>
 
           {/* Headline */}
