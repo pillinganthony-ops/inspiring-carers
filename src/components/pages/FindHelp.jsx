@@ -7,6 +7,7 @@ import Footer from '../Footer.jsx';
 import CountyBanner from '../CountyBanner.jsx';
 import LogoLockup from '../Logo.jsx';
 import supabase, { isSupabaseConfigured } from '../../lib/supabaseClient.js';
+import ReferralModal from '../ReferralModal.jsx';
 
 const BloomMark = ({ size = 32 }) => (
   <svg width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden="true">
@@ -1501,7 +1502,8 @@ const ListingContactModal = ({ listing, type, onClose, onSuccess }) => {
 const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds, onToggleSave, onOpenResource, onNotify, onNavigate, session }) => {
   const [shareOpen, setShareOpen] = React.useState(false);
   const [mobileShareOpen, setMobileShareOpen] = React.useState(false);
-  const [claimOpen, setClaimOpen] = React.useState(false);
+  const [claimOpen,    setClaimOpen]    = React.useState(false);
+  const [referralOpen, setReferralOpen] = React.useState(false);
   const [contactModal, setContactModal] = React.useState(null); // null | 'message' | 'callback'
   const [claimSuccess, setClaimSuccess] = React.useState(null);
   const [activeEvent, setActiveEvent] = React.useState(null);
@@ -1662,6 +1664,16 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
             >
               <IHeart s={16} /> {saved ? 'Saved' : 'Save'}
             </button>
+            {['trial','active'].includes(`${listing.profile?.entitlement_status || ''}`.toLowerCase()) &&
+              listing.profile?.referrals_enabled === true && (
+              <button
+                onClick={() => setReferralOpen(true)}
+                className="btn btn-ghost btn-sm"
+                style={{ gap: 8, color: '#7B5CF5', borderColor: 'rgba(123,92,245,0.28)', background: 'rgba(123,92,245,0.06)' }}
+              >
+                Make a referral
+              </button>
+            )}
           </div>
         )}
 
@@ -2029,6 +2041,16 @@ const ResourceDetail = ({ listing, onBack, onShareAction, allResources, savedIds
               ? 'Callback request sent — the team will follow up shortly.'
               : 'Message sent — the team will pass it on to the organisation.');
           }}
+        />
+      )}
+
+      {/* Referral modal */}
+      {referralOpen && (
+        <ReferralModal
+          resourceId={listing?.id}
+          orgProfileId={listing?.profile?.id}
+          orgName={listing?.profile?.organisation_name || listing?.title || ''}
+          onClose={() => setReferralOpen(false)}
         />
       )}
 

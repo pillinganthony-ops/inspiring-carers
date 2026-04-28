@@ -10,6 +10,7 @@ import Nav from '../Nav.jsx';
 import Footer from '../Footer.jsx';
 import Icons from '../Icons.jsx';
 import ClaimModal from '../ClaimModal.jsx';
+import ReferralModal from '../ReferralModal.jsx';
 import {
   Route, Mountain, Leaf, Landmark, Waves, Castle, Train,
   Theater, Palette, Sailboat, Building2, TreePine,
@@ -206,10 +207,12 @@ const VenueProfile = ({ slug, county, backPage, onNavigate, session }) => {
   const heroGrad  = PAGE_HERO[backPage]    || PAGE_HERO['places-to-visit'];
   const backLabel = BACK_LABELS[backPage]  || 'Back';
 
-  const [venue,     setVenue]     = React.useState(null);
-  const [loading,   setLoading]   = React.useState(true);
-  const [error,     setError]     = React.useState(null);
-  const [claimOpen, setClaimOpen] = React.useState(false);
+  const [venue,        setVenue]        = React.useState(null);
+  const [orgProfile,   setOrgProfile]   = React.useState(null);
+  const [loading,      setLoading]      = React.useState(true);
+  const [error,        setError]        = React.useState(null);
+  const [claimOpen,    setClaimOpen]    = React.useState(false);
+  const [referralOpen, setReferralOpen] = React.useState(false);
 
   React.useEffect(() => {
     if (!slug) { setLoading(false); setError('No venue specified.'); return; }
@@ -230,7 +233,21 @@ const VenueProfile = ({ slug, county, backPage, onNavigate, session }) => {
           .single();
 
         if (dbErr) throw dbErr;
-        if (!cancelled) { setVenue(data); setLoading(false); }
+        if (!cancelled) {
+          setVenue(data);
+          // Load org profile for referral eligibility check (non-blocking)
+          if (data?.id) {
+            supabase
+              .from('organisation_profiles')
+              .select('id, entitlement_status, referrals_enabled, organisation_name')
+              .eq('resource_id', data.id)
+              .maybeSingle()
+              .then(({ data: orgData }) => {
+                if (!cancelled) setOrgProfile(orgData || null);
+              });
+          }
+          setLoading(false);
+        }
       } catch (err) {
         if (!cancelled) {
           const notFound = err.code === 'PGRST116' || err.message?.includes('0 rows');
@@ -393,6 +410,15 @@ const VenueProfile = ({ slug, county, backPage, onNavigate, session }) => {
                   >
                     Claim this listing
                   </button>
+                  {['trial','active'].includes(`${orgProfile?.entitlement_status || ''}`.toLowerCase()) &&
+                    orgProfile?.referrals_enabled === true && (
+                    <button
+                      onClick={() => setReferralOpen(true)}
+                      style={{ padding: '11px 18px', borderRadius: 12, background: 'rgba(123,92,245,0.22)', border: '1px solid rgba(123,92,245,0.40)', color: '#E9D5FF', fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 7 }}
+                    >
+                      Make a referral
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -577,6 +603,15 @@ const VenueProfile = ({ slug, county, backPage, onNavigate, session }) => {
 
       {claimOpen && venue && (
         <ClaimModal venue={venue} onClose={() => setClaimOpen(false)} />
+      )}
+
+      {referralOpen && orgProfile && (
+        <ReferralModal
+          resourceId={venue?.id}
+          orgProfileId={orgProfile.id}
+          orgName={orgProfile.organisation_name || venue?.name || ''}
+          onClose={() => setReferralOpen(false)}
+        />
       )}
 
       <Footer onNavigate={onNavigate} />

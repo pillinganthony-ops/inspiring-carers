@@ -196,9 +196,10 @@ const ProfileDashboard = ({ onNavigate, session, section = 'dashboard' }) => {
   const [error, setError] = React.useState('');
   const [toast, setToast] = React.useState('');
 
-  const [profiles, setProfiles] = React.useState([]);
-  const [events, setEvents] = React.useState([]);
-  const [claims, setClaims] = React.useState([]);
+  const [profiles,  setProfiles]  = React.useState([]);
+  const [events,    setEvents]    = React.useState([]);
+  const [referrals, setReferrals] = React.useState([]);
+  const [claims,    setClaims]    = React.useState([]);
   const [viewEvents, setViewEvents] = React.useState([]);
   const [eventEnquiries, setEventEnquiries] = React.useState([]);
   const [analyticsNotice, setAnalyticsNotice] = React.useState('');
@@ -295,7 +296,7 @@ const ProfileDashboard = ({ onNavigate, session, section = 'dashboard' }) => {
       if (uniqueProfiles.length) {
         const profileIds = uniqueProfiles.map((profile) => profile.id);
         const resourceIds = uniqueProfiles.map((profile) => profile.resource_id).filter(Boolean);
-        const [eventsResult, enquiriesResult] = await Promise.all([
+        const [eventsResult, enquiriesResult, referralsResult] = await Promise.all([
           supabase
             .from('organisation_events')
             .select('*')
@@ -306,11 +307,18 @@ const ProfileDashboard = ({ onNavigate, session, section = 'dashboard' }) => {
             .select('*')
             .in('organisation_profile_id', profileIds)
             .order('created_at', { ascending: false }),
+          supabase
+            .from('listing_referrals')
+            .select('*')
+            .in('organisation_profile_id', profileIds)
+            .order('created_at', { ascending: false }),
         ]);
         if (eventsResult.error) throw eventsResult.error;
         if (enquiriesResult.error) throw enquiriesResult.error;
-        eventRows = eventsResult.data || [];
+        // referrals table may not exist yet — swallow error gracefully
+        eventRows   = eventsResult.data   || [];
         enquiryRows = enquiriesResult.data || [];
+        setReferrals(referralsResult.data || []);
 
         if (resourceIds.length) {
           const viewEventsResult = await supabase.from('resource_view_events').select('*').in('resource_id', resourceIds);
@@ -500,7 +508,8 @@ const ProfileDashboard = ({ onNavigate, session, section = 'dashboard' }) => {
       featuredEnabled: Boolean(activeProfile?.featured_enabled),
       eventQuota: Number.isFinite(Number(activeProfile?.event_quota)) ? Number(activeProfile.event_quota) : 0,
       enquiryToolsEnabled: Boolean(activeProfile?.enquiry_tools_enabled),
-      analyticsEnabled: Boolean(activeProfile?.analytics_enabled),
+      analyticsEnabled:   Boolean(activeProfile?.analytics_enabled),
+      referralsEnabled:   Boolean(activeProfile?.referrals_enabled),
     };
   }, [activeProfile]);
 
@@ -542,6 +551,42 @@ const ProfileDashboard = ({ onNavigate, session, section = 'dashboard' }) => {
       await loadData();
     } catch (updateErr) {
       setError(updateErr?.message || 'Unable to update enquiry status.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleReferrals = async (newValue) => {
+    if (!activeProfile?.id || !supabase) return;
+    setSaving(true); setError('');
+    try {
+      const { error: updateError } = await supabase
+        .from('organisation_profiles')
+        .update({ referrals_enabled: newValue })
+        .eq('id', activeProfile.id);
+      if (updateError) throw updateError;
+      setToast(newValue ? 'Referrals enabled.' : 'Referrals disabled.');
+      await loadData();
+    } catch (err) {
+      setError(err?.message || 'Unable to update referrals setting.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateReferralStatus = async (referralId, nextStatus) => {
+    if (!supabase || !referralId) return;
+    setSaving(true); setError('');
+    try {
+      const { error: updateError } = await supabase
+        .from('listing_referrals')
+        .update({ status: nextStatus })
+        .eq('id', referralId);
+      if (updateError) throw updateError;
+      setToast(`Referral marked as ${nextStatus}.`);
+      await loadData();
+    } catch (err) {
+      setError(err?.message || 'Unable to update referral status.');
     } finally {
       setSaving(false);
     }
@@ -775,6 +820,7 @@ const ProfileDashboard = ({ onNavigate, session, section = 'dashboard' }) => {
               { key: 'profile',    label: 'Profile' },
               { key: 'events',     label: 'Events' },
               { key: 'enquiries',  label: 'Enquiries' },
+              ...(entitlementState.status === 'active' ? [{ key: 'referrals', label: `Referrals${referrals.length ? ` (${referrals.filter(r=>r.status==='new').length || referrals.length})` : ''}` }] : []),
               { key: 'plan',       label: 'Plan' },
               { key: 'settings',   label: 'Settings' },
             ].map(({ key, label }) => (
@@ -1086,7 +1132,118 @@ const ProfileDashboard = ({ onNavigate, session, section = 'dashboard' }) => {
               <div style={{ padding: '14px 16px', borderRadius: 14, border: '1px dashed rgba(26,39,68,0.15)', background: '#FAFBFF', fontSize: 13.5, color: 'rgba(26,39,68,0.55)', lineHeight: 1.6, marginBottom: 22 }}>
                 Advanced settings — notification preferences, password changes, and two-factor authentication — are coming in the next phase.
               </div>
+              {/* Referrals toggle — premium only */}
+              {activeProfile && (
+                <div style={{ marginBottom: 22 }}>
+                  <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.46)', marginBottom: 10 }}>Referrals</div>
+                  {entitlementState.status === 'active' ? (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderRadius: 14, border: '1px solid #E9EEF5', background: '#FAFBFF', gap: 16, flexWrap: 'wrap' }}>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: '#1A2744', marginBottom: 3 }}>Enable referrals</div>
+                        <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.55)', lineHeight: 1.55 }}>
+                          Allow carers, families and professionals to submit referrals directly to your service.
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => toggleReferrals(!entitlementState.referralsEnabled)}
+                        disabled={saving}
+                        style={{ padding: '9px 18px', borderRadius: 10, background: entitlementState.referralsEnabled ? '#1A2744' : 'rgba(26,39,68,0.08)', color: entitlementState.referralsEnabled ? '#FFFFFF' : 'rgba(26,39,68,0.70)', fontWeight: 700, fontSize: 13, border: entitlementState.referralsEnabled ? 'none' : '1px solid #E9EEF5', cursor: saving ? 'default' : 'pointer', whiteSpace: 'nowrap', flexShrink: 0, transition: 'all .14s' }}
+                      >
+                        {entitlementState.referralsEnabled ? 'Enabled ✓' : 'Disabled'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ padding: '14px 16px', borderRadius: 14, border: '1px dashed rgba(26,39,68,0.15)', background: '#FAFBFF', fontSize: 13.5, color: 'rgba(26,39,68,0.55)', lineHeight: 1.6 }}>
+                      Referrals are a premium feature. Upgrade your plan to enable direct referrals from carers and professionals.
+                    </div>
+                  )}
+                </div>
+              )}
+
               <button onClick={handleLogout} style={{ padding: '11px 24px', borderRadius: 12, background: 'rgba(160,58,45,0.07)', color: '#A03A2D', fontWeight: 700, fontSize: 14, border: '1px solid rgba(160,58,45,0.18)', cursor: 'pointer' }}>Sign out</button>
+            </div>
+          )}
+
+          {/* ── REFERRALS TAB ─────────────────────────────── */}
+          {!loading && activeTab === 'referrals' && (
+            <div style={{ display: 'grid', gap: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.46)', marginBottom: 4 }}>Incoming referrals</div>
+                  <h2 style={{ fontSize: 22, fontWeight: 800, color: '#1A2744', margin: 0 }}>Referrals</h2>
+                </div>
+                {!entitlementState.referralsEnabled && (
+                  <div style={{ padding: '8px 14px', borderRadius: 10, background: 'rgba(245,166,35,0.10)', border: '1px solid rgba(245,166,35,0.25)', fontSize: 13, color: '#92400E', fontWeight: 600 }}>
+                    Referrals are currently disabled — enable in Settings
+                  </div>
+                )}
+              </div>
+
+              {referrals.length === 0 ? (
+                <div className="card" style={{ padding: '40px 24px', textAlign: 'center', borderRadius: 20 }}>
+                  <div style={{ fontSize: 36, marginBottom: 12 }}>📬</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>No referrals yet</div>
+                  <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)', lineHeight: 1.6, maxWidth: 360, margin: '0 auto' }}>
+                    {entitlementState.referralsEnabled
+                      ? 'Referrals submitted by carers, families and professionals will appear here.'
+                      : 'Enable referrals in Settings to start receiving them.'}
+                  </div>
+                </div>
+              ) : (
+                referrals
+                  .filter((r) => !activeProfile || r.organisation_profile_id === activeProfile.id)
+                  .map((r) => {
+                    const statusColor = { new: '#2D9CDB', reviewed: '#7B5CF5', contacted: '#F5A623', closed: 'rgba(26,39,68,0.40)' }[r.status] || '#2D9CDB';
+                    const statusBg    = { new: 'rgba(45,156,219,0.08)', reviewed: 'rgba(123,92,245,0.08)', contacted: 'rgba(245,166,35,0.10)', closed: 'rgba(26,39,68,0.06)' }[r.status] || 'rgba(45,156,219,0.08)';
+                    return (
+                      <div key={r.id} className="card" style={{ padding: '20px 22px', borderRadius: 18, borderLeft: `4px solid ${statusColor}` }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
+                          <div>
+                            <div style={{ fontSize: 15, fontWeight: 800, color: '#1A2744', marginBottom: 2 }}>{r.person_name}</div>
+                            <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.52)', textTransform: 'capitalize' }}>
+                              {r.referral_type?.replace('_',' ')} referral · {new Date(r.created_at).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}
+                            </div>
+                          </div>
+                          <span style={{ fontSize: 11.5, fontWeight: 700, padding: '4px 10px', borderRadius: 999, background: statusBg, color: statusColor, textTransform: 'capitalize', whiteSpace: 'nowrap' }}>
+                            {r.status}
+                          </span>
+                        </div>
+
+                        {r.reason_for_referral && (
+                          <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.68)', lineHeight: 1.6, margin: '0 0 12px', background: '#FAFBFF', padding: '10px 12px', borderRadius: 10 }}>
+                            {r.reason_for_referral}
+                          </p>
+                        )}
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 6, fontSize: 12.5, marginBottom: 12 }}>
+                          {r.person_email && <span style={{ color: 'rgba(26,39,68,0.60)' }}>✉ {r.person_email}</span>}
+                          {r.person_phone && <span style={{ color: 'rgba(26,39,68,0.60)' }}>📞 {r.person_phone}</span>}
+                          {r.referred_by_name && <span style={{ color: 'rgba(26,39,68,0.60)' }}>Referred by: {r.referred_by_name}</span>}
+                          {r.relationship_to_person && <span style={{ color: 'rgba(26,39,68,0.60)' }}>Relationship: {r.relationship_to_person}</span>}
+                          {r.preferred_contact_method && <span style={{ color: 'rgba(26,39,68,0.60)' }}>Contact via: {r.preferred_contact_method}</span>}
+                        </div>
+
+                        {r.status !== 'closed' && (
+                          <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+                            {r.status === 'new' && (
+                              <button onClick={() => updateReferralStatus(r.id, 'reviewed')} disabled={saving} style={{ fontSize: 12.5, fontWeight: 700, padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(123,92,245,0.28)', background: 'rgba(123,92,245,0.07)', color: '#7B5CF5', cursor: 'pointer' }}>
+                                Mark reviewed
+                              </button>
+                            )}
+                            {(r.status === 'new' || r.status === 'reviewed') && (
+                              <button onClick={() => updateReferralStatus(r.id, 'contacted')} disabled={saving} style={{ fontSize: 12.5, fontWeight: 700, padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(245,166,35,0.28)', background: 'rgba(245,166,35,0.08)', color: '#92400E', cursor: 'pointer' }}>
+                                Mark contacted
+                              </button>
+                            )}
+                            <button onClick={() => updateReferralStatus(r.id, 'closed')} disabled={saving} style={{ fontSize: 12.5, fontWeight: 700, padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(26,39,68,0.15)', background: 'rgba(26,39,68,0.05)', color: 'rgba(26,39,68,0.55)', cursor: 'pointer' }}>
+                              Close
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+              )}
             </div>
           )}
 
