@@ -236,7 +236,7 @@ const EventsPage = ({ onNavigate, session, county }) => {
     };
     loadData();
     return () => { cancelled = true; };
-  }, []);
+  }, [county]);
 
   const filteredEvents = React.useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -340,7 +340,7 @@ const EventsPage = ({ onNavigate, session, county }) => {
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
                     <button className="btn btn-gold btn-sm" onClick={() => setActiveEvent(event)}>{event.cta_type === 'book' ? 'Book your place' : 'Contact provider'}</button>
-                    {event.publicSlug ? <button className="btn btn-ghost btn-sm" onClick={() => onNavigate('find-help', county || null, event.publicSlug)}>View organisation <IArrow s={14} /></button> : null}
+                    {event.publicSlug ? <button className="btn btn-ghost btn-sm" onClick={() => onNavigate('find-help', county, event.publicSlug)}>View organisation <IArrow s={14} /></button> : null}
                   </div>
                 </div>
               ))}
