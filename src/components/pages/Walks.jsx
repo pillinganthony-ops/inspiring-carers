@@ -4,6 +4,7 @@ import Icons from '../Icons.jsx';
 import Nav from '../Nav.jsx';
 import Footer from '../Footer.jsx';
 import CountyBanner from '../CountyBanner.jsx';
+import CountyInterestModal from '../CountyInterestModal.jsx';
 import walks from '../../data/walks.json';
 import { RiskAssessmentDisclaimer, WalkRiskSummary, SubmitRiskUpdateModal, downloadRiskAssessmentPDF } from '../WalkRiskAssessment.jsx';
 import supabase, { isSupabaseConfigured } from '../../lib/supabaseClient.js';
@@ -1838,9 +1839,7 @@ const WalksNationalHub = ({ onNavigate, session }) => (
                     Choose {c.label}
                   </button>
                 ) : (
-                  <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.45)', fontStyle: 'italic', marginTop: 4 }}>
-                    {isLaunching ? 'Launching soon — register interest below.' : 'Being prepared. Register interest below.'}
-                  </div>
+                  <CountyInterestModal county={c.key} label={c.label} sourcePage="walks" />
                 )}
               </div>
             );

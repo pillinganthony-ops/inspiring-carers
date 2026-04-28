@@ -857,6 +857,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   const [ownerHandoffContext, setOwnerHandoffContext] = React.useState(null);
   const [walkUpdates, setWalkUpdates] = React.useState([]);
   const [walkComments, setWalkComments] = React.useState([]);
+  const [countyInterestLeads, setCountyInterestLeads] = React.useState([]);
 
   const [categoryDraft, setCategoryDraft] = React.useState(emptyCategory);
   const [resourceDraft, setResourceDraft] = React.useState(emptyResource);
@@ -1008,9 +1009,16 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
       ];
 
       setClaims(claimRows);
+      const allSubmissions = resourceUpdatesResult.error ? [] : (resourceUpdatesResult.data || []);
+      setCountyInterestLeads(
+        allSubmissions.filter((row) => `${row.update_type || ''}`.toLowerCase() === 'county_interest'),
+      );
       setResourceUpdates(
-        ((resourceUpdatesResult.error ? [] : (resourceUpdatesResult.data || [])))
-          .filter((row) => `${row.update_type || ''}`.toLowerCase() !== 'claim_request')
+        allSubmissions
+          .filter((row) => {
+            const t = `${row.update_type || ''}`.toLowerCase();
+            return t !== 'claim_request' && t !== 'county_interest';
+          })
           .map(normalizeResourceUpdateRow),
       );
       setWalkUpdates(walkUpdatesResult.data || []);
@@ -2191,6 +2199,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     resources: resources.length,
     events: events.length,
     contacts: contactLeads.length,
+    'county-interest': countyInterestLeads.length,
     'content-review': pendingWalkUpdates.length + pendingWalkComments.length,
     'partner-enquiries': partnerEnquiries.length,
     'discount-offers':   discountLeadsAll.length,
@@ -2296,6 +2305,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                   <SideItem navKey="events"        label="Events"        count={tabCounts.events} />
                   <SideItem navKey="claims"        label="Claims"        count={tabCounts.claims} />
                   <SideItem navKey="contacts"      label="Contacts"      count={tabCounts.contacts} />
+                  <SideItem navKey="county-interest" label="County interest" count={tabCounts['county-interest']} />
 
                   {/* Commercial section */}
                   <div style={{ margin: '8px 12px 4px', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.35)' }}>Commercial</div>
@@ -2753,6 +2763,83 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                   formatRow={(row) => `${row.walk_name || row.walk_id || 'Walk'} · ${row.commenter_name || 'Anonymous'}`}
                 />
               </div>
+            </div>
+          ) : null}
+
+          {/* ── County interest leads ──────────────────────────────── */}
+          {!loading && tab === 'county-interest' ? (
+            <div style={{ display: 'grid', gap: 16 }}>
+              <div className="card" style={{ padding: 20, borderRadius: 22 }}>
+                <h2 style={{ fontSize: 24, fontWeight: 800, color: '#1A2744', marginBottom: 6 }}>County interest</h2>
+                <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.62)', lineHeight: 1.6, margin: 0 }}>
+                  Interest registrations from hub pages for counties not yet live.
+                  Stored in <code>resource_update_submissions</code> with <code>update_type = 'county_interest'</code>.
+                  Status can be updated to <em>in_review</em> once a lead has been contacted.
+                </p>
+              </div>
+
+              {countyInterestLeads.length === 0 ? (
+                <div className="card" style={{ padding: 24, color: 'rgba(26,39,68,0.48)', fontSize: 14, textAlign: 'center' }}>
+                  No county interest leads yet.
+                </div>
+              ) : (
+                <div className="card" style={{ padding: 0, borderRadius: 22, overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
+                    <thead>
+                      <tr style={{ background: '#F5F7FB', borderBottom: '1px solid #E8EEF8' }}>
+                        {['County', 'Source', 'Email', 'Name', 'Role', 'Message', 'Status', 'Date', 'Action'].map(h => (
+                          <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 700, color: '#1A2744', whiteSpace: 'nowrap', fontSize: 12.5 }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {countyInterestLeads.map((lead, i) => {
+                        const pl = lead.payload || {};
+                        const county = pl.county || lead.resource_name || '—';
+                        const source = pl.source_page || '—';
+                        const role   = pl.role || '—';
+                        const status = lead.status || 'pending';
+                        const statusColors = {
+                          pending:   { bg: 'rgba(59,130,246,0.08)',  color: '#1D4ED8' },
+                          in_review: { bg: 'rgba(217,119,6,0.10)',   color: '#92400E' },
+                          approved:  { bg: 'rgba(22,163,74,0.10)',   color: '#166534' },
+                          rejected:  { bg: 'rgba(160,58,45,0.08)',   color: '#A03A2D' },
+                        };
+                        const sc = statusColors[status] || statusColors.pending;
+                        return (
+                          <tr key={lead.id} style={{ borderBottom: i < countyInterestLeads.length - 1 ? '1px solid #EEF1F7' : 'none', background: i % 2 === 0 ? '#FFFFFF' : '#FAFBFF' }}>
+                            <td style={{ padding: '10px 14px', fontWeight: 700, color: '#1A2744', textTransform: 'capitalize' }}>{county}</td>
+                            <td style={{ padding: '10px 14px', color: 'rgba(26,39,68,0.55)', whiteSpace: 'nowrap' }}>{source}</td>
+                            <td style={{ padding: '10px 14px', color: '#1A2744' }}>{lead.submitter_email || '—'}</td>
+                            <td style={{ padding: '10px 14px', color: 'rgba(26,39,68,0.68)' }}>{lead.submitter_name || '—'}</td>
+                            <td style={{ padding: '10px 14px', color: 'rgba(26,39,68,0.68)' }}>{role}</td>
+                            <td style={{ padding: '10px 14px', color: 'rgba(26,39,68,0.55)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                              title={lead.description || ''}>
+                              {lead.description && lead.description.startsWith('County interest registration') ? '—' : (lead.description || '—')}
+                            </td>
+                            <td style={{ padding: '10px 14px' }}>
+                              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: sc.bg, color: sc.color }}>{status}</span>
+                            </td>
+                            <td style={{ padding: '10px 14px', color: 'rgba(26,39,68,0.48)', whiteSpace: 'nowrap', fontSize: 12 }}>
+                              {lead.created_at ? new Date(lead.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                            </td>
+                            <td style={{ padding: '10px 14px' }}>
+                              {status === 'pending' && (
+                                <button
+                                  className="btn btn-ghost btn-sm"
+                                  onClick={() => updateQueueStatus('resource_update_submissions', lead.id, 'in_review')}
+                                >
+                                  Mark contacted
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           ) : null}
 

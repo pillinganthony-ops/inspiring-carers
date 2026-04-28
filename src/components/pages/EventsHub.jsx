@@ -4,6 +4,7 @@
 import React from 'react';
 import Nav from '../Nav.jsx';
 import Footer from '../Footer.jsx';
+import CountyInterestModal from '../CountyInterestModal.jsx';
 
 const ACCENT = '#7B5CF5'; // indigo — consistent with Events county page
 
@@ -81,9 +82,7 @@ const EventsHubPage = ({ onNavigate, session }) => (
                     Choose {c.label}
                   </button>
                 ) : (
-                  <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.45)', fontStyle: 'italic', marginTop: 4 }}>
-                    {isLaunching ? 'Launching soon — register interest below.' : 'Being prepared. Register interest below.'}
-                  </div>
+                  <CountyInterestModal county={c.key} label={c.label} sourcePage="events" />
                 )}
               </div>
             );

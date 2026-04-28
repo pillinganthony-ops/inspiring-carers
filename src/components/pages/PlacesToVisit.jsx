@@ -11,6 +11,7 @@ import Icons from '../Icons.jsx';
 import ClaimModal from '../ClaimModal.jsx';
 import VenueProfile from './VenueProfile.jsx';
 import CountyBanner from '../CountyBanner.jsx';
+import CountyInterestModal from '../CountyInterestModal.jsx';
 
 const { IArrow, ISearch, IPin, IChevron } = Icons;
 
@@ -650,9 +651,7 @@ const PlacesToVisitNationalHub = ({ onNavigate, session }) => (
                     Choose {c.label}
                   </button>
                 ) : (
-                  <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.45)', fontStyle: 'italic', marginTop: 4 }}>
-                    {isLaunching ? 'Launching soon — register interest below.' : 'Being prepared. Register interest below.'}
-                  </div>
+                  <CountyInterestModal county={c.key} label={c.label} sourcePage="places-to-visit" />
                 )}
               </div>
             );
