@@ -2815,7 +2815,6 @@ const FindHelpCountyPage = ({ onNavigate, session, county, venueSlug }) => {
   }, [county]);
 
   const isMobile = useIsMobile();
-  const [selectedCounty, setSelectedCounty] = React.useState(county || 'cornwall');
   const [view, setView] = React.useState('list');
   const [activeCat, setActiveCat] = React.useState('all');
   const [savedIds, setSavedIds] = React.useState(new Set());
@@ -3159,10 +3158,6 @@ const FindHelpCountyPage = ({ onNavigate, session, county, venueSlug }) => {
     }
   };
 
-  if (selectedCounty === null) {
-    return <CountyEntrance onSelectCounty={setSelectedCounty} onNavigate={onNavigate} session={session} />;
-  }
-
   // County opening-soon: explicit non-Cornwall county with no listings yet
   if (!loading && !error && resources.length === 0 && county && county !== 'cornwall') {
     const countyLabel = county.charAt(0).toUpperCase() + county.slice(1);
@@ -3218,7 +3213,7 @@ const FindHelpCountyPage = ({ onNavigate, session, county, venueSlug }) => {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'rgba(26,39,68,0.5)', fontSize: 13, marginBottom: 16 }}>
             <button onClick={() => onNavigate('home')} style={{ color: 'inherit', background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit' }}>Home</button>
             <IChevron s={12} />
-            <button onClick={() => setSelectedCounty(null)} style={{ color: 'inherit', background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit' }}>Find help near you</button>
+            <button onClick={() => onNavigate('find-help', null)} style={{ color: 'inherit', background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit' }}>Find help near you</button>
             <IChevron s={12} />
             <span style={{ color: '#1A2744', fontWeight: 600 }}>{detailSlug ? (selectedResource?.title || 'Resource detail') : (county ? county.charAt(0).toUpperCase() + county.slice(1) : 'Cornwall')}</span>
           </div>
