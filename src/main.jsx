@@ -281,6 +281,46 @@ const GlobalEnquiry = ({ visible }) => {
   );
 };
 
+// ── Homepage intelligence strip — what's live nearby ───────────────────────
+const EXPLORE_CARDS = [
+  { key: 'events',    accent: '#2D9CDB', eyebrow: 'Community',  label: 'Events near you',    body: 'Discover workshops, groups and community sessions.',        cta: 'Explore events',    page: 'events'    },
+  { key: 'walks',     accent: '#5BC94A', eyebrow: 'Outdoors',   label: 'Local walks',         body: 'Find accessible walks, coastal paths and outdoor spaces.',  cta: 'Browse walks',      page: 'walks'     },
+  { key: 'wellbeing', accent: '#0D9488', eyebrow: 'Wellbeing',  label: 'Wellbeing places',    body: 'Find calm, restorative and supportive local spaces.',       cta: 'View wellbeing',    page: 'wellbeing' },
+  { key: 'counties',  accent: '#D97706', eyebrow: 'Expanding',  label: 'County launches',     body: 'Devon, Somerset and Bristol are opening soon.',             cta: 'Register interest', page: 'events'    },
+];
+const WhatsNearYou = ({ onNavigate }) => (
+  <section style={{ paddingTop: 64, paddingBottom: 64, background: '#FFFFFF' }}>
+    <div className="container">
+      <div style={{ textAlign: 'center', marginBottom: 36 }}>
+        <div className="eyebrow" style={{ marginBottom: 10 }}>Explore the platform</div>
+        <h2 style={{ fontSize: 'clamp(24px, 3.5vw, 36px)', fontWeight: 800, color: '#1A2744', margin: 0, letterSpacing: '-0.02em' }}>
+          What's happening near you
+        </h2>
+        <p style={{ fontSize: 16, color: 'rgba(26,39,68,0.56)', marginTop: 12, maxWidth: 460, margin: '12px auto 0', lineHeight: 1.65 }}>
+          Explore events, walks and wellbeing support as we grow county by county.
+        </p>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 14 }}>
+        {EXPLORE_CARDS.map(({ key, accent, eyebrow, label, body, cta, page }) => (
+          <div key={key} className="card" style={{ padding: '24px 22px', borderRadius: 20, borderTop: `3px solid ${accent}`, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: accent, marginBottom: 10 }}>{eyebrow}</div>
+            <h3 style={{ fontSize: 16, fontWeight: 800, color: '#1A2744', margin: '0 0 8px', lineHeight: 1.25 }}>{label}</h3>
+            <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.58)', lineHeight: 1.6, margin: '0 0 20px', flex: 1 }}>{body}</p>
+            <button
+              onClick={() => onNavigate(page)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 18px', borderRadius: 10, background: accent, color: 'white', fontWeight: 700, fontSize: 13.5, border: 'none', cursor: 'pointer', alignSelf: 'flex-start', transition: 'opacity .13s' }}
+              onMouseEnter={e => { e.currentTarget.style.opacity = '0.84'; }}
+              onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+            >
+              {cta} <IArrow s={13} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+);
+
 // ── Mid-page audience CTA — three paths, one page ──────────────────────────
 const AudienceCTA = ({ onNavigate, session }) => (
   <section style={{ paddingTop: 60, paddingBottom: 60, background: '#F7F9FC' }}>
@@ -336,6 +376,7 @@ const HomePage = ({ onNavigate, tweaks, session }) => (
     <Businesses onNavigate={onNavigate} />
     <Signposting onNavigate={onNavigate} />
     <IconDiscovery onNavigate={onNavigate} />
+    <WhatsNearYou onNavigate={onNavigate} />
     <AudienceCTA onNavigate={onNavigate} session={session} />
     <PersonalStrip greeting={tweaks.greeting_name} location={tweaks.location} session={session} onNavigate={onNavigate} />
     <ClosingBand onNavigate={onNavigate} />
