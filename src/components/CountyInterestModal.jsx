@@ -17,7 +17,7 @@ const ROLE_OPTIONS = [
 ];
 
 const inp = {
-  width: '100%', borderRadius: 12, border: '1px solid #E9EEF5',
+  width: '100%', minWidth: 0, borderRadius: 12, border: '1px solid #E9EEF5',
   padding: '11px 14px', fontSize: 14, color: '#1A2744',
   background: '#FAFBFF', boxSizing: 'border-box', fontFamily: 'inherit',
 };
@@ -87,9 +87,9 @@ const CountyInterestModal = ({ county, label, sourcePage }) => {
       {open && (
         <div
           onClick={e => { if (e.target === e.currentTarget) handleClose(); }}
-          style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(15,23,42,0.52)', display: 'grid', placeItems: 'center', padding: 16 }}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
         >
-          <div style={{ background: 'white', borderRadius: 22, padding: '28px 26px', width: '100%', maxWidth: 420, boxShadow: '0 24px 64px rgba(15,23,42,0.22)', position: 'relative', maxHeight: '90vh', overflowY: 'auto' }}>
+          <div style={{ background: 'white', borderRadius: 22, padding: '28px 26px', width: 'min(92vw, 460px)', boxSizing: 'border-box', maxHeight: 'calc(100vh - 48px)', overflowY: 'auto', boxShadow: '0 24px 64px rgba(15,23,42,0.22)', position: 'relative' }}>
 
             {/* Close */}
             <button
@@ -149,7 +149,7 @@ const CountyInterestModal = ({ county, label, sourcePage }) => {
                     <div style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(244,97,58,0.08)', color: '#A03A2D', fontSize: 13 }}>{error}</div>
                   )}
 
-                  <div style={{ display: 'flex', gap: 9, marginTop: 4 }}>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 4 }}>
                     <button
                       type="button" onClick={handleSubmit} disabled={busy}
                       style={{ flex: 1, padding: '12px 18px', borderRadius: 12, background: '#1A2744', color: 'white', fontSize: 14, fontWeight: 800, border: 'none', cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.72 : 1 }}
