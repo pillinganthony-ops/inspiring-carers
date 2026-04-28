@@ -206,7 +206,7 @@ const EventsPage = ({ onNavigate, session, county }) => {
       setError('');
       try {
         const [eventsResult, profilesResult, resourcesResult] = await Promise.all([
-          supabase.from('organisation_events').select('*').in('status', ['scheduled', 'completed']).order('starts_at', { ascending: true }),
+          supabase.from('organisation_events').select('*').in('status', ['scheduled', 'completed']),
           supabase.from('organisation_profiles').select('id,resource_id,slug,organisation_name,display_name,verified_status,featured,is_active,contact_email,email').eq('is_active', true),
           supabase.from('resources').select('id,slug,town,county,email,website').eq('is_archived', false),
         ]);
@@ -246,6 +246,7 @@ const EventsPage = ({ onNavigate, session, county }) => {
             })
           : merged;
 
+        countyFiltered.sort((a,b)=> (a.starts_at||'').localeCompare(b.starts_at||''));
         setEvents(countyFiltered);
       } catch (loadError) {
         setEvents([]);
@@ -309,7 +310,7 @@ const EventsPage = ({ onNavigate, session, county }) => {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 0.9fr', gap: 28, alignItems: 'end' }}>
             <div>
-              <div className="eyebrow" style={{ color: '#2D9CDB' }}>Community activity</div>
+              <div className="eyebrow" style={{ color: '#2D9CDB' }}>Events</div>
               <h1 style={{ marginTop: 10, fontSize: 'clamp(34px, 4vw, 56px)', letterSpacing: '-0.03em', fontWeight: 800 }}>Events, groups, walks, and wellbeing sessions.</h1>
               <p style={{ marginTop: 14, fontSize: 17, color: 'rgba(26,39,68,0.7)', maxWidth: 680 }}>Discover upcoming sessions from local organisations and send a booking or contact request in one step.</p>
             </div>

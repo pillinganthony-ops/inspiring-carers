@@ -8,6 +8,17 @@ import { supabase, isSupabaseConfigured } from '../lib/supabaseClient.js';
 
 const { IChevron, IClose, IMenu, IArrow } = Icons;
 
+// Single source of truth for page → display label used in the Activities nav button.
+// When the active page is an activities sub-page the split button shows its specific
+// name instead of the generic "Activities" label.
+const PAGE_LABELS = {
+  activities:       'Activities',
+  walks:            'Walks',
+  wellbeing:        'Wellbeing',
+  'places-to-visit':'Places to Visit',
+  events:           'Events',
+};
+
 const ADMIN_EMAIL_ALLOWLIST = (import.meta.env.VITE_ADMIN_EMAIL_ALLOWLIST || 'pillinganthony@gmail.com')
   .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
 
@@ -123,6 +134,9 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp,
     { key: 'wellbeing',       label: 'Wellbeing Support', note: 'Calm & restorative'     },
   ];
   const isActivitiesPage = activitiesItems.some((i) => i.key === activePage) || activePage === 'activities';
+  // Derive label from current route — shows page-specific name when on a sub-page,
+  // falls back to 'Activities' for the hub and all unrelated pages.
+  const activitiesLabel = PAGE_LABELS[activePage] || 'Activities';
 
   const moreItems = [
     { key: 'offer-a-discount', label: 'Offer a discount' },
@@ -226,7 +240,7 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp,
               onMouseLeave={e => { if (!isActivitiesPage) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(26,39,68,0.68)'; }}}
             >
               <span style={{ width: 7, height: 7, borderRadius: 2, background: '#5BC94A', display: 'inline-block', flexShrink: 0 }} />
-              Activities
+              {activitiesLabel}
             </button>
             <button
               onClick={() => setActivitiesOpen((o) => !o)}
