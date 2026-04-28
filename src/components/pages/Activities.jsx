@@ -576,6 +576,21 @@ const CAT_ACCENT_LISTING = {
   'Walks':       '#5BC94A',
 };
 
+// Premium category icon + gradient badge system.
+// Extend by adding/updating entries here — no other changes needed.
+const CAT_ICON = {
+  'Days Out':    '🎡',
+  'Attractions': '🏛️',
+  'Wellbeing':   '🧘',
+  'Walks':       '🥾',
+};
+const CAT_BADGE_BG = {
+  'Days Out':    'linear-gradient(135deg, rgba(245,166,35,0.18), rgba(245,166,35,0.07))',
+  'Attractions': 'linear-gradient(135deg, rgba(123,92,245,0.18), rgba(123,92,245,0.07))',
+  'Wellbeing':   'linear-gradient(135deg, rgba(13,148,136,0.18), rgba(13,148,136,0.07))',
+  'Walks':       'linear-gradient(135deg, rgba(91,201,74,0.18),  rgba(91,201,74,0.07))',
+};
+
 const LISTING_CATEGORIES = [
   { value: '',            label: 'All activities', color: '#1A2744',  dot: 'rgba(26,39,68,0.35)' },
   { value: 'Days Out',    label: 'Days Out',       color: '#F5A623',  dot: '#F5A623' },
@@ -595,12 +610,15 @@ const MAP_CAT = {
 const PAGE_SIZE = 12;
 
 const tagPill = (color) => ({
-  fontSize: 10.5, fontWeight: 600, padding: '2px 7px', borderRadius: 5,
-  background: `${color}18`, color, display: 'inline-block',
+  fontSize: 11.5, fontWeight: 700, padding: '4px 10px', borderRadius: 999,
+  background: `${color}15`, color, border: `1px solid ${color}28`, display: 'inline-block', lineHeight: 1.3,
 });
 
 const ActivityListCard = ({ venue, onViewProfile }) => {
-  const accent = CAT_ACCENT_LISTING[venue.category] || '#7B5CF5';
+  const accent  = CAT_ACCENT_LISTING[venue.category] || '#7B5CF5';
+  const icon    = CAT_ICON[venue.category]    || '📍';
+  const badgeBg = CAT_BADGE_BG[venue.category] || `linear-gradient(135deg, rgba(123,92,245,0.18), rgba(123,92,245,0.07))`;
+
   const tags = [];
   if (venue.free_or_paid)      tags.push({ label: venue.free_or_paid,  color: venue.free_or_paid === 'Free' ? '#0D7A55' : '#1A2744' });
   if (venue.indoor_outdoor)    tags.push({ label: venue.indoor_outdoor, color: '#2D9CDB' });
@@ -609,56 +627,77 @@ const ActivityListCard = ({ venue, onViewProfile }) => {
   if (venue.dog_friendly)      tags.push({ label: 'Dogs welcome',      color: '#3DA832' });
   if (venue.carer_friendly)    tags.push({ label: 'Carer friendly',    color: '#F4613A' });
 
+  const trustLine = venue.carer_friendly
+    ? 'Carer-friendly venue · Local discovery'
+    : venue.wheelchair_access
+      ? 'Accessible venue · Local discovery'
+      : venue.family_friendly
+        ? 'Family-friendly option · Local discovery'
+        : 'Local option · Check details before visiting';
+
   return (
     <div
       className="card"
       onClick={() => onViewProfile(venue)}
-      style={{ padding: 0, overflow: 'hidden', borderRadius: 16, border: `1px solid ${accent}28`, display: 'flex', flexDirection: 'column', background: '#FFFFFF', cursor: 'pointer', transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.16s ease' }}
-      onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = `0 12px 36px ${accent}22, 0 4px 12px rgba(26,39,68,0.06)`; e.currentTarget.style.borderColor = `${accent}55`; }}
-      onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.borderColor = `${accent}28`; }}
+      style={{ padding: 0, overflow: 'hidden', borderRadius: 22, border: `1px solid ${accent}22`, display: 'flex', flexDirection: 'column', background: '#FFFFFF', cursor: 'pointer', transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.16s ease' }}
+      onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = `0 16px 40px ${accent}22, 0 4px 14px rgba(26,39,68,0.07)`; e.currentTarget.style.borderColor = `${accent}44`; }}
+      onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.borderColor = `${accent}22`; }}
     >
-      <div style={{ height: 5, background: `linear-gradient(90deg, ${accent}, ${accent}88)`, flexShrink: 0 }} />
-      <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', flex: 1, gap: 7 }}>
-        {/* Badges */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 9.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', padding: '2px 7px', borderRadius: 5, background: `${accent}18`, color: accent }}>
-            {venue.category}
-          </span>
-          {venue.subcategory && <span style={tagPill('rgba(26,39,68,0.42)')}>{venue.subcategory}</span>}
-          {venue.verified && <span style={{ fontSize: 9.5, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(16,185,129,0.10)', color: '#0D7A55' }}>Verified</span>}
-          {venue.featured && <span style={{ fontSize: 9.5, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(245,166,35,0.12)', color: '#B45309' }}>Featured</span>}
+      {/* Accent top strip */}
+      <div style={{ height: 4, background: `linear-gradient(90deg, ${accent}, ${accent}66)`, flexShrink: 0 }} />
+
+      <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', flex: 1, gap: 10 }}>
+        {/* Premium icon badge + category row */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 14, background: badgeBg, border: `1px solid ${accent}22`, display: 'grid', placeItems: 'center', fontSize: 24, flexShrink: 0, boxShadow: `0 3px 10px ${accent}18` }}>
+            {icon}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: accent, marginBottom: 3 }}>
+              {venue.category}{venue.subcategory ? ` · ${venue.subcategory}` : ''}
+            </div>
+            {venue.town && (
+              <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.50)', display: 'flex', alignItems: 'center', gap: 3 }}>
+                <IPin s={10} /> {venue.town}
+              </div>
+            )}
+          </div>
+          {/* Verified / Featured mini-badges */}
+          <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+            {venue.verified && <span style={{ fontSize: 9.5, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(16,185,129,0.10)', color: '#0D7A55' }}>✓ Verified</span>}
+            {venue.featured && <span style={{ fontSize: 9.5, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(245,166,35,0.12)', color: '#B45309' }}>Featured</span>}
+          </div>
         </div>
+
         {/* Name */}
-        <div
-          style={{ fontSize: 15, fontWeight: 800, color: '#1A2744', lineHeight: 1.3, transition: 'color .14s' }}
-          onMouseEnter={(e) => { e.currentTarget.style.color = accent; }}
-          onMouseLeave={(e) => { e.currentTarget.style.color = '#1A2744'; }}
-        >
+        <div style={{ fontSize: 15.5, fontWeight: 800, color: '#1A2744', lineHeight: 1.28 }}>
           {venue.name}
         </div>
-        {/* Town */}
-        {venue.town && (
-          <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.52)', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <IPin s={11} /> {venue.town}
-          </div>
-        )}
+
         {/* Description */}
         {venue.short_description && (
-          <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.66)', lineHeight: 1.62, margin: 0 }}>
+          <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.65)', lineHeight: 1.65, margin: 0 }}>
             {venue.short_description}
           </p>
         )}
+
+        {/* Trust micro-line */}
+        <div style={{ fontSize: 11, color: 'rgba(26,39,68,0.36)', fontStyle: 'italic', lineHeight: 1.4 }}>
+          {trustLine}
+        </div>
+
         {/* Tags */}
         {tags.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
             {tags.map((t) => <span key={t.label} style={tagPill(t.color)}>{t.label}</span>)}
           </div>
         )}
+
         {/* CTAs */}
-        <div style={{ marginTop: 'auto', paddingTop: 10, display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ marginTop: 'auto', paddingTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <button
             onClick={(e) => { e.stopPropagation(); onViewProfile(venue); }}
-            style={{ fontSize: 12.5, fontWeight: 700, color: accent, background: `${accent}14`, padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', transition: 'background .14s' }}
+            style={{ fontSize: 13, fontWeight: 700, color: accent, background: `${accent}14`, padding: '8px 14px', borderRadius: 9, border: 'none', cursor: 'pointer', transition: 'background .14s' }}
             onMouseEnter={(e) => { e.currentTarget.style.background = `${accent}26`; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = `${accent}14`; }}
           >
@@ -668,7 +707,7 @@ const ActivityListCard = ({ venue, onViewProfile }) => {
             <a
               href={venue.website} target="_blank" rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(26,39,68,0.50)', background: 'rgba(26,39,68,0.05)', padding: '6px 12px', borderRadius: 8, textDecoration: 'none', display: 'inline-block', transition: 'background .14s' }}
+              style={{ fontSize: 13, fontWeight: 600, color: 'rgba(26,39,68,0.50)', background: 'rgba(26,39,68,0.05)', padding: '8px 14px', borderRadius: 9, textDecoration: 'none', display: 'inline-block', transition: 'background .14s' }}
               onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(26,39,68,0.09)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(26,39,68,0.05)'; }}
             >
@@ -1153,22 +1192,32 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
                     cost={''}
                     accessibility={''}
                     onNavigate={onNavigate}
-                    compactHeight='290px'
+                    compactHeight='270px'
                     liveVenues={venues}
                     onVenueClick={handleViewProfile}
                   />
                 )}
               </div>
 
-              {/* Count header */}
+              {/* Section header */}
               {!loading && !error && (
-                <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)', marginBottom: 14 }}>
-                  {filterCat === 'Walks'
-                    ? <><strong style={{ color: '#1A2744' }}>{filteredWalks.length}</strong> {walkSearch ? `of ${walksData.length}` : ''} walks in {countyLabel}</>
-                    : filtered.length === venues.length
-                      ? <><strong style={{ color: '#1A2744' }}>{venues.length}</strong> {filterCat || 'activities'} in {countyLabel}</>
-                      : <><strong style={{ color: '#1A2744' }}>{filtered.length}</strong> of {venues.length} {filterCat || 'activities'}</>
-                  }
+                <div style={{ marginBottom: 18 }}>
+                  <h2 style={{ fontSize: 'clamp(17px, 2.2vw, 22px)', fontWeight: 800, color: '#1A2744', margin: '0 0 4px', letterSpacing: '-0.01em' }}>
+                    {filterCat ? `${filterCat} in ${countyLabel}` : `Activities in ${countyLabel}`}
+                  </h2>
+                  <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.52)', margin: '0 0 8px', lineHeight: 1.5 }}>
+                    {filterCat === 'Walks'
+                      ? 'Accessible routes, trails and walking paths near you.'
+                      : 'Browse local days out, wellbeing places, walks and community options.'}
+                  </p>
+                  <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.46)', borderTop: '1px solid #EEF1F7', paddingTop: 8 }}>
+                    {filterCat === 'Walks'
+                      ? <><strong style={{ color: '#1A2744' }}>{filteredWalks.length}</strong> {walkSearch ? `of ${walksData.length}` : ''} walks in {countyLabel}</>
+                      : filtered.length === venues.length
+                        ? <><strong style={{ color: '#1A2744' }}>{venues.length}</strong> {filterCat || 'activities'} in {countyLabel}</>
+                        : <><strong style={{ color: '#1A2744' }}>{filtered.length}</strong> of {venues.length} {filterCat || 'activities'}</>
+                    }
+                  </div>
                 </div>
               )}
 
