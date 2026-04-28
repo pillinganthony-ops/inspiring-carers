@@ -2282,7 +2282,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                       background: isActive ? (accent ? accent : '#1A2744') : 'transparent',
                       color: isActive ? '#FFFFFF' : accent ? accent : 'rgba(26,39,68,0.72)',
                     }}
-                    onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(26,39,68,0.06)'; e.currentTarget.style.color = '#1A2744'; }}
+                    onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = 'rgba(26,39,68,0.06)'; e.currentTarget.style.color = '#1A2744'; } }}
                     onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = accent || 'rgba(26,39,68,0.72)'; } }}
                   >
                     <span>{label}</span>
@@ -2783,61 +2783,80 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                   No county interest leads yet.
                 </div>
               ) : (
-                <div className="card" style={{ padding: 0, borderRadius: 22, overflow: 'hidden' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
-                    <thead>
-                      <tr style={{ background: '#F5F7FB', borderBottom: '1px solid #E8EEF8' }}>
-                        {['County', 'Source', 'Email', 'Name', 'Role', 'Message', 'Status', 'Date', 'Action'].map(h => (
-                          <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 700, color: '#1A2744', whiteSpace: 'nowrap', fontSize: 12.5 }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {countyInterestLeads.map((lead, i) => {
-                        const pl = lead.payload || {};
-                        const county = pl.county || lead.resource_name || '—';
-                        const source = pl.source_page || '—';
-                        const role   = pl.role || '—';
-                        const status = lead.status || 'pending';
-                        const statusColors = {
-                          pending:   { bg: 'rgba(59,130,246,0.08)',  color: '#1D4ED8' },
-                          in_review: { bg: 'rgba(217,119,6,0.10)',   color: '#92400E' },
-                          approved:  { bg: 'rgba(22,163,74,0.10)',   color: '#166534' },
-                          rejected:  { bg: 'rgba(160,58,45,0.08)',   color: '#A03A2D' },
-                        };
-                        const sc = statusColors[status] || statusColors.pending;
-                        return (
-                          <tr key={lead.id} style={{ borderBottom: i < countyInterestLeads.length - 1 ? '1px solid #EEF1F7' : 'none', background: i % 2 === 0 ? '#FFFFFF' : '#FAFBFF' }}>
-                            <td style={{ padding: '10px 14px', fontWeight: 700, color: '#1A2744', textTransform: 'capitalize' }}>{county}</td>
-                            <td style={{ padding: '10px 14px', color: 'rgba(26,39,68,0.55)', whiteSpace: 'nowrap' }}>{source}</td>
-                            <td style={{ padding: '10px 14px', color: '#1A2744' }}>{lead.submitter_email || '—'}</td>
-                            <td style={{ padding: '10px 14px', color: 'rgba(26,39,68,0.68)' }}>{lead.submitter_name || '—'}</td>
-                            <td style={{ padding: '10px 14px', color: 'rgba(26,39,68,0.68)' }}>{role}</td>
-                            <td style={{ padding: '10px 14px', color: 'rgba(26,39,68,0.55)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                              title={lead.description || ''}>
-                              {lead.description && lead.description.startsWith('County interest registration') ? '—' : (lead.description || '—')}
-                            </td>
-                            <td style={{ padding: '10px 14px' }}>
-                              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: sc.bg, color: sc.color }}>{status}</span>
-                            </td>
-                            <td style={{ padding: '10px 14px', color: 'rgba(26,39,68,0.48)', whiteSpace: 'nowrap', fontSize: 12 }}>
+                <div style={{ display: 'grid', gap: 12 }}>
+                  {countyInterestLeads.map((lead) => {
+                    // Field reads aligned to live schema (reason / relationship_to_organisation / resource_name)
+                    const county  = lead.resource_name || (lead.payload || {}).county || '—';
+                    const role    = lead.relationship_to_organisation || (lead.payload || {}).role || '—';
+                    const message = (() => {
+                      const r = lead.reason || lead.description || '';
+                      return r.startsWith('County interest registration') ? '' : r;
+                    })();
+                    const status  = lead.status || 'pending';
+                    const statusColors = {
+                      pending:   { bg: 'rgba(59,130,246,0.08)',  color: '#1D4ED8' },
+                      in_review: { bg: 'rgba(217,119,6,0.10)',   color: '#92400E' },
+                      approved:  { bg: 'rgba(22,163,74,0.10)',   color: '#166534' },
+                      rejected:  { bg: 'rgba(160,58,45,0.08)',   color: '#A03A2D' },
+                    };
+                    const sc = statusColors[status] || statusColors.pending;
+                    const lbl = { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'rgba(26,39,68,0.40)', marginBottom: 2 };
+                    const val = { fontSize: 13.5, color: '#1A2744', lineHeight: 1.5 };
+                    return (
+                      <div key={lead.id} className="card" style={{ padding: '18px 20px', borderRadius: 18 }}>
+                        {/* Header row: county + status */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+                          <div style={{ fontSize: 17, fontWeight: 800, color: '#1A2744', textTransform: 'capitalize' }}>
+                            {county}
+                          </div>
+                          <span style={{ fontSize: 11.5, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: sc.bg, color: sc.color }}>{status}</span>
+                        </div>
+
+                        {/* Detail grid */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px 20px', marginBottom: message ? 12 : 0 }}>
+                          <div>
+                            <div style={lbl}>Email</div>
+                            <div style={val}>{lead.submitter_email || '—'}</div>
+                          </div>
+                          <div>
+                            <div style={lbl}>Name</div>
+                            <div style={{ ...val, color: 'rgba(26,39,68,0.72)' }}>{lead.submitter_name || '—'}</div>
+                          </div>
+                          <div>
+                            <div style={lbl}>Role</div>
+                            <div style={{ ...val, color: 'rgba(26,39,68,0.72)' }}>{role}</div>
+                          </div>
+                          <div>
+                            <div style={lbl}>Date</div>
+                            <div style={{ ...val, color: 'rgba(26,39,68,0.55)' }}>
                               {lead.created_at ? new Date(lead.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
-                            </td>
-                            <td style={{ padding: '10px 14px' }}>
-                              {status === 'pending' && (
-                                <button
-                                  className="btn btn-ghost btn-sm"
-                                  onClick={() => updateQueueStatus('resource_update_submissions', lead.id, 'in_review')}
-                                >
-                                  Mark contacted
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Message */}
+                        {message && (
+                          <div style={{ padding: '10px 14px', borderRadius: 10, background: '#F5F7FB', marginBottom: 12 }}>
+                            <div style={lbl}>Message</div>
+                            <div style={{ ...val, color: 'rgba(26,39,68,0.80)', whiteSpace: 'pre-wrap' }}>{message}</div>
+                          </div>
+                        )}
+
+                        {/* Action */}
+                        {status === 'pending' && (
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => updateQueueStatus('resource_update_submissions', lead.id, 'in_review')}
+                          >
+                            Mark contacted
+                          </button>
+                        )}
+                        {status === 'in_review' && (
+                          <span style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.45)', fontStyle: 'italic' }}>Contacted — no further action needed.</span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
