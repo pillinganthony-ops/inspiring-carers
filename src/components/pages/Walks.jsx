@@ -690,6 +690,31 @@ const WalksCountyPage = ({ onNavigate, session, county }) => {
         </div>
       </section>
 
+      {/* Sponsorship strip — Cornwall walks partner CTA */}
+      <section style={{ paddingTop: 20, paddingBottom: 0, background: '#FAFBFF' }}>
+        <div className="container">
+          <div style={{ padding: '20px 24px', borderRadius: 22, background: 'rgba(91,201,74,0.05)', border: '1px solid rgba(91,201,74,0.18)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: '#3DA832', marginBottom: 5 }}>County sponsorship</div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#1A2744', marginBottom: 4, lineHeight: 1.28 }}>
+                Become the {countyLabel} walks partner
+              </div>
+              <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.56)', margin: 0, lineHeight: 1.55 }}>
+                Support carers getting outdoors through featured local walks and outdoor wellbeing across {countyLabel}.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flexShrink: 0 }}>
+              <button onClick={() => onNavigate('advertise')} style={{ padding: '9px 18px', borderRadius: 10, background: '#3DA832', color: 'white', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'opacity .13s' }} onMouseEnter={e => { e.currentTarget.style.opacity = '0.88'; }} onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}>
+                Become a sponsor
+              </button>
+              <button onClick={() => onNavigate('offer-a-discount')} style={{ padding: '9px 16px', borderRadius: 10, background: 'transparent', border: '1.5px solid rgba(61,168,50,0.30)', color: '#3DA832', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                Offer a discount
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section id="walk-filters" style={{ padding: '20px 0 48px', background: '#FAFBFF' }}>
         <div className="container">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>

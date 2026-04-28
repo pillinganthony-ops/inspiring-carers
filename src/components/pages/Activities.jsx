@@ -1077,15 +1077,25 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
                   </div>
                 ))}
               </div>
-              <button
-                onClick={() => onNavigate('login')}
-                style={{ width: '100%', padding: '11px 16px', borderRadius: 12, background: 'linear-gradient(135deg, #F5A623, #D4AF37)', color: '#0F172A', fontWeight: 800, fontSize: 14, border: 'none', cursor: 'pointer', transition: 'opacity .14s' }}
-                onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.90'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
-              >
-                Become a partner →
-              </button>
-              <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.28)', textAlign: 'center', marginTop: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <button
+                  onClick={() => onNavigate('advertise')}
+                  style={{ width: '100%', padding: '11px 16px', borderRadius: 12, background: 'linear-gradient(135deg, #F5A623, #D4AF37)', color: '#0F172A', fontWeight: 800, fontSize: 14, border: 'none', cursor: 'pointer', transition: 'opacity .14s' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.90'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
+                >
+                  Become a sponsor →
+                </button>
+                <button
+                  onClick={() => onNavigate('offer-a-discount')}
+                  style={{ width: '100%', padding: '9px 16px', borderRadius: 12, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.18)', color: 'rgba(255,255,255,0.82)', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', transition: 'opacity .14s' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.80'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
+                >
+                  Offer a discount
+                </button>
+              </div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.24)', textAlign: 'center', marginTop: 6 }}>
                 Limited county slots available
               </div>
             </div>

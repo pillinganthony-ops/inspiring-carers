@@ -424,7 +424,7 @@ const WellbeingCountyPage = ({ onNavigate, session, county, venueSlug }) => {
       />
 
       {/* ── Hero — calm deep teal ──────────────────────────────────── */}
-      <section style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(150deg, #0A1F25 0%, #0F2E38 50%, #133640 100%)', paddingTop: 36, paddingBottom: 36 }}>
+      <section style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(150deg, #0A1F25 0%, #0F2E38 50%, #133640 100%)', paddingTop: 48, paddingBottom: 48 }}>
         <div style={{ position: 'absolute', top: -60, right: -60, width: 380, height: 380, borderRadius: '50%', background: 'radial-gradient(circle, rgba(13,148,136,0.14) 0%, transparent 65%)', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', bottom: -60, left: '25%', width: 340, height: 340, borderRadius: '50%', background: 'radial-gradient(circle, rgba(20,184,166,0.08) 0%, transparent 65%)', pointerEvents: 'none' }} />
 
@@ -452,7 +452,7 @@ const WellbeingCountyPage = ({ onNavigate, session, county, venueSlug }) => {
 
           {/* Stats row */}
           {!loading && venues.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 0 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 0, borderTop: '1px solid rgba(255,255,255,0.10)', paddingTop: 14, marginTop: 4 }}>
               {[
                 { n: venues.length,                                           l: 'Wellbeing places' },
                 { n: venues.filter((v) => v.free_or_paid === 'Free').length,  l: 'Free' },
@@ -547,18 +547,49 @@ const WellbeingCountyPage = ({ onNavigate, session, county, venueSlug }) => {
       <section style={{ paddingTop: 32, paddingBottom: 56, background: '#F7FAFA', minHeight: '50vh' }}>
         <div className="container">
 
-          {/* Result count */}
-          {!loading && !error && venues.length > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 8 }}>
-              <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)' }}>
-                {filtered.length === venues.length
-                  ? <><strong style={{ color: '#1A2744' }}>{venues.length}</strong> wellbeing places in {countyLabel}</>
-                  : <><strong style={{ color: '#1A2744' }}>{filtered.length}</strong> of {venues.length} places</>
-                }
+          {/* Sponsorship strip — Cornwall county partner CTA */}
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ padding: '20px 24px', borderRadius: 22, background: 'rgba(13,148,136,0.05)', border: '1px solid rgba(13,148,136,0.14)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+              <div style={{ flex: 1, minWidth: 220 }}>
+                <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: WELLBEING_ACCENT, marginBottom: 5 }}>County sponsorship</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: '#1A2744', marginBottom: 4, lineHeight: 1.28 }}>
+                  Become the {countyLabel} wellbeing partner
+                </div>
+                <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.56)', margin: 0, lineHeight: 1.55 }}>
+                  Support carers by promoting calm spaces, wellbeing venues and local support across {countyLabel}.
+                </p>
               </div>
-              {anyFilter && filtered.length === 0 && (
-                <button onClick={clearFilters} className="btn btn-ghost btn-sm">Clear filters</button>
-              )}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flexShrink: 0 }}>
+                <button onClick={() => onNavigate('advertise')} style={{ padding: '9px 18px', borderRadius: 10, background: WELLBEING_ACCENT, color: 'white', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'opacity .13s' }} onMouseEnter={e => { e.currentTarget.style.opacity = '0.88'; }} onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}>
+                  Become a sponsor
+                </button>
+                <button onClick={() => onNavigate('offer-a-discount')} style={{ padding: '9px 16px', borderRadius: 10, background: 'transparent', border: '1.5px solid rgba(13,148,136,0.28)', color: WELLBEING_ACCENT, fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  Offer a discount
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Section header */}
+          {!loading && !error && venues.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <h2 style={{ fontSize: 'clamp(17px, 2.2vw, 22px)', fontWeight: 800, color: '#1A2744', margin: '0 0 4px', letterSpacing: '-0.01em' }}>
+                Wellbeing places in {countyLabel}
+              </h2>
+              <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.52)', margin: '0 0 8px', lineHeight: 1.5 }}>
+                Calm spaces, supportive venues and restorative activities near you.
+              </p>
+              <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.46)', borderTop: '1px solid #EEF1F7', paddingTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                <span>
+                  {filtered.length === venues.length
+                    ? <><strong style={{ color: '#1A2744' }}>{venues.length}</strong> wellbeing places in {countyLabel}</>
+                    : <><strong style={{ color: '#1A2744' }}>{filtered.length}</strong> of {venues.length} places</>
+                  }
+                </span>
+                {anyFilter && filtered.length === 0 && (
+                  <button onClick={clearFilters} className="btn btn-ghost btn-sm">Clear filters</button>
+                )}
+              </div>
             </div>
           )}
 
