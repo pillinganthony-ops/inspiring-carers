@@ -15,7 +15,7 @@ import supabase, { isSupabaseConfigured } from '../../lib/supabaseClient.js';
 import {
   Crown, MapPin as LMapPin, Ticket, Gift, Coffee, HeartHandshake,
   Waves, Accessibility, HeartPulse, TicketPercent, Tag, Trophy, Users as LUsers,
-  Palmtree, Landmark, Leaf, Footprints, Heart,
+  Compass, Building2, Leaf, Route, Heart,
 } from 'lucide-react';
 
 const { IWalks, IGroups, IWellbeing, IArrow, ISparkle, ISearch, IPin } = Icons;
@@ -580,20 +580,20 @@ const CAT_ACCENT_LISTING = {
 // Premium category icon system — vector icons from lucide-react.
 // Extend by adding/updating entries here — no other changes needed.
 const CATEGORY_ICON_COMPONENTS = {
-  'Days Out':    Palmtree,
-  'Attractions': Landmark,
+  'Days Out':    Compass,
+  'Attractions': Building2,
   'Wellbeing':   Leaf,
-  'Walks':       Footprints,
+  'Walks':       Route,
   'Food':        Coffee,
   'Community':   LUsers,
   'Family':      Heart,
 };
 // Punchy saturated badge backgrounds — provide the coloured shell around the white inner plate.
 const CAT_BADGE_BG = {
-  'Days Out':    'linear-gradient(145deg, rgba(245,166,35,0.82), rgba(217,140,20,0.62))',
-  'Attractions': 'linear-gradient(145deg, rgba(123,92,245,0.82), rgba(99,69,210,0.62))',
-  'Wellbeing':   'linear-gradient(145deg, rgba(13,148,136,0.78), rgba(9,110,100,0.58))',
-  'Walks':       'linear-gradient(145deg, rgba(91,201,74,0.80),  rgba(68,168,54,0.60))',
+  'Days Out':    'linear-gradient(145deg, rgba(245,166,35,0.68), rgba(217,140,20,0.50))',
+  'Attractions': 'linear-gradient(145deg, rgba(123,92,245,0.68), rgba(99,69,210,0.50))',
+  'Wellbeing':   'linear-gradient(145deg, rgba(13,148,136,0.64), rgba(9,110,100,0.46))',
+  'Walks':       'linear-gradient(145deg, rgba(91,201,74,0.66),  rgba(68,168,54,0.48))',
 };
 
 const LISTING_CATEGORIES = [
@@ -658,16 +658,16 @@ const ActivityListCard = ({ venue, onViewProfile }) => {
           <div style={{
             width: 52, height: 52, borderRadius: 15, flexShrink: 0,
             background: badgeBg,
-            border: `1px solid ${accent}40`,
+            border: `1px solid ${accent}33`,
             boxShadow: hovered
-              ? `0 14px 30px ${accent}35`
-              : `0 8px 22px ${accent}25`,
+              ? `0 10px 24px ${accent}28`
+              : `0 8px 20px ${accent}22`,
             display: 'grid', placeItems: 'center',
             transform: hovered ? 'translateY(-2px) scale(1.03)' : 'none',
             transition: 'transform 0.2s ease, box-shadow 0.2s ease',
           }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.90)', display: 'grid', placeItems: 'center' }}>
-              <CategoryIcon size={26} color={accent} strokeWidth={2.4} />
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.92)', border: '1px solid rgba(0,0,0,0.04)', display: 'grid', placeItems: 'center' }}>
+              <CategoryIcon size={22} color={accent} strokeWidth={1.8} />
             </div>
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
