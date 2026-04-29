@@ -392,16 +392,22 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
         })
     : [];
 
-  // Activity pins — use live Supabase venues when provided, else ACTIVITY_SAMPLE_DATA
-  const samplePins = liveVenues
-    ? liveVenues
-        .filter((v) => v.latitude && v.longitude)
+  // Activity pins — prefer live Supabase venues with valid coordinates; fall back to
+  // ACTIVITY_SAMPLE_DATA (county-filtered) when no live venues have coordinates.
+  // An empty array is truthy, so gate on coord count — not array existence — to avoid
+  // suppressing the sample-data fallback when DB venues lack lat/lng.
+  const venuesWithCoords = (liveVenues || []).filter(
+    (v) => Number.isFinite(Number(v.latitude)) && Number.isFinite(Number(v.longitude)) && Number(v.latitude) !== 0
+  );
+
+  const samplePins = venuesWithCoords.length > 0
+    ? venuesWithCoords
         .filter((v) => !activityType || DB_CAT_TO_MAP_KEY[v.category] === activityType)
         .map((v) => ({
           id:          `live-${v.id}`,
           category:    DB_CAT_TO_MAP_KEY[v.category] || 'days-out',
-          lat:         v.latitude,
-          lng:         v.longitude,
+          lat:         Number(v.latitude),
+          lng:         Number(v.longitude),
           title:       v.name,
           area:        v.town,
           description: v.short_description,
