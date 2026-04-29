@@ -14,6 +14,7 @@ import CountyBanner from '../CountyBanner.jsx';
 import CountyInterestModal from '../CountyInterestModal.jsx';
 import SponsorCTA from '../SponsorCTA.jsx';
 import CountyCategoryNav from '../CountyCategoryNav.jsx';
+import CountyWalksBanner from '../CountyWalksBanner.jsx';
 import { Compass, Building2, MapPin as LMapPin } from 'lucide-react';
 
 const { IArrow, ISearch, IPin, IChevron } = Icons;
@@ -376,6 +377,14 @@ const PlacesToVisitCountyPage = ({ onNavigate, session, county, venueSlug }) => 
             </div>
           </div>
         </section>
+
+        {/* Explore Walks cross-link */}
+        <CountyWalksBanner
+          county={county}
+          onNavigate={onNavigate}
+          headline="Outdoor routes and green spaces can support days out."
+          detail="Find accessible walks and local routes nearby."
+        />
 
         {/* B. Three value cards */}
         <section style={{ paddingTop: 56, paddingBottom: 48, background: '#FAFBFF' }}>

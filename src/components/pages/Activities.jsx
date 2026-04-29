@@ -13,6 +13,7 @@ import CountyBanner from '../CountyBanner.jsx';
 import CountyInterestModal from '../CountyInterestModal.jsx';
 import SponsorCTA from '../SponsorCTA.jsx';
 import CountyCategoryNav from '../CountyCategoryNav.jsx';
+import CountyWalksBanner from '../CountyWalksBanner.jsx';
 import supabase, { isSupabaseConfigured } from '../../lib/supabaseClient.js';
 import {
   Crown, MapPin as LMapPin, Ticket, Gift, Coffee, HeartHandshake,
@@ -958,26 +959,28 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
 
   const anyFilter = search || filterCat || filterSubcat || filterPrice || filterInOut || filterFamily || filterWheelchair || filterDog || filterCarer;
 
+  // County-restricted walks. walks.json has no explicit county field — all rows default to
+  // cornwall. Non-Cornwall counties correctly receive an empty array until data is added.
+  const normalisedCountySlug = String(county || 'cornwall').toLowerCase().trim();
+  const countyWalks = React.useMemo(() => {
+    if (!Array.isArray(walksData)) return [];
+    return walksData.filter((w) => {
+      const wc = String(w.county || w.county_slug || w.countySlug || 'cornwall').toLowerCase().trim();
+      return wc === normalisedCountySlug;
+    });
+  }, [normalisedCountySlug]);
+
+  // Walk count is derived directly from the county-restricted pool.
+  const countyWalksCount = countyWalks.length;
+
+  // Filtered walks for the Walks tab — searches within county walks only.
   const filteredWalks = React.useMemo(() => {
     const q = walkSearch.trim().toLowerCase();
-    if (!q) return walksData;
-    return walksData.filter((w) =>
+    if (!q) return countyWalks;
+    return countyWalks.filter((w) =>
       w.name?.toLowerCase().includes(q) || w.area?.toLowerCase().includes(q)
     );
-  }, [walkSearch]);
-
-  // County-specific walk count. walks.json has no explicit county field — walks without one
-  // are implicitly Cornwall. Non-Cornwall counties correctly resolve to 0 until their data exists.
-  const normalisedCountySlug = String(county || 'cornwall').toLowerCase().trim();
-  const countyWalksCount = React.useMemo(() => {
-    if (!Array.isArray(walksData)) return 0;
-    return walksData.filter((walk) => {
-      const walkCounty = String(
-        walk.county || walk.county_slug || walk.countySlug || 'cornwall'
-      ).toLowerCase().trim();
-      return walkCounty === normalisedCountySlug;
-    }).length;
-  }, [normalisedCountySlug]);
+  }, [countyWalks, walkSearch]);
 
   const clearFilters = () => {
     setSearch(''); setFilterCat(''); setFilterSubcat(''); setFilterPrice(''); setFilterInOut('');
@@ -1120,6 +1123,14 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
           </div>
         </div>
       </section>
+
+      {/* ── Explore Walks cross-link ── */}
+      <CountyWalksBanner
+        county={county}
+        onNavigate={onNavigate}
+        headline="Outdoor routes and green spaces can support wellbeing."
+        detail={`Find accessible walks${countyLabel ? ` in ${countyLabel}` : ' near you'}.`}
+      />
 
       {/* ── Main content — two-column sidebar + right (map + cards) ── */}
       <div style={{ background: '#F7F9FC', paddingTop: 28, paddingBottom: 56 }}>

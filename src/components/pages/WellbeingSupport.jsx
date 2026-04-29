@@ -14,6 +14,7 @@ import CountyBanner from '../CountyBanner.jsx';
 import CountyInterestModal from '../CountyInterestModal.jsx';
 import SponsorCTA from '../SponsorCTA.jsx';
 import CountyCategoryNav from '../CountyCategoryNav.jsx';
+import CountyWalksBanner from '../CountyWalksBanner.jsx';
 import { Leaf } from 'lucide-react';
 
 const { ISearch, IPin, IArrow, IChevron } = Icons;
@@ -358,6 +359,14 @@ const WellbeingCountyPage = ({ onNavigate, session, county, venueSlug }) => {
             </div>
           </div>
         </section>
+
+        {/* Explore Walks cross-link */}
+        <CountyWalksBanner
+          county={county}
+          onNavigate={onNavigate}
+          headline="Outdoor routes and green spaces can support wellbeing."
+          detail="Find accessible walks in your area."
+        />
 
         {/* B. Three value cards */}
         <section style={{ paddingTop: 56, paddingBottom: 48, background: '#FAFBFF' }}>
