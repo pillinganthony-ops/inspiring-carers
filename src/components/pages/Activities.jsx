@@ -14,6 +14,8 @@ import CountyInterestModal from '../CountyInterestModal.jsx';
 import SponsorCTA from '../SponsorCTA.jsx';
 import CountyCategoryNav from '../CountyCategoryNav.jsx';
 import CountyWalksBanner from '../CountyWalksBanner.jsx';
+import CountyHero from '../shared/CountyHero.jsx';
+import DiscoveryCard from '../shared/DiscoveryCard.jsx';
 import supabase, { isSupabaseConfigured } from '../../lib/supabaseClient.js';
 import {
   Crown, MapPin as LMapPin, Ticket, Gift, Coffee, HeartHandshake,
@@ -21,7 +23,7 @@ import {
   Compass, Building2, Leaf, Route, Heart,
 } from 'lucide-react';
 
-const { IWalks, IGroups, IWellbeing, IArrow, ISparkle, ISearch, IPin } = Icons;
+const { IWalks, IGroups, IWellbeing, IArrow, ISparkle, ISearch, IPin, IChevron } = Icons;
 
 // Stable module-level ref — MUST match id/libraries in Walks.jsx and FindHelp.jsx.
 // @react-google-maps/api crashes if useJsApiLoader is called with different configs
@@ -822,7 +824,6 @@ const tagPill = (color) => ({
 });
 
 const ActivityListCard = ({ venue, onViewProfile }) => {
-  const [hovered, setHovered] = React.useState(false);
   const accent       = CAT_ACCENT_LISTING[venue.category] || '#7B5CF5';
   const CategoryIcon = CATEGORY_ICON_COMPONENTS[venue.category] || LMapPin;
   const badgeBg      = CAT_BADGE_BG[venue.category] || `linear-gradient(135deg, rgba(123,92,245,0.82), rgba(99,69,210,0.62))`;
@@ -843,100 +844,58 @@ const ActivityListCard = ({ venue, onViewProfile }) => {
         ? 'Family-friendly option · Local discovery'
         : 'Local option · Check details before visiting';
 
+  const badges = [
+    ...(venue.verified ? [{ label: '✓ Verified', color: '#0D7A55', bg: 'rgba(16,185,129,0.10)' }] : []),
+    ...(venue.featured ? [{ label: 'Featured',   color: '#B45309', bg: 'rgba(245,166,35,0.12)' }] : []),
+  ];
+
   return (
-    <div
-      className="card"
+    <DiscoveryCard
+      title={venue.name}
+      description={venue.short_description}
+      tags={tags}
+      image={(isHovered) => (
+        <div style={{
+          width: 52, height: 52, borderRadius: 15, flexShrink: 0,
+          background: badgeBg,
+          border: `1px solid ${accent}33`,
+          boxShadow: isHovered ? `0 10px 24px ${accent}28` : `0 8px 20px ${accent}22`,
+          display: 'grid', placeItems: 'center',
+          transform: isHovered ? 'translateY(-2px) scale(1.03)' : 'none',
+          transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+        }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.92)', border: '1px solid rgba(0,0,0,0.04)', display: 'grid', placeItems: 'center' }}>
+            <CategoryIcon size={22} color={accent} strokeWidth={1.8} />
+          </div>
+        </div>
+      )}
+      accentColor={accent}
+      location={venue.town}
+      categoryLabel={`${venue.category}${venue.subcategory ? ` · ${venue.subcategory}` : ''}`}
+      trustLine={trustLine}
+      badges={badges}
       onClick={() => onViewProfile(venue)}
-      style={{ padding: 0, overflow: 'hidden', borderRadius: 22, border: `1px solid ${accent}22`, display: 'flex', flexDirection: 'column', background: '#FFFFFF', cursor: 'pointer', transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.16s ease' }}
-      onMouseEnter={(e) => { setHovered(true);  e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = `0 16px 40px ${accent}22, 0 4px 14px rgba(26,39,68,0.07)`; e.currentTarget.style.borderColor = `${accent}44`; }}
-      onMouseLeave={(e) => { setHovered(false); e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.borderColor = `${accent}22`; }}
     >
-      {/* Accent top strip */}
-      <div style={{ height: 4, background: `linear-gradient(90deg, ${accent}, ${accent}66)`, flexShrink: 0 }} />
-
-      <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', flex: 1, gap: 12 }}>
-        {/* Premium icon badge + category row */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-          <div style={{
-            width: 52, height: 52, borderRadius: 15, flexShrink: 0,
-            background: badgeBg,
-            border: `1px solid ${accent}33`,
-            boxShadow: hovered
-              ? `0 10px 24px ${accent}28`
-              : `0 8px 20px ${accent}22`,
-            display: 'grid', placeItems: 'center',
-            transform: hovered ? 'translateY(-2px) scale(1.03)' : 'none',
-            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-          }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.92)', border: '1px solid rgba(0,0,0,0.04)', display: 'grid', placeItems: 'center' }}>
-              <CategoryIcon size={22} color={accent} strokeWidth={1.8} />
-            </div>
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: accent, marginBottom: 3 }}>
-              {venue.category}{venue.subcategory ? ` · ${venue.subcategory}` : ''}
-            </div>
-            {venue.town && (
-              <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.50)', display: 'flex', alignItems: 'center', gap: 3 }}>
-                <IPin s={10} /> {venue.town}
-              </div>
-            )}
-          </div>
-          {/* Verified / Featured mini-badges */}
-          <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-            {venue.verified && <span style={{ fontSize: 9.5, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(16,185,129,0.10)', color: '#0D7A55' }}>✓ Verified</span>}
-            {venue.featured && <span style={{ fontSize: 9.5, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(245,166,35,0.12)', color: '#B45309' }}>Featured</span>}
-          </div>
-        </div>
-
-        {/* Name */}
-        <div style={{ fontSize: 16.5, fontWeight: 800, color: '#1A2744', lineHeight: 1.28 }}>
-          {venue.name}
-        </div>
-
-        {/* Description */}
-        {venue.short_description && (
-          <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.65)', lineHeight: 1.65, margin: 0 }}>
-            {venue.short_description}
-          </p>
-        )}
-
-        {/* Trust micro-line */}
-        <div style={{ fontSize: 11, color: 'rgba(26,39,68,0.36)', fontStyle: 'italic', lineHeight: 1.4 }}>
-          {trustLine}
-        </div>
-
-        {/* Tags */}
-        {tags.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-            {tags.map((t) => <span key={t.label} style={tagPill(t.color)}>{t.label}</span>)}
-          </div>
-        )}
-
-        {/* CTAs */}
-        <div style={{ marginTop: 'auto', paddingTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <button
-            onClick={(e) => { e.stopPropagation(); onViewProfile(venue); }}
-            style={{ fontSize: 13, fontWeight: 700, color: accent, background: `${accent}14`, padding: '8px 14px', borderRadius: 9, border: 'none', cursor: 'pointer', transition: 'background .14s' }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = `${accent}26`; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = `${accent}14`; }}
-          >
-            View details →
-          </button>
-          {venue.website && (
-            <a
-              href={venue.website} target="_blank" rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              style={{ fontSize: 13, fontWeight: 600, color: 'rgba(26,39,68,0.50)', background: 'rgba(26,39,68,0.05)', padding: '8px 14px', borderRadius: 9, textDecoration: 'none', display: 'inline-block', transition: 'background .14s' }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(26,39,68,0.09)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(26,39,68,0.05)'; }}
-            >
-              Website ↗
-            </a>
-          )}
-        </div>
-      </div>
-    </div>
+      <button
+        onClick={(e) => { e.stopPropagation(); onViewProfile(venue); }}
+        style={{ fontSize: 13, fontWeight: 700, color: accent, background: `${accent}14`, padding: '8px 14px', borderRadius: 9, border: 'none', cursor: 'pointer', transition: 'background .14s' }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = `${accent}26`; }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = `${accent}14`; }}
+      >
+        View details →
+      </button>
+      {venue.website && (
+        <a
+          href={venue.website} target="_blank" rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          style={{ fontSize: 13, fontWeight: 600, color: 'rgba(26,39,68,0.50)', background: 'rgba(26,39,68,0.05)', padding: '8px 14px', borderRadius: 9, textDecoration: 'none', display: 'inline-block', transition: 'background .14s' }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(26,39,68,0.09)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(26,39,68,0.05)'; }}
+        >
+          Website ↗
+        </a>
+      )}
+    </DiscoveryCard>
   );
 };
 
@@ -1233,95 +1192,23 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
 <CountyCategoryNav county={county} activePage="activities" onNavigate={onNavigate} />
 
       {/* ── Hero ── */}
-      <section style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(150deg, #0C1A35 0%, #162C52 50%, #1A3460 100%)', paddingTop: 28, paddingBottom: 36 }}>
-        <div style={{ position: 'absolute', top: -80, right: -80, width: 400, height: 400, borderRadius: '50%', background: 'radial-gradient(circle, rgba(91,201,74,0.10) 0%, transparent 65%)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', bottom: -60, left: '30%', width: 360, height: 360, borderRadius: '50%', background: 'radial-gradient(circle, rgba(245,166,35,0.07) 0%, transparent 65%)', pointerEvents: 'none' }} />
-
-        <div className="container" style={{ position: 'relative' }}>
-          <button
-            onClick={() => onNavigate('activities', null)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.60)', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.13)', padding: '6px 14px', borderRadius: 8, cursor: 'pointer', marginBottom: 20 }}
-          >
-            ← Things to Do
-          </button>
-
-          {/* Two-module hero: left = title/stats, right = sponsor panel */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 28, alignItems: 'flex-start' }}>
-
-            {/* ── Left: title + stats ── */}
-            <div>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 999, background: 'rgba(91,201,74,0.15)', border: '1px solid rgba(91,201,74,0.28)', fontSize: 11, fontWeight: 800, color: '#78E060', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
-                {filterCat || 'Things to Do'} · {countyLabel}
-              </div>
-              <h1 style={{ fontSize: 'clamp(24px, 4vw, 42px)', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.03em', lineHeight: 1.06, margin: '0 0 10px', textWrap: 'balance' }}>
-                {heroTitle}
-              </h1>
-              <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.68)', lineHeight: 1.6, margin: '0 0 16px', maxWidth: 480 }}>
-                {heroSubtitle}
-              </p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 0, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.10)' }}>
-                  {[
-                    { n: venues.length,                                                l: 'Places' },
-                    { n: countyWalksCount,                                             l: 'Walks' },
-                    { n: venues.filter((v) => v.free_or_paid === 'Free').length,       l: 'Free entry' },
-                    { n: venues.filter((v) => v.wheelchair_access).length,             l: 'Accessible' },
-                  ].map(({ n, l }, i) => (
-                    <div key={l} style={{ paddingRight: 18, paddingLeft: i > 0 ? 18 : 0, borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.12)' : 'none' }}>
-                      <div style={{ fontSize: 18, fontWeight: 800, color: '#FFFFFF', lineHeight: 1 }}>{n}</div>
-                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.44)', fontWeight: 600, marginTop: 3 }}>{l}</div>
-                    </div>
-                  ))}
-                </div>
-            </div>
-
-            {/* ── Right: county sponsorship module ── */}
-            <div style={{ background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(10px)', borderRadius: 20, padding: '20px 22px', border: '1px solid rgba(255,255,255,0.12)' }}>
-              <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: 'rgba(255,255,255,0.40)', marginBottom: 8 }}>
-                County sponsorship
-              </div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF', marginBottom: 7, lineHeight: 1.3 }}>
-                Become the {countyLabel} activities partner
-              </div>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.52)', lineHeight: 1.6, margin: '0 0 16px' }}>
-                Feature your organisation across all {countyLabel} discovery pages and reach carers searching for local activities.
-              </p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9, marginBottom: 16 }}>
-                {[
-                  { n: countyWalksCount, l: 'Walk routes' },
-                  { n: venues.length,   l: 'Activity places' },
-                ].map(({ n, l }) => (
-                  <div key={l} style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.10)' }}>
-                    <div style={{ fontSize: 17, fontWeight: 800, color: '#FFFFFF', lineHeight: 1 }}>{n}</div>
-                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.40)', marginTop: 3 }}>{l}</div>
-                  </div>
-                ))}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <button
-                  onClick={() => onNavigate('advertise')}
-                  style={{ width: '100%', padding: '11px 16px', borderRadius: 12, background: 'linear-gradient(135deg, #F5A623, #D4AF37)', color: '#0F172A', fontWeight: 800, fontSize: 14, border: 'none', cursor: 'pointer', transition: 'opacity .14s' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.90'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
-                >
-                  Become a sponsor →
-                </button>
-                <button
-                  onClick={() => onNavigate('offer-a-discount')}
-                  style={{ width: '100%', padding: '9px 16px', borderRadius: 12, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.18)', color: 'rgba(255,255,255,0.82)', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', transition: 'opacity .14s' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.80'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
-                >
-                  Offer a discount
-                </button>
-              </div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.24)', textAlign: 'center', marginTop: 6 }}>
-                Limited county slots available
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </section>
+      <CountyHero
+        county={county}
+        pageName="Things to Do"
+        eyebrow={filterCat || 'Things to Do'}
+        title={heroTitle}
+        subtitle={heroSubtitle}
+        stats={!loading && venues.length > 0 ? [
+          { n: venues.length,                                                l: 'Places' },
+          { n: countyWalksCount,                                             l: 'Walks' },
+          { n: venues.filter((v) => v.free_or_paid === 'Free').length,       l: 'Free entry' },
+          { n: venues.filter((v) => v.wheelchair_access).length,             l: 'Accessible' },
+        ] : []}
+        onNavigate={onNavigate}
+        gradient="linear-gradient(150deg, #0C1A35 0%, #162C52 50%, #1A3460 100%)"
+        accent="#78E060"
+        orbTopColor="rgba(91,201,74,0.10)"
+      />
 
       {/* ── Explore Walks cross-link ── */}
       <CountyWalksBanner
@@ -1330,6 +1217,31 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
         headline="Outdoor routes and green spaces can support wellbeing."
         detail={`Find accessible walks${countyLabel ? ` in ${countyLabel}` : ' near you'}.`}
       />
+
+      {/* ── Sponsorship strip — moved from hero to match Places to Visit pattern ── */}
+      <div style={{ background: '#FAFBFF', borderBottom: '1px solid #EEF1F7', padding: '14px 0' }}>
+        <div className="container">
+          <div style={{ padding: '20px 24px', borderRadius: 22, background: 'rgba(91,201,74,0.05)', border: '1px solid rgba(91,201,74,0.14)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: '#3DA832', marginBottom: 5 }}>County sponsorship</div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#1A2744', marginBottom: 4, lineHeight: 1.28 }}>
+                Become the {countyLabel} activities partner
+              </div>
+              <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.56)', margin: 0, lineHeight: 1.55 }}>
+                Feature your organisation across all {countyLabel} discovery pages and reach carers searching for local activities.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flexShrink: 0 }}>
+              <button onClick={() => onNavigate('advertise')} style={{ padding: '9px 18px', borderRadius: 10, background: 'linear-gradient(135deg, #F5A623, #D4AF37)', color: '#0F172A', fontWeight: 800, fontSize: 13, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'opacity .13s' }} onMouseEnter={e => { e.currentTarget.style.opacity = '0.88'; }} onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}>
+                Become a sponsor →
+              </button>
+              <button onClick={() => onNavigate('offer-a-discount')} style={{ padding: '9px 16px', borderRadius: 10, background: 'transparent', border: '1.5px solid rgba(91,201,74,0.30)', color: '#3DA832', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                Offer a discount
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* ── Main content — two-column sidebar + right (map + cards) ── */}
       <div style={{ background: '#F7F9FC', paddingTop: 28, paddingBottom: 56 }}>
@@ -1478,7 +1390,7 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
 
               {/* Loading skeletons */}
               {loading && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
                   {Array.from({ length: 6 }).map((_, i) => (
                     <div key={i} className="card" style={{ padding: 16, borderRadius: 16, minHeight: 180 }}>
                       <div style={{ height: 5, background: '#EAF0FA', borderRadius: 2, marginBottom: 14 }} />
@@ -1493,7 +1405,7 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
 
               {/* Error */}
               {!loading && error && (
-                <div style={{ textAlign: 'center', padding: '56px 20px' }}>
+                <div style={{ textAlign: 'center', padding: '64px 20px' }}>
                   <div style={{ fontSize: 34, marginBottom: 14 }}>⚠️</div>
                   <div style={{ fontSize: 16, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>Could not load activities</div>
                   <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)', marginBottom: 20 }}>{error}</div>
@@ -1552,7 +1464,7 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
 
               {/* Empty state */}
               {!loading && !error && filterCat !== 'Walks' && filtered.length === 0 && (
-                <div style={{ textAlign: 'center', padding: '56px 20px' }}>
+                <div style={{ textAlign: 'center', padding: '64px 20px' }}>
                   <div style={{ fontSize: 34, marginBottom: 14 }}>🗺️</div>
                   <div style={{ fontSize: 16, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>
                     {venues.length === 0 ? `No activities listed yet for ${countyLabel}` : 'No activities match your filters'}
@@ -1567,7 +1479,7 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
               {/* Cards grid + load more */}
               {!loading && !error && filterCat !== 'Walks' && filtered.length > 0 && (
                 <>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14, marginBottom: 20 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14, marginBottom: 20 }}>
                     {visibleVenues.map((venue) => (
                       <ActivityListCard key={venue.id} venue={venue} onViewProfile={handleViewProfile} />
                     ))}

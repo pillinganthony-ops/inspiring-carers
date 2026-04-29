@@ -10,14 +10,15 @@ import Footer from '../Footer.jsx';
 import Icons from '../Icons.jsx';
 import ClaimModal from '../ClaimModal.jsx';
 import VenueProfile from './VenueProfile.jsx';
-import CountyBanner from '../CountyBanner.jsx';
 import CountyInterestModal from '../CountyInterestModal.jsx';
 import SponsorCTA from '../SponsorCTA.jsx';
 import CountyCategoryNav from '../CountyCategoryNav.jsx';
 import CountyWalksBanner from '../CountyWalksBanner.jsx';
+import CountyHero from '../shared/CountyHero.jsx';
+import DiscoveryCard from '../shared/DiscoveryCard.jsx';
 import { Compass, Building2, MapPin as LMapPin } from 'lucide-react';
 
-const { IArrow, ISearch, IPin, IChevron } = Icons;
+const { IArrow, ISearch } = Icons;
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -91,15 +92,9 @@ const chip = (color, active) => ({
   cursor: 'pointer', whiteSpace: 'nowrap',
 });
 
-const tagPill = (color) => ({
-  fontSize: 11.5, fontWeight: 700, padding: '4px 10px', borderRadius: 999,
-  background: `${color}15`, color, border: `1px solid ${color}28`, display: 'inline-block', lineHeight: 1.3,
-});
-
 // ── Venue card ─────────────────────────────────────────────────────────────
 
 const VenueCard = ({ venue, onClaim, onViewProfile }) => {
-  const [hovered, setHovered] = React.useState(false);
   const accent       = CAT_ACCENT[venue.category] || '#7B5CF5';
   const CategoryIcon = PTV_ICON_COMPONENTS[venue.category] || LMapPin;
   const badgeBg      = PTV_BADGE_BG[venue.category] || `linear-gradient(135deg, rgba(123,92,245,0.68), rgba(99,69,210,0.50))`;
@@ -120,99 +115,39 @@ const VenueCard = ({ venue, onClaim, onViewProfile }) => {
         ? 'Family-friendly option · Local discovery'
         : 'Local option · Check details before visiting';
 
+  const badges = [
+    ...(venue.verified ? [{ label: '✓ Verified', color: '#0D7A55', bg: 'rgba(16,185,129,0.10)' }] : []),
+    ...(venue.featured ? [{ label: 'Featured',   color: '#B45309', bg: 'rgba(245,166,35,0.12)' }] : []),
+  ];
+
   return (
-    <div
-      className="card"
+    <DiscoveryCard
+      title={venue.name}
+      description={venue.short_description}
+      tags={tags}
+      image={(isHovered) => (
+        <div style={{
+          width: 52, height: 52, borderRadius: 15, flexShrink: 0,
+          background: badgeBg,
+          border: `1px solid ${accent}33`,
+          boxShadow: isHovered ? `0 10px 24px ${accent}28` : `0 8px 20px ${accent}22`,
+          display: 'grid', placeItems: 'center',
+          transform: isHovered ? 'translateY(-2px) scale(1.03)' : 'none',
+          transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+        }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.92)', border: '1px solid rgba(0,0,0,0.04)', display: 'grid', placeItems: 'center' }}>
+            <CategoryIcon size={22} color={accent} strokeWidth={1.8} />
+          </div>
+        </div>
+      )}
+      accentColor={accent}
+      location={venue.town}
+      categoryLabel={`${venue.category}${venue.subcategory ? ` · ${venue.subcategory}` : ''}`}
+      trustLine={trustLine}
+      badges={badges}
       onClick={() => onViewProfile(venue.slug)}
-      style={{ padding: 0, overflow: 'hidden', borderRadius: 22, border: `1px solid ${accent}22`, display: 'flex', flexDirection: 'column', background: '#FFFFFF', cursor: 'pointer', transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.16s ease' }}
-      onMouseEnter={(e) => { setHovered(true);  e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = `0 16px 40px ${accent}22, 0 4px 14px rgba(26,39,68,0.07)`; e.currentTarget.style.borderColor = `${accent}44`; }}
-      onMouseLeave={(e) => { setHovered(false); e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.borderColor = `${accent}22`; }}
-    >
-      {/* Accent top strip */}
-      <div style={{ height: 4, background: `linear-gradient(90deg, ${accent}, ${accent}66)`, flexShrink: 0 }} />
-
-      <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', flex: 1, gap: 12 }}>
-        {/* Icon badge + category row */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-          <div style={{
-            width: 52, height: 52, borderRadius: 15, flexShrink: 0,
-            background: badgeBg,
-            border: `1px solid ${accent}33`,
-            boxShadow: hovered ? `0 10px 24px ${accent}28` : `0 8px 20px ${accent}22`,
-            display: 'grid', placeItems: 'center',
-            transform: hovered ? 'translateY(-2px) scale(1.03)' : 'none',
-            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-          }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.92)', border: '1px solid rgba(0,0,0,0.04)', display: 'grid', placeItems: 'center' }}>
-              <CategoryIcon size={22} color={accent} strokeWidth={1.8} />
-            </div>
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: accent, marginBottom: 3 }}>
-              {venue.category}{venue.subcategory ? ` · ${venue.subcategory}` : ''}
-            </div>
-            {venue.town && (
-              <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.50)', display: 'flex', alignItems: 'center', gap: 3 }}>
-                <IPin s={10} /> {venue.town}
-              </div>
-            )}
-          </div>
-          {/* Verified / Featured mini-badges */}
-          <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-            {venue.verified && <span style={{ fontSize: 9.5, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(16,185,129,0.10)', color: '#0D7A55' }}>✓ Verified</span>}
-            {venue.featured && <span style={{ fontSize: 9.5, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(245,166,35,0.12)', color: '#B45309' }}>Featured</span>}
-          </div>
-        </div>
-
-        {/* Name */}
-        <div style={{ fontSize: 16.5, fontWeight: 800, color: '#1A2744', lineHeight: 1.28 }}>
-          {venue.name}
-        </div>
-
-        {/* Short description */}
-        {venue.short_description && (
-          <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.65)', lineHeight: 1.65, margin: 0 }}>
-            {venue.short_description}
-          </p>
-        )}
-
-        {/* Trust micro-line */}
-        <div style={{ fontSize: 11, color: 'rgba(26,39,68,0.36)', fontStyle: 'italic', lineHeight: 1.4 }}>
-          {trustLine}
-        </div>
-
-        {/* Tags */}
-        {tags.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-            {tags.map((t) => <span key={t.label} style={tagPill(t.color)}>{t.label}</span>)}
-          </div>
-        )}
-
-        {/* CTAs */}
-        <div style={{ marginTop: 'auto', paddingTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <button
-            onClick={(e) => { e.stopPropagation(); onViewProfile(venue.slug); }}
-            style={{ fontSize: 13, fontWeight: 700, color: accent, background: `${accent}14`, padding: '8px 14px', borderRadius: 9, border: 'none', cursor: 'pointer', transition: 'background .14s' }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = `${accent}26`; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = `${accent}14`; }}
-          >
-            View details →
-          </button>
-          {venue.website && (
-            <a
-              href={venue.website} target="_blank" rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              style={{ fontSize: 13, fontWeight: 600, color: 'rgba(26,39,68,0.50)', background: 'rgba(26,39,68,0.05)', padding: '8px 14px', borderRadius: 9, textDecoration: 'none', display: 'inline-block', transition: 'background .14s' }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(26,39,68,0.09)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(26,39,68,0.05)'; }}
-            >
-              Website ↗
-            </a>
-          )}
-        </div>
-
-        {/* Claim CTA */}
-        <div style={{ marginTop: 8, paddingTop: 9, borderTop: '1px solid #F0F4FA', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+      footer={
+        <>
           <span style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.40)' }}>Own or manage this place?</span>
           <button
             onClick={(e) => { e.stopPropagation(); onClaim(venue); }}
@@ -222,9 +157,29 @@ const VenueCard = ({ venue, onClaim, onViewProfile }) => {
           >
             Claim listing
           </button>
-        </div>
-      </div>
-    </div>
+        </>
+      }
+    >
+      <button
+        onClick={(e) => { e.stopPropagation(); onViewProfile(venue.slug); }}
+        style={{ fontSize: 13, fontWeight: 700, color: accent, background: `${accent}14`, padding: '8px 14px', borderRadius: 9, border: 'none', cursor: 'pointer', transition: 'background .14s' }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = `${accent}26`; }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = `${accent}14`; }}
+      >
+        View details →
+      </button>
+      {venue.website && (
+        <a
+          href={venue.website} target="_blank" rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          style={{ fontSize: 13, fontWeight: 600, color: 'rgba(26,39,68,0.50)', background: 'rgba(26,39,68,0.05)', padding: '8px 14px', borderRadius: 9, textDecoration: 'none', display: 'inline-block', transition: 'background .14s' }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(26,39,68,0.09)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(26,39,68,0.05)'; }}
+        >
+          Website ↗
+        </a>
+      )}
+    </DiscoveryCard>
   );
 };
 
@@ -350,65 +305,40 @@ const PlacesToVisitCountyPage = ({ onNavigate, session, county, venueSlug }) => 
   return (
     <>
       <Nav activePage="places-to-visit" onNavigate={onNavigate} session={session} county={county} />
-      <CountyBanner
+<CountyCategoryNav county={county} activePage="places-to-visit" onNavigate={onNavigate} />
+
+      {/* ── Hero ─────────────────────────────────────────────────────── */}
+      <CountyHero
         county={county}
-        isFallback={!county}
-        onChangeCounty={(c) => onNavigate('places-to-visit', c)}
-      />
-      <CountyCategoryNav county={county} activePage="places-to-visit" onNavigate={onNavigate} />
-
-      {/* ── Hero ──────────────────────────────────────────────────────── */}
-      <section style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(150deg, #1A0C35 0%, #2C1452 50%, #341A60 100%)', paddingTop: 48, paddingBottom: 48 }}>
-        <div style={{ position: 'absolute', top: -80, right: -80, width: 400, height: 400, borderRadius: '50%', background: 'radial-gradient(circle, rgba(123,92,245,0.13) 0%, transparent 65%)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', bottom: -60, left: '30%', width: 360, height: 360, borderRadius: '50%', background: 'radial-gradient(circle, rgba(245,166,35,0.07) 0%, transparent 65%)', pointerEvents: 'none' }} />
-
-        <div className="container" style={{ position: 'relative' }}>
-          {/* Breadcrumb */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'rgba(255,255,255,0.45)', fontSize: 13, marginBottom: 14 }}>
-            <button onClick={() => onNavigate('home')} style={{ color: 'inherit', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', fontSize: 'inherit' }}>Home</button>
-            <IChevron s={12} />
-            <button onClick={() => onNavigate('places-to-visit', null)} style={{ color: 'inherit', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', fontSize: 'inherit' }}>Places to Visit</button>
-            {countyLabel && <><IChevron s={12} /><span style={{ color: '#FFFFFF', fontWeight: 600 }}>{countyLabel}</span></>}
-          </div>
-
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 999, background: 'rgba(123,92,245,0.18)', border: '1px solid rgba(123,92,245,0.30)', fontSize: 11, fontWeight: 800, color: '#B89EF8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
-            Places to Visit · {countyLabel}
-          </div>
-          <h1 style={{ fontSize: 'clamp(22px, 4vw, 40px)', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.03em', lineHeight: 1.08, margin: '0 0 10px', textWrap: 'balance' }}>
-            Days out and attractions in {countyLabel}
-          </h1>
-          <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.68)', lineHeight: 1.6, margin: '0 0 16px', maxWidth: 520 }}>
+        pageName="Places to Visit"
+        eyebrow="Places to Visit"
+        title={`Days out and attractions in ${countyLabel}`}
+        subtitle={
+          <>
             Carer-friendly attractions, gardens, heritage sites and family days out.
             {!loading && venues.length > 0 && (
               <> Browse <strong style={{ color: '#FFFFFF' }}>{venues.length} places</strong> across {countyLabel}.</>
             )}
-          </p>
-
-          {/* Stats row */}
-          {!loading && venues.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 0, borderTop: '1px solid rgba(255,255,255,0.10)', paddingTop: 14, marginTop: 4 }}>
-              {[
-                { n: venues.length,                                          l: 'Places' },
-                { n: venues.filter((v) => v.free_or_paid === 'Free').length, l: 'Free entry' },
-                { n: venues.filter((v) => v.family_friendly).length,         l: 'Family friendly' },
-                { n: venues.filter((v) => v.wheelchair_access).length,       l: 'Wheelchair accessible' },
-              ].map(({ n, l }, i) => (
-                <div key={l} style={{ paddingRight: 18, paddingLeft: i > 0 ? 18 : 0, borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.12)' : 'none' }}>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: '#FFFFFF', lineHeight: 1 }}>{n}</div>
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.44)', fontWeight: 600, marginTop: 3 }}>{l}</div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Map coming note */}
-          {!loading && !hasCoords && venues.length > 0 && (
-            <div style={{ marginTop: 14, fontSize: 12, color: 'rgba(255,255,255,0.40)', padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.10)', background: 'rgba(255,255,255,0.04)', display: 'inline-block' }}>
-              Map view will appear as locations are verified.
-            </div>
-          )}
-        </div>
-      </section>
+          </>
+        }
+        stats={!loading && venues.length > 0 ? [
+          { n: venues.length,                                          l: 'Places' },
+          { n: venues.filter((v) => v.free_or_paid === 'Free').length, l: 'Free entry' },
+          { n: venues.filter((v) => v.family_friendly).length,         l: 'Family friendly' },
+          { n: venues.filter((v) => v.wheelchair_access).length,       l: 'Wheelchair accessible' },
+        ] : []}
+        onNavigate={onNavigate}
+        gradient="linear-gradient(150deg, #1A0C35 0%, #2C1452 50%, #341A60 100%)"
+        accent="#7B5CF5"
+        orbTopColor="rgba(123,92,245,0.13)"
+      >
+        {/* Map coming note — page-specific, passed as children */}
+        {!loading && !hasCoords && venues.length > 0 && (
+          <div style={{ marginTop: 14, fontSize: 12, color: 'rgba(255,255,255,0.40)', padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.10)', background: 'rgba(255,255,255,0.04)', display: 'inline-block' }}>
+            Map view will appear as locations are verified.
+          </div>
+        )}
+      </CountyHero>
 
       {/* ── Walks cross-link ──────────────────────────────────────────── */}
       <div style={{ background: '#F0FDF4', borderBottom: '1px solid #BBF7D0', padding: '12px 0' }}>
@@ -452,7 +382,7 @@ const PlacesToVisitCountyPage = ({ onNavigate, session, county, venueSlug }) => 
       </div>
 
       {/* ── Sticky filter bar ─────────────────────────────────────────── */}
-      <section id="ptv-filters" style={{ background: '#FFFFFF', borderBottom: '1px solid #EEF1F7', paddingTop: 12, paddingBottom: 12, position: 'sticky', top: 72, zIndex: 40 }}>
+      <section id="ptv-filters" style={{ background: '#FFFFFF', borderBottom: '1px solid #EEF1F7', paddingTop: 12, paddingBottom: 12, position: 'sticky', top: 112, zIndex: 40 }}>
         <div className="container">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, alignItems: 'center' }}>
             {/* Search */}
@@ -550,11 +480,11 @@ const PlacesToVisitCountyPage = ({ onNavigate, session, county, venueSlug }) => 
             <div style={{ textAlign: 'center', padding: '64px 20px' }}>
               <div style={{ fontSize: 34, marginBottom: 14 }}>🗺️</div>
               <div style={{ fontSize: 16, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>
-                {venues.length === 0 ? 'No places listed yet' : 'No places match your filters'}
+                {venues.length === 0 ? `No places to visit in ${countyLabel} yet` : 'No places match your filters'}
               </div>
               <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)', marginBottom: 18, maxWidth: 360, margin: '0 auto 18px' }}>
                 {venues.length === 0
-                  ? `We're adding places to visit in ${countyLabel} — check back soon.`
+                  ? `We're building this area — new places will appear here soon.`
                   : 'Try adjusting or clearing your filters.'}
               </div>
               {anyFilter && (
