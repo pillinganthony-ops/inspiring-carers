@@ -1014,6 +1014,7 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
   return (
     <>
       <Nav activePage="activities" onNavigate={onNavigate} session={session} county={county} />
+      <CountyBanner county={county} isFallback={!county} onChangeCounty={(c) => onNavigate('activities', c)} />
       <CountyCategoryNav county={county} activePage="activities" onNavigate={onNavigate} />
 
       {/* ── Hero ── */}
