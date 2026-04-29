@@ -431,7 +431,8 @@ const App = () => {
     if (GLOBAL.includes(segs[0])) return { page: segs[0], county: null };
 
     // Hub routes — standalone URLs without county prefix load county selector pages
-    if (segs[0] === 'activities') return { page: 'activities', county: null };
+    // 'activities' kept as legacy alias; canonical hub URL is /things-to-do
+    if (segs[0] === 'things-to-do' || segs[0] === 'activities') return { page: 'activities', county: null };
     if (segs[0] === 'find-help'  && segs.length === 1) return { page: 'find-help', county: null };
     if (segs[0] === 'events'     && segs.length === 1) return { page: 'events',    county: null };
 
@@ -445,8 +446,11 @@ const App = () => {
     if (segs[0] === 'places-to-visit'&& segs.length === 1) return { page: 'places-to-visit', county: null };
 
     // County-prefixed routes: /cornwall/find-help, /cornwall, or /cornwall/places-to-visit/some-slug
+    // 'things-to-do' is normalised to page key 'activities'; old /county/activities still works.
     if (COUNTY_SLUGS.includes(segs[0])) {
-      return { page: segs[1] || 'home', county: segs[0], slug: segs[2] || null };
+      const rawPage = segs[1] || 'home';
+      const pageKey = rawPage === 'things-to-do' ? 'activities' : rawPage;
+      return { page: pageKey, county: segs[0], slug: segs[2] || null };
     }
 
     // Legacy flat routes — silently redirect and return new page/county
@@ -464,8 +468,10 @@ const App = () => {
   const [page, setPage] = React.useState(() => parseRoute(window.location.pathname).page);
   const [county, setCounty] = React.useState(() => {
     const { county: urlCounty, page: urlPage } = parseRoute(window.location.pathname);
-    // Hub pages (no county in URL) must not inherit county from localStorage
-    const HUB_PAGES = ['activities', 'find-help', 'events', 'walks', 'wellbeing', 'places-to-visit'];
+    // Hub pages (no county in URL) must not inherit county from localStorage.
+    // 'home' included so that / always starts clean; /cornwall still gets county='cornwall'
+    // because urlCounty is truthy there and the guard condition is false.
+    const HUB_PAGES = ['home', 'activities', 'find-help', 'events', 'walks', 'wellbeing', 'places-to-visit'];
     if (HUB_PAGES.includes(urlPage) && !urlCounty) return null;
     // URL is source of truth: if URL contains a county, write it back to localStorage
     if (urlCounty) {
@@ -537,8 +543,10 @@ const App = () => {
   // Hub-page safety net — URL is the authoritative source of truth.
   // If county state is non-null while the URL contains no county prefix,
   // reset to null. Catches any code path that bypassed the useState init guard.
+  // 'home' included so navigating to / clears a stale county; /cornwall is safe
+  // because parseRoute('/cornwall').county = 'cornwall', so setCounty is not called.
   React.useEffect(() => {
-    const HUB_PAGES_ALL = ['activities', 'find-help', 'events', 'walks', 'wellbeing', 'places-to-visit'];
+    const HUB_PAGES_ALL = ['home', 'activities', 'find-help', 'events', 'walks', 'wellbeing', 'places-to-visit'];
     if (!HUB_PAGES_ALL.includes(page) || county === null) return;
     const { county: urlCounty } = parseRoute(window.location.pathname);
     if (!urlCounty) setCounty(null);
@@ -593,28 +601,28 @@ const App = () => {
       }
     }
 
-    // Activities routing:
-    // navigate('activities', 'cornwall') → /cornwall/activities
+    // Activities routing (canonical URL segment is 'things-to-do'):
+    // navigate('activities', 'cornwall') → /cornwall/things-to-do
     // navigate('activities') → use stored county (localStorage) if any, else hub
-    // navigate('activities', null) → /activities hub (explicit null)
+    // navigate('activities', null) → /things-to-do hub (explicit null)
     if (key === 'activities') {
       setPage('activities');
       setVenueSlug(null);
       if (explicitCounty === null) {
         // Explicit null → hub regardless of stored county
         setCounty(null);
-        window.history.pushState({ page: 'activities', county: null }, '', '/activities');
+        window.history.pushState({ page: 'activities', county: null }, '', '/things-to-do');
       } else {
         const stored = (() => { try { return localStorage.getItem('ic_county'); } catch { return null; } })();
         const targetCounty = explicitCounty || stored || null;
         if (!targetCounty) {
           // No county selected anywhere → hub
           setCounty(null);
-          window.history.pushState({ page: 'activities', county: null }, '', '/activities');
+          window.history.pushState({ page: 'activities', county: null }, '', '/things-to-do');
         } else {
           setCounty(targetCounty);
           try { localStorage.setItem('ic_county', targetCounty); } catch {}
-          window.history.pushState({ page: 'activities', county: targetCounty }, '', `/${targetCounty}/activities`);
+          window.history.pushState({ page: 'activities', county: targetCounty }, '', `/${targetCounty}/things-to-do`);
         }
       }
       window.scrollTo({ top: 0, behavior: 'instant' });
@@ -694,17 +702,30 @@ const App = () => {
       return;
     }
 
+    // Home routing — navigate('home') → /; navigate('home', 'cornwall') → /cornwall
+    // Early return keeps home completely isolated from effectiveCounty / COUNTY_DEFAULT.
+    if (key === 'home') {
+      const c = typeof explicitCounty === 'string' ? explicitCounty : null;
+      setPage('home');
+      setVenueSlug(null);
+      if (c) {
+        setCounty(c);
+        try { localStorage.setItem('ic_county', c); } catch {}
+      }
+      window.history.pushState({ page: 'home', county: c }, '', c ? `/${c}` : '/');
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      return;
+    }
+
     const isCountyPage = COUNTY_PAGES.has(key);
     const effectiveCounty = explicitCounty || county || COUNTY_DEFAULT;
 
     const PROFILE_URLS = { 'profile-org': '/profile/organisation', 'profile-posts': '/profile/posts', 'profile-enquiries': '/profile/enquiries', 'profile-settings': '/profile/settings' };
-    const path = key === 'home'
-      ? '/'
-      : PROFILE_URLS[key]
-        ? PROFILE_URLS[key]
-        : isCountyPage
-          ? (slug ? `/${effectiveCounty}/${key}/${slug}` : `/${effectiveCounty}/${key}`)
-          : `/${key}`;
+    const path = PROFILE_URLS[key]
+      ? PROFILE_URLS[key]
+      : isCountyPage
+        ? (slug ? `/${effectiveCounty}/${key}/${slug}` : `/${effectiveCounty}/${key}`)
+        : `/${key}`;
 
     setPage(key);
     setVenueSlug(slug || null);
