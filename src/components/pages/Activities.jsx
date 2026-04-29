@@ -561,7 +561,7 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
           </button>
         </div>
         <div style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.40)', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 6 }}>
-          <span style={{ fontStyle: 'italic' }}>Showing selected mapped activity points. Open the full walks map for all 333 routes.</span>
+          <span style={{ fontStyle: 'italic' }}>Showing selected mapped activity points. Open the full walks map for all {countyWalksCount} routes.</span>
           <span>Ctrl + scroll to zoom map</span>
         </div>
       </div>
@@ -966,6 +966,15 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
     );
   }, [walkSearch]);
 
+  // County-specific walk count. walks.json has no explicit county field — walks without one
+  // are implicitly Cornwall. Non-Cornwall counties correctly resolve to 0 until their data exists.
+  const countyWalksCount = React.useMemo(
+    () => walksData.filter(
+      (w) => `${w.county || 'cornwall'}`.toLowerCase() === `${county || 'cornwall'}`.toLowerCase()
+    ).length,
+    [county]
+  );
+
   const clearFilters = () => {
     setSearch(''); setFilterCat(''); setFilterSubcat(''); setFilterPrice(''); setFilterInOut('');
     setFilterFamily(false); setFilterWheelchair(false); setFilterDog(false); setFilterCarer(false);
@@ -987,11 +996,11 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
   // Dynamic hero title and subtitle
   const heroTitle = filterCat ? `${filterCat} in ${countyLabel}` : `Activities in ${countyLabel}`;
   const heroSubtitle =
-    filterCat === 'Walks'       ? `Explore ${walksData.length}+ trails, coastal paths and accessible walking routes across ${countyLabel}.` :
+    filterCat === 'Walks'       ? `Explore ${countyWalksCount}+ trails, coastal paths and accessible walking routes across ${countyLabel}.` :
     filterCat === 'Days Out'    ? `Carer-friendly days out, gardens and family destinations in ${countyLabel}.` :
     filterCat === 'Attractions' ? `Museums, heritage sites and cultural attractions in ${countyLabel}.` :
     filterCat === 'Wellbeing'   ? `Calm, restorative and community wellbeing places in ${countyLabel}.` :
-    `Days out, attractions, wellbeing and ${walksData.length}+ walks in ${countyLabel}.`;
+    `Days out, attractions, wellbeing and ${countyWalksCount ? `${countyWalksCount}+ walks` : 'walks'} in ${countyLabel}.`;
 
   // Sidebar section header style
   const sectionLabel = { fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.38)', marginBottom: 10 };
@@ -1047,7 +1056,7 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 0, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.10)' }}>
                   {[
                     { n: venues.length,                                                l: 'Places' },
-                    { n: `${walksData.length}+`,                                       l: 'Walks' },
+                    { n: countyWalksCount,                                             l: 'Walks' },
                     { n: venues.filter((v) => v.free_or_paid === 'Free').length,       l: 'Free entry' },
                     { n: venues.filter((v) => v.wheelchair_access).length,             l: 'Accessible' },
                   ].map(({ n, l }, i) => (
@@ -1072,8 +1081,8 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
               </p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9, marginBottom: 16 }}>
                 {[
-                  { n: `${walksData.length}+`, l: 'Walk routes' },
-                  { n: `${venues.length || 233}+`, l: 'Activity places' },
+                  { n: countyWalksCount, l: 'Walk routes' },
+                  { n: venues.length,   l: 'Activity places' },
                 ].map(({ n, l }) => (
                   <div key={l} style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.10)' }}>
                     <div style={{ fontSize: 17, fontWeight: 800, color: '#FFFFFF', lineHeight: 1 }}>{n}</div>
@@ -1285,7 +1294,7 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
                   <div style={{ position: 'relative', marginBottom: 16 }}>
                     <input
                       type="text" value={walkSearch} onChange={(e) => setWalkSearch(e.target.value)}
-                      placeholder={`Search ${walksData.length}+ walks by name or area…`}
+                      placeholder={`Search ${countyWalksCount || 'walks'} by name or area…`}
                       style={{ ...iStyle, width: '100%', boxSizing: 'border-box', paddingLeft: 34, fontSize: 14 }}
                     />
                     <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'rgba(26,39,68,0.38)', display: 'flex', pointerEvents: 'none' }}>
