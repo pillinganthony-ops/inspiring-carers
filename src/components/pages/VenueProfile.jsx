@@ -22,19 +22,41 @@ const { IPin, IArrow } = Icons;
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
+// Route-context fallbacks — used while loading and for unrecognised backPage values
 const BACK_LABELS = {
   'places-to-visit': 'Places to Visit',
   'wellbeing':       'Wellbeing Support',
+  'activities':      'Activities',
 };
 
 const PAGE_ACCENT = {
   'places-to-visit': '#7B5CF5',
   'wellbeing':       '#0D9488',
+  'activities':      '#3DA832',
 };
 
 const PAGE_HERO = {
   'places-to-visit': 'linear-gradient(150deg, #160B30 0%, #261048 50%, #301558 100%)',
   'wellbeing':       'linear-gradient(150deg, #071A20 0%, #0C2830 50%, #102E38 100%)',
+  'activities':      'linear-gradient(150deg, #0C1A35 0%, #162C52 50%, #1A3460 100%)',
+};
+
+// Category-driven overrides — take precedence over backPage once venue data is loaded.
+// Keeps styling correct if a venue moves between categories without an app redeploy.
+const CATEGORY_ACCENT = {
+  'Days Out':    '#F5A623',
+  'Attractions': '#7B5CF5',
+  'Wellbeing':   '#0D9488',
+};
+const CATEGORY_HERO = {
+  'Days Out':    'linear-gradient(150deg, #160B30 0%, #261048 50%, #301558 100%)',
+  'Attractions': 'linear-gradient(150deg, #160B30 0%, #261048 50%, #301558 100%)',
+  'Wellbeing':   'linear-gradient(150deg, #071A20 0%, #0C2830 50%, #102E38 100%)',
+};
+const CATEGORY_BACK_LABEL = {
+  'Days Out':    'Places to Visit',
+  'Attractions': 'Places to Visit',
+  'Wellbeing':   'Wellbeing Support',
 };
 
 // Premium icon map — lucide-react, consistent 1.5 stroke, no emojis
@@ -203,11 +225,15 @@ const VenueIllustration = ({ venue, accent }) => {
 // ── Page ───────────────────────────────────────────────────────────────────
 
 const VenueProfile = ({ slug, county, backPage, onNavigate, session }) => {
-  const accent    = PAGE_ACCENT[backPage]  || '#7B5CF5';
-  const heroGrad  = PAGE_HERO[backPage]    || PAGE_HERO['places-to-visit'];
-  const backLabel = BACK_LABELS[backPage]  || 'Back';
-
+  // Derived from loaded venue.category first; falls back to backPage while loading
+  // or if the category has no explicit mapping.
   const [venue,        setVenue]        = React.useState(null);
+  const accent   = CATEGORY_ACCENT[venue?.category]    || PAGE_ACCENT[backPage]  || '#7B5CF5';
+  const heroGrad = CATEGORY_HERO[venue?.category]      || PAGE_HERO[backPage]    || PAGE_HERO['places-to-visit'];
+  const backLabel = CATEGORY_BACK_LABEL[venue?.category] || BACK_LABELS[backPage] || 'Back';
+  const countyDisplay = county ? county.charAt(0).toUpperCase() + county.slice(1) : '';
+  const backLabelFull = countyDisplay ? `${backLabel} in ${countyDisplay}` : backLabel;
+
   const [orgProfile,   setOrgProfile]   = React.useState(null);
   const [loading,      setLoading]      = React.useState(true);
   const [error,        setError]        = React.useState(null);
@@ -302,7 +328,7 @@ const VenueProfile = ({ slug, county, backPage, onNavigate, session }) => {
             onClick={goBack}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.60)', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.13)', padding: '6px 14px', borderRadius: 8, cursor: 'pointer', marginBottom: 24 }}
           >
-            ← {backLabel}
+            ← {backLabelFull}
           </button>
 
           {/* Loading in hero */}
@@ -459,7 +485,7 @@ const VenueProfile = ({ slug, county, backPage, onNavigate, session }) => {
                 {error.includes('not found') ? 'Venue not found' : 'Could not load venue'}
               </div>
               <div style={{ fontSize: 14, color: 'rgba(26,39,68,0.55)', marginBottom: 24, maxWidth: 380, margin: '0 auto 24px' }}>{error}</div>
-              <button onClick={goBack} className="btn btn-gold btn-sm">← Back to {backLabel}</button>
+              <button onClick={goBack} className="btn btn-gold btn-sm">← Back to {backLabelFull}</button>
             </div>
           )}
 
@@ -469,11 +495,13 @@ const VenueProfile = ({ slug, county, backPage, onNavigate, session }) => {
 
               {/* ── Left column ── */}
               <div>
-                {/* About this place */}
-                {venue.full_description && venue.full_description !== venue.short_description && (
-                  <SectionCard title="About this place" accent={accent}>
+                {/* About this listing */}
+                {(venue.full_description || venue.short_description) && (
+                  <SectionCard title={venue.category === 'Wellbeing' ? 'About this space' : 'About this listing'} accent={accent}>
                     <p style={{ fontSize: 14.5, color: 'rgba(26,39,68,0.72)', lineHeight: 1.75, margin: 0, whiteSpace: 'pre-line' }}>
-                      {venue.full_description}
+                      {(venue.full_description && venue.full_description !== venue.short_description)
+                        ? venue.full_description
+                        : venue.short_description}
                     </p>
                   </SectionCard>
                 )}
@@ -544,7 +572,7 @@ const VenueProfile = ({ slug, county, backPage, onNavigate, session }) => {
                 )}
 
                 {/* Contact & booking */}
-                {(venue.website || venue.booking_url || venue.phone) && (
+                {(venue.website || venue.booking_url || venue.phone || venue.email) && (
                   <SectionCard title="Contact & booking" accent={accent}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {venue.website && (
@@ -560,8 +588,13 @@ const VenueProfile = ({ slug, county, backPage, onNavigate, session }) => {
                         </a>
                       )}
                       {venue.phone && (
-                        <div style={{ paddingTop: 8 }}>
+                        <div style={{ paddingTop: venue.website || venue.booking_url ? 4 : 0 }}>
                           <InfoRow label="Phone" value={venue.phone} />
+                        </div>
+                      )}
+                      {venue.email && (
+                        <div>
+                          <InfoRow label="Email" value={venue.email} />
                         </div>
                       )}
                     </div>
