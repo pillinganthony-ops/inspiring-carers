@@ -2241,7 +2241,7 @@ const _makeClusterSvg = (count, s) => {
 
 const DirectoryMap = ({ listings, selectedId, onSelect, onOpenResource, isMobile }) => {
   const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-  const { isLoaded } = useJsApiLoader({ id: 'ic-google-map', googleMapsApiKey: googleMapsApiKey || '', libraries: MAP_LIBRARIES });
+  const { isLoaded } = useJsApiLoader({ id: 'inspiring-carers-google-maps', googleMapsApiKey: googleMapsApiKey || '', libraries: MAP_LIBRARIES });
 
   const [mapCat, setMapCat] = React.useState('all');
   const [mapPremiumOnly, setMapPremiumOnly] = React.useState(false);

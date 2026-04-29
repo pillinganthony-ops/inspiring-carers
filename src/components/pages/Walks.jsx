@@ -1,10 +1,9 @@
 import React from 'react';
-import { GoogleMap, InfoWindowF, useJsApiLoader, useGoogleMap } from '@react-google-maps/api';
+import { GoogleMap, InfoWindowF, useJsApiLoader } from '@react-google-maps/api';
 import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markerclusterer';
 import Icons from '../Icons.jsx';
 import Nav from '../Nav.jsx';
 import Footer from '../Footer.jsx';
-import CountyBanner from '../CountyBanner.jsx';
 import CountyInterestModal from '../CountyInterestModal.jsx';
 import SponsorCTA from '../SponsorCTA.jsx';
 import CountyCategoryNav from '../CountyCategoryNav.jsx';
@@ -248,9 +247,8 @@ const walkClusterRenderer = {
   },
 };
 
-// Must be rendered as a child of GoogleMap so useGoogleMap() resolves.
-const WalkPinsLayer = ({ pinWalks, coords, onPinClick }) => {
-  const map          = useGoogleMap();
+// map is passed directly from WalkMapView onLoad — deterministic, no context timing.
+const WalkPinsLayer = ({ map, pinWalks, coords, onPinClick }) => {
   const clustererRef = React.useRef(null);
 
   React.useEffect(() => {
@@ -293,7 +291,6 @@ const WalkPinsLayer = ({ pinWalks, coords, onPinClick }) => {
       renderer:  walkClusterRenderer,
       algorithm: new SuperClusterAlgorithm({ radius: 60, maxZoom: 13 }),
     });
-
     return () => {
       if (clustererRef.current) {
         clustererRef.current.clearMarkers();
@@ -312,13 +309,14 @@ const WalkPinsLayer = ({ pinWalks, coords, onPinClick }) => {
 
 const WalkMapView = ({ walks: mapWalks, onSelectWalk, isVisible = true }) => {
   const { isLoaded } = useJsApiLoader({
-    id: 'ic-walk-map',
+    id: 'inspiring-carers-google-maps',
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
     libraries: WALKS_MAP_LIBRARIES,
   });
-  const [coords, setCoords] = React.useState({ ..._walkGeoCache });
-  const [geocoding, setGeocoding] = React.useState(false);
-  const [activeWalk, setActiveWalk] = React.useState(null);
+  const [coords,      setCoords]      = React.useState({ ..._walkGeoCache });
+  const [geocoding,   setGeocoding]   = React.useState(false);
+  const [activeWalk,  setActiveWalk]  = React.useState(null);
+  const [mapInstance, setMapInstance] = React.useState(null);
   const mapRef = React.useRef(null);
 
   React.useEffect(() => {
@@ -411,12 +409,9 @@ const WalkMapView = ({ walks: mapWalks, onSelectWalk, isVisible = true }) => {
         mapContainerStyle={{ width: '100%', height: '500px' }}
         center={WALKS_MAP_CENTER}
         zoom={9}
-        onLoad={(map) => {
-          mapRef.current = map;
-          // Resize + fitBounds triggered from here — the only safe point where
-          // the map instance is ready AND the container has stable dimensions.
-          // Two shots: 150ms (primary) and 500ms (belt-and-braces for slow
-          // devices / layout). fitWalksRef always holds the current closure.
+        onLoad={(m) => {
+          mapRef.current = m;
+          setMapInstance(m);
           const fit = () => {
             if (!mapRef.current) return;
             if (window.google?.maps?.event) window.google.maps.event.trigger(mapRef.current, 'resize');
@@ -425,7 +420,7 @@ const WalkMapView = ({ walks: mapWalks, onSelectWalk, isVisible = true }) => {
           setTimeout(fit, 150);
           setTimeout(fit, 500);
         }}
-        onUnmount={() => { mapRef.current = null; }}
+        onUnmount={() => { mapRef.current = null; setMapInstance(null); }}
         onClick={() => setActiveWalk(null)}
         options={{
           mapTypeId: 'roadmap',
@@ -436,7 +431,7 @@ const WalkMapView = ({ walks: mapWalks, onSelectWalk, isVisible = true }) => {
           clickableIcons: false,
         }}
       >
-        <WalkPinsLayer pinWalks={pinWalks} coords={coords} onPinClick={setActiveWalk} />
+        {mapInstance && <WalkPinsLayer map={mapInstance} pinWalks={pinWalks} coords={coords} onPinClick={setActiveWalk} />}
         {activeWalk && coords[activeWalk.postcode] && (() => {
           const diff    = normalizeDifficultyLabel(activeWalk.difficulty);
           const accent  = DIFF_ACCENT[diff] || DIFF_ACCENT.Moderate;
@@ -557,6 +552,13 @@ const WalksCountyPage = ({ onNavigate, session, county }) => {
     setVisibleCount(24);
   }, [query, area, difficulty, maxDistance, maxDuration, filters]);
 
+  // When county changes: clear stale selected walk and reset pagination.
+  // The map remounts automatically because county is included in its key.
+  React.useEffect(() => {
+    setDetailWalk(null);
+    setVisibleCount(24);
+  }, [county]);
+
   const countyLabel = county ? county.charAt(0).toUpperCase() + county.slice(1) : '';
 
   const difficultyOptions = ['Any', 'Easy', 'Moderate', 'Hard'];
@@ -603,8 +605,7 @@ const WalksCountyPage = ({ onNavigate, session, county }) => {
   return (
     <>
       <Nav activePage="walks" onNavigate={onNavigate} session={session} />
-      <CountyBanner county={county} isFallback={!county} onChangeCounty={(c) => onNavigate('walks', c)} />
-      <CountyCategoryNav county={county} activePage="walks" onNavigate={onNavigate} />
+<CountyCategoryNav county={county} activePage="walks" onNavigate={onNavigate} />
 
       <section style={{ background: 'linear-gradient(160deg, #0F2A1A 0%, #1A3A2A 45%, #1A2744 100%)', paddingTop: 28, paddingBottom: 36, position: 'relative', overflow: 'hidden' }}>
         {/* Decorative orbs */}
@@ -612,12 +613,12 @@ const WalksCountyPage = ({ onNavigate, session, county }) => {
         <div style={{ position: 'absolute', left: -100, bottom: -120, width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle at 50% 50%, rgba(45,156,219,0.14), transparent 70%)', filter: 'blur(20px)', pointerEvents: 'none' }} />
 
         <div className="container" style={{ position: 'relative' }}>
-          {/* Breadcrumb */}
+          {/* Breadcrumb — Home > County > Page */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'rgba(255,255,255,0.45)', fontSize: 13, marginBottom: 20 }}>
             <button onClick={() => onNavigate('home')} style={{ color: 'inherit', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', fontSize: 'inherit' }}>Home</button>
+            {countyLabel && <><IChevron s={12} /><span style={{ color: 'rgba(255,255,255,0.60)', fontWeight: 500 }}>{countyLabel}</span></>}
             <IChevron s={12} />
-            <button onClick={() => onNavigate('walks', null)} style={{ color: 'inherit', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', fontSize: 'inherit' }}>Walks</button>
-            {countyLabel && <><IChevron s={12} /><span style={{ color: '#FFFFFF', fontWeight: 600 }}>{countyLabel}</span></>}
+            <span style={{ color: '#FFFFFF', fontWeight: 600 }}>Walks</span>
           </div>
 
           {/* Eyebrow */}
@@ -757,7 +758,7 @@ const WalksCountyPage = ({ onNavigate, session, county }) => {
               ) : viewMode === 'map' ? (
                 <div>
                   {/* Map uses full filteredWalks for all pins */}
-                  <WalkMapView key={`walk-map-${mapMountKey}`} walks={filteredWalks} onSelectWalk={setDetailWalk} isVisible={viewMode === 'map'} />
+                  <WalkMapView key={`walk-map-${county}-${mapMountKey}`} walks={filteredWalks} onSelectWalk={setDetailWalk} isVisible={viewMode === 'map'} />
                   {/* Cards below map are also paginated */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 18, marginTop: 4 }}>
                     {filteredWalks.slice(0, visibleCount).map((walk) => (

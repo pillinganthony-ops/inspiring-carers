@@ -4,13 +4,12 @@
 // Future: replace ACTIVITY_SAMPLE_DATA with Supabase activities table.
 
 import React from 'react';
-import { GoogleMap, InfoWindowF, useJsApiLoader, useGoogleMap } from '@react-google-maps/api';
+import { GoogleMap, InfoWindowF, useJsApiLoader } from '@react-google-maps/api';
 import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markerclusterer';
 import walksData from '../../data/walks.json';
 import Nav from '../Nav.jsx';
 import Footer from '../Footer.jsx';
 import Icons from '../Icons.jsx';
-import CountyBanner from '../CountyBanner.jsx';
 import CountyInterestModal from '../CountyInterestModal.jsx';
 import SponsorCTA from '../SponsorCTA.jsx';
 import CountyCategoryNav from '../CountyCategoryNav.jsx';
@@ -24,8 +23,10 @@ import {
 
 const { IWalks, IGroups, IWellbeing, IArrow, ISparkle, ISearch, IPin } = Icons;
 
-// Stable ref — must not recreate on render (useJsApiLoader warning)
-const ACT_MAP_LIBS = [];
+// Stable module-level ref — MUST match id/libraries in Walks.jsx and FindHelp.jsx.
+// @react-google-maps/api crashes if useJsApiLoader is called with different configs
+// in the same session.
+const ACT_MAP_LIBS = ['places'];
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -420,12 +421,11 @@ const clusterRenderer = {
   },
 };
 
-// ── MapPinsLayer: native markers + MarkerClusterer, rendered inside GoogleMap ─
-// useGoogleMap() requires being a child of GoogleMap. Returns null — all output
-// is imperative via the Maps SDK.
+// ── MapPinsLayer: native markers + MarkerClusterer ────────────────────────────
+// map is passed directly from GoogleMap onLoad — more reliable than useGoogleMap()
+// context which can miss re-renders during React batching on first load.
 
-const MapPinsLayer = ({ pins, onPinClick }) => {
-  const map          = useGoogleMap();
+const MapPinsLayer = ({ map, pins, onPinClick }) => {
   const clustererRef = React.useRef(null);
 
   React.useEffect(() => {
@@ -467,7 +467,6 @@ const MapPinsLayer = ({ pins, onPinClick }) => {
       renderer:  clusterRenderer,
       algorithm: new SuperClusterAlgorithm({ radius: 80, maxZoom: 15 }),
     });
-
     return () => {
       if (clustererRef.current) {
         clustererRef.current.clearMarkers();
@@ -488,14 +487,15 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
   const mapH = compactHeight || 'clamp(300px, calc(20vw + 225px), 460px)';
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
   const { isLoaded, loadError } = useJsApiLoader({
-    id: 'ic-activity-map',
+    id: 'inspiring-carers-google-maps',
     googleMapsApiKey: apiKey || '',
     libraries: ACT_MAP_LIBS,
   });
 
-  const [walkCoords, setWalkCoords] = React.useState({});
-  const [geoLoading, setGeoLoading] = React.useState(false);
-  const [activePin,  setActivePin]  = React.useState(null);
+  const [walkCoords,   setWalkCoords]   = React.useState({});
+  const [geoLoading,   setGeoLoading]   = React.useState(false);
+  const [activePin,    setActivePin]    = React.useState(null);
+  const [mapInstance,  setMapInstance]  = React.useState(null);
 
   // Geocode up to 80 unique walk postcodes — batched, non-blocking, module-level cached
   React.useEffect(() => {
@@ -593,6 +593,11 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
     setActivePin((prev) => prev?.id === pin.id ? null : pin);
   }, []);
 
+  // Clear stale selected pin when county changes so no Cornwall info card lingers on Devon
+  React.useEffect(() => {
+    setActivePin(null);
+  }, [localCounty]);
+
   const Fallback = () => (
     <div style={{ height: mapH, borderRadius: 20, background: 'linear-gradient(160deg, #E8F5E4 0%, #EEF7FF 100%)', border: '1px solid #DEE8F4', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, textAlign: 'center', padding: 32 }}>
       <div style={{ fontSize: 32, marginBottom: 4 }}>📍</div>
@@ -631,13 +636,16 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
       {/* position:relative lets the empty-state overlay sit above the map canvas */}
       <div style={{ position: 'relative', borderRadius: 20, overflow: 'hidden', boxShadow: '0 8px 32px rgba(26,39,68,0.10)', border: '1px solid #EEF1F7' }}>
         <GoogleMap
+          key={`activity-map-${localCounty}`}
           mapContainerStyle={{ width: '100%', height: mapH }}
           center={{ lat, lng }}
           zoom={zoom}
           options={{ streetViewControl: false, mapTypeControl: false, fullscreenControl: false, zoomControl: true, gestureHandling: 'cooperative' }}
+          onLoad={(m) => setMapInstance(m)}
+          onUnmount={() => setMapInstance(null)}
           onClick={() => setActivePin(null)}
         >
-          <MapPinsLayer pins={allPins} onPinClick={handlePinClick} />
+          {mapInstance && <MapPinsLayer map={mapInstance} pins={allPins} onPinClick={handlePinClick} />}
 
           {activePin && (() => {
             const pinAccent   = CAT_CONFIG[activePin.category]?.accent || '#1A2744';
@@ -1099,6 +1107,7 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
   React.useEffect(() => {
     let cancelled = false;
     setLoading(true); setError(null);
+    setVenues([]); setVisibleCount(PAGE_SIZE);       // clear stale county data immediately
     setSearch(''); setFilterCat(''); setFilterSubcat(''); setFilterPrice(''); setFilterInOut('');
     setFilterFamily(false); setFilterWheelchair(false); setFilterDog(false); setFilterCarer(false);
 
@@ -1221,8 +1230,7 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
   return (
     <>
       <Nav activePage="activities" onNavigate={onNavigate} session={session} county={county} />
-      <CountyBanner county={county} isFallback={!county} onChangeCounty={(c) => onNavigate('activities', c)} />
-      <CountyCategoryNav county={county} activePage="activities" onNavigate={onNavigate} />
+<CountyCategoryNav county={county} activePage="activities" onNavigate={onNavigate} />
 
       {/* ── Hero ── */}
       <section style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(150deg, #0C1A35 0%, #162C52 50%, #1A3460 100%)', paddingTop: 28, paddingBottom: 36 }}>
