@@ -517,6 +517,7 @@ const WalksCountyPage = ({ onNavigate, session, county }) => {
       <>
         <Nav activePage="walks" onNavigate={onNavigate} session={session} />
         <CountyBanner county={county} isFallback={false} onChangeCounty={(c) => onNavigate('walks', c)} />
+        <CountyCategoryNav county={county} activePage="walks" onNavigate={onNavigate} />
 
         {/* A. Hero */}
         <section style={{ background: 'linear-gradient(150deg, #0F2A1A 0%, #1A3A2A 50%, #162744 100%)', paddingTop: 64, paddingBottom: 64, position: 'relative', overflow: 'hidden' }}>

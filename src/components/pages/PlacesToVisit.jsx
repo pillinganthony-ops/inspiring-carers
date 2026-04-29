@@ -352,6 +352,7 @@ const PlacesToVisitCountyPage = ({ onNavigate, session, county, venueSlug }) => 
       <>
         <Nav activePage="places-to-visit" onNavigate={onNavigate} session={session} county={county} />
         <CountyBanner county={county} isFallback={false} onChangeCounty={(c) => onNavigate('places-to-visit', c)} />
+        <CountyCategoryNav county={county} activePage="places-to-visit" onNavigate={onNavigate} />
 
         {/* A. Hero panel */}
         <section style={{ background: 'linear-gradient(150deg, #1A0C35 0%, #2C1452 50%, #341A60 100%)', paddingTop: 64, paddingBottom: 64, position: 'relative', overflow: 'hidden' }}>
