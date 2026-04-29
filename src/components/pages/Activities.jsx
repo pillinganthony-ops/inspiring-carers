@@ -561,7 +561,7 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
           </button>
         </div>
         <div style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.40)', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 6 }}>
-          <span style={{ fontStyle: 'italic' }}>Showing selected mapped activity points. Open the full walks map for all {countyWalksCount} routes.</span>
+          <span style={{ fontStyle: 'italic' }}>Showing selected mapped activity points. Open the full walks map for all {walksData.filter((w) => String(w.county || 'cornwall').toLowerCase() === String(localCounty || 'cornwall').toLowerCase()).length} routes.</span>
           <span>Ctrl + scroll to zoom map</span>
         </div>
       </div>
@@ -968,12 +968,16 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
 
   // County-specific walk count. walks.json has no explicit county field — walks without one
   // are implicitly Cornwall. Non-Cornwall counties correctly resolve to 0 until their data exists.
-  const countyWalksCount = React.useMemo(
-    () => walksData.filter(
-      (w) => `${w.county || 'cornwall'}`.toLowerCase() === `${county || 'cornwall'}`.toLowerCase()
-    ).length,
-    [county]
-  );
+  const normalisedCountySlug = String(county || 'cornwall').toLowerCase().trim();
+  const countyWalksCount = React.useMemo(() => {
+    if (!Array.isArray(walksData)) return 0;
+    return walksData.filter((walk) => {
+      const walkCounty = String(
+        walk.county || walk.county_slug || walk.countySlug || 'cornwall'
+      ).toLowerCase().trim();
+      return walkCounty === normalisedCountySlug;
+    }).length;
+  }, [normalisedCountySlug]);
 
   const clearFilters = () => {
     setSearch(''); setFilterCat(''); setFilterSubcat(''); setFilterPrice(''); setFilterInOut('');
