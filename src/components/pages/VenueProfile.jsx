@@ -265,7 +265,16 @@ const VenueProfile = ({ slug, county, backPage, onNavigate, session }) => {
           if (data?.id) {
             supabase
               .from('organisation_profiles')
-              .select('id, entitlement_status, referrals_enabled, organisation_name')
+              .select(
+                'id, organisation_name, short_bio, full_bio, logo_url, banner_url, ' +
+                'website_url, contact_email, contact_phone, ' +
+                'claim_status, verified_status, featured, ' +
+                'entitlement_status, referrals_enabled, ' +
+                'facebook_url, instagram_url, linkedin_url, youtube_url, ' +
+                'tiktok_url, x_url, threads_url, whatsapp_url, ' +
+                'profile_video_url, youtube_channel_url, ' +
+                'show_video, show_gallery, show_booking_cta, show_contact_details, show_social_links'
+              )
               .eq('resource_id', data.id)
               .maybeSingle()
               .then(({ data: orgData }) => {
@@ -489,13 +498,14 @@ const VenueProfile = ({ slug, county, backPage, onNavigate, session }) => {
             </div>
           )}
 
-          {/* Venue detail — two-column responsive grid */}
+          {/* ── Premium venue detail — two-column layout ── */}
           {!loading && !error && venue && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 14, alignItems: 'start' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 18, alignItems: 'start' }}>
 
-              {/* ── Left column ── */}
+              {/* ── Left column: main content ── */}
               <div>
-                {/* About this listing */}
+
+                {/* About */}
                 {(venue.full_description || venue.short_description) && (
                   <SectionCard title={venue.category === 'Wellbeing' ? 'About this space' : 'About this listing'} accent={accent}>
                     <p style={{ fontSize: 14.5, color: 'rgba(26,39,68,0.72)', lineHeight: 1.75, margin: 0, whiteSpace: 'pre-line' }}>
@@ -506,10 +516,54 @@ const VenueProfile = ({ slug, county, backPage, onNavigate, session }) => {
                   </SectionCard>
                 )}
 
+                {/* Gallery — hidden until gallery_images data exists */}
+                {Array.isArray(venue.gallery_images) && venue.gallery_images.length > 0 &&
+                  orgProfile?.show_gallery !== false && (
+                  <SectionCard title="Gallery" accent={accent}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 8 }}>
+                      {venue.gallery_images.slice(0, 9).map((img, i) => {
+                        const src = typeof img === 'string' ? img : img?.url;
+                        const alt = (typeof img === 'object' && img?.alt) ? img.alt : `Gallery image ${i + 1}`;
+                        return src ? (
+                          <img key={i} src={src} alt={alt} loading="lazy"
+                            style={{ width: '100%', aspectRatio: '4/3', objectFit: 'cover', borderRadius: 10, display: 'block' }} />
+                        ) : null;
+                      })}
+                    </div>
+                  </SectionCard>
+                )}
+
+                {/* Video — hidden until profile_video_url or youtube_channel_url exists */}
+                {(orgProfile?.profile_video_url || orgProfile?.youtube_channel_url) &&
+                  orgProfile?.show_video !== false && (
+                  <SectionCard title="Video" accent={accent}>
+                    <div style={{ padding: '14px 16px', borderRadius: 12, background: 'rgba(26,39,68,0.03)', border: '1px solid #EEF1F7', display: 'flex', alignItems: 'center', gap: 14 }}>
+                      <div style={{ width: 44, height: 44, borderRadius: 12, background: `${accent}14`, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                        <svg width={18} height={18} viewBox="0 0 24 24" fill={accent} stroke="none">
+                          <polygon points="5 3 19 12 5 21 5 3" />
+                        </svg>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1A2744', marginBottom: 2 }}>
+                          {orgProfile.profile_video_url ? 'Watch introduction video' : 'YouTube channel'}
+                        </div>
+                        <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.46)' }}>Opens in a new tab</div>
+                      </div>
+                      <a
+                        href={orgProfile.profile_video_url || orgProfile.youtube_channel_url}
+                        target="_blank" rel="noopener noreferrer"
+                        style={{ padding: '8px 16px', borderRadius: 9, background: accent, color: 'white', fontWeight: 700, fontSize: 13, textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}
+                      >
+                        Watch ↗
+                      </a>
+                    </div>
+                  </SectionCard>
+                )}
+
                 {/* Suitability */}
                 {suitability.length > 0 && (
                   <SectionCard title="Suitability" accent={accent}>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 0 }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap' }}>
                       {suitability.map((item) => (
                         <BoolRow key={item.label} label={item.label} value={item.value} color={item.color} />
                       ))}
@@ -517,7 +571,7 @@ const VenueProfile = ({ slug, county, backPage, onNavigate, session }) => {
                   </SectionCard>
                 )}
 
-                {/* Features & Best for */}
+                {/* Highlights */}
                 {hasHighlights && (
                   <SectionCard title="Highlights" accent={accent}>
                     {venue.features?.length > 0 && (
@@ -539,7 +593,7 @@ const VenueProfile = ({ slug, county, backPage, onNavigate, session }) => {
                   </SectionCard>
                 )}
 
-                {/* Accessibility notes — if text present */}
+                {/* Accessibility */}
                 {venue.accessibility_info && (
                   <SectionCard title="Accessibility" accent="#7B5CF5">
                     <p style={{ fontSize: 14, color: 'rgba(26,39,68,0.70)', lineHeight: 1.65, margin: 0 }}>
@@ -549,8 +603,79 @@ const VenueProfile = ({ slug, county, backPage, onNavigate, session }) => {
                 )}
               </div>
 
-              {/* ── Right column ── */}
+              {/* ── Right column: sidebar ── */}
               <div>
+
+                {/* Organisation panel — shown when org profile exists */}
+                {orgProfile && (
+                  <div className="card" style={{ padding: 0, overflow: 'hidden', borderRadius: 20, border: '1px solid #EEF1F7', marginBottom: 16 }}>
+                    <div style={{ height: 3, background: `linear-gradient(90deg, ${accent}, ${accent}55)` }} />
+                    <div style={{ padding: '18px 20px' }}>
+                      <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: 'rgba(26,39,68,0.36)', marginBottom: 14 }}>
+                        Managed by
+                      </div>
+
+                      {/* Logo + name */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                        {orgProfile.logo_url ? (
+                          <img src={orgProfile.logo_url} alt={orgProfile.organisation_name || ''}
+                            style={{ width: 48, height: 48, objectFit: 'contain', borderRadius: 10, border: '1px solid #EEF1F7', flexShrink: 0 }} />
+                        ) : (
+                          <div style={{ width: 48, height: 48, borderRadius: 10, background: `${accent}14`, display: 'grid', placeItems: 'center', flexShrink: 0, fontSize: 18, fontWeight: 800, color: accent }}>
+                            {(orgProfile.organisation_name || '?').charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 14.5, fontWeight: 800, color: '#1A2744', lineHeight: 1.2, marginBottom: 5 }}>
+                            {orgProfile.organisation_name}
+                          </div>
+                          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                            {orgProfile.claim_status === 'claimed' && (
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: 'rgba(16,185,129,0.10)', color: '#0D7A55' }}>✓ Claimed</span>
+                            )}
+                            {orgProfile.verified_status === 'verified' && (
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: 'rgba(45,156,219,0.10)', color: '#1c78b5' }}>✓ Verified</span>
+                            )}
+                            {orgProfile.featured && (
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: 'rgba(245,166,35,0.12)', color: '#B45309' }}>★ Featured</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Short bio */}
+                      {orgProfile.short_bio && (
+                        <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.62)', lineHeight: 1.6, margin: '0 0 12px' }}>
+                          {orgProfile.short_bio}
+                        </p>
+                      )}
+
+                      {/* Social links — shown when show_social_links is not explicitly false */}
+                      {orgProfile.show_social_links !== false && (() => {
+                        const socials = [
+                          { key: 'website_url',   label: 'Website',   url: orgProfile.website_url },
+                          { key: 'facebook_url',  label: 'Facebook',  url: orgProfile.facebook_url },
+                          { key: 'instagram_url', label: 'Instagram', url: orgProfile.instagram_url },
+                          { key: 'linkedin_url',  label: 'LinkedIn',  url: orgProfile.linkedin_url },
+                          { key: 'youtube_url',   label: 'YouTube',   url: orgProfile.youtube_url },
+                          { key: 'tiktok_url',    label: 'TikTok',    url: orgProfile.tiktok_url },
+                          { key: 'x_url',         label: 'X',         url: orgProfile.x_url },
+                        ].filter((s) => s.url);
+                        return socials.length > 0 ? (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                            {socials.map((s) => (
+                              <a key={s.key} href={s.url} target="_blank" rel="noopener noreferrer"
+                                style={{ fontSize: 11.5, fontWeight: 700, padding: '4px 10px', borderRadius: 6, background: 'rgba(26,39,68,0.05)', color: 'rgba(26,39,68,0.62)', textDecoration: 'none', border: '1px solid #EEF1F7' }}>
+                                {s.label} ↗
+                              </a>
+                            ))}
+                          </div>
+                        ) : null;
+                      })()}
+                    </div>
+                  </div>
+                )}
+
                 {/* Practical information */}
                 {hasPractical && (
                   <SectionCard title="Practical information" accent={accent}>
@@ -566,60 +691,55 @@ const VenueProfile = ({ slug, county, backPage, onNavigate, session }) => {
                 {/* Getting there */}
                 {(venue.parking_info || venue.public_transport_info) && (
                   <SectionCard title="Getting there" accent="#2D9CDB">
-                    <InfoRow label="Parking"          value={venue.parking_info} />
-                    <InfoRow label="Public transport"  value={venue.public_transport_info} />
+                    <InfoRow label="Parking"         value={venue.parking_info} />
+                    <InfoRow label="Public transport" value={venue.public_transport_info} />
                   </SectionCard>
                 )}
 
                 {/* Contact & booking */}
-                {(venue.website || venue.booking_url || venue.phone || venue.email) && (
+                {orgProfile?.show_contact_details !== false &&
+                  (venue.website || venue.booking_url || venue.phone || venue.email) && (
                   <SectionCard title="Contact & booking" accent={accent}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {venue.website && (
+                      {orgProfile?.show_booking_cta !== false && venue.website && (
                         <a href={venue.website} target="_blank" rel="noopener noreferrer"
                           style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF', background: accent, padding: '11px 16px', borderRadius: 10, textDecoration: 'none', display: 'block', textAlign: 'center' }}>
                           Visit website →
                         </a>
                       )}
-                      {venue.booking_url && venue.booking_url !== venue.website && (
+                      {orgProfile?.show_booking_cta !== false && venue.booking_url && venue.booking_url !== venue.website && (
                         <a href={venue.booking_url} target="_blank" rel="noopener noreferrer"
                           style={{ fontSize: 14, fontWeight: 700, color: '#1A2744', background: 'rgba(26,39,68,0.06)', border: '1px solid rgba(26,39,68,0.10)', padding: '11px 16px', borderRadius: 10, textDecoration: 'none', display: 'block', textAlign: 'center' }}>
                           Book / reserve →
                         </a>
                       )}
-                      {venue.phone && (
-                        <div style={{ paddingTop: venue.website || venue.booking_url ? 4 : 0 }}>
-                          <InfoRow label="Phone" value={venue.phone} />
-                        </div>
-                      )}
-                      {venue.email && (
-                        <div>
-                          <InfoRow label="Email" value={venue.email} />
-                        </div>
-                      )}
+                      {venue.phone && <div style={{ paddingTop: 4 }}><InfoRow label="Phone" value={venue.phone} /></div>}
+                      {venue.email && <div><InfoRow label="Email" value={venue.email} /></div>}
                     </div>
                   </SectionCard>
                 )}
 
-                {/* ── Claim this listing — premium panel ── */}
-                <div className="card" style={{ padding: 0, overflow: 'hidden', borderRadius: 18, border: `1px solid ${accent}28` }}>
+                {/* Claim / manage listing panel */}
+                <div className="card" style={{ padding: 0, overflow: 'hidden', borderRadius: 20, border: `1px solid ${accent}28` }}>
                   <div style={{ height: 4, background: `linear-gradient(90deg, ${accent}, ${accent}66)` }} />
                   <div style={{ padding: '18px 20px' }}>
-                    <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: `${accent}`, marginBottom: 8 }}>
-                      Venue owner?
+                    <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: accent, marginBottom: 8 }}>
+                      {orgProfile?.claim_status === 'claimed' ? 'Manage this listing' : 'Venue owner?'}
                     </div>
                     <div style={{ fontSize: 15, fontWeight: 800, color: '#1A2744', marginBottom: 6 }}>
-                      Claim this listing
+                      {orgProfile?.claim_status === 'claimed' ? 'This listing is managed' : 'Claim this listing'}
                     </div>
-                    <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.55)', lineHeight: 1.6, margin: '0 0 16px' }}>
-                      Update details, add photos and manage how this venue appears across Inspiring Carers. Claims are reviewed before going live.
+                    <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.55)', lineHeight: 1.6, margin: '0 0 14px' }}>
+                      {orgProfile?.claim_status === 'claimed'
+                        ? 'Managed by the organisation above. Sign in to your account to update details and settings.'
+                        : 'Update details, add photos and manage how this venue appears across Inspiring Carers. Claims are reviewed before going live.'}
                     </p>
                     <div style={{ display: 'grid', gap: 8 }}>
                       <button
                         onClick={() => setClaimOpen(true)}
                         style={{ padding: '11px 16px', borderRadius: 10, background: accent, color: 'white', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer' }}
                       >
-                        Claim this listing
+                        {orgProfile?.claim_status === 'claimed' ? 'Manage listing' : 'Claim this listing'}
                       </button>
                       <div style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.38)', textAlign: 'center', lineHeight: 1.5 }}>
                         Free to claim · Reviewed before changes go live
