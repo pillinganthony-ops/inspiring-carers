@@ -1,5 +1,6 @@
 import React from 'react';
-import { GoogleMap, MarkerF, InfoWindowF, useJsApiLoader } from '@react-google-maps/api';
+import { GoogleMap, InfoWindowF, useJsApiLoader, useGoogleMap } from '@react-google-maps/api';
+import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markerclusterer';
 import Icons from '../Icons.jsx';
 import Nav from '../Nav.jsx';
 import Footer from '../Footer.jsx';
@@ -207,6 +208,108 @@ const buildWalkEmailHref = (walk) => {
   return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 };
 
+// ── Walk map clustering helpers ───────────────────────────────────────────────
+
+function makeWalkPinSvg(color, size) {
+  const r = size / 2;
+  const svg = [
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">`,
+    `<defs><filter id="ds" x="-40%" y="-40%" width="180%" height="180%">`,
+    `<feDropShadow dx="0" dy="1.5" stdDeviation="1.5" flood-color="rgba(0,0,0,0.28)"/></filter></defs>`,
+    `<circle cx="${r}" cy="${r}" r="${r - 2}" fill="${color}" stroke="white" stroke-width="2" filter="url(#ds)"/>`,
+    `</svg>`,
+  ].join('');
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+function makeWalkPinIcon(color, isHover) {
+  const size = isHover ? 22 : 16;
+  const g    = window.google.maps;
+  return { url: makeWalkPinSvg(color, size), scaledSize: new g.Size(size, size), anchor: new g.Point(size / 2, size / 2) };
+}
+
+const walkClusterRenderer = {
+  render({ count, position }) {
+    const size = count >= 100 ? 44 : count >= 20 ? 40 : 36;
+    const r    = size / 2;
+    const svg  = [
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">`,
+      `<defs><filter id="cs" x="-40%" y="-40%" width="180%" height="180%">`,
+      `<feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(0,0,0,0.25)"/></filter></defs>`,
+      `<circle cx="${r}" cy="${r}" r="${r - 2}" fill="#5BC94A" stroke="white" stroke-width="3" filter="url(#cs)"/>`,
+      `<text x="${r}" y="${r}" text-anchor="middle" dominant-baseline="central" font-family="Arial,sans-serif" font-weight="900" font-size="${count >= 100 ? 12 : 13}" fill="white">${count}</text>`,
+      `</svg>`,
+    ].join('');
+    return new window.google.maps.Marker({
+      position,
+      icon: { url: `data:image/svg+xml,${encodeURIComponent(svg)}`, scaledSize: new window.google.maps.Size(size, size), anchor: new window.google.maps.Point(r, r) },
+      zIndex: 1000 + count,
+    });
+  },
+};
+
+// Must be rendered as a child of GoogleMap so useGoogleMap() resolves.
+const WalkPinsLayer = ({ pinWalks, coords, onPinClick }) => {
+  const map          = useGoogleMap();
+  const clustererRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (!map || !window.google) return;
+
+    if (clustererRef.current) {
+      clustererRef.current.clearMarkers();
+      clustererRef.current.setMap(null);
+      clustererRef.current = null;
+    }
+
+    if (!pinWalks.length) return;
+
+    const newMarkers = pinWalks.map((walk) => {
+      // DIFF_ACCENT is defined after this function in the file, but resolved at
+      // render time (after all module code has run) — safe to reference here.
+      const diff       = normalizeDifficultyLabel(walk.difficulty);
+      const color      = DIFF_ACCENT[diff] || '#2D9CDB';
+      const normalIcon = makeWalkPinIcon(color, false);
+      const hoverIcon  = makeWalkPinIcon(color, true);
+
+      const marker = new window.google.maps.Marker({
+        position:  coords[walk.postcode],
+        title:     walk.name,
+        icon:      normalIcon,
+        zIndex:    1,
+        optimized: false,
+      });
+
+      marker.addListener('click',     () => onPinClick(walk));
+      marker.addListener('mouseover', () => marker.setIcon(hoverIcon));
+      marker.addListener('mouseout',  () => marker.setIcon(normalIcon));
+
+      return marker;
+    });
+
+    clustererRef.current = new MarkerClusterer({
+      map,
+      markers:   newMarkers,
+      renderer:  walkClusterRenderer,
+      algorithm: new SuperClusterAlgorithm({ radius: 60, maxZoom: 13 }),
+    });
+
+    return () => {
+      if (clustererRef.current) {
+        clustererRef.current.clearMarkers();
+        clustererRef.current.setMap(null);
+        clustererRef.current = null;
+      }
+      newMarkers.forEach((m) => {
+        window.google?.maps?.event?.clearInstanceListeners(m);
+        m.setMap(null);
+      });
+    };
+  }, [map, pinWalks, coords, onPinClick]);
+
+  return null;
+};
+
 const WalkMapView = ({ walks: mapWalks, onSelectWalk, isVisible = true }) => {
   const { isLoaded } = useJsApiLoader({
     id: 'ic-walk-map',
@@ -333,28 +436,7 @@ const WalkMapView = ({ walks: mapWalks, onSelectWalk, isVisible = true }) => {
           clickableIcons: false,
         }}
       >
-        {pinWalks.map((walk) => {
-          const pinDiff  = normalizeDifficultyLabel(walk.difficulty);
-          const pinColor = DIFF_ACCENT[pinDiff] || DIFF_ACCENT.Moderate;
-          const isActive = activeWalk?.id === walk.id;
-          return (
-            <MarkerF
-              key={walk.id}
-              position={coords[walk.postcode]}
-              title={walk.name}
-              onClick={() => setActiveWalk(walk)}
-              zIndex={isActive ? 999 : 1}
-              icon={{
-                path: window.google.maps.SymbolPath.CIRCLE,
-                fillColor: pinColor,
-                fillOpacity: 1,
-                strokeColor: '#ffffff',
-                strokeWeight: isActive ? 3.5 : 2.5,
-                scale: isActive ? 12 : 8,
-              }}
-            />
-          );
-        })}
+        <WalkPinsLayer pinWalks={pinWalks} coords={coords} onPinClick={setActiveWalk} />
         {activeWalk && coords[activeWalk.postcode] && (() => {
           const diff    = normalizeDifficultyLabel(activeWalk.difficulty);
           const accent  = DIFF_ACCENT[diff] || DIFF_ACCENT.Moderate;
@@ -466,7 +548,7 @@ const WalksCountyPage = ({ onNavigate, session, county }) => {
   const [filters, setFilters] = React.useState({ toilets: false, refreshments: false, parking: false, publicTransport: false, accessible: false, circular: false });
   const [detailWalk, setDetailWalk] = React.useState(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = React.useState(false);
-  const [viewMode, setViewMode] = React.useState('list');
+  const [viewMode, setViewMode] = React.useState('map');
   const [mapMountKey, setMapMountKey] = React.useState(0);
   const [visibleCount, setVisibleCount] = React.useState(24);
 
@@ -479,23 +561,31 @@ const WalksCountyPage = ({ onNavigate, session, county }) => {
 
   const difficultyOptions = ['Any', 'Easy', 'Moderate', 'Hard'];
 
-  const filteredWalks = React.useMemo(() => validWalks.filter((walk) => {
-    const searchText = normalizeText(`${walk.name} ${walk.area} ${walk.startLocation} ${walk.finishLocation}`);
-    const normalizedQuery = normalizeText(query);
-    const normalizedArea = normalizeText(area);
-    if (normalizedQuery && !searchText.includes(normalizedQuery)) return false;
-    if (normalizedArea && !searchText.includes(normalizedArea)) return false;
-    if (difficulty !== 'Any' && normalizeDifficultyLabel(walk.difficulty) !== normalizeDifficultyLabel(difficulty)) return false;
-    if (walk.distanceMiles > maxDistance) return false;
-    if (walk.durationMinutes > maxDuration) return false;
-    if (filters.toilets && !walk.toilets) return false;
-    if (filters.refreshments && !walk.refreshments) return false;
-    if (filters.parking && !walk.parking) return false;
-    if (filters.publicTransport && !walk.publicTransport) return false;
-    if (filters.accessible && !hasAccessibleTerrain(walk)) return false;
-    if (filters.circular && !walk.circular) return false;
-    return true;
-  }), [query, area, difficulty, maxDistance, maxDuration, filters]);
+  const filteredWalks = React.useMemo(() => {
+    const countySlug = String(county || 'cornwall').toLowerCase().trim();
+    return validWalks.filter((walk) => {
+      // County isolation: walks with no county field default to cornwall.
+      // Devon and other counties show 0 results until county-specific data exists.
+      const walkCounty = String(walk.county || walk.county_slug || walk.countySlug || 'cornwall').toLowerCase().trim();
+      if (walkCounty !== countySlug) return false;
+
+      const searchText = normalizeText(`${walk.name} ${walk.area} ${walk.startLocation} ${walk.finishLocation}`);
+      const normalizedQuery = normalizeText(query);
+      const normalizedArea = normalizeText(area);
+      if (normalizedQuery && !searchText.includes(normalizedQuery)) return false;
+      if (normalizedArea && !searchText.includes(normalizedArea)) return false;
+      if (difficulty !== 'Any' && normalizeDifficultyLabel(walk.difficulty) !== normalizeDifficultyLabel(difficulty)) return false;
+      if (walk.distanceMiles > maxDistance) return false;
+      if (walk.durationMinutes > maxDuration) return false;
+      if (filters.toilets && !walk.toilets) return false;
+      if (filters.refreshments && !walk.refreshments) return false;
+      if (filters.parking && !walk.parking) return false;
+      if (filters.publicTransport && !walk.publicTransport) return false;
+      if (filters.accessible && !hasAccessibleTerrain(walk)) return false;
+      if (filters.circular && !walk.circular) return false;
+      return true;
+    });
+  }, [county, query, area, difficulty, maxDistance, maxDuration, filters]);
 
   const clearFilters = () => {
     setQuery('');
@@ -510,104 +600,13 @@ const WalksCountyPage = ({ onNavigate, session, county }) => {
     setFilters((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // Opening-soon: explicit non-Cornwall county — premium county launch page
-  if (county && county !== 'cornwall') {
-    const countyLabel = county.charAt(0).toUpperCase() + county.slice(1);
-    return (
-      <>
-        <Nav activePage="walks" onNavigate={onNavigate} session={session} />
-        <CountyBanner county={county} isFallback={false} onChangeCounty={(c) => onNavigate('walks', c)} />
-        <CountyCategoryNav county={county} activePage="walks" onNavigate={onNavigate} />
-
-        {/* A. Hero */}
-        <section style={{ background: 'linear-gradient(150deg, #0F2A1A 0%, #1A3A2A 50%, #162744 100%)', paddingTop: 64, paddingBottom: 64, position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', top: -60, right: -60, width: 440, height: 440, borderRadius: '50%', background: 'radial-gradient(circle, rgba(91,201,74,0.18) 0%, transparent 65%)', filter: 'blur(32px)', pointerEvents: 'none' }} />
-          <div style={{ position: 'absolute', bottom: -60, left: '20%', width: 360, height: 360, borderRadius: '50%', background: 'radial-gradient(circle, rgba(45,156,219,0.10) 0%, transparent 65%)', filter: 'blur(24px)', pointerEvents: 'none' }} />
-          <div className="container" style={{ position: 'relative', maxWidth: 680, margin: '0 auto', textAlign: 'center' }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 13px', borderRadius: 999, background: 'rgba(91,201,74,0.18)', border: '1px solid rgba(91,201,74,0.28)', fontSize: 10.5, fontWeight: 800, color: '#86EFAC', letterSpacing: '0.09em', textTransform: 'uppercase', marginBottom: 22 }}>
-              County Launch Page
-            </div>
-            <h1 style={{ fontSize: 'clamp(28px, 4.5vw, 46px)', fontWeight: 800, color: '#FFFFFF', marginBottom: 16, letterSpacing: '-0.03em', lineHeight: 1.1, textWrap: 'balance' }}>
-              {countyLabel} walks and outdoor routes<br />is opening soon
-            </h1>
-            <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.68)', lineHeight: 1.65, maxWidth: 520, margin: '0 auto 28px' }}>
-              We are preparing accessible walk routes, nature spaces and outdoor wellbeing ideas for carers, families and support organisations in {countyLabel}.
-            </p>
-            <div style={{ display: 'flex', gap: 18, justifyContent: 'center', flexWrap: 'wrap', fontSize: 13, color: 'rgba(255,255,255,0.52)', fontWeight: 600 }}>
-              {['Free to submit', 'Accessible routes', 'Outdoor wellbeing'].map(t => (
-                <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                  <span style={{ width: 5, height: 5, borderRadius: 999, background: '#10B981', flexShrink: 0 }} />{t}
-                </span>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* B. Three value cards */}
-        <section style={{ paddingTop: 56, paddingBottom: 48, background: '#FAFBFF' }}>
-          <div className="container" style={{ maxWidth: 860, margin: '0 auto' }}>
-            <div style={{ textAlign: 'center', marginBottom: 36 }}>
-              <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#16A34A', marginBottom: 10 }}>Who benefits</div>
-              <h2 style={{ fontSize: 'clamp(20px, 2.8vw, 28px)', fontWeight: 800, color: '#1A2744', margin: 0, letterSpacing: '-0.02em' }}>
-                {countyLabel} walks is being built for everyone
-              </h2>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
-              {[
-                { accent: '#2563EB', title: 'For carers',        body: `Discover accessible walks, calm outdoor spaces and restorative local routes across ${countyLabel}.` },
-                { accent: '#16A34A', title: 'For organisations', body: 'Submit walking groups, outdoor activities and community route ideas to the directory.' },
-                { accent: '#D97706', title: 'For businesses',    body: 'Offer discounts, sponsor local walks or support carers getting outdoors near you.' },
-              ].map(({ accent, title, body }) => (
-                <div key={title} className="card" style={{ padding: '22px 20px', borderRadius: 18, borderTop: `3px solid ${accent}` }}>
-                  <div style={{ width: 10, height: 10, borderRadius: 999, background: accent, marginBottom: 14 }} />
-                  <div style={{ fontSize: 15, fontWeight: 800, color: '#1A2744', marginBottom: 7 }}>{title}</div>
-                  <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.60)', lineHeight: 1.6 }}>{body}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* C. Sponsor CTA strip */}
-        <section style={{ paddingBottom: 64, background: '#FAFBFF' }}>
-          <div className="container" style={{ maxWidth: 860, margin: '0 auto' }}>
-            <div style={{ padding: '28px 32px', borderRadius: 22, background: 'linear-gradient(135deg, #1A2744 0%, #2D3E6B 100%)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 24 }}>
-              <div style={{ flex: 1, minWidth: 220 }}>
-                <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(255,255,255,0.42)', marginBottom: 7 }}>Founding partnership</div>
-                <h3 style={{ fontSize: 20, fontWeight: 800, color: '#FFFFFF', margin: '0 0 8px', lineHeight: 1.2 }}>
-                  Become a founding {countyLabel} walks partner
-                </h3>
-                <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.60)', margin: 0, lineHeight: 1.55 }}>
-                  Founding partners can be featured early while this county launches.
-                </p>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
-                <button onClick={() => onNavigate('profile')} className="btn btn-gold" style={{ fontWeight: 800, fontSize: 14, padding: '10px 22px', whiteSpace: 'nowrap' }}>
-                  Submit a route
-                </button>
-                <button onClick={() => onNavigate('offer-a-discount')} style={{ padding: '9px 22px', borderRadius: 10, background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                  Offer a discount
-                </button>
-                <button onClick={() => onNavigate('advertise')} style={{ padding: '9px 22px', borderRadius: 10, background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                  Sponsor this county
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <Footer onNavigate={onNavigate} />
-      </>
-    );
-  }
-
   return (
     <>
       <Nav activePage="walks" onNavigate={onNavigate} session={session} />
       <CountyBanner county={county} isFallback={!county} onChangeCounty={(c) => onNavigate('walks', c)} />
       <CountyCategoryNav county={county} activePage="walks" onNavigate={onNavigate} />
 
-      <section style={{ background: 'linear-gradient(160deg, #0F2A1A 0%, #1A3A2A 45%, #1A2744 100%)', paddingTop: 64, paddingBottom: 56, position: 'relative', overflow: 'hidden' }}>
+      <section style={{ background: 'linear-gradient(160deg, #0F2A1A 0%, #1A3A2A 45%, #1A2744 100%)', paddingTop: 28, paddingBottom: 36, position: 'relative', overflow: 'hidden' }}>
         {/* Decorative orbs */}
         <div style={{ position: 'absolute', right: -120, top: -80, width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle at 40% 40%, rgba(91,201,74,0.18), transparent 70%)', filter: 'blur(24px)', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', left: -100, bottom: -120, width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle at 50% 50%, rgba(45,156,219,0.14), transparent 70%)', filter: 'blur(20px)', pointerEvents: 'none' }} />
@@ -622,75 +621,37 @@ const WalksCountyPage = ({ onNavigate, session, county }) => {
           </div>
 
           {/* Eyebrow */}
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 24, background: 'rgba(91,201,74,0.15)', border: '1px solid rgba(91,201,74,0.3)', borderRadius: 999, padding: '6px 16px', fontSize: 12.5, fontWeight: 800, color: '#7FDE6A', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 12, background: 'rgba(91,201,74,0.15)', border: '1px solid rgba(91,201,74,0.3)', borderRadius: 999, padding: '4px 12px', fontSize: 11, fontWeight: 800, color: '#7FDE6A', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
             <div style={{ width: 6, height: 6, borderRadius: 999, background: '#5BC94A', flexShrink: 0 }} />
             Walks
           </div>
 
           {/* Headline */}
-          <h1 style={{ fontSize: 'clamp(38px, 5.5vw, 64px)', fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.05, color: '#FFFFFF', WebkitTextFillColor: '#FFFFFF', marginBottom: 18, maxWidth: 720 }}>
+          <h1 style={{ fontSize: 'clamp(24px, 4vw, 42px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.06, color: '#FFFFFF', WebkitTextFillColor: '#FFFFFF', marginBottom: 10, maxWidth: 720 }}>
             Discover accessible walks and outdoor spaces
           </h1>
 
           {/* Subtext */}
-          <p style={{ fontSize: 18, lineHeight: 1.72, color: 'rgba(255,255,255,0.8)', maxWidth: 580, fontWeight: 500, marginBottom: 28, fontFamily: 'Inter, sans-serif' }}>
+          <p style={{ fontSize: 15, lineHeight: 1.6, color: 'rgba(255,255,255,0.68)', maxWidth: 580, fontWeight: 500, marginBottom: 16, fontFamily: 'Inter, sans-serif' }}>
             {isCoastalCounty
               ? 'Find accessible walks, nature routes, coastal paths and wellbeing-friendly places to explore.'
               : 'Find accessible walks, nature routes, parks, trails and green spaces to explore.'}
           </p>
 
           {/* Trust chips */}
-          <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', marginBottom: 32 }}>
+          <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 18 }}>
             {[
               { label: isCoastalCounty ? 'Coastal routes' : 'Local routes', icon: '✓' },
               { label: 'Accessible options', icon: '✓' },
               { label: 'Mental wellbeing', icon: '✓' },
               { label: 'Nature spaces', icon: '✓' },
             ].map(({ label, icon }) => (
-              <span key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 999, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.18)', fontSize: 13.5, fontWeight: 700, color: 'rgba(255,255,255,0.9)' }}>
+              <span key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.18)', fontSize: 12.5, fontWeight: 700, color: 'rgba(255,255,255,0.9)' }}>
                 <span style={{ color: '#5BC94A', fontWeight: 900 }}>{icon}</span> {label}
               </span>
             ))}
           </div>
 
-          {/* Search bar */}
-          <div style={{ marginBottom: 24, maxWidth: 680 }}>
-            <div style={{ display: 'flex', borderRadius: 18, overflow: 'hidden', background: 'white', boxShadow: '0 8px 32px rgba(0,0,0,0.18)', border: '1.5px solid rgba(255,255,255,0.12)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', paddingLeft: 18, color: 'rgba(26,39,68,0.4)', flexShrink: 0 }}>
-                <IWalks s={18} />
-              </div>
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search walks, towns, beaches, woodland..."
-                style={{ flex: 1, border: 'none', outline: 'none', padding: '16px 14px', fontSize: 16, background: 'transparent', color: '#1A2744', fontFamily: 'inherit' }}
-              />
-              <button
-                onClick={() => document.getElementById('walk-filters')?.scrollIntoView({ behavior: 'smooth' })}
-                style={{ padding: '0 26px', background: 'linear-gradient(135deg,#5BC94A,#4CAF50)', color: 'white', fontWeight: 800, fontSize: 15, border: 'none', cursor: 'pointer', flexShrink: 0 }}
-              >
-                Search
-              </button>
-            </div>
-          </div>
-
-          {/* Action buttons */}
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <button
-              className="btn btn-gold btn-lg"
-              onClick={() => { setViewMode('list'); setTimeout(() => document.getElementById('walk-filters')?.scrollIntoView({ behavior: 'smooth' }), 50); }}
-              style={{ fontSize: 16, padding: '16px 32px', fontWeight: 700, boxShadow: '0 14px 40px rgba(212,175,55,0.35)', background: 'linear-gradient(135deg,#F5A623,#D4AF37)' }}
-            >
-              Browse all walks <IArrow s={16} />
-            </button>
-            <button
-              className="btn btn-lg"
-              onClick={() => { setViewMode('map'); setMapMountKey((k) => k + 1); setTimeout(() => document.getElementById('walk-results')?.scrollIntoView({ behavior: 'smooth' }), 50); }}
-              style={{ fontSize: 16, padding: '16px 32px', fontWeight: 700, background: 'rgba(255,255,255,0.1)', color: 'white', border: '1.5px solid rgba(255,255,255,0.25)', borderRadius: 16 }}
-            >
-              View map
-            </button>
-          </div>
         </div>
       </section>
 
