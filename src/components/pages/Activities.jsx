@@ -565,38 +565,26 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
       (v) => Number.isFinite(Number(v.latitude)) && Number.isFinite(Number(v.longitude)) && Number(v.latitude) !== 0
     );
 
-    const samplePins = venuesWithCoords.length > 0
-      ? venuesWithCoords
-          .filter((v) => !activityType || DB_CAT_TO_MAP_KEY[v.category] === activityType)
-          .map((v) => ({
-            id:          `live-${v.id}`,
-            category:    DB_CAT_TO_MAP_KEY[v.category] || 'days-out',
-            lat:         Number(v.latitude),
-            lng:         Number(v.longitude),
-            title:       v.name,
-            area:        v.town,
-            description: v.short_description,
-            featured:    v.featured,
-            slug:        v.slug,
-            tags:        [
-              v.free_or_paid, v.indoor_outdoor,
-              v.wheelchair_access && 'Wheelchair', v.dog_friendly && 'Dogs',
-            ].filter(Boolean),
-            _venue: v,
-          }))
-      : ACTIVITY_SAMPLE_DATA.filter((item) => {
-          if (item.category === 'walks') return false;
-          if (localCounty && item.county !== localCounty) return false;
-          if (activityType && item.category !== activityType) return false;
-          if (cost && item.cost !== cost) return false;
-          if (accessibility) {
-            const tagStr   = item.tags.join(' ').toLowerCase();
-            const accessMap = { wheelchair: 'wheelchair', 'low-mobility': 'low mobility', transport: 'public transport', dogs: 'dog', dementia: 'dementia' };
-            const keyword  = accessMap[accessibility];
-            if (keyword && !tagStr.includes(keyword)) return false;
-          }
-          return true;
-        }).map((item) => ({ ...item }));
+    // Map pins come exclusively from live DB records — no static fallback.
+    // Counties with zero geocoded venues show the empty-state overlay.
+    const samplePins = venuesWithCoords
+      .filter((v) => !activityType || DB_CAT_TO_MAP_KEY[v.category] === activityType)
+      .map((v) => ({
+        id:          `live-${v.id}`,
+        category:    DB_CAT_TO_MAP_KEY[v.category] || 'days-out',
+        lat:         Number(v.latitude),
+        lng:         Number(v.longitude),
+        title:       v.name,
+        area:        v.town,
+        description: v.short_description,
+        featured:    v.featured,
+        slug:        v.slug,
+        tags:        [
+          v.free_or_paid, v.indoor_outdoor,
+          v.wheelchair_access && 'Wheelchair', v.dog_friendly && 'Dogs',
+        ].filter(Boolean),
+        _venue: v,
+      }));
 
     return [...walkPins, ...samplePins];
   }, [localCounty, activityType, cost, accessibility, liveVenues, walkCoords]);
