@@ -4,7 +4,8 @@
 // Future: replace ACTIVITY_SAMPLE_DATA with Supabase activities table.
 
 import React from 'react';
-import { GoogleMap, MarkerF, InfoWindowF, useJsApiLoader } from '@react-google-maps/api';
+import { GoogleMap, InfoWindowF, useJsApiLoader, useGoogleMap } from '@react-google-maps/api';
+import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markerclusterer';
 import walksData from '../../data/walks.json';
 import Nav from '../Nav.jsx';
 import Footer from '../Footer.jsx';
@@ -55,7 +56,7 @@ const CAT_CONFIG = {
   groups:      { accent: '#2D9CDB', label: 'G', bg: 'rgba(45,156,219,0.12)' },
   'days-out':  { accent: '#F5A623', label: 'D', bg: 'rgba(245,166,35,0.12)' },
   attractions: { accent: '#7B5CF5', label: 'A', bg: 'rgba(123,92,245,0.12)' },
-  wellbeing:   { accent: '#F4613A', label: 'H', bg: 'rgba(244,97,58,0.12)'  },
+  wellbeing:   { accent: '#14B8A6', label: 'H', bg: 'rgba(20,184,166,0.12)'  },
   discounts:   { accent: '#0D7A55', label: '£', bg: 'rgba(16,185,129,0.12)' },
 };
 
@@ -364,12 +365,124 @@ const iStyle = {
 };
 
 // ── Activities map ────────────────────────────────────────────────────────────
-// Combines geocoded walk pins (walks.json → postcodes.io) with ACTIVITY_SAMPLE_DATA.
-// Find Help / resource data is NOT used here.
-// Walk markers → navigate to walks page. Non-walk markers → info card only (no navigation CTA).
-
 // DB category → CAT_CONFIG key (for liveVenues pins)
 const DB_CAT_TO_MAP_KEY = { 'Days Out': 'days-out', 'Attractions': 'attractions', 'Wellbeing': 'wellbeing', 'Walks': 'walks' };
+
+// ── Premium SVG pin helpers ───────────────────────────────────────────────────
+
+function makePinSvg(color, label, size, borderColor) {
+  const r = size / 2;
+  const svg = [
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">`,
+    `<defs><filter id="ds" x="-40%" y="-40%" width="180%" height="180%">`,
+    `<feDropShadow dx="0" dy="1.5" stdDeviation="1.5" flood-color="rgba(0,0,0,0.28)"/></filter></defs>`,
+    `<circle cx="${r}" cy="${r}" r="${r - 2.5}" fill="${color}" stroke="${borderColor}" stroke-width="2.5" filter="url(#ds)"/>`,
+    `<text x="${r}" y="${r}" text-anchor="middle" dominant-baseline="central" font-family="Arial,sans-serif" font-weight="900" font-size="${Math.round(size * 0.40)}" fill="white">${label}</text>`,
+    `</svg>`,
+  ].join('');
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+function makePinIcon(cfg, isFeatured, isHover) {
+  const size        = isHover || isFeatured ? 34 : 28;
+  const borderColor = isFeatured ? '#F5A623' : '#ffffff';
+  const url         = makePinSvg(cfg.accent, '1', size, borderColor);
+  const g           = window.google.maps;
+  return { url, scaledSize: new g.Size(size, size), anchor: new g.Point(size / 2, size / 2) };
+}
+
+// Cluster renderer — dominant-category colour with count label
+const clusterRenderer = {
+  render({ count, position, markers }) {
+    const counts = {};
+    (markers || []).forEach((m) => { const c = m._ic_cat || 'other'; counts[c] = (counts[c] || 0) + 1; });
+    const topCat = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
+    const color  = CAT_CONFIG[topCat]?.accent || '#1A2744';
+    const size   = count >= 100 ? 46 : count >= 20 ? 42 : 38;
+    const r      = size / 2;
+    const svg = [
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">`,
+      `<defs><filter id="cs" x="-40%" y="-40%" width="180%" height="180%">`,
+      `<feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(0,0,0,0.25)"/></filter></defs>`,
+      `<circle cx="${r}" cy="${r}" r="${r - 2}" fill="${color}" stroke="white" stroke-width="3" filter="url(#cs)"/>`,
+      `<text x="${r}" y="${r}" text-anchor="middle" dominant-baseline="central" font-family="Arial,sans-serif" font-weight="900" font-size="${count >= 100 ? 12 : 14}" fill="white">${count}</text>`,
+      `</svg>`,
+    ].join('');
+    return new window.google.maps.Marker({
+      position,
+      icon: {
+        url:        `data:image/svg+xml,${encodeURIComponent(svg)}`,
+        scaledSize: new window.google.maps.Size(size, size),
+        anchor:     new window.google.maps.Point(r, r),
+      },
+      zIndex: 1000 + count,
+    });
+  },
+};
+
+// ── MapPinsLayer: native markers + MarkerClusterer, rendered inside GoogleMap ─
+// useGoogleMap() requires being a child of GoogleMap. Returns null — all output
+// is imperative via the Maps SDK.
+
+const MapPinsLayer = ({ pins, onPinClick }) => {
+  const map          = useGoogleMap();
+  const clustererRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (!map || !window.google) return;
+
+    // Tear down previous pass before creating new markers
+    if (clustererRef.current) {
+      clustererRef.current.clearMarkers();
+      clustererRef.current.setMap(null);
+      clustererRef.current = null;
+    }
+
+    if (!pins.length) return;
+
+    const newMarkers = pins.map((pin) => {
+      const cfg        = CAT_CONFIG[pin.category] || CAT_CONFIG.walks;
+      const normalIcon = makePinIcon(cfg, !!pin.featured, false);
+      const hoverIcon  = makePinIcon(cfg, !!pin.featured, true);
+
+      const marker = new window.google.maps.Marker({
+        position:  { lat: pin.lat, lng: pin.lng },
+        title:     pin.title,
+        icon:      normalIcon,
+        zIndex:    pin.featured ? 10 : 1,
+        optimized: false,
+      });
+      marker._ic_cat = pin.category; // read by clusterRenderer for colour
+
+      marker.addListener('click',     () => onPinClick(pin));
+      marker.addListener('mouseover', () => marker.setIcon(hoverIcon));
+      marker.addListener('mouseout',  () => marker.setIcon(normalIcon));
+
+      return marker;
+    });
+
+    clustererRef.current = new MarkerClusterer({
+      map,
+      markers:   newMarkers,
+      renderer:  clusterRenderer,
+      algorithm: new SuperClusterAlgorithm({ radius: 80, maxZoom: 15 }),
+    });
+
+    return () => {
+      if (clustererRef.current) {
+        clustererRef.current.clearMarkers();
+        clustererRef.current.setMap(null);
+        clustererRef.current = null;
+      }
+      newMarkers.forEach((m) => {
+        window.google?.maps?.event?.clearInstanceListeners(m);
+        m.setMap(null);
+      });
+    };
+  }, [map, pins, onPinClick]);
+
+  return null;
+};
 
 const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavigate, compactHeight, liveVenues, onVenueClick }) => {
   const mapH = compactHeight || 'clamp(300px, calc(20vw + 225px), 460px)';
@@ -380,11 +493,11 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
     libraries: ACT_MAP_LIBS,
   });
 
-  const [walkCoords,  setWalkCoords]  = React.useState({});
-  const [geoLoading,  setGeoLoading]  = React.useState(false);
-  const [activePin,   setActivePin]   = React.useState(null);
+  const [walkCoords, setWalkCoords] = React.useState({});
+  const [geoLoading, setGeoLoading] = React.useState(false);
+  const [activePin,  setActivePin]  = React.useState(null);
 
-  // Geocode up to 150 unique walk postcodes — batched, non-blocking, module-level cached
+  // Geocode up to 80 unique walk postcodes — batched, non-blocking, module-level cached
   React.useEffect(() => {
     const uncached = WALK_POSTCODES.filter((pc) => !_geoCacheAttempted.has(pc));
     if (!uncached.length) {
@@ -395,7 +508,7 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
     setGeoLoading(true);
     (async () => {
       try {
-        const BATCH = 100; // postcodes.io bulk limit
+        const BATCH = 100;
         for (let i = 0; i < uncached.length && !cancelled; i += BATCH) {
           const chunk = uncached.slice(i, i + BATCH);
           chunk.forEach((pc) => _geoCacheAttempted.add(pc));
@@ -423,71 +536,74 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
 
   const { lat, lng, zoom } = COUNTY_CENTERS[localCounty] || COUNTY_CENTERS[''];
 
-  // Walk pins — geocoded from walks.json (Cornwall data); shown for Cornwall or all-counties view
-  const showWalks = !activityType || activityType === 'walks';
-  const showWalksForCounty = showWalks && (!localCounty || localCounty === 'cornwall');
-  const walkPins = showWalksForCounty
-    ? WALK_POSTCODES
-        .filter((pc) => walkCoords[pc])
-        .filter(() => !cost || cost === 'free')
-        .map((pc) => {
-          const w = WALK_BY_POSTCODE[pc];
-          return {
-            id: `walk-${pc}`,
-            lat: walkCoords[pc].lat,
-            lng: walkCoords[pc].lng,
-            title: w.name,
-            category: 'walks',
-            area: w.area,
-            cost: 'free',
-            description: `${w.distanceMiles} miles · ${w.difficulty} · ${w.area}`,
-            action: () => onNavigate('walks', localCounty || null),
-          };
-        })
-    : [];
+  // Memoised pin array — only recomputes when filter props or live data change,
+  // not when activePin changes (prevents cluster rebuild on every click).
+  const allPins = React.useMemo(() => {
+    const showWalks          = !activityType || activityType === 'walks';
+    const showWalksForCounty = showWalks && (!localCounty || localCounty === 'cornwall');
 
-  // Activity pins — prefer live Supabase venues with valid coordinates; fall back to
-  // ACTIVITY_SAMPLE_DATA (county-filtered) when no live venues have coordinates.
-  // An empty array is truthy, so gate on coord count — not array existence — to avoid
-  // suppressing the sample-data fallback when DB venues lack lat/lng.
-  const venuesWithCoords = (liveVenues || []).filter(
-    (v) => Number.isFinite(Number(v.latitude)) && Number.isFinite(Number(v.longitude)) && Number(v.latitude) !== 0
-  );
+    const walkPins = showWalksForCounty
+      ? WALK_POSTCODES
+          .filter((pc) => walkCoords[pc])
+          .filter(() => !cost || cost === 'free')
+          .map((pc) => {
+            const w = WALK_BY_POSTCODE[pc];
+            return {
+              id:          `walk-${pc}`,
+              lat:         walkCoords[pc].lat,
+              lng:         walkCoords[pc].lng,
+              title:       w.name,
+              category:    'walks',
+              area:        w.area,
+              cost:        'free',
+              description: `${w.distanceMiles} miles · ${w.difficulty} · ${w.area}`,
+            };
+          })
+      : [];
 
-  const samplePins = venuesWithCoords.length > 0
-    ? venuesWithCoords
-        .filter((v) => !activityType || DB_CAT_TO_MAP_KEY[v.category] === activityType)
-        .map((v) => ({
-          id:          `live-${v.id}`,
-          category:    DB_CAT_TO_MAP_KEY[v.category] || 'days-out',
-          lat:         Number(v.latitude),
-          lng:         Number(v.longitude),
-          title:       v.name,
-          area:        v.town,
-          description: v.short_description,
-          featured:    v.featured,
-          tags:        [
-            v.free_or_paid, v.indoor_outdoor,
-            v.wheelchair_access && 'Wheelchair', v.dog_friendly && 'Dogs',
-          ].filter(Boolean),
-          _venue: v,
-          action: null,
-        }))
-    : ACTIVITY_SAMPLE_DATA.filter((item) => {
-        if (item.category === 'walks') return false;
-        if (localCounty && item.county !== localCounty) return false;
-        if (activityType && item.category !== activityType) return false;
-        if (cost && item.cost !== cost) return false;
-        if (accessibility) {
-          const tagStr = item.tags.join(' ').toLowerCase();
-          const accessMap = { wheelchair: 'wheelchair', 'low-mobility': 'low mobility', transport: 'public transport', dogs: 'dog', dementia: 'dementia' };
-          const keyword = accessMap[accessibility];
-          if (keyword && !tagStr.includes(keyword)) return false;
-        }
-        return true;
-      }).map((item) => ({ ...item, action: null }));
+    const venuesWithCoords = (liveVenues || []).filter(
+      (v) => Number.isFinite(Number(v.latitude)) && Number.isFinite(Number(v.longitude)) && Number(v.latitude) !== 0
+    );
 
-  const allPins = [...walkPins, ...samplePins];
+    const samplePins = venuesWithCoords.length > 0
+      ? venuesWithCoords
+          .filter((v) => !activityType || DB_CAT_TO_MAP_KEY[v.category] === activityType)
+          .map((v) => ({
+            id:          `live-${v.id}`,
+            category:    DB_CAT_TO_MAP_KEY[v.category] || 'days-out',
+            lat:         Number(v.latitude),
+            lng:         Number(v.longitude),
+            title:       v.name,
+            area:        v.town,
+            description: v.short_description,
+            featured:    v.featured,
+            slug:        v.slug,
+            tags:        [
+              v.free_or_paid, v.indoor_outdoor,
+              v.wheelchair_access && 'Wheelchair', v.dog_friendly && 'Dogs',
+            ].filter(Boolean),
+            _venue: v,
+          }))
+      : ACTIVITY_SAMPLE_DATA.filter((item) => {
+          if (item.category === 'walks') return false;
+          if (localCounty && item.county !== localCounty) return false;
+          if (activityType && item.category !== activityType) return false;
+          if (cost && item.cost !== cost) return false;
+          if (accessibility) {
+            const tagStr   = item.tags.join(' ').toLowerCase();
+            const accessMap = { wheelchair: 'wheelchair', 'low-mobility': 'low mobility', transport: 'public transport', dogs: 'dog', dementia: 'dementia' };
+            const keyword  = accessMap[accessibility];
+            if (keyword && !tagStr.includes(keyword)) return false;
+          }
+          return true;
+        }).map((item) => ({ ...item }));
+
+    return [...walkPins, ...samplePins];
+  }, [localCounty, activityType, cost, accessibility, liveVenues, walkCoords]);
+
+  const handlePinClick = React.useCallback((pin) => {
+    setActivePin((prev) => prev?.id === pin.id ? null : pin);
+  }, []);
 
   const Fallback = () => (
     <div style={{ height: mapH, borderRadius: 20, background: 'linear-gradient(160deg, #E8F5E4 0%, #EEF7FF 100%)', border: '1px solid #DEE8F4', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, textAlign: 'center', padding: 32 }}>
@@ -510,13 +626,22 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
     </div>
   );
 
-  // Categories with no pins for "more being added" note
   const visibleCats = activityType ? [activityType] : ['walks', 'groups', 'days-out', 'attractions', 'wellbeing', 'discounts'];
-  const emptyCats = visibleCats.filter((cat) => !allPins.some((p) => p.category === cat));
+  const emptyCats   = visibleCats.filter((cat) => !allPins.some((p) => p.category === cat));
 
   return (
     <div>
-      <div style={{ borderRadius: 20, overflow: 'hidden', boxShadow: '0 8px 32px rgba(26,39,68,0.10)', border: '1px solid #EEF1F7' }}>
+      {/* Google Maps InfoWindow: strip default chrome, apply premium card styling */}
+      <style>{`
+        .gm-style-iw-c{padding:0!important;border-radius:18px!important;box-shadow:0 18px 45px rgba(15,39,68,0.18),0 4px 12px rgba(15,39,68,0.08)!important;border:1px solid rgba(26,39,68,0.10)!important;overflow:hidden!important;max-height:none!important}
+        .gm-style-iw-d{overflow:hidden!important;max-height:none!important;padding:0!important}
+        .gm-style-iw-t::after{display:none!important}
+        .gm-ui-hover-effect{width:28px!important;height:28px!important;top:8px!important;right:8px!important;border-radius:50%!important;background:rgba(248,250,252,0.90)!important;border:1px solid rgba(26,39,68,0.09)!important;opacity:1!important;display:flex!important;align-items:center!important;justify-content:center!important}
+        .gm-ui-hover-effect:hover{background:rgba(226,232,240,0.95)!important}
+        .gm-ui-hover-effect>span,.gm-ui-hover-effect>img{width:12px!important;height:12px!important;margin:0!important}
+      `}</style>
+      {/* position:relative lets the empty-state overlay sit above the map canvas */}
+      <div style={{ position: 'relative', borderRadius: 20, overflow: 'hidden', boxShadow: '0 8px 32px rgba(26,39,68,0.10)', border: '1px solid #EEF1F7' }}>
         <GoogleMap
           mapContainerStyle={{ width: '100%', height: mapH }}
           center={{ lat, lng }}
@@ -524,86 +649,104 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
           options={{ streetViewControl: false, mapTypeControl: false, fullscreenControl: false, zoomControl: true, gestureHandling: 'cooperative' }}
           onClick={() => setActivePin(null)}
         >
-          {allPins.map((pin) => {
-            const cfg = CAT_CONFIG[pin.category] || CAT_CONFIG.walks;
-            const isFeatured = !!pin.featured;
-            return (
-              <MarkerF
-                key={pin.id}
-                position={{ lat: pin.lat, lng: pin.lng }}
-                title={pin.title}
-                icon={{
-                  path: 0, // google.maps.SymbolPath.CIRCLE
-                  fillColor: cfg.accent,
-                  fillOpacity: 1,
-                  strokeColor: isFeatured ? '#F5A623' : '#ffffff',
-                  strokeWeight: isFeatured ? 3.5 : 2.5,
-                  scale: isFeatured ? 14 : 12,
-                }}
-                label={{ text: cfg.label, color: 'white', fontWeight: '900', fontSize: '11px' }}
-                zIndex={isFeatured ? 10 : 1}
-                onClick={() => setActivePin(activePin?.id === pin.id ? null : pin)}
-              />
-            );
-          })}
+          <MapPinsLayer pins={allPins} onPinClick={handlePinClick} />
 
-          {activePin && (
-            <InfoWindowF
-              position={{ lat: activePin.lat, lng: activePin.lng }}
-              onCloseClick={() => setActivePin(null)}
-            >
-              <div style={{ maxWidth: 240, fontFamily: 'Inter, sans-serif', padding: '2px 0' }}>
-                {/* Category badge + featured flag */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
-                  <span style={{ fontSize: 9.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', padding: '2px 7px', borderRadius: 5, background: `${CAT_CONFIG[activePin.category]?.accent || '#1A2744'}18`, color: CAT_CONFIG[activePin.category]?.accent || '#1A2744' }}>
-                    {ACTIVITY_TYPE_OPTIONS.find((o) => o.value === activePin.category)?.label || activePin.category}
-                  </span>
-                  {activePin.featured && (
-                    <span style={{ fontSize: 9.5, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(245,166,35,0.14)', color: '#B45309' }}>Featured</span>
-                  )}
+          {activePin && (() => {
+            const pinAccent   = CAT_CONFIG[activePin.category]?.accent || '#1A2744';
+            const pinCatLabel = ACTIVITY_TYPE_OPTIONS.find((o) => o.value === activePin.category)?.label || activePin.category;
+            return (
+              <InfoWindowF
+                position={{ lat: activePin.lat, lng: activePin.lng }}
+                onCloseClick={() => setActivePin(null)}
+              >
+                {/* Outer wrapper — no padding so accent strip bleeds to card edges */}
+                <div style={{ width: 272, boxSizing: 'border-box', fontFamily: 'Inter, system-ui, sans-serif', background: '#ffffff' }}>
+
+                  {/* Category-coloured accent strip with depth */}
+                  <div style={{ height: 5, background: `linear-gradient(90deg, ${pinAccent}, ${pinAccent}BB)`, boxShadow: `inset 0 -1px 0 rgba(0,0,0,0.10)`, flexShrink: 0 }} />
+
+                  {/* Card body */}
+                  <div style={{ padding: '12px 15px 14px' }}>
+
+                    {/* Badge row — right-padded to clear the close button */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6, paddingRight: 26, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 9.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', padding: '3px 9px', borderRadius: 999, background: `${pinAccent}18`, color: pinAccent, border: `1px solid ${pinAccent}30` }}>
+                        {pinCatLabel}
+                      </span>
+                      {activePin.featured && (
+                        <span style={{ fontSize: 9.5, fontWeight: 700, padding: '3px 8px', borderRadius: 999, background: 'rgba(245,166,35,0.14)', color: '#B45309', border: '1px solid rgba(245,166,35,0.25)' }}>
+                          ★ Featured
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Title — 2-line clamp, stronger contrast */}
+                    <div style={{ fontSize: 15.5, fontWeight: 900, color: '#0F1E3D', lineHeight: 1.22, marginBottom: 4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                      {activePin.title}
+                    </div>
+
+                    {/* Location — coloured pulse dot + town */}
+                    {activePin.area && (
+                      <div style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.52)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: pinAccent, flexShrink: 0, boxShadow: `0 0 0 2.5px ${pinAccent}2A` }} />
+                        {activePin.area}
+                      </div>
+                    )}
+
+                    {/* Description — 2-line clamp */}
+                    {activePin.description && (
+                      <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.65)', lineHeight: 1.55, marginBottom: 8, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        {activePin.description}
+                      </div>
+                    )}
+
+                    {/* Tags — max 3, soft pill chips */}
+                    {activePin.tags?.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 10 }}>
+                        {activePin.tags.slice(0, 3).map((t) => (
+                          <span key={t} style={{ fontSize: 10.5, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: 'rgba(26,39,68,0.06)', color: 'rgba(26,39,68,0.55)', border: '1px solid rgba(26,39,68,0.09)' }}>{t}</span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* CTA — full width, solid category colour, lift-on-hover */}
+                    {activePin.category === 'walks' ? (
+                      <button
+                        onClick={() => { setActivePin(null); onNavigate('walks', localCounty || null); }}
+                        style={{ width: '100%', fontSize: 13, fontWeight: 700, padding: '9px 0', borderRadius: 10, background: CAT_CONFIG.walks.accent, color: '#ffffff', border: 'none', cursor: 'pointer', letterSpacing: '0.01em', transition: 'transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease', boxShadow: `0 3px 10px ${CAT_CONFIG.walks.accent}40` }}
+                        onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = `0 6px 18px ${CAT_CONFIG.walks.accent}55`; e.currentTarget.style.filter = 'brightness(1.06)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = `0 3px 10px ${CAT_CONFIG.walks.accent}40`; e.currentTarget.style.filter = ''; }}
+                      >
+                        View walks →
+                      </button>
+                    ) : onVenueClick && activePin._venue ? (
+                      <button
+                        onClick={() => { setActivePin(null); onVenueClick(activePin._venue); }}
+                        style={{ width: '100%', fontSize: 13, fontWeight: 700, padding: '9px 0', borderRadius: 10, background: pinAccent, color: '#ffffff', border: 'none', cursor: 'pointer', letterSpacing: '0.01em', transition: 'transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease', boxShadow: `0 3px 10px ${pinAccent}40` }}
+                        onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = `0 6px 18px ${pinAccent}55`; e.currentTarget.style.filter = 'brightness(1.06)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = `0 3px 10px ${pinAccent}40`; e.currentTarget.style.filter = ''; }}
+                      >
+                        View details →
+                      </button>
+                    ) : null}
+
+                  </div>
                 </div>
-                {/* Title */}
-                <div style={{ fontSize: 14, fontWeight: 800, color: '#1A2744', lineHeight: 1.25, marginBottom: 4 }}>{activePin.title}</div>
-                {/* Area */}
-                {activePin.area && (
-                  <div style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.52)', marginBottom: 5, display: 'flex', alignItems: 'center', gap: 3 }}>
-                    📍 {activePin.area}
-                  </div>
-                )}
-                {/* Description */}
-                {activePin.description && (
-                  <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.70)', lineHeight: 1.5, marginBottom: 7, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                    {activePin.description}
-                  </div>
-                )}
-                {/* Tags */}
-                {activePin.tags?.length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
-                    {activePin.tags.slice(0, 3).map((t) => (
-                      <span key={t} style={{ fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4, background: 'rgba(26,39,68,0.07)', color: 'rgba(26,39,68,0.60)' }}>{t}</span>
-                    ))}
-                  </div>
-                )}
-                {/* CTA */}
-                {activePin.category === 'walks' ? (
-                  <button
-                    onClick={activePin.action}
-                    style={{ width: '100%', fontSize: 12, fontWeight: 700, padding: '6px 0', borderRadius: 8, background: CAT_CONFIG.walks.bg, color: CAT_CONFIG.walks.accent, border: 'none', cursor: 'pointer' }}
-                  >
-                    View walks →
-                  </button>
-                ) : onVenueClick && activePin._venue ? (
-                  <button
-                    onClick={() => { setActivePin(null); onVenueClick(activePin._venue); }}
-                    style={{ width: '100%', fontSize: 12, fontWeight: 700, padding: '6px 0', borderRadius: 8, background: `${CAT_CONFIG[activePin.category]?.accent || '#1A2744'}14`, color: CAT_CONFIG[activePin.category]?.accent || '#1A2744', border: 'none', cursor: 'pointer' }}
-                  >
-                    View details →
-                  </button>
-                ) : null}
-              </div>
-            </InfoWindowF>
-          )}
+              </InfoWindowF>
+            );
+          })()}
         </GoogleMap>
+
+        {/* Empty-county overlay — shown when this county has no mapped activities */}
+        {allPins.length === 0 && (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, textAlign: 'center', padding: 32, background: 'rgba(240,245,251,0.88)', backdropFilter: 'blur(3px)', pointerEvents: 'none' }}>
+            <IPin s={28} />
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#1A2744' }}>No mapped activities yet</div>
+            <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.55)', maxWidth: 260, lineHeight: 1.6 }}>
+              Activities for this area are being added. Browse the list below.
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Map legend + note */}
