@@ -668,14 +668,15 @@ const App = () => {
       return;
     }
 
-    // wellbeing — /wellbeing (national fallback) or /{county}/wellbeing (explicit county)
+    // wellbeing — /wellbeing (national fallback) or /{county}/wellbeing[/slug]
     if (key === 'wellbeing') {
       const c = typeof explicitCounty === 'string' ? explicitCounty : null;
       setPage('wellbeing');
-      setVenueSlug(null);
+      setVenueSlug(slug || null);
       setCounty(c);
       if (c) { try { localStorage.setItem('ic_county', c); } catch {} }
-      window.history.pushState({ page: 'wellbeing', county: c }, '', c ? `/${c}/wellbeing` : '/wellbeing');
+      const path = c ? (slug ? `/${c}/wellbeing/${slug}` : `/${c}/wellbeing`) : '/wellbeing';
+      window.history.pushState({ page: 'wellbeing', county: c, slug: slug || null }, '', path);
       window.scrollTo({ top: 0, behavior: 'instant' });
       return;
     }
