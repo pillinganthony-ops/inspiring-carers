@@ -3,7 +3,6 @@ import Icons from '../Icons.jsx';
 import Nav from '../Nav.jsx';
 import Footer from '../Footer.jsx';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient.js';
-import CountyBanner from '../CountyBanner.jsx';
 import CountyCategoryNav from '../CountyCategoryNav.jsx';
 
 const { IEvent, IPin, IArrow, IClose, ISearch, IChevron, IHub } = Icons;
@@ -276,21 +275,21 @@ const EventsPage = ({ onNavigate, session, county }) => {
       {county ? (
         /* ── County view: matches the county page system ─────────────────── */
         <>
-          <CountyBanner county={county} isFallback={false} onChangeCounty={(c) => onNavigate('events', c)} />
           <CountyCategoryNav county={county} activePage="events" onNavigate={onNavigate} />
 
-          {/* Compact dark-navy hero — same scale as Activities/Walks/etc. */}
-          <section style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(150deg, #0C1A35 0%, #162C52 50%, #1A3460 100%)', paddingTop: 28, paddingBottom: 36 }}>
+          {/* Hero — aligned with Places to Visit / Things to Do standard */}
+          <section style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(150deg, #0C1A35 0%, #162C52 50%, #1A3460 100%)', paddingTop: 48, paddingBottom: 48 }}>
             <div style={{ position: 'absolute', top: -80, right: -80, width: 400, height: 400, borderRadius: '50%', background: 'radial-gradient(circle, rgba(45,156,219,0.10) 0%, transparent 65%)', pointerEvents: 'none' }} />
             <div style={{ position: 'absolute', bottom: -60, left: '30%', width: 360, height: 360, borderRadius: '50%', background: 'radial-gradient(circle, rgba(91,201,74,0.06) 0%, transparent 65%)', pointerEvents: 'none' }} />
 
             <div className="container" style={{ position: 'relative' }}>
-              <button
-                onClick={() => onNavigate('events', null)}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.60)', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.13)', padding: '6px 14px', borderRadius: 8, cursor: 'pointer', marginBottom: 20 }}
-              >
-                ← Events
-              </button>
+              {/* Breadcrumb — Home > County > Events */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'rgba(255,255,255,0.45)', fontSize: 13, marginBottom: 14 }}>
+                <button onClick={() => onNavigate('home')} style={{ color: 'inherit', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', fontSize: 'inherit' }}>Home</button>
+                {countyLabel && <><IChevron s={12} /><span style={{ color: 'rgba(255,255,255,0.60)', fontWeight: 500 }}>{countyLabel}</span></>}
+                <IChevron s={12} />
+                <span style={{ color: '#FFFFFF', fontWeight: 600 }}>Events</span>
+              </div>
 
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 999, background: 'rgba(45,156,219,0.15)', border: '1px solid rgba(45,156,219,0.28)', fontSize: 11, fontWeight: 800, color: '#7DD3FC', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
                 Events · {countyLabel}
@@ -298,24 +297,67 @@ const EventsPage = ({ onNavigate, session, county }) => {
               <h1 style={{ fontSize: 'clamp(24px, 4vw, 42px)', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.03em', lineHeight: 1.06, margin: '0 0 10px', textWrap: 'balance' }}>
                 Events in {countyLabel}
               </h1>
-              <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.68)', lineHeight: 1.6, margin: '0 0 18px', maxWidth: 480 }}>
+              <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.68)', lineHeight: 1.6, margin: '0 0 16px', maxWidth: 520 }}>
                 Upcoming workshops, community sessions and local events for carers in {countyLabel}.
               </p>
 
-              {/* Inline search */}
-              <div style={{ maxWidth: 480, display: 'flex', borderRadius: 12, overflow: 'hidden', background: 'white', boxShadow: '0 4px 18px rgba(0,0,0,0.14)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', paddingLeft: 14, color: 'rgba(26,39,68,0.4)', flexShrink: 0 }}>
-                  <ISearch s={16} />
+              {/* Stats row — guarded by data, matches Places to Visit pattern */}
+              {!loading && events.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 0, borderTop: '1px solid rgba(255,255,255,0.10)', paddingTop: 14, marginTop: 4 }}>
+                  {[
+                    { n: events.length, l: 'Events listed' },
+                  ].map(({ n, l }, i) => (
+                    <div key={l} style={{ paddingRight: 18, paddingLeft: i > 0 ? 18 : 0, borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.12)' : 'none' }}>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: '#FFFFFF', lineHeight: 1 }}>{n}</div>
+                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.44)', fontWeight: 600, marginTop: 3 }}>{l}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Search strip — below hero, matches Activities filter bar position */}
+          <section style={{ background: '#FFFFFF', borderBottom: '1px solid #EEF1F7', padding: '12px 0' }}>
+            <div className="container">
+              <div style={{ maxWidth: 520, display: 'flex', borderRadius: 12, overflow: 'hidden', background: '#F8FAFD', border: '1px solid #EEF1F7' }}>
+                <div style={{ display: 'flex', alignItems: 'center', paddingLeft: 14, color: 'rgba(26,39,68,0.40)', flexShrink: 0 }}>
+                  <ISearch s={15} />
                 </div>
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search events or organisers"
-                  style={{ flex: 1, border: 'none', outline: 'none', padding: '11px 12px', fontSize: 14, background: 'transparent', color: '#1A2744', fontFamily: 'inherit' }}
+                  placeholder="Search events or organisers…"
+                  style={{ flex: 1, border: 'none', outline: 'none', padding: '10px 12px', fontSize: 14, background: 'transparent', color: '#1A2744', fontFamily: 'inherit' }}
                 />
               </div>
             </div>
           </section>
+
+          {/* Sponsorship strip — same pattern as Activities and Places to Visit */}
+          <div style={{ background: '#FAFBFF', borderBottom: '1px solid #EEF1F7', padding: '14px 0' }}>
+            <div className="container">
+              <div style={{ padding: '20px 24px', borderRadius: 22, background: 'rgba(45,156,219,0.05)', border: '1px solid rgba(45,156,219,0.14)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+                <div style={{ flex: 1, minWidth: 220 }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: '#2D9CDB', marginBottom: 5 }}>County partnership</div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: '#1A2744', marginBottom: 4, lineHeight: 1.28 }}>
+                    Become the {countyLabel} events partner
+                  </div>
+                  <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.56)', margin: 0, lineHeight: 1.55 }}>
+                    Promote carer-friendly events, workshops and community sessions across {countyLabel}.
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flexShrink: 0 }}>
+                  <button onClick={() => onNavigate('advertise')} style={{ padding: '9px 18px', borderRadius: 10, background: '#2D9CDB', color: 'white', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'opacity .13s' }} onMouseEnter={e => { e.currentTarget.style.opacity = '0.88'; }} onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}>
+                    Become a sponsor →
+                  </button>
+                  <button onClick={() => onNavigate('profile')} style={{ padding: '9px 16px', borderRadius: 10, background: 'transparent', border: '1.5px solid rgba(45,156,219,0.30)', color: '#2D9CDB', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    Add your event
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </>
       ) : (
         /* ── National/hub view: existing design unchanged ─────────────────── */
@@ -344,16 +386,18 @@ const EventsPage = ({ onNavigate, session, county }) => {
       )}
 
       {/* ── Events content ─────────────────────────────────────────────────── */}
-      <section style={{ paddingTop: 28, paddingBottom: 80, background: '#FAFBFF' }}>
+      <section style={{ paddingTop: 28, paddingBottom: 56, background: '#FAFBFF' }}>
         <div className="container">
           {loading ? (
-            <div className="card" style={{ padding: 28 }}>Loading events…</div>
+            <div style={{ textAlign: 'center', padding: '64px 20px', color: 'rgba(26,39,68,0.45)', fontSize: 14 }}>
+              Loading events…
+            </div>
           ) : error ? (
-            <div className="card" style={{ padding: 28 }}>{error}</div>
+            <div className="card" style={{ padding: 24, color: 'rgba(26,39,68,0.65)', fontSize: 14 }}>{error}</div>
           ) : !filteredEvents.length ? (
             county ? (
               /* County-branded empty state */
-              <div style={{ textAlign: 'center', padding: '56px 24px' }}>
+              <div style={{ textAlign: 'center', padding: '64px 20px' }}>
                 <div style={{ width: 56, height: 56, borderRadius: 18, background: 'rgba(45,156,219,0.10)', display: 'grid', placeItems: 'center', margin: '0 auto 18px', color: '#2D9CDB' }}>
                   <IEvent s={26} />
                 </div>
@@ -371,27 +415,31 @@ const EventsPage = ({ onNavigate, session, county }) => {
               <div className="card" style={{ padding: 28 }}>No events found right now.</div>
             )
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
               {filteredEvents.map((event) => (
-                <div key={event.id} className="card" style={{ padding: 22, borderRadius: 24 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start' }}>
-                    <div>
-                      <div className="eyebrow" style={{ color: '#2D9CDB' }}>{event.event_type || 'Community event'}</div>
-                      <h2 style={{ marginTop: 8, fontSize: 21, fontWeight: 700 }}>{event.title}</h2>
+                <div key={event.id} className="card" style={{ padding: 0, overflow: 'hidden', borderRadius: 22, border: '1px solid rgba(45,156,219,0.14)', display: 'flex', flexDirection: 'column', background: '#FFFFFF' }}>
+                  {/* Accent top strip — matches Activity/Places/Wellbeing card pattern */}
+                  <div style={{ height: 4, background: 'linear-gradient(90deg, #2D9CDB, #2D9CDB88)', flexShrink: 0 }} />
+                  <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', flex: 1, gap: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#2D9CDB', marginBottom: 4 }}>{event.event_type || 'Community event'}</div>
+                        <h2 style={{ margin: 0, fontSize: 16.5, fontWeight: 800, color: '#1A2744', lineHeight: 1.28 }}>{event.title}</h2>
+                      </div>
+                      <div style={{ width: 44, height: 44, borderRadius: 14, background: 'rgba(45,156,219,0.10)', color: '#2D9CDB', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                        <IEvent s={20} />
+                      </div>
                     </div>
-                    <div style={{ width: 48, height: 48, borderRadius: 16, background: 'rgba(45,156,219,0.1)', color: '#2D9CDB', display: 'grid', placeItems: 'center' }}>
-                      <IEvent s={22} />
+                    <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.65)', lineHeight: 1.65 }}>{event.description || 'Hosted by a local organisation.'}</div>
+                    <div style={{ display: 'grid', gap: 5, fontSize: 13, color: '#1A2744' }}>
+                      <div><strong>When:</strong> {formatDateTime(event.starts_at)}</div>
+                      <div><strong>Where:</strong> {event.location || 'Location shared by organiser'}</div>
+                      <div><strong>By:</strong> {event.orgName || 'Community organisation'}</div>
                     </div>
-                  </div>
-                  <div style={{ marginTop: 10, fontSize: 13.5, color: 'rgba(26,39,68,0.72)', lineHeight: 1.65 }}>{event.description || 'Hosted by a local organisation.'}</div>
-                  <div style={{ display: 'grid', gap: 7, marginTop: 14, fontSize: 13.5, color: '#1A2744' }}>
-                    <div><strong>When:</strong> {formatDateTime(event.starts_at)}</div>
-                    <div><strong>Where:</strong> {event.location || 'Location shared by organiser'}</div>
-                    <div><strong>By:</strong> {event.orgName || 'Community organisation'}</div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
-                    <button className="btn btn-gold btn-sm" onClick={() => setActiveEvent(event)}>{event.cta_type === 'book' ? 'Book your place' : 'Contact provider'}</button>
-                    {event.publicSlug ? <button className="btn btn-ghost btn-sm" onClick={() => onNavigate('find-help', county, event.publicSlug)}>View organisation <IArrow s={14} /></button> : null}
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+                      <button className="btn btn-gold btn-sm" onClick={() => setActiveEvent(event)}>{event.cta_type === 'book' ? 'Book your place' : 'Contact provider'}</button>
+                      {event.publicSlug ? <button className="btn btn-ghost btn-sm" onClick={() => onNavigate('find-help', county, event.publicSlug)}>View organisation <IArrow s={14} /></button> : null}
+                    </div>
                   </div>
                 </div>
               ))}

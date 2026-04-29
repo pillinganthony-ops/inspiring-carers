@@ -210,68 +210,8 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp,
           {/* Find Help — county-aware: hub when no county, county page when set */}
           <NavItem label="Find help" accent="#2D9CDB" active={activePage === 'find-help'} onClick={handleFindHelpClick} />
 
-          {/* Activities — split button: label navigates conditionally, caret opens dropdown */}
-          <div ref={activitiesRef} style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
-            <button
-              onClick={handleActivitiesClick}
-              style={{
-                padding: '8px 8px 8px 14px', borderRadius: '999px 0 0 999px',
-                fontSize: 14, fontWeight: isActivitiesPage ? 700 : 600,
-                color: isActivitiesPage ? '#1A2744' : 'rgba(26,39,68,0.68)',
-                background: isActivitiesPage ? 'rgba(26,39,68,0.07)' : 'transparent',
-                border: 'none', cursor: 'pointer',
-                display: 'inline-flex', alignItems: 'center', gap: 7,
-                transition: 'background .15s, color .15s',
-              }}
-              onMouseEnter={e => { if (!isActivitiesPage) { e.currentTarget.style.background = 'rgba(26,39,68,0.04)'; e.currentTarget.style.color = '#1A2744'; }}}
-              onMouseLeave={e => { if (!isActivitiesPage) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(26,39,68,0.68)'; }}}
-            >
-              <span style={{ width: 7, height: 7, borderRadius: 2, background: '#5BC94A', display: 'inline-block', flexShrink: 0 }} />
-              Things to Do
-            </button>
-            <button
-              onClick={() => setActivitiesOpen((o) => !o)}
-              style={{
-                padding: '8px 10px 8px 4px', borderRadius: '0 999px 999px 0',
-                fontSize: 14, fontWeight: 600,
-                color: isActivitiesPage ? '#1A2744' : 'rgba(26,39,68,0.68)',
-                background: isActivitiesPage ? 'rgba(26,39,68,0.07)' : 'transparent',
-                border: 'none', cursor: 'pointer',
-                display: 'inline-flex', alignItems: 'center',
-                transition: 'background .15s, color .15s',
-              }}
-              onMouseEnter={e => { if (!isActivitiesPage) { e.currentTarget.style.background = 'rgba(26,39,68,0.04)'; e.currentTarget.style.color = '#1A2744'; }}}
-              onMouseLeave={e => { if (!isActivitiesPage) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(26,39,68,0.68)'; }}}
-            >
-              <IChevron s={13} />
-            </button>
-            {activitiesOpen && (
-              <div style={{ ...dropCard, top: 'calc(100% + 10px)', left: 0, minWidth: 264, borderRadius: 20, padding: '10px', gap: 0, zIndex: 9999 }}>
-                {/* Dropdown header */}
-                <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: 'rgba(26,39,68,0.36)', padding: '5px 10px 9px' }}>
-                  Explore activities
-                </div>
-                {activitiesItems.map((item) => {
-                  const active = activePage === item.key;
-                  return (
-                    <button
-                      key={item.key}
-                      onClick={item.key === 'activities' ? handleActivitiesClick : () => handleNavigate(item.key)}
-                      style={{ textAlign: 'left', width: '100%', padding: '10px 12px', borderRadius: 12, background: active ? 'rgba(91,201,74,0.08)' : 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, transition: 'background .12s' }}
-                      onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'rgba(26,39,68,0.04)'; }}
-                      onMouseLeave={e => { if (!active) e.currentTarget.style.background = active ? 'rgba(91,201,74,0.08)' : 'transparent'; }}
-                    >
-                      <span style={{ width: 6, height: 6, borderRadius: 999, background: active ? '#5BC94A' : 'rgba(26,39,68,0.18)', flexShrink: 0 }} />
-                      <div>
-                        <div style={{ fontSize: 13.5, fontWeight: active ? 700 : 600, color: '#1A2744', lineHeight: 1.2 }}>{item.label}</div>
-                        <div style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.44)', lineHeight: 1.3, marginTop: 2 }}>{item.note}</div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          {/* Things to Do — intent-level nav item, no dropdown (county nav provides context) */}
+          <NavItem label="Things to Do" accent="#5BC94A" active={isActivitiesPage} onClick={handleActivitiesClick} />
 
           {/* Remaining primary items — Events is county-aware, others use generic handler */}
           {primaryNavItems.slice(1).map((item) => (
@@ -367,16 +307,11 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp,
               Find help
             </button>
 
-            {/* Activities — hub + sub-pages */}
-            <div style={{ fontSize: 10.5, fontWeight: 800, color: 'rgba(26,39,68,0.4)', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '6px 2px 2px' }}>Things to Do</div>
-            {activitiesItems.map((item) => (
-              <button key={item.key}
-                onClick={item.key === 'activities' ? handleActivitiesClick : () => handleNavigate(item.key)}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', padding: '12px 14px', borderRadius: 14, border: 'none', cursor: 'pointer', width: '100%', background: activePage === item.key ? 'rgba(91,201,74,0.10)' : '#FAFBFF', color: '#1A2744', fontWeight: activePage === item.key ? 700 : 600 }}>
-                <span style={{ width: 8, height: 8, borderRadius: 2, background: '#5BC94A', flexShrink: 0 }} />
-                {item.label}
-              </button>
-            ))}
+            {/* Things to Do — single intent item; county nav provides the category context */}
+            <button onClick={handleActivitiesClick} style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', padding: '12px 14px', borderRadius: 14, border: 'none', cursor: 'pointer', width: '100%', background: isActivitiesPage ? 'rgba(91,201,74,0.10)' : '#FAFBFF', color: '#1A2744', fontWeight: isActivitiesPage ? 700 : 600 }}>
+              <span style={{ width: 8, height: 8, borderRadius: 2, background: '#5BC94A', flexShrink: 0 }} />
+              Things to Do
+            </button>
 
             {/* Remaining primary items — Events is county-aware */}
             {primaryNavItems.slice(1).map((item) => (

@@ -16,6 +16,7 @@ import CountyCategoryNav from '../CountyCategoryNav.jsx';
 import CountyWalksBanner from '../CountyWalksBanner.jsx';
 import CountyHero from '../shared/CountyHero.jsx';
 import DiscoveryCard from '../shared/DiscoveryCard.jsx';
+import FilterStrip from '../shared/FilterStrip.jsx';
 import supabase, { isSupabaseConfigured } from '../../lib/supabaseClient.js';
 import {
   Crown, MapPin as LMapPin, Ticket, Gift, Coffee, HeartHandshake,
@@ -354,18 +355,6 @@ const ActivityCardHeader = ({ grad, Icon, label, accent, location }) => (
     </div>
   </div>
 );
-
-// ── Shared style ──────────────────────────────────────────────────────────────
-
-const iStyle = {
-  padding: '10px 14px', borderRadius: 12,
-  border: '1px solid #DDE5F0',
-  background: '#F8FAFD',
-  fontSize: 13.5, color: '#1A2744',
-  fontFamily: 'Inter, sans-serif', flex: '1 1 140px', minWidth: 0,
-  cursor: 'pointer', appearance: 'auto',
-  boxShadow: '0 1px 3px rgba(26,39,68,0.05)',
-};
 
 // ── Activities map ────────────────────────────────────────────────────────────
 // DB category → CAT_CONFIG key (for liveVenues pins)
@@ -1169,8 +1158,6 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
     `Days out, attractions, wellbeing and ${countyWalksCount ? `${countyWalksCount}+ walks` : 'walks'} in ${countyLabel}.`;
 
   // Sidebar section header style
-  const sectionLabel = { fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.38)', marginBottom: 10 };
-
   // Category filter button
   const catBtn = (cat) => {
     const active = filterCat === cat.value;
@@ -1250,90 +1237,28 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
 
             {/* ── LEFT: filter sidebar ── */}
             <div style={{ flex: '0 0 226px', minWidth: 0, position: 'sticky', top: 88 }}>
-              <div className="card" style={{ padding: '18px 16px', borderRadius: 16 }}>
-
-                {/* Search */}
-                <div style={{ marginBottom: 20 }}>
-                  <div style={sectionLabel}>Search</div>
-                  <div style={{ position: 'relative' }}>
-                    <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-                      placeholder="Name or town…"
-                      style={{ ...iStyle, width: '100%', boxSizing: 'border-box', paddingLeft: 30 }}
-                    />
-                    <span style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'rgba(26,39,68,0.38)', display: 'flex', pointerEvents: 'none' }}>
-                      <ISearch s={12} />
-                    </span>
-                  </div>
-                </div>
-
-                {/* Category */}
-                <div style={{ marginBottom: 20 }}>
-                  <div style={sectionLabel}>Category</div>
-                  {LISTING_CATEGORIES.map((cat) => catBtn(cat))}
-                </div>
-
-                {/* Subcategory — venue categories only */}
-                {filterCat !== 'Walks' && subcatOptions.length > 0 && (
-                  <div style={{ marginBottom: 20 }}>
-                    <div style={sectionLabel}>Type</div>
-                    <select value={filterSubcat} onChange={(e) => setFilterSubcat(e.target.value)} style={{ ...iStyle, width: '100%' }}>
-                      <option value="">All types</option>
-                      {subcatOptions.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                )}
-
-                {/* Price */}
-                <div style={{ marginBottom: 20 }}>
-                  <div style={sectionLabel}>Price</div>
-                  <select value={filterPrice} onChange={(e) => setFilterPrice(e.target.value)} style={{ ...iStyle, width: '100%' }}>
-                    <option value="">Any price</option>
-                    <option value="Free">Free</option>
-                    <option value="Paid">Paid</option>
-                    <option value="Mixed">Mixed</option>
-                  </select>
-                </div>
-
-                {/* Setting — venue categories only */}
-                {filterCat !== 'Walks' && (
-                  <div style={{ marginBottom: 20 }}>
-                    <div style={sectionLabel}>Setting</div>
-                    <select value={filterInOut} onChange={(e) => setFilterInOut(e.target.value)} style={{ ...iStyle, width: '100%' }}>
-                      <option value="">Indoor or outdoor</option>
-                      <option value="Indoor">Indoor</option>
-                      <option value="Outdoor">Outdoor</option>
-                      <option value="Both">Both</option>
-                    </select>
-                  </div>
-                )}
-
-                {/* Suitability */}
-                <div style={{ marginBottom: 14 }}>
-                  <div style={sectionLabel}>Suitability</div>
-                  {[
-                    { label: 'Family friendly', active: filterFamily,     set: setFilterFamily,     color: '#F5A623' },
-                    { label: 'Wheelchair',      active: filterWheelchair, set: setFilterWheelchair, color: '#7B5CF5' },
-                    { label: 'Dog friendly',    active: filterDog,        set: setFilterDog,        color: '#3DA832' },
-                    { label: 'Carer friendly',  active: filterCarer,      set: setFilterCarer,      color: '#F4613A' },
-                  ].map(({ label, active, set, color }) => (
-                    <button key={label} onClick={() => set(!active)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', padding: '7px 10px', borderRadius: 9, marginBottom: 5, border: active ? `1.5px solid ${color}` : '1px solid #EEF1F7', background: active ? `${color}10` : 'transparent', color: active ? color : 'rgba(26,39,68,0.65)', fontWeight: active ? 700 : 500, fontSize: 13, cursor: 'pointer', transition: 'all .13s' }}
-                    >
-                      <span style={{ width: 16, height: 16, borderRadius: 4, border: active ? `1.5px solid ${color}` : '1.5px solid rgba(26,39,68,0.22)', background: active ? color : 'transparent', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                        {active && <span style={{ fontSize: 9, color: 'white', fontWeight: 900, lineHeight: 1 }}>✓</span>}
-                      </span>
-                      {label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Clear all */}
-                {anyFilter && (
-                  <button onClick={clearFilters} style={{ fontSize: 12, fontWeight: 600, color: 'rgba(26,39,68,0.45)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0', width: '100%', textAlign: 'center' }}>
-                    Clear all filters
-                  </button>
-                )}
-              </div>
+              <FilterStrip
+                search={search}
+                onSearchChange={(e) => setSearch(e.target.value)}
+                categorySection={LISTING_CATEGORIES.map((cat) => catBtn(cat))}
+                subcatVisible={filterCat !== 'Walks'}
+                subcatOptions={subcatOptions}
+                subcat={filterSubcat}
+                onSubcatChange={(e) => setFilterSubcat(e.target.value)}
+                price={filterPrice}
+                onPriceChange={(e) => setFilterPrice(e.target.value)}
+                settingVisible={filterCat !== 'Walks'}
+                setting={filterInOut}
+                onSettingChange={(e) => setFilterInOut(e.target.value)}
+                suitability={[
+                  { label: 'Family friendly', active: filterFamily,     onToggle: setFilterFamily,     color: '#F5A623' },
+                  { label: 'Wheelchair',      active: filterWheelchair, onToggle: setFilterWheelchair, color: '#7B5CF5' },
+                  { label: 'Dog friendly',    active: filterDog,        onToggle: setFilterDog,        color: '#3DA832' },
+                  { label: 'Carer friendly',  active: filterCarer,      onToggle: setFilterCarer,      color: '#F4613A' },
+                ]}
+                anyFilter={anyFilter}
+                onClear={clearFilters}
+              />
             </div>
 
             {/* ── RIGHT: compact map at top, then cards ── */}
