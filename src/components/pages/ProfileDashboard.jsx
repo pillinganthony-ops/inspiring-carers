@@ -196,10 +196,13 @@ const ProfileDashboard = ({ onNavigate, session, section = 'dashboard' }) => {
   const [error, setError] = React.useState('');
   const [toast, setToast] = React.useState('');
 
-  const [profiles,  setProfiles]  = React.useState([]);
-  const [events,    setEvents]    = React.useState([]);
-  const [referrals, setReferrals] = React.useState([]);
-  const [claims,    setClaims]    = React.useState([]);
+  const [profiles,        setProfiles]        = React.useState([]);
+  const [events,          setEvents]          = React.useState([]);
+  const [referrals,       setReferrals]       = React.useState([]);
+  const [claims,          setClaims]          = React.useState([]);
+  const [categoryRequests,setCategoryRequests]= React.useState([]);
+  const [resourceCatMap,  setResourceCatMap]  = React.useState({});
+  const [catReqForm,      setCatReqForm]      = React.useState({ open: false, reqCat: '', reqSubcat: '', reason: '' });
   const [viewEvents, setViewEvents] = React.useState([]);
   const [eventEnquiries, setEventEnquiries] = React.useState([]);
   const [analyticsNotice, setAnalyticsNotice] = React.useState('');
@@ -296,7 +299,7 @@ const ProfileDashboard = ({ onNavigate, session, section = 'dashboard' }) => {
       if (uniqueProfiles.length) {
         const profileIds = uniqueProfiles.map((profile) => profile.id);
         const resourceIds = uniqueProfiles.map((profile) => profile.resource_id).filter(Boolean);
-        const [eventsResult, enquiriesResult, referralsResult] = await Promise.all([
+        const [eventsResult, enquiriesResult, referralsResult, catReqResult] = await Promise.all([
           supabase
             .from('organisation_events')
             .select('*')
@@ -312,13 +315,19 @@ const ProfileDashboard = ({ onNavigate, session, section = 'dashboard' }) => {
             .select('*')
             .in('organisation_profile_id', profileIds)
             .order('created_at', { ascending: false }),
+          supabase
+            .from('listing_category_change_requests')
+            .select('*')
+            .in('organisation_profile_id', profileIds)
+            .order('created_at', { ascending: false }),
         ]);
         if (eventsResult.error) throw eventsResult.error;
         if (enquiriesResult.error) throw enquiriesResult.error;
-        // referrals table may not exist yet — swallow error gracefully
+        // referrals / category-requests tables may not exist yet — swallow errors gracefully
         eventRows   = eventsResult.data   || [];
         enquiryRows = enquiriesResult.data || [];
         setReferrals(referralsResult.data || []);
+        setCategoryRequests(catReqResult.data || []);
 
         if (resourceIds.length) {
           const viewEventsResult = await supabase.from('resource_view_events').select('*').in('resource_id', resourceIds);
@@ -344,16 +353,21 @@ const ProfileDashboard = ({ onNavigate, session, section = 'dashboard' }) => {
       const primaryIds = new Set(primaryClaims.map((r) => String(r.id)));
       const allClaims = [...primaryClaims, ...fallbackClaims.filter((r) => !primaryIds.has(String(r.id)))];
 
-      // Fetch slugs for linked resources so "View live listing" links work
+      // Fetch slugs and categories for linked resources
       const linkedResourceIds = uniqueProfiles.map((p) => p.resource_id).filter(Boolean);
       let slugMap = {};
+      let catMap = {};
       if (linkedResourceIds.length) {
         const { data: resourceRows } = await supabase
           .from('resources')
-          .select('id, slug')
+          .select('id, slug, category, subcategory')
           .in('id', linkedResourceIds);
-        (resourceRows || []).forEach((r) => { slugMap[r.id] = r.slug; });
+        (resourceRows || []).forEach((r) => {
+          slugMap[r.id] = r.slug;
+          catMap[r.id] = { category: r.category || '', subcategory: r.subcategory || '' };
+        });
       }
+      setResourceCatMap(catMap);
 
       setProfiles(uniqueProfiles);
       setEvents(eventRows);
@@ -587,6 +601,33 @@ const ProfileDashboard = ({ onNavigate, session, section = 'dashboard' }) => {
       await loadData();
     } catch (err) {
       setError(err?.message || 'Unable to update referral status.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const submitCategoryRequest = async () => {
+    if (!catReqForm.reqCat.trim()) { setError('Please enter the requested category.'); return; }
+    if (!catReqForm.reason.trim()) { setError('Please provide a reason for the change.'); return; }
+    if (!activeProfile?.id || !activeProfile?.resource_id || !supabase) return;
+    setSaving(true); setError('');
+    try {
+      const currentCat = resourceCatMap[activeProfile.resource_id]?.category || '';
+      const { error: dbErr } = await supabase.from('listing_category_change_requests').insert({
+        resource_id:             activeProfile.resource_id,
+        organisation_profile_id: activeProfile.id,
+        requested_by:            session.user.id,
+        current_category:        currentCat,
+        requested_category:      catReqForm.reqCat.trim(),
+        requested_subcategory:   catReqForm.reqSubcat.trim() || null,
+        reason:                  catReqForm.reason.trim(),
+      });
+      if (dbErr) throw dbErr;
+      setToast('Category change request submitted. The admin team will review shortly.');
+      setCatReqForm({ open: false, reqCat: '', reqSubcat: '', reason: '' });
+      await loadData();
+    } catch (err) {
+      setError(err?.message || 'Could not submit request. The category requests table may not exist yet.');
     } finally {
       setSaving(false);
     }
@@ -984,6 +1025,93 @@ const ProfileDashboard = ({ onNavigate, session, section = 'dashboard' }) => {
                   <div style={{ marginTop: 12 }}>
                     <button className="btn btn-gold" disabled={saving} onClick={saveProfile}>{saving ? 'Saving...' : 'Save profile'}</button>
                   </div>
+                </div>
+              )}
+
+              {/* ── Category & classification ── */}
+              {activeProfile && activeProfile.resource_id && (
+                <div className="card" style={{ padding: 22, borderRadius: 20 }}>
+                  <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.46)', marginBottom: 8 }}>Category & classification</div>
+                  <h2 style={{ fontSize: 20, fontWeight: 800, color: '#1A2744', marginBottom: 14 }}>Listing category</h2>
+
+                  {/* Current category */}
+                  {resourceCatMap[activeProfile.resource_id] && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '12px 16px', borderRadius: 14, border: '1px solid #E9EEF5', background: '#FAFBFF', marginBottom: 14, flexWrap: 'wrap' }}>
+                      <div>
+                        <div style={{ fontSize: 11, color: 'rgba(26,39,68,0.50)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>Current category</div>
+                        <div style={{ fontSize: 14.5, fontWeight: 700, color: '#1A2744' }}>
+                          {resourceCatMap[activeProfile.resource_id].category || '—'}
+                          {resourceCatMap[activeProfile.resource_id].subcategory && (
+                            <span style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.50)', fontWeight: 500, marginLeft: 8 }}>
+                              · {resourceCatMap[activeProfile.resource_id].subcategory}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {!catReqForm.open && (
+                        <button onClick={() => setCatReqForm((p) => ({ ...p, open: true }))} className="btn btn-ghost btn-sm">
+                          Request change
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Find Help protection notice */}
+                  <div style={{ padding: '10px 14px', borderRadius: 12, background: 'rgba(45,156,219,0.07)', border: '1px solid rgba(45,156,219,0.18)', fontSize: 13, color: 'rgba(26,39,68,0.68)', lineHeight: 1.55, marginBottom: catReqForm.open ? 14 : 0 }}>
+                    <strong>Find Help categories are reviewed before being published</strong> to keep support listings safe and relevant. All category changes are reviewed by the Inspiring Carers team before going live.
+                  </div>
+
+                  {/* Request form */}
+                  {catReqForm.open && (
+                    <div style={{ display: 'grid', gap: 10 }}>
+                      <input
+                        value={catReqForm.reqCat}
+                        onChange={(e) => setCatReqForm((p) => ({ ...p, reqCat: e.target.value }))}
+                        placeholder="Requested category (e.g. Days Out, Attractions, Wellbeing, Carer Support)"
+                        style={inputStyle}
+                      />
+                      <input
+                        value={catReqForm.reqSubcat}
+                        onChange={(e) => setCatReqForm((p) => ({ ...p, reqSubcat: e.target.value }))}
+                        placeholder="Requested subcategory — optional"
+                        style={inputStyle}
+                      />
+                      <textarea
+                        value={catReqForm.reason}
+                        onChange={(e) => setCatReqForm((p) => ({ ...p, reason: e.target.value }))}
+                        placeholder="Reason for the category change…"
+                        rows={3}
+                        style={{ ...inputStyle, resize: 'vertical' }}
+                      />
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button className="btn btn-gold" disabled={saving} onClick={submitCategoryRequest}>{saving ? 'Submitting…' : 'Submit request'}</button>
+                        <button className="btn btn-ghost" onClick={() => setCatReqForm({ open: false, reqCat: '', reqSubcat: '', reason: '' })}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Existing requests for this profile */}
+                  {categoryRequests.filter((r) => r.organisation_profile_id === activeProfile.id).length > 0 && (
+                    <div style={{ marginTop: 16 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'rgba(26,39,68,0.40)', marginBottom: 8 }}>Your requests</div>
+                      {categoryRequests
+                        .filter((r) => r.organisation_profile_id === activeProfile.id)
+                        .map((r) => {
+                          const sc = { pending: '#2D9CDB', approved: '#0D7A55', rejected: '#A03A2D' }[r.status] || '#2D9CDB';
+                          const sb = { pending: 'rgba(45,156,219,0.10)', approved: 'rgba(13,122,85,0.10)', rejected: 'rgba(160,58,45,0.10)' }[r.status] || 'rgba(45,156,219,0.10)';
+                          return (
+                            <div key={r.id} style={{ padding: '10px 14px', borderRadius: 12, border: '1px solid #E9EEF5', background: '#FAFBFF', marginBottom: 7, display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                              <div>
+                                <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1A2744' }}>{r.current_category || '?'} → {r.requested_category}</div>
+                                {r.admin_notes && <div style={{ fontSize: 12, color: 'rgba(26,39,68,0.55)', marginTop: 3 }}>Admin note: {r.admin_notes}</div>}
+                                <div style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.40)', marginTop: 2 }}>{new Date(r.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                              </div>
+                              <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: sb, color: sc }}>{r.status}</span>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
                 </div>
               )}
             </>

@@ -428,29 +428,47 @@ const VenueProfile = ({ slug, county, backPage, onNavigate, session }) => {
                   )}
                 </div>
 
-                {/* Hero CTAs */}
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                {/* Hero CTAs — primary then secondary row */}
+                <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', marginBottom: 10 }}>
                   {venue.website && (
-                    <a
-                      href={venue.website} target="_blank" rel="noopener noreferrer"
+                    <a href={venue.website} target="_blank" rel="noopener noreferrer"
                       className="btn btn-gold"
-                      style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 7 }}
-                    >
+                      style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 7 }}>
                       Visit website <IArrow s={13} />
                     </a>
                   )}
+                  {venue.phone && (
+                    <a href={`tel:${venue.phone}`}
+                      style={{ padding: '11px 18px', borderRadius: 12, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 14, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                      Call
+                    </a>
+                  )}
+                  {venue.email && (
+                    <a href={`mailto:${venue.email}`}
+                      style={{ padding: '11px 18px', borderRadius: 12, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 14, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                      Email
+                    </a>
+                  )}
+                  {(venue.address_line_1 || venue.town || venue.postcode) && (
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([venue.address_line_1, venue.town, venue.postcode].filter(Boolean).join(', '))}`}
+                      target="_blank" rel="noopener noreferrer"
+                      style={{ padding: '11px 18px', borderRadius: 12, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 14, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                      Directions
+                    </a>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
                   <button
                     onClick={() => setClaimOpen(true)}
-                    style={{ padding: '11px 18px', borderRadius: 12, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.20)', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 7 }}
-                  >
+                    style={{ padding: '9px 15px', borderRadius: 10, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.16)', color: 'rgba(255,255,255,0.70)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
                     Claim this listing
                   </button>
                   {['trial','active'].includes(`${orgProfile?.entitlement_status || ''}`.toLowerCase()) &&
                     orgProfile?.referrals_enabled === true && (
                     <button
                       onClick={() => setReferralOpen(true)}
-                      style={{ padding: '11px 18px', borderRadius: 12, background: 'rgba(123,92,245,0.22)', border: '1px solid rgba(123,92,245,0.40)', color: '#E9D5FF', fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 7 }}
-                    >
+                      style={{ padding: '9px 15px', borderRadius: 10, background: 'rgba(123,92,245,0.22)', border: '1px solid rgba(123,92,245,0.40)', color: '#E9D5FF', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                       Make a referral
                     </button>
                   )}

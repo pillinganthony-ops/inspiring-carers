@@ -857,7 +857,8 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
   const [ownerHandoffContext, setOwnerHandoffContext] = React.useState(null);
   const [walkUpdates, setWalkUpdates] = React.useState([]);
   const [walkComments, setWalkComments] = React.useState([]);
-  const [countyInterestLeads, setCountyInterestLeads] = React.useState([]);
+  const [countyInterestLeads,    setCountyInterestLeads]    = React.useState([]);
+  const [categoryChangeRequests, setCategoryChangeRequests] = React.useState([]);
 
   const [categoryDraft, setCategoryDraft] = React.useState(emptyCategory);
   const [resourceDraft, setResourceDraft] = React.useState(emptyResource);
@@ -946,6 +947,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         resourceUpdatesResult,
         walkUpdatesResult,
         walkCommentsResult,
+        catChangeReqResult,
       ] = await Promise.all([
         supabase.from('categories').select('id, name, slug, active, sort_order').order('sort_order', { ascending: true }).order('name', { ascending: true }),
         supabase.from('resources').select('*').order('name', { ascending: true }),
@@ -955,7 +957,9 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
         supabase.from('resource_update_submissions').select('*').order('created_at', { ascending: false }),
         supabase.from('walk_risk_updates').select('*').order('created_at', { ascending: false }),
         supabase.from('walk_comments').select('*').order('created_at', { ascending: false }),
+        supabase.from('listing_category_change_requests').select('*').order('created_at', { ascending: false }),
       ]);
+      setCategoryChangeRequests(catChangeReqResult.data || []);
 
       if (resourcesResult.error) throw resourcesResult.error;
       if (profilesResult.error) throw profilesResult.error;
@@ -2204,6 +2208,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
     'partner-enquiries': partnerEnquiries.length,
     'discount-offers':   discountLeadsAll.length,
     'sponsorship-leads': sponsorshipLeadsAll.length,
+    'category-requests': categoryChangeRequests.filter((r) => r.status === 'pending').length,
     settings: 0,
   };
   const ownerPerformanceRows = profiles.map((profile) => {
@@ -2305,7 +2310,8 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                   <SideItem navKey="events"        label="Events"        count={tabCounts.events} />
                   <SideItem navKey="claims"        label="Claims"        count={tabCounts.claims} />
                   <SideItem navKey="contacts"      label="Contacts"      count={tabCounts.contacts} />
-                  <SideItem navKey="county-interest" label="County interest" count={tabCounts['county-interest']} />
+                  <SideItem navKey="county-interest"    label="County interest"    count={tabCounts['county-interest']} />
+                  <SideItem navKey="category-requests" label="Category requests" count={tabCounts['category-requests']} />
 
                   {/* Commercial section */}
                   <div style={{ margin: '8px 12px 4px', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(26,39,68,0.35)' }}>Commercial</div>
@@ -3098,6 +3104,122 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
               </div>
             </div>
           ) : null}
+
+          {/* ── CATEGORY REQUESTS TAB ──────────────────────── */}
+          {!loading && tab === 'category-requests' ? (() => {
+            const AdminCatReqRow = ({ req, resources: rList, profiles: pList, onReview, saving: sv }) => {
+              const [notes, setNotes] = React.useState('');
+              const res = rList.find((r) => r.id === req.resource_id);
+              const prof = pList.find((p) => p.id === req.organisation_profile_id);
+              return (
+                <div style={{ padding: '16px 18px', borderRadius: 16, border: '1px solid #E9EEF5', background: '#FAFBFF' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: '#1A2744', marginBottom: 3 }}>
+                        {req.current_category || '?'} → <span style={{ color: '#2D9CDB' }}>{req.requested_category}</span>
+                        {req.requested_subcategory && <span style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.50)', marginLeft: 6 }}>· {req.requested_subcategory}</span>}
+                      </div>
+                      {res && <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.55)' }}>Listing: {res.name}</div>}
+                      {prof && <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.55)' }}>Org: {prof.organisation_name}</div>}
+                      {req.reason && <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.65)', marginTop: 4, fontStyle: 'italic' }}>"{req.reason}"</div>}
+                      <div style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.38)', marginTop: 4 }}>{new Date(req.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8, alignItems: 'center' }}>
+                    <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Admin notes (optional)" style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid #E9EEF5', fontSize: 13, background: '#FFFFFF' }} />
+                    <button onClick={() => onReview(req.id, 'approved', notes, req)} disabled={sv} style={{ padding: '7px 14px', borderRadius: 8, background: '#0D7A55', color: 'white', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>Approve</button>
+                    <button onClick={() => onReview(req.id, 'rejected', notes, req)} disabled={sv} style={{ padding: '7px 14px', borderRadius: 8, background: 'rgba(160,58,45,0.10)', color: '#A03A2D', fontWeight: 700, fontSize: 13, border: '1px solid rgba(160,58,45,0.20)', cursor: 'pointer', whiteSpace: 'nowrap' }}>Reject</button>
+                  </div>
+                </div>
+              );
+            };
+
+            const reviewCategoryRequest = async (reqId, action, adminNotes, req) => {
+              if (!supabase) return;
+              setSaving(true); setError('');
+              try {
+                const { error: updateErr } = await supabase
+                  .from('listing_category_change_requests')
+                  .update({ status: action, admin_notes: adminNotes || null, reviewed_at: new Date().toISOString() })
+                  .eq('id', reqId);
+                if (updateErr) throw updateErr;
+
+                // On approval: update the resource category
+                if (action === 'approved' && req.resource_id && req.requested_category) {
+                  await supabase
+                    .from('resources')
+                    .update({
+                      category: req.requested_category,
+                      ...(req.requested_subcategory ? { subcategory: req.requested_subcategory } : {}),
+                    })
+                    .eq('id', req.resource_id);
+                }
+                await loadData();
+              } catch (err) {
+                setError(err?.message || 'Could not update request.');
+              } finally {
+                setSaving(false);
+              }
+            };
+
+            const pending  = categoryChangeRequests.filter((r) => r.status === 'pending');
+            const reviewed = categoryChangeRequests.filter((r) => r.status !== 'pending');
+
+            return (
+              <div style={{ display: 'grid', gap: 16 }}>
+                <div className="card" style={{ padding: 22, borderRadius: 22 }}>
+                  <h2 style={{ fontSize: 24, fontWeight: 800, color: '#1A2744', marginBottom: 6 }}>Category change requests</h2>
+                  <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.65)', lineHeight: 1.6, marginBottom: 0 }}>
+                    Review requests from organisations to move their listings to a different category.
+                    Approving will update the live listing category immediately.
+                    <strong> Find Help categories require careful review</strong> — only approved organisations should appear in care/support directories.
+                  </p>
+                </div>
+
+                {categoryChangeRequests.length === 0 ? (
+                  <div className="card" style={{ padding: '36px 22px', textAlign: 'center', borderRadius: 20 }}>
+                    <div style={{ fontSize: 32, marginBottom: 10 }}>📋</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: '#1A2744', marginBottom: 5 }}>No requests</div>
+                    <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)' }}>Category change requests from organisations will appear here.</div>
+                  </div>
+                ) : (
+                  <>
+                    {pending.length > 0 && (
+                      <div className="card" style={{ padding: 20, borderRadius: 20 }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#2D9CDB', marginBottom: 12 }}>
+                          Pending — {pending.length}
+                        </div>
+                        <div style={{ display: 'grid', gap: 10 }}>
+                          {pending.map((r) => (
+                            <AdminCatReqRow key={r.id} req={r} resources={resources} profiles={profiles} onReview={reviewCategoryRequest} saving={saving} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {reviewed.length > 0 && (
+                      <div className="card" style={{ padding: 20, borderRadius: 20 }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(26,39,68,0.40)', marginBottom: 12 }}>
+                          Reviewed — {reviewed.length}
+                        </div>
+                        <div style={{ display: 'grid', gap: 8 }}>
+                          {reviewed.slice(0, 20).map((r) => {
+                            const sc = { approved: '#0D7A55', rejected: '#A03A2D' }[r.status] || '#8a5a0b';
+                            const sb = { approved: 'rgba(13,122,85,0.10)', rejected: 'rgba(160,58,45,0.10)' }[r.status] || 'rgba(245,166,35,0.10)';
+                            return (
+                              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 12, border: '1px solid #E9EEF5', background: '#FAFBFF', flexWrap: 'wrap' }}>
+                                <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1A2744' }}>{r.current_category} → {r.requested_category}</div>
+                                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: sb, color: sc }}>{r.status}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })() : null}
 
           {!loading && tab === 'settings' ? (
             <div style={{ display: 'grid', gap: 16 }}>
