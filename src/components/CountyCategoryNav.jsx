@@ -5,10 +5,11 @@
 import React from 'react';
 
 const CATS = [
-  { key: 'activities',      label: 'Activities',       accent: '#3DA832' },
+  { key: 'activities',      label: 'Things to Do',     accent: '#3DA832' },
   { key: 'places-to-visit', label: 'Places to Visit',  accent: '#7B5CF5' },
   { key: 'wellbeing',       label: 'Wellbeing',        accent: '#0D9488' },
   { key: 'walks',           label: 'Walks',            accent: '#5BC94A' },
+  { key: 'events',          label: 'Events',           accent: '#2D9CDB' },
 ];
 
 const CountyCategoryNav = ({ county, activePage, onNavigate }) => (

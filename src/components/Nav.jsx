@@ -118,7 +118,7 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp,
 
   // Activities group — hub + all sub-pages
   const activitiesItems = [
-    { key: 'activities',      label: 'All activities',    note: 'Browse everything'   },
+    { key: 'activities',      label: 'Things to Do',      note: 'Browse everything'   },
     { key: 'walks',           label: 'Walks',             note: 'Outdoor routes'      },
     { key: 'places-to-visit', label: 'Places to Visit',   note: 'Days out and venues' },
     { key: 'wellbeing',       label: 'Wellbeing Support', note: 'Calm spaces'         },
@@ -227,7 +227,7 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp,
               onMouseLeave={e => { if (!isActivitiesPage) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(26,39,68,0.68)'; }}}
             >
               <span style={{ width: 7, height: 7, borderRadius: 2, background: '#5BC94A', display: 'inline-block', flexShrink: 0 }} />
-              Activities
+              Things to Do
             </button>
             <button
               onClick={() => setActivitiesOpen((o) => !o)}
@@ -368,7 +368,7 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp,
             </button>
 
             {/* Activities — hub + sub-pages */}
-            <div style={{ fontSize: 10.5, fontWeight: 800, color: 'rgba(26,39,68,0.4)', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '6px 2px 2px' }}>Activities</div>
+            <div style={{ fontSize: 10.5, fontWeight: 800, color: 'rgba(26,39,68,0.4)', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '6px 2px 2px' }}>Things to Do</div>
             {activitiesItems.map((item) => (
               <button key={item.key}
                 onClick={item.key === 'activities' ? handleActivitiesClick : () => handleNavigate(item.key)}

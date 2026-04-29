@@ -4,6 +4,7 @@ import Nav from '../Nav.jsx';
 import Footer from '../Footer.jsx';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient.js';
 import CountyBanner from '../CountyBanner.jsx';
+import CountyCategoryNav from '../CountyCategoryNav.jsx';
 
 const { IEvent, IPin, IArrow, IClose, ISearch, IChevron, IHub } = Icons;
 
@@ -267,81 +268,108 @@ const EventsPage = ({ onNavigate, session, county }) => {
 
   const countyLabel = county ? county.charAt(0).toUpperCase() + county.slice(1) : '';
 
-  // Opening-soon: explicit non-Cornwall county with no events yet
-  if (!loading && !error && events.length === 0 && county && county !== 'cornwall') {
-    return (
-      <>
-        <Nav activePage="events" onNavigate={onNavigate} session={session} />
-        <CountyBanner county={county} isFallback={false} onChangeCounty={(c) => onNavigate('events', c)} />
-        <section style={{ paddingTop: 80, paddingBottom: 80, background: 'linear-gradient(180deg, #EAF5FF 0%, #FAFBFF 100%)' }}>
-          <div className="container" style={{ maxWidth: 580, margin: '0 auto', textAlign: 'center' }}>
-            <div style={{ width: 64, height: 64, borderRadius: 20, background: 'rgba(45,156,219,0.10)', display: 'grid', placeItems: 'center', margin: '0 auto 22px', color: '#2D9CDB' }}>
-              <IEvent s={28} />
-            </div>
-            <h1 style={{ fontSize: 'clamp(24px, 4vw, 32px)', fontWeight: 800, color: '#1A2744', marginBottom: 14, letterSpacing: '-0.02em' }}>
-              {countyLabel} is opening soon
-            </h1>
-            <p style={{ fontSize: 16, color: 'rgba(26,39,68,0.65)', lineHeight: 1.65, marginBottom: 32, maxWidth: 460, margin: '0 auto 32px' }}>
-              We are preparing trusted local options for {countyLabel}. Businesses and organisations can join early while this county launches.
-            </p>
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <button onClick={() => onNavigate('profile')} className="btn btn-gold" style={{ fontWeight: 800, fontSize: 15, padding: '13px 24px' }}>
-                Submit organisation
-              </button>
-              <button onClick={() => onNavigate('offer-a-discount')} className="btn" style={{ fontWeight: 700, fontSize: 15, padding: '13px 24px', background: '#1A2744', color: 'white', border: 'none' }}>
-                Offer a discount
-              </button>
-            </div>
-          </div>
-        </section>
-        <Footer onNavigate={onNavigate} />
-      </>
-    );
-  }
 
   return (
     <>
       <Nav activePage="events" onNavigate={onNavigate} session={session} />
-      <section style={{ paddingTop: 46, paddingBottom: 32, background: 'linear-gradient(180deg, #EAF5FF 0%, #FAFBFF 100%)' }}>
-        <div className="container">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'rgba(26,39,68,0.5)', fontSize: 13, marginBottom: 16 }}>
-            <button onClick={() => onNavigate('home')} style={{ color: 'inherit', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', fontSize: 'inherit' }}>Home</button>
-            <IChevron s={12} />
-            <button onClick={() => onNavigate('events', null)} style={{ color: 'inherit', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', fontSize: 'inherit' }}>Events</button>
-            {countyLabel && <><IChevron s={12} /><span style={{ color: '#1A2744', fontWeight: 600 }}>{countyLabel}</span></>}
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 0.9fr', gap: 28, alignItems: 'end' }}>
-            <div>
-              <div className="eyebrow" style={{ color: '#2D9CDB' }}>Events</div>
-              <h1 style={{ marginTop: 10, fontSize: 'clamp(34px, 4vw, 56px)', letterSpacing: '-0.03em', fontWeight: 800 }}>Events and community sessions</h1>
-              <p style={{ marginTop: 14, fontSize: 17, color: 'rgba(26,39,68,0.7)', maxWidth: 680 }}>Discover upcoming local events, workshops, meetups and support sessions from organisations in your area.</p>
+
+      {county ? (
+        /* ── County view: matches the county page system ─────────────────── */
+        <>
+          <CountyBanner county={county} isFallback={false} onChangeCounty={(c) => onNavigate('events', c)} />
+          <CountyCategoryNav county={county} activePage="events" onNavigate={onNavigate} />
+
+          {/* Compact dark-navy hero — same scale as Activities/Walks/etc. */}
+          <section style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(150deg, #0C1A35 0%, #162C52 50%, #1A3460 100%)', paddingTop: 28, paddingBottom: 36 }}>
+            <div style={{ position: 'absolute', top: -80, right: -80, width: 400, height: 400, borderRadius: '50%', background: 'radial-gradient(circle, rgba(45,156,219,0.10) 0%, transparent 65%)', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', bottom: -60, left: '30%', width: 360, height: 360, borderRadius: '50%', background: 'radial-gradient(circle, rgba(91,201,74,0.06) 0%, transparent 65%)', pointerEvents: 'none' }} />
+
+            <div className="container" style={{ position: 'relative' }}>
+              <button
+                onClick={() => onNavigate('events', null)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.60)', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.13)', padding: '6px 14px', borderRadius: 8, cursor: 'pointer', marginBottom: 20 }}
+              >
+                ← Events
+              </button>
+
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 999, background: 'rgba(45,156,219,0.15)', border: '1px solid rgba(45,156,219,0.28)', fontSize: 11, fontWeight: 800, color: '#7DD3FC', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
+                Events · {countyLabel}
+              </div>
+              <h1 style={{ fontSize: 'clamp(24px, 4vw, 42px)', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.03em', lineHeight: 1.06, margin: '0 0 10px', textWrap: 'balance' }}>
+                Events in {countyLabel}
+              </h1>
+              <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.68)', lineHeight: 1.6, margin: '0 0 18px', maxWidth: 480 }}>
+                Upcoming workshops, community sessions and local events for carers in {countyLabel}.
+              </p>
+
+              {/* Inline search */}
+              <div style={{ maxWidth: 480, display: 'flex', borderRadius: 12, overflow: 'hidden', background: 'white', boxShadow: '0 4px 18px rgba(0,0,0,0.14)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', paddingLeft: 14, color: 'rgba(26,39,68,0.4)', flexShrink: 0 }}>
+                  <ISearch s={16} />
+                </div>
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search events or organisers"
+                  style={{ flex: 1, border: 'none', outline: 'none', padding: '11px 12px', fontSize: 14, background: 'transparent', color: '#1A2744', fontFamily: 'inherit' }}
+                />
+              </div>
             </div>
-            <div className="card" style={{ padding: 18, borderRadius: 22 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 13px', borderRadius: 14, background: '#FAFBFF', border: '1px solid #EFF1F7' }}>
-                <ISearch s={18} />
-                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search events or organisers" style={{ border: 'none', outline: 'none', background: 'transparent', flex: 1, fontSize: 14, fontWeight: 600, color: '#1A2744' }} />
+          </section>
+        </>
+      ) : (
+        /* ── National/hub view: existing design unchanged ─────────────────── */
+        <section style={{ paddingTop: 46, paddingBottom: 32, background: 'linear-gradient(180deg, #EAF5FF 0%, #FAFBFF 100%)' }}>
+          <div className="container">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'rgba(26,39,68,0.5)', fontSize: 13, marginBottom: 16 }}>
+              <button onClick={() => onNavigate('home')} style={{ color: 'inherit', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', fontSize: 'inherit' }}>Home</button>
+              <IChevron s={12} />
+              <button onClick={() => onNavigate('events', null)} style={{ color: 'inherit', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', fontSize: 'inherit' }}>Events</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 0.9fr', gap: 28, alignItems: 'end' }}>
+              <div>
+                <div className="eyebrow" style={{ color: '#2D9CDB' }}>Events</div>
+                <h1 style={{ marginTop: 10, fontSize: 'clamp(34px, 4vw, 56px)', letterSpacing: '-0.03em', fontWeight: 800 }}>Events and community sessions</h1>
+                <p style={{ marginTop: 14, fontSize: 17, color: 'rgba(26,39,68,0.7)', maxWidth: 680 }}>Discover upcoming local events, workshops, meetups and support sessions from organisations in your area.</p>
+              </div>
+              <div className="card" style={{ padding: 18, borderRadius: 22 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 13px', borderRadius: 14, background: '#FAFBFF', border: '1px solid #EFF1F7' }}>
+                  <ISearch s={18} />
+                  <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search events or organisers" style={{ border: 'none', outline: 'none', background: 'transparent', flex: 1, fontSize: 14, fontWeight: 600, color: '#1A2744' }} />
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      {county && (
-        <CountyBanner
-          county={county}
-          isFallback={false}
-          onChangeCounty={(c) => onNavigate('events', c)}
-        />
+        </section>
       )}
 
+      {/* ── Events content ─────────────────────────────────────────────────── */}
       <section style={{ paddingTop: 28, paddingBottom: 80, background: '#FAFBFF' }}>
         <div className="container">
           {loading ? (
-            <div className="card" style={{ padding: 28 }}>Loading events...</div>
+            <div className="card" style={{ padding: 28 }}>Loading events…</div>
           ) : error ? (
             <div className="card" style={{ padding: 28 }}>{error}</div>
           ) : !filteredEvents.length ? (
-            <div className="card" style={{ padding: 28 }}>No events found right now.</div>
+            county ? (
+              /* County-branded empty state */
+              <div style={{ textAlign: 'center', padding: '56px 24px' }}>
+                <div style={{ width: 56, height: 56, borderRadius: 18, background: 'rgba(45,156,219,0.10)', display: 'grid', placeItems: 'center', margin: '0 auto 18px', color: '#2D9CDB' }}>
+                  <IEvent s={26} />
+                </div>
+                <div style={{ fontSize: 17, fontWeight: 800, color: '#1A2744', marginBottom: 8 }}>
+                  No events found in {countyLabel} right now
+                </div>
+                <div style={{ fontSize: 14, color: 'rgba(26,39,68,0.55)', lineHeight: 1.65, maxWidth: 360, margin: '0 auto 24px' }}>
+                  Events will appear here once local organisers add them. If you run events in {countyLabel}, you can list them for free.
+                </div>
+                <button onClick={() => onNavigate('profile')} className="btn btn-gold" style={{ fontWeight: 700, fontSize: 14, padding: '10px 22px' }}>
+                  List your events
+                </button>
+              </div>
+            ) : (
+              <div className="card" style={{ padding: 28 }}>No events found right now.</div>
+            )
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18 }}>
               {filteredEvents.map((event) => (
@@ -371,6 +399,7 @@ const EventsPage = ({ onNavigate, session, county }) => {
           )}
         </div>
       </section>
+
       <Footer onNavigate={onNavigate} />
       {activeEvent ? <EventEnquiryModal event={activeEvent} onClose={() => setActiveEvent(null)} onSuccess={(message) => { setActiveEvent(null); setToast(message); }} /> : null}
       <Toast message={toast} onClose={() => setToast('')} />

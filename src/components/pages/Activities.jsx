@@ -41,7 +41,7 @@ const COUNTY_LABELS = {
 };
 
 const ACTIVITY_TYPE_OPTIONS = [
-  { value: '',            label: 'All activities' },
+  { value: '',            label: 'All things to do' },
   { value: 'walks',       label: 'Walks' },
   { value: 'groups',      label: 'Groups' },
   { value: 'days-out',    label: 'Days Out' },
@@ -731,7 +731,7 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
             <IPin s={28} />
             <div style={{ fontSize: 15, fontWeight: 700, color: '#1A2744' }}>No mapped activities yet</div>
             <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.55)', maxWidth: 260, lineHeight: 1.6 }}>
-              Activities for this area are being added. Browse the list below.
+              Things to do in this area are being added. Browse the list below.
             </div>
           </div>
         )}
@@ -791,7 +791,7 @@ const CAT_BADGE_BG = {
 };
 
 const LISTING_CATEGORIES = [
-  { value: '',            label: 'All activities', color: '#1A2744',  dot: 'rgba(26,39,68,0.35)' },
+  { value: '',            label: 'All things to do', color: '#1A2744',  dot: 'rgba(26,39,68,0.35)' },
   { value: 'Days Out',    label: 'Days Out',       color: '#F5A623',  dot: '#F5A623' },
   { value: 'Attractions', label: 'Attractions',    color: '#7B5CF5',  dot: '#7B5CF5' },
   { value: 'Wellbeing',   label: 'Wellbeing',      color: '#0D9488',  dot: '#0D9488' },
@@ -1192,7 +1192,7 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
   const mapActivityType = MAP_CAT[filterCat] || '';
 
   // Dynamic hero title and subtitle
-  const heroTitle = filterCat ? `${filterCat} in ${countyLabel}` : `Activities in ${countyLabel}`;
+  const heroTitle = filterCat ? `${filterCat} in ${countyLabel}` : `Things to Do in ${countyLabel}`;
   const heroSubtitle =
     filterCat === 'Walks'       ? `Explore ${countyWalksCount}+ trails, coastal paths and accessible walking routes across ${countyLabel}.` :
     filterCat === 'Days Out'    ? `Carer-friendly days out, gardens and family destinations in ${countyLabel}.` :
@@ -1234,7 +1234,7 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
             onClick={() => onNavigate('activities', null)}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.60)', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.13)', padding: '6px 14px', borderRadius: 8, cursor: 'pointer', marginBottom: 20 }}
           >
-            ← Activities hub
+            ← Things to Do
           </button>
 
           {/* Two-module hero: left = title/stats, right = sponsor panel */}
@@ -1243,7 +1243,7 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
             {/* ── Left: title + stats ── */}
             <div>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 999, background: 'rgba(91,201,74,0.15)', border: '1px solid rgba(91,201,74,0.28)', fontSize: 11, fontWeight: 800, color: '#78E060', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
-                {filterCat || 'Activities'} · {countyLabel}
+                {filterCat || 'Things to Do'} · {countyLabel}
               </div>
               <h1 style={{ fontSize: 'clamp(24px, 4vw, 42px)', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.03em', lineHeight: 1.06, margin: '0 0 10px', textWrap: 'balance' }}>
                 {heroTitle}
