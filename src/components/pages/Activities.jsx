@@ -18,6 +18,7 @@ import CountyWalksBanner from '../CountyWalksBanner.jsx';
 import CountyHero from '../shared/CountyHero.jsx';
 import DiscoveryCard from '../shared/DiscoveryCard.jsx';
 import FilterStrip from '../shared/FilterStrip.jsx';
+import CardGrid from '../shared/CardGrid.jsx';
 import supabase, { isSupabaseConfigured } from '../../lib/supabaseClient.js';
 import {
   Crown, MapPin as LMapPin, Ticket, Gift, Coffee, HeartHandshake,
@@ -1294,7 +1295,7 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
 
               {/* Loading skeletons */}
               {loading && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+                <CardGrid>
                   {Array.from({ length: 6 }).map((_, i) => (
                     <div key={i} className="card" style={{ padding: 16, borderRadius: 16, minHeight: 180 }}>
                       <div style={{ height: 5, background: '#EAF0FA', borderRadius: 2, marginBottom: 14 }} />
@@ -1304,7 +1305,7 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
                       <div style={{ height: 10, width: '94%', borderRadius: 6, background: '#EAF0FA' }} />
                     </div>
                   ))}
-                </div>
+                </CardGrid>
               )}
 
               {/* Error */}
@@ -1325,7 +1326,7 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
                     <input
                       type="text" value={walkSearch} onChange={(e) => setWalkSearch(e.target.value)}
                       placeholder={`Search ${countyWalksCount || 'walks'} by name or area…`}
-                      style={{ ...iStyle, width: '100%', boxSizing: 'border-box', paddingLeft: 34, fontSize: 14 }}
+                      style={{ padding: '10px 14px', borderRadius: 12, border: '1px solid #DDE5F0', background: '#F8FAFD', color: '#1A2744', fontFamily: 'Inter, sans-serif', cursor: 'pointer', appearance: 'auto', boxShadow: '0 1px 3px rgba(26,39,68,0.05)', width: '100%', boxSizing: 'border-box', paddingLeft: 34, fontSize: 14 }}
                     />
                     <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'rgba(26,39,68,0.38)', display: 'flex', pointerEvents: 'none' }}>
                       <ISearch s={14} />
@@ -1383,11 +1384,11 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
               {/* Cards grid + load more */}
               {!loading && !error && filterCat !== 'Walks' && filtered.length > 0 && (
                 <>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14, marginBottom: 20 }}>
+                  <CardGrid marginBottom={20}>
                     {visibleVenues.map((venue) => (
                       <ActivityListCard key={venue.id} venue={venue} onViewProfile={handleViewProfile} />
                     ))}
-                  </div>
+                  </CardGrid>
 
                   {visibleCount < filtered.length && (
                     <div style={{ textAlign: 'center', paddingTop: 4 }}>
