@@ -432,7 +432,10 @@ const App = () => {
 
     // Hub routes — standalone URLs without county prefix load county selector pages
     // 'activities' kept as legacy alias; canonical hub URL is /things-to-do
-    if (segs[0] === 'things-to-do' || segs[0] === 'activities') return { page: 'activities', county: null };
+    if (segs[0] === 'things-to-do' || segs[0] === 'activities') {
+      if (segs[0] === 'activities') window.history.replaceState({}, '', '/things-to-do');
+      return { page: 'activities', county: null };
+    }
     if (segs[0] === 'find-help'  && segs.length === 1) return { page: 'find-help', county: null };
     if (segs[0] === 'events'     && segs.length === 1) return { page: 'events',    county: null };
 
@@ -446,10 +449,16 @@ const App = () => {
     if (segs[0] === 'places-to-visit'&& segs.length === 1) return { page: 'places-to-visit', county: null };
 
     // County-prefixed routes: /cornwall/find-help, /cornwall, or /cornwall/places-to-visit/some-slug
-    // 'things-to-do' is normalised to page key 'activities'; old /county/activities still works.
+    // 'things-to-do' is normalised to page key 'activities'; /{county}/activities redirects to canonical.
     if (COUNTY_SLUGS.includes(segs[0])) {
       const rawPage = segs[1] || 'home';
       const pageKey = rawPage === 'things-to-do' ? 'activities' : rawPage;
+      if (rawPage === 'activities') {
+        const canonicalPath = segs[2]
+          ? `/${segs[0]}/things-to-do/${segs[2]}`
+          : `/${segs[0]}/things-to-do`;
+        window.history.replaceState({}, '', canonicalPath);
+      }
       return { page: pageKey, county: segs[0], slug: segs[2] || null };
     }
 
