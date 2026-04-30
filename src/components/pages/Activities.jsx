@@ -19,6 +19,7 @@ import CountyWalksBanner from '../CountyWalksBanner.jsx';
 import CountyHero from '../shared/CountyHero.jsx';
 import DiscoveryCard from '../shared/DiscoveryCard.jsx';
 import { COUNTY_LABELS } from '../../lib/countyConfig.js';
+import useSavedItems from '../../hooks/useSavedItems.js';
 import FilterStrip from '../shared/FilterStrip.jsx';
 import CardGrid from '../shared/CardGrid.jsx';
 import supabase, { isSupabaseConfigured } from '../../lib/supabaseClient.js';
@@ -808,9 +809,11 @@ const tagPill = (color) => ({
 });
 
 const ActivityListCard = ({ venue, onViewProfile }) => {
+  const { isSaved, toggleSave } = useSavedItems();
   const accent       = CAT_ACCENT_LISTING[venue.category] || '#7B5CF5';
   const CategoryIcon = CATEGORY_ICON_COMPONENTS[venue.category] || LMapPin;
   const badgeBg      = CAT_BADGE_BG[venue.category] || `linear-gradient(135deg, rgba(123,92,245,0.82), rgba(99,69,210,0.62))`;
+  const saved        = isSaved(venue.id);
 
   const tags = [];
   if (venue.free_or_paid)      tags.push({ label: venue.free_or_paid,  color: venue.free_or_paid === 'Free' ? '#0D7A55' : '#1A2744' });
@@ -859,6 +862,19 @@ const ActivityListCard = ({ venue, onViewProfile }) => {
       trustLine={trustLine}
       badges={badges}
       onClick={() => onViewProfile(venue)}
+      saveButton={
+        <button
+          onClick={(e) => { e.stopPropagation(); toggleSave(venue); }}
+          aria-label={saved ? 'Remove from saved' : 'Save'}
+          style={{ position: 'absolute', top: 10, right: 10, width: 30, height: 30, borderRadius: 999, background: saved ? `${accent}18` : 'rgba(255,255,255,0.92)', border: saved ? `1.5px solid ${accent}44` : '1px solid rgba(26,39,68,0.12)', display: 'grid', placeItems: 'center', cursor: 'pointer', transition: 'transform 0.15s ease, background 0.15s', boxShadow: '0 1px 4px rgba(26,39,68,0.10)', color: saved ? accent : 'rgba(26,39,68,0.35)', zIndex: 2 }}
+          onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.15)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = ''; }}
+        >
+          <svg width={13} height={13} viewBox="0 0 24 24" fill={saved ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+          </svg>
+        </button>
+      }
     >
       <button
         onClick={(e) => { e.stopPropagation(); onViewProfile(venue); }}

@@ -37,6 +37,7 @@ const DiscoveryCard = ({
   onClick,
   children,
   footer,
+  saveButton,
   categoryLabel,
   trustLine,
   badges       = [],
@@ -51,6 +52,7 @@ const DiscoveryCard = ({
       className="card"
       onClick={onClick}
       style={{
+        position: 'relative',
         padding: 0,
         overflow: 'hidden',
         borderRadius: 22,
@@ -76,6 +78,9 @@ const DiscoveryCard = ({
     >
       {/* Accent top strip */}
       <div style={{ height: 4, background: `linear-gradient(90deg, ${accentColor}, ${accentColor}66)`, flexShrink: 0 }} />
+
+      {/* Save button overlay — absolute top-right, does not affect layout */}
+      {saveButton}
 
       <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', flex: 1, gap: 12 }}>
 
