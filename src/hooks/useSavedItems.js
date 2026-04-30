@@ -3,7 +3,7 @@
 //
 // Saved item shape: { id, name, slug, category, county }
 //
-// Returns: { isSaved(id), toggleSave(venue) }
+// Returns: { savedItems, isSaved(id), toggleSave(venue) }
 
 import { useState } from 'react';
 
@@ -34,7 +34,7 @@ const useSavedItems = () => {
     });
   };
 
-  return { isSaved, toggleSave };
+  return { savedItems, isSaved, toggleSave };
 };
 
 export default useSavedItems;

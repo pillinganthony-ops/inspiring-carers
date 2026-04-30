@@ -32,6 +32,7 @@ const AdvertisePageComponent   = React.lazy(() => import('./components/pages/Adv
 const RecognitionPageComponent  = React.lazy(() => import('./components/pages/Recognition.jsx'));
 const OfferADiscountPage         = React.lazy(() => import('./components/pages/OfferADiscount.jsx'));
 const VenueProfilePage     = React.lazy(() => import('./components/pages/VenueProfile.jsx'));
+const SavedPage            = React.lazy(() => import('./components/pages/Saved.jsx'));
 // Hub pages — eagerly imported so county selectors render with zero loading flash
 // FindHelpLandingPage removed from routing — /find-help now renders the directory directly
 import EventsHubPage       from './components/pages/EventsHub.jsx';
@@ -427,7 +428,7 @@ const App = () => {
     if (segs[0] === 'login') return { page: 'login', county: null };
 
     // Global pages — no county prefix (flat routes that never take a county segment)
-    const GLOBAL = ['admin', 'recognition', 'business', 'advertise', 'offer-a-discount', 'training', 'for-you', 'about', 'card'];
+    const GLOBAL = ['admin', 'recognition', 'business', 'advertise', 'offer-a-discount', 'training', 'for-you', 'about', 'card', 'saved'];
     if (GLOBAL.includes(segs[0])) return { page: segs[0], county: null };
 
     // Hub routes — standalone URLs without county prefix load county selector pages
@@ -774,6 +775,7 @@ const App = () => {
     case 'business':   content = <React.Suspense fallback={<RouteLoading />}><BusinessPageComponent onNavigate={navigate} session={session} /></React.Suspense>; break;
     case 'advertise':         content = <React.Suspense fallback={<RouteLoading />}><AdvertisePageComponent onNavigate={navigate} session={session} /></React.Suspense>; break;
     case 'offer-a-discount':  content = <React.Suspense fallback={<RouteLoading />}><OfferADiscountPage    onNavigate={navigate} session={session} /></React.Suspense>; break;
+    case 'saved': content = <React.Suspense fallback={<RouteLoading />}><SavedPage onNavigate={navigate} session={session} /></React.Suspense>; break;
     case 'about': content = <Placeholder title="About inspiring carers" activePage="about" onNavigate={navigate} session={session} note="Mission, the two-tier model, and the local-first national vision — next round." />; break;
     case 'card': content = <Placeholder title="Team Benefits" activePage="card" onNavigate={navigate} session={session} note="Approved organisations can apply for workforce benefit cards for eligible staff teams — organisation account required." />; break;
     default: content = <HomePage onNavigate={navigate} tweaks={tweaks} session={session} />;
