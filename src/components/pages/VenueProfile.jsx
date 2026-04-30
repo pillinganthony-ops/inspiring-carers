@@ -6,6 +6,7 @@
 
 import React from 'react';
 import supabase, { isSupabaseConfigured } from '../../lib/supabaseClient.js';
+import useRecentlyViewed from '../../hooks/useRecentlyViewed.js';
 import Nav from '../Nav.jsx';
 import Footer from '../Footer.jsx';
 import Icons from '../Icons.jsx';
@@ -225,6 +226,8 @@ const VenueIllustration = ({ venue, accent }) => {
 // ── Page ───────────────────────────────────────────────────────────────────
 
 const VenueProfile = ({ slug, county, backPage, onNavigate, session }) => {
+  const { addRecentlyViewed } = useRecentlyViewed();
+
   // Derived from loaded venue.category first; falls back to backPage while loading
   // or if the category has no explicit mapping.
   const [venue,        setVenue]        = React.useState(null);
@@ -295,6 +298,12 @@ const VenueProfile = ({ slug, county, backPage, onNavigate, session }) => {
     load();
     return () => { cancelled = true; };
   }, [slug]);
+
+  // Track view once venue data is confirmed loaded
+  React.useEffect(() => {
+    if (!venue) return;
+    addRecentlyViewed(venue);
+  }, [venue?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const goBack = () => onNavigate(backPage, county || 'cornwall');
 

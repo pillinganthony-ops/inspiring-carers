@@ -8,6 +8,7 @@ import Footer from '../Footer.jsx';
 import CardGrid from '../shared/CardGrid.jsx';
 import DiscoveryCard from '../shared/DiscoveryCard.jsx';
 import useSavedItems from '../../hooks/useSavedItems.js';
+import useRecentlyViewed from '../../hooks/useRecentlyViewed.js';
 
 // ── Category → accent colour ──────────────────────────────────────────────
 
@@ -33,7 +34,9 @@ const getDest = (cat) => CAT_DEST[cat] || 'places-to-visit';
 // ── Page ─────────────────────────────────────────────────────────────────
 
 const SavedPage = ({ onNavigate, session }) => {
-  const { savedItems, toggleSave } = useSavedItems();
+  const { savedItems, toggleSave, isSaved } = useSavedItems();
+  const { recentlyViewed } = useRecentlyViewed();
+  const recentSlice = recentlyViewed.slice(0, 6);
 
   const handleOpen = (item) => {
     const dest   = getDest(item.category);
@@ -132,6 +135,58 @@ const SavedPage = ({ onNavigate, session }) => {
                 );
               })}
             </CardGrid>
+          )}
+
+          {/* ── Recently viewed ── */}
+          {recentSlice.length > 0 && (
+            <div style={{ marginTop: savedItems.length > 0 ? 48 : 0 }}>
+              <div style={{ marginBottom: 18 }}>
+                <h2 style={{ fontSize: 'clamp(16px, 2vw, 20px)', fontWeight: 800, color: '#1A2744', margin: '0 0 4px', letterSpacing: '-0.01em' }}>
+                  Recently viewed
+                </h2>
+                <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.50)', margin: 0 }}>
+                  Places you've looked at recently
+                </p>
+              </div>
+              <CardGrid>
+                {recentSlice.map((item) => {
+                  const accent  = getAccent(item.category);
+                  const saved   = isSaved(item.id);
+                  return (
+                    <DiscoveryCard
+                      key={item.id}
+                      title={item.name}
+                      accentColor={accent}
+                      categoryLabel={item.category}
+                      location={item.county}
+                      onClick={() => handleOpen(item)}
+                      saveButton={
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleSave(item); }}
+                          aria-label={saved ? 'Remove from saved' : 'Save'}
+                          style={{ position: 'absolute', top: 10, right: 10, width: 30, height: 30, borderRadius: 999, background: saved ? `${accent}18` : 'rgba(255,255,255,0.92)', border: saved ? `1.5px solid ${accent}44` : '1px solid rgba(26,39,68,0.12)', display: 'grid', placeItems: 'center', cursor: 'pointer', transition: 'transform 0.15s ease, background 0.15s', boxShadow: '0 1px 4px rgba(26,39,68,0.10)', color: saved ? accent : 'rgba(26,39,68,0.35)', zIndex: 2 }}
+                          onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.15)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.transform = ''; }}
+                        >
+                          <svg width={13} height={13} viewBox="0 0 24 24" fill={saved ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                          </svg>
+                        </button>
+                      }
+                    >
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleOpen(item); }}
+                        style={{ fontSize: 13, fontWeight: 700, color: accent, background: `${accent}14`, padding: '8px 14px', borderRadius: 9, border: 'none', cursor: 'pointer', transition: 'background .14s' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = `${accent}26`; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = `${accent}14`; }}
+                      >
+                        View details →
+                      </button>
+                    </DiscoveryCard>
+                  );
+                })}
+              </CardGrid>
+            </div>
           )}
 
         </div>
