@@ -363,10 +363,13 @@ const PlacesToVisitCountyPage = ({ onNavigate, session, county, venueSlug }) => 
             <div style={{ flex: 1, minWidth: 220 }}>
               <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: '#7B5CF5', marginBottom: 5 }}>County sponsorship</div>
               <div style={{ fontSize: 15, fontWeight: 800, color: '#1A2744', marginBottom: 4, lineHeight: 1.28 }}>
-                Become the {countyLabel} days out partner
+                Sponsor Places to Visit across {countyLabel}
               </div>
-              <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.56)', margin: 0, lineHeight: 1.55 }}>
-                Promote accessible attractions, venues and experiences to carers and families across {countyLabel}.
+              <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.56)', margin: '0 0 4px', lineHeight: 1.55 }}>
+                Showcase your attraction, venue or destination to carers and families looking for accessible, welcoming places to visit.
+              </p>
+              <p style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.38)', margin: 0, fontStyle: 'italic' }}>
+                Limited to 1 headline partner per county.
               </p>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flexShrink: 0 }}>

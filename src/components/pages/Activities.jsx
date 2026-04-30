@@ -1212,10 +1212,13 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
             <div style={{ flex: 1, minWidth: 220 }}>
               <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: '#3DA832', marginBottom: 5 }}>County sponsorship</div>
               <div style={{ fontSize: 15, fontWeight: 800, color: '#1A2744', marginBottom: 4, lineHeight: 1.28 }}>
-                Become the {countyLabel} activities partner
+                Sponsor Things to Do across {countyLabel}
               </div>
-              <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.56)', margin: 0, lineHeight: 1.55 }}>
-                Feature your organisation across all {countyLabel} discovery pages and reach carers searching for local activities.
+              <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.56)', margin: '0 0 4px', lineHeight: 1.55 }}>
+                Promote your organisation to carers, families, and community users exploring local days out, activities and support-friendly places.
+              </p>
+              <p style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.38)', margin: 0, fontStyle: 'italic' }}>
+                Limited to 1 headline partner per county.
               </p>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flexShrink: 0 }}>

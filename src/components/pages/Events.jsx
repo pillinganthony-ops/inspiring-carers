@@ -339,12 +339,15 @@ const EventsPage = ({ onNavigate, session, county }) => {
             <div className="container">
               <div style={{ padding: '20px 24px', borderRadius: 22, background: 'rgba(45,156,219,0.05)', border: '1px solid rgba(45,156,219,0.14)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
                 <div style={{ flex: 1, minWidth: 220 }}>
-                  <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: '#2D9CDB', marginBottom: 5 }}>County partnership</div>
+                  <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: '#2D9CDB', marginBottom: 5 }}>County sponsorship</div>
                   <div style={{ fontSize: 15, fontWeight: 800, color: '#1A2744', marginBottom: 4, lineHeight: 1.28 }}>
-                    Become the {countyLabel} events partner
+                    Sponsor events across {countyLabel}
                   </div>
-                  <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.56)', margin: 0, lineHeight: 1.55 }}>
-                    Promote carer-friendly events, workshops and community sessions across {countyLabel}.
+                  <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.56)', margin: '0 0 4px', lineHeight: 1.55 }}>
+                    Get your organisation in front of carers, families, and community networks across {countyLabel}.
+                  </p>
+                  <p style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.38)', margin: 0, fontStyle: 'italic' }}>
+                    Limited to 1 headline partner per county.
                   </p>
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flexShrink: 0 }}>

@@ -309,10 +309,13 @@ const WellbeingCountyPage = ({ onNavigate, session, county, venueSlug }) => {
             <div style={{ flex: 1, minWidth: 220 }}>
               <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: WELLBEING_ACCENT, marginBottom: 5 }}>County sponsorship</div>
               <div style={{ fontSize: 15, fontWeight: 800, color: '#1A2744', marginBottom: 4, lineHeight: 1.28 }}>
-                Become the {countyLabel} wellbeing partner
+                Sponsor wellbeing support across {countyLabel}
               </div>
-              <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.56)', margin: 0, lineHeight: 1.55 }}>
-                Support carers by promoting calm spaces, wellbeing venues and local support across {countyLabel}.
+              <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.56)', margin: '0 0 4px', lineHeight: 1.55 }}>
+                Position your organisation in front of carers and families looking for trusted wellbeing, support and community resources.
+              </p>
+              <p style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.38)', margin: 0, fontStyle: 'italic' }}>
+                Limited to 1 headline partner per county.
               </p>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flexShrink: 0 }}>
