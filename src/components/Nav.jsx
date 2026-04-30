@@ -240,6 +240,27 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp,
         {/* Right actions */}
         <div className="nav-actions" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
 
+          {/* Saved — heart icon button, visible for all users */}
+          <button
+            onClick={() => handleNavigate('saved')}
+            aria-label="Saved items"
+            style={{
+              width: 36, height: 36, borderRadius: 999, flexShrink: 0,
+              border: activePage === 'saved' ? '1.5px solid rgba(123,92,245,0.40)' : '1px solid rgba(26,39,68,0.12)',
+              background: activePage === 'saved' ? 'rgba(123,92,245,0.08)' : 'transparent',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer',
+              color: activePage === 'saved' ? '#7B5CF5' : 'rgba(26,39,68,0.50)',
+              transition: 'background .15s, border-color .15s, color .15s',
+            }}
+            onMouseEnter={(e) => { if (activePage !== 'saved') { e.currentTarget.style.background = 'rgba(26,39,68,0.04)'; e.currentTarget.style.color = '#1A2744'; } }}
+            onMouseLeave={(e) => { if (activePage !== 'saved') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(26,39,68,0.50)'; } }}
+          >
+            <svg width={16} height={16} viewBox="0 0 24 24" fill={activePage === 'saved' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+          </button>
+
           {session ? (
             /* ── Profile ▾ — logged in ── */
             <div ref={accountRef} style={{ position: 'relative' }}>
@@ -322,6 +343,12 @@ const Nav = ({ activePage = 'home', onNavigate = () => {}, session: sessionProp,
                 {item.label}
               </button>
             ))}
+
+            {/* Saved */}
+            <button onClick={() => handleNavigate('saved')} style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', padding: '12px 14px', borderRadius: 14, border: 'none', cursor: 'pointer', width: '100%', background: activePage === 'saved' ? 'rgba(123,92,245,0.10)' : '#FAFBFF', color: '#1A2744', fontWeight: activePage === 'saved' ? 700 : 600 }}>
+              <span style={{ width: 8, height: 8, borderRadius: 2, background: '#7B5CF5', flexShrink: 0 }} />
+              Saved
+            </button>
 
             {/* More */}
             <div style={{ fontSize: 10.5, fontWeight: 800, color: 'rgba(26,39,68,0.4)', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '10px 2px 2px' }}>

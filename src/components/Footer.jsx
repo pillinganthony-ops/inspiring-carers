@@ -61,6 +61,7 @@ const Footer = ({ onNavigate = () => {} }) => {
             <ColLink label="Wellbeing support"   navKey="wellbeing" />
             <ColLink label="Places to visit"     navKey="places-to-visit" />
             <ColLink label="Training"            navKey="training" />
+            <ColLink label="Your saved items"   navKey="saved" />
           </Col>
 
           {/* For organisations — all live routes */}
