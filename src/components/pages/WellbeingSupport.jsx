@@ -13,6 +13,7 @@ import VenueProfile from './VenueProfile.jsx';
 import CountyInterestModal from '../CountyInterestModal.jsx';
 import SponsorCTA from '../SponsorCTA.jsx';
 import SponsorStrip from '../shared/SponsorStrip.jsx';
+import CardGrid from '../shared/CardGrid.jsx';
 import CountyCategoryNav from '../CountyCategoryNav.jsx';
 import CountyWalksBanner from '../CountyWalksBanner.jsx';
 import CountyHero from '../shared/CountyHero.jsx';
@@ -364,9 +365,9 @@ const WellbeingCountyPage = ({ onNavigate, session, county, venueSlug }) => {
 
           {/* Loading skeleton */}
           {loading && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+            <CardGrid>
               {Array.from({ length: 9 }).map((_, i) => <SkeletonCard key={i} />)}
-            </div>
+            </CardGrid>
           )}
 
           {/* Error state */}
@@ -399,7 +400,7 @@ const WellbeingCountyPage = ({ onNavigate, session, county, venueSlug }) => {
 
           {/* Venue cards */}
           {!loading && !error && filtered.length > 0 && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+            <CardGrid>
               {filtered.map((venue) => (
                 <WellbeingCard
                   key={venue.id}
@@ -408,7 +409,7 @@ const WellbeingCountyPage = ({ onNavigate, session, county, venueSlug }) => {
                   onViewProfile={(slug) => onNavigate('wellbeing', county, slug)}
                 />
               ))}
-            </div>
+            </CardGrid>
           )}
 
         </div>

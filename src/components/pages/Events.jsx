@@ -5,6 +5,7 @@ import Footer from '../Footer.jsx';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient.js';
 import CountyCategoryNav from '../CountyCategoryNav.jsx';
 import SponsorStrip from '../shared/SponsorStrip.jsx';
+import CardGrid from '../shared/CardGrid.jsx';
 
 const { IEvent, IPin, IArrow, IClose, ISearch, IChevron, IHub } = Icons;
 
@@ -394,7 +395,7 @@ const EventsPage = ({ onNavigate, session, county }) => {
               <div className="card" style={{ padding: 28 }}>No events found right now.</div>
             )
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+            <CardGrid>
               {filteredEvents.map((event) => (
                 <div key={event.id} className="card" style={{ padding: 0, overflow: 'hidden', borderRadius: 22, border: '1px solid rgba(45,156,219,0.14)', display: 'flex', flexDirection: 'column', background: '#FFFFFF' }}>
                   {/* Accent top strip — matches Activity/Places/Wellbeing card pattern */}
@@ -422,7 +423,7 @@ const EventsPage = ({ onNavigate, session, county }) => {
                   </div>
                 </div>
               ))}
-            </div>
+            </CardGrid>
           )}
         </div>
       </section>
