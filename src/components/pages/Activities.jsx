@@ -12,6 +12,7 @@ import Footer from '../Footer.jsx';
 import Icons from '../Icons.jsx';
 import CountyInterestModal from '../CountyInterestModal.jsx';
 import SponsorCTA from '../SponsorCTA.jsx';
+import SponsorStrip from '../shared/SponsorStrip.jsx';
 import CountyCategoryNav from '../CountyCategoryNav.jsx';
 import CountyWalksBanner from '../CountyWalksBanner.jsx';
 import CountyHero from '../shared/CountyHero.jsx';
@@ -1205,33 +1206,8 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
         detail={`Find accessible walks${countyLabel ? ` in ${countyLabel}` : ' near you'}.`}
       />
 
-      {/* ── Sponsorship strip — moved from hero to match Places to Visit pattern ── */}
-      <div style={{ background: '#FAFBFF', borderBottom: '1px solid #EEF1F7', padding: '14px 0' }}>
-        <div className="container">
-          <div style={{ padding: '20px 24px', borderRadius: 22, background: 'rgba(91,201,74,0.05)', border: '1px solid rgba(91,201,74,0.14)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-            <div style={{ flex: 1, minWidth: 220 }}>
-              <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: '#3DA832', marginBottom: 5 }}>County sponsorship</div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: '#1A2744', marginBottom: 4, lineHeight: 1.28 }}>
-                Sponsor Things to Do across {countyLabel}
-              </div>
-              <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.56)', margin: '0 0 4px', lineHeight: 1.55 }}>
-                Promote your organisation to carers, families, and community users exploring local days out, activities and support-friendly places.
-              </p>
-              <p style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.38)', margin: 0, fontStyle: 'italic' }}>
-                Limited to 1 headline partner per county.
-              </p>
-            </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flexShrink: 0 }}>
-              <button onClick={() => onNavigate('advertise')} style={{ padding: '9px 18px', borderRadius: 10, background: 'linear-gradient(135deg, #F5A623, #D4AF37)', color: '#0F172A', fontWeight: 800, fontSize: 13, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'opacity .13s' }} onMouseEnter={e => { e.currentTarget.style.opacity = '0.88'; }} onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}>
-                Become a sponsor →
-              </button>
-              <button onClick={() => onNavigate('offer-a-discount')} style={{ padding: '9px 16px', borderRadius: 10, background: 'transparent', border: '1.5px solid rgba(91,201,74,0.30)', color: '#3DA832', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                Offer a discount
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* ── Sponsorship strip ── */}
+      <SponsorStrip type="things-to-do" countyLabel={countyLabel} onNavigate={onNavigate} />
 
       {/* ── Main content — two-column sidebar + right (map + cards) ── */}
       <div style={{ background: '#F7F9FC', paddingTop: 28, paddingBottom: 56 }}>

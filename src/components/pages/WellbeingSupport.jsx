@@ -12,6 +12,7 @@ import ClaimModal from '../ClaimModal.jsx';
 import VenueProfile from './VenueProfile.jsx';
 import CountyInterestModal from '../CountyInterestModal.jsx';
 import SponsorCTA from '../SponsorCTA.jsx';
+import SponsorStrip from '../shared/SponsorStrip.jsx';
 import CountyCategoryNav from '../CountyCategoryNav.jsx';
 import CountyWalksBanner from '../CountyWalksBanner.jsx';
 import CountyHero from '../shared/CountyHero.jsx';
@@ -302,33 +303,8 @@ const WellbeingCountyPage = ({ onNavigate, session, county, venueSlug }) => {
         </div>
       </div>
 
-      {/* ── Sponsorship strip ─────────────────────────────────────────── */}
-      <div style={{ background: '#F7FAFA', borderBottom: '1px solid #EEF1F7', padding: '14px 0' }}>
-        <div className="container">
-          <div style={{ padding: '20px 24px', borderRadius: 22, background: 'rgba(13,148,136,0.05)', border: '1px solid rgba(13,148,136,0.14)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-            <div style={{ flex: 1, minWidth: 220 }}>
-              <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: WELLBEING_ACCENT, marginBottom: 5 }}>County sponsorship</div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: '#1A2744', marginBottom: 4, lineHeight: 1.28 }}>
-                Sponsor wellbeing support across {countyLabel}
-              </div>
-              <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.56)', margin: '0 0 4px', lineHeight: 1.55 }}>
-                Position your organisation in front of carers and families looking for trusted wellbeing, support and community resources.
-              </p>
-              <p style={{ fontSize: 11.5, color: 'rgba(26,39,68,0.38)', margin: 0, fontStyle: 'italic' }}>
-                Limited to 1 headline partner per county.
-              </p>
-            </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flexShrink: 0 }}>
-              <button onClick={() => onNavigate('advertise')} style={{ padding: '9px 18px', borderRadius: 10, background: WELLBEING_ACCENT, color: 'white', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'opacity .13s' }} onMouseEnter={e => { e.currentTarget.style.opacity = '0.88'; }} onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}>
-                Become a sponsor
-              </button>
-              <button onClick={() => onNavigate('offer-a-discount')} style={{ padding: '9px 16px', borderRadius: 10, background: 'transparent', border: '1.5px solid rgba(13,148,136,0.28)', color: WELLBEING_ACCENT, fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                Offer a discount
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* ── Sponsorship strip ── */}
+      <SponsorStrip type="wellbeing" countyLabel={countyLabel} onNavigate={onNavigate} />
 
       {/* ── Sticky filter bar ─────────────────────────────────────────── */}
       <section id="wb-filters" style={{ background: '#FFFFFF', borderBottom: '1px solid #EEF1F7', paddingTop: 12, paddingBottom: 12, position: 'sticky', top: 112, zIndex: 40 }}>
