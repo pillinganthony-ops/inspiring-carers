@@ -188,17 +188,18 @@ const PlacesToVisitCountyPage = ({ onNavigate, session, county, venueSlug }) => 
   const [filterFamily,     setFilterFamily]     = React.useState(false);
   const [filterWheelchair, setFilterWheelchair] = React.useState(false);
   const [filterDog,        setFilterDog]        = React.useState(false);
+  const [filterCarer,      setFilterCarer]      = React.useState(false);
 
   // Reset filters when county changes
   React.useEffect(() => {
     setSearch(''); setFilterSubcat(''); setFilterPrice('');
     setFilterIndoorOut(''); setFilterFamily(false);
-    setFilterWheelchair(false); setFilterDog(false);
+    setFilterWheelchair(false); setFilterDog(false); setFilterCarer(false);
     setVisibleCount(PTV_PAGE_SIZE);
   }, [dbCounty]);
 
   // Reset pagination when any filter or search changes
-  React.useEffect(() => { setVisibleCount(PTV_PAGE_SIZE); }, [search, filterSubcat, filterPrice, filterIndoorOut, filterFamily, filterWheelchair, filterDog]);
+  React.useEffect(() => { setVisibleCount(PTV_PAGE_SIZE); }, [search, filterSubcat, filterPrice, filterIndoorOut, filterFamily, filterWheelchair, filterDog, filterCarer]);
 
   // Load venues from Supabase
   React.useEffect(() => {
@@ -248,9 +249,10 @@ const PlacesToVisitCountyPage = ({ onNavigate, session, county, venueSlug }) => 
       if (filterFamily     && !v.family_friendly)                 return false;
       if (filterWheelchair && !v.wheelchair_access)               return false;
       if (filterDog        && !v.dog_friendly)                    return false;
+      if (filterCarer      && !v.carer_friendly)                  return false;
       return true;
     });
-  }, [venues, search, filterSubcat, filterPrice, filterIndoorOut, filterFamily, filterWheelchair, filterDog]);
+  }, [venues, search, filterSubcat, filterPrice, filterIndoorOut, filterFamily, filterWheelchair, filterDog, filterCarer]);
 
   // Venue profile — rendered after all hooks so hook count stays constant
   if (venueSlug) {
@@ -265,13 +267,13 @@ const PlacesToVisitCountyPage = ({ onNavigate, session, county, venueSlug }) => 
     );
   }
 
-  const anyFilter = search || filterSubcat || filterPrice || filterIndoorOut || filterFamily || filterWheelchair || filterDog;
+  const anyFilter = search || filterSubcat || filterPrice || filterIndoorOut || filterFamily || filterWheelchair || filterDog || filterCarer;
   const hasCoords = venues.some((v) => v.latitude && v.longitude);
 
   const clearFilters = () => {
     setSearch(''); setFilterSubcat(''); setFilterPrice('');
     setFilterIndoorOut(''); setFilterFamily(false);
-    setFilterWheelchair(false); setFilterDog(false);
+    setFilterWheelchair(false); setFilterDog(false); setFilterCarer(false);
   };
 
   return (
@@ -352,6 +354,7 @@ const PlacesToVisitCountyPage = ({ onNavigate, session, county, venueSlug }) => 
               { label: 'Family friendly', active: filterFamily,     onToggle: setFilterFamily,     color: '#F5A623' },
               { label: 'Wheelchair',      active: filterWheelchair, onToggle: setFilterWheelchair, color: '#7B5CF5' },
               { label: 'Dog friendly',    active: filterDog,        onToggle: setFilterDog,        color: '#3DA832' },
+              { label: 'Carer friendly',  active: filterCarer,      onToggle: setFilterCarer,      color: '#F4613A' },
             ]}
             anyFilter={anyFilter}
             onClear={clearFilters}
