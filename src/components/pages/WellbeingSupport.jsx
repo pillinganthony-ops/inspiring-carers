@@ -19,6 +19,7 @@ import CountyWalksBanner from '../CountyWalksBanner.jsx';
 import CountyHero from '../shared/CountyHero.jsx';
 import DiscoveryCard from '../shared/DiscoveryCard.jsx';
 import FilterStrip from '../shared/FilterStrip.jsx';
+import SkeletonCard from '../shared/SkeletonCard.jsx';
 import { Leaf } from 'lucide-react';
 
 const { IArrow } = Icons;
@@ -135,17 +136,6 @@ const WellbeingCard = ({ venue, onClaim, onViewProfile }) => {
 };
 
 // ── Skeleton loading cards ─────────────────────────────────────────────────
-
-const SkeletonCard = () => (
-  <div className="card" style={{ padding: 16, borderRadius: 16, minHeight: 180 }}>
-    <div style={{ height: 10, width: '55%', borderRadius: 6, background: '#EAF0FA', marginBottom: 12 }} />
-    <div style={{ height: 14, width: '82%', borderRadius: 6, background: '#E4ECF8', marginBottom: 10 }} />
-    <div style={{ height: 10, width: '38%', borderRadius: 6, background: '#EAF0FA', marginBottom: 14 }} />
-    <div style={{ height: 10, width: '94%', borderRadius: 6, background: '#EAF0FA', marginBottom: 7 }} />
-    <div style={{ height: 10, width: '75%', borderRadius: 6, background: '#EAF0FA', marginBottom: 7 }} />
-    <div style={{ height: 10, width: '60%', borderRadius: 6, background: '#EAF0FA' }} />
-  </div>
-);
 
 // ── Page component ─────────────────────────────────────────────────────────
 
