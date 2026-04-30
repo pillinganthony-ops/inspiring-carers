@@ -9,6 +9,7 @@ import CardGrid from '../shared/CardGrid.jsx';
 import DiscoveryCard from '../shared/DiscoveryCard.jsx';
 import useSavedItems from '../../hooks/useSavedItems.js';
 import useRecentlyViewed from '../../hooks/useRecentlyViewed.js';
+import { supabase } from '../../lib/supabaseClient';
 
 // ── Category → accent colour ──────────────────────────────────────────────
 
@@ -42,16 +43,34 @@ const SavedPage = ({ onNavigate, session }) => {
   const [emailSent, setEmailSent] = React.useState(false);
   const [emailError, setEmailError] = React.useState('');
 
-  const handleEmailSubmit = (e) => {
-    e.preventDefault();
-    const trimmed = email.trim();
-    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      setEmailError('Please enter a valid email address.');
+  const handleEmailSubmit = async () => {
+    const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+    if (!isValid) {
+      setEmailError('Please enter a valid email');
       return;
     }
+
     setEmailError('');
-    setEmailSent(true);
-    // Phase 1 — frontend only. Backend connection pending.
+
+    try {
+      const { error } = await supabase
+        .from('saved_list_leads')
+        .insert([{ email }]);
+
+      if (error) throw error;
+
+      await fetch('/api/send-saved-list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, savedItems }),
+      });
+
+      setEmailSent(true);
+    } catch (err) {
+      console.error(err);
+      setEmailError('Something went wrong. Try again.');
+    }
   };
 
   const handleOpen = (item) => {
