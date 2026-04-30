@@ -46,6 +46,7 @@ const COUNTY_LABELS = {
 
 const WELLBEING_ACCENT = '#0D9488'; // teal — calm, therapeutic
 const WB_BADGE_BG = 'linear-gradient(145deg, rgba(13,148,136,0.64), rgba(9,110,100,0.46))';
+const WB_PAGE_SIZE = 12;
 
 // ── Venue card ─────────────────────────────────────────────────────────────
 
@@ -157,12 +158,14 @@ const WellbeingCountyPage = ({ onNavigate, session, county, venueSlug }) => {
   const [filterDog,        setFilterDog]        = React.useState(false);
   const [filterFamily,     setFilterFamily]     = React.useState(false);
   const [filterCarer,      setFilterCarer]      = React.useState(false);
+  const [visibleCount,     setVisibleCount]     = React.useState(WB_PAGE_SIZE);
 
-  // Reset filters on county change
+  // Reset filters and pagination on county change
   React.useEffect(() => {
     setSearch(''); setFilterSubcat(''); setFilterPrice('');
     setFilterIndoorOut(''); setFilterWheelchair(false);
     setFilterDog(false); setFilterFamily(false); setFilterCarer(false);
+    setVisibleCount(WB_PAGE_SIZE);
   }, [dbCounty]);
 
   // Load venues from Supabase
@@ -194,6 +197,9 @@ const WellbeingCountyPage = ({ onNavigate, session, county, venueSlug }) => {
     load();
     return () => { cancelled = true; };
   }, [dbCounty]);
+
+  // Reset pagination when any filter or search changes
+  React.useEffect(() => { setVisibleCount(WB_PAGE_SIZE); }, [search, filterSubcat, filterPrice, filterIndoorOut, filterWheelchair, filterDog, filterFamily, filterCarer]);
 
   // Derive subcategory options from loaded data
   const subcatOptions = React.useMemo(() => {
@@ -388,18 +394,37 @@ const WellbeingCountyPage = ({ onNavigate, session, county, venueSlug }) => {
             </div>
           )}
 
-          {/* Venue cards */}
+          {/* Venue cards + load more */}
           {!loading && !error && filtered.length > 0 && (
-            <CardGrid>
-              {filtered.map((venue) => (
-                <WellbeingCard
-                  key={venue.id}
-                  venue={venue}
-                  onClaim={setClaimVenue}
-                  onViewProfile={(slug) => onNavigate('wellbeing', county, slug)}
-                />
-              ))}
-            </CardGrid>
+            <>
+              <CardGrid marginBottom={20}>
+                {filtered.slice(0, visibleCount).map((venue) => (
+                  <WellbeingCard
+                    key={venue.id}
+                    venue={venue}
+                    onClaim={setClaimVenue}
+                    onViewProfile={(slug) => onNavigate('wellbeing', county, slug)}
+                  />
+                ))}
+              </CardGrid>
+
+              {visibleCount < filtered.length && (
+                <div style={{ textAlign: 'center', paddingTop: 4 }}>
+                  <button onClick={() => setVisibleCount((v) => v + WB_PAGE_SIZE)} className="btn btn-ghost" style={{ minWidth: 200 }}>
+                    Load more places{' '}
+                    <span style={{ fontSize: 12, fontWeight: 500, color: 'rgba(26,39,68,0.45)', marginLeft: 4 }}>
+                      ({filtered.length - visibleCount} remaining)
+                    </span>
+                  </button>
+                </div>
+              )}
+
+              {visibleCount >= filtered.length && filtered.length > WB_PAGE_SIZE && (
+                <div style={{ textAlign: 'center', fontSize: 13, color: 'rgba(26,39,68,0.38)', paddingTop: 8 }}>
+                  All {filtered.length} wellbeing places shown
+                </div>
+              )}
+            </>
           )}
 
         </div>
