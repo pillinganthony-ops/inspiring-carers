@@ -1,4 +1,5 @@
-﻿// Activities discovery hub — county-optional route (/activities and /{county}/activities).
+﻿// Things to Do discovery hub — canonical routes: /things-to-do and /{county}/things-to-do.
+// Legacy /activities and /{county}/activities are supported via replaceState redirect in parseRoute.
 // Map: real Cornwall walk pins (walks.json → postcodes.io geocoding) + ACTIVITY_SAMPLE_DATA
 //      for all other categories. Find Help/resource data intentionally NOT imported here.
 // Future: replace ACTIVITY_SAMPLE_DATA with Supabase activities table.
@@ -762,8 +763,8 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
   );
 };
 
-// ── County-specific activities listing ─────────────────────────────────────────
-// Rendered at /{county}/activities. Two-column sidebar + card grid, map toggle, pagination.
+// ── County-specific Things to Do listing ───────────────────────────────────────
+// Rendered at /{county}/things-to-do (canonical). Legacy /{county}/activities redirects here.
 
 const CAT_ACCENT_LISTING = {
   'Days Out':    '#F5A623',
@@ -1474,12 +1475,12 @@ const ActivitiesNationalHub = ({ onNavigate, session }) => (
       </div>
     </section>
 
-    {/* Explore activity types */}
+    {/* Explore things to do */}
     <section style={{ paddingTop: 60, paddingBottom: 60, background: '#FFFFFF' }}>
       <div className="container">
         <div style={{ textAlign: 'center', marginBottom: 36 }}>
           <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#5BC94A', marginBottom: 10 }}>Browse by type</div>
-          <h2 style={{ fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 800, color: '#1A2744', margin: 0, letterSpacing: '-0.02em' }}>Explore activity types</h2>
+          <h2 style={{ fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 800, color: '#1A2744', margin: 0, letterSpacing: '-0.02em' }}>Explore things to do</h2>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
           {[

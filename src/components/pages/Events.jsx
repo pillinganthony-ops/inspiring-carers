@@ -287,8 +287,8 @@ const EventsPage = ({ onNavigate, session, county }) => {
             <div className="container" style={{ position: 'relative' }}>
               {/* Breadcrumb — Home > County > Events */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'rgba(255,255,255,0.45)', fontSize: 13, marginBottom: 14 }}>
-                <button onClick={() => onNavigate('home')} style={{ color: 'inherit', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', fontSize: 'inherit' }}>Home</button>
-                {countyLabel && <><IChevron s={12} /><span style={{ color: 'rgba(255,255,255,0.60)', fontWeight: 500 }}>{countyLabel}</span></>}
+                <button onClick={() => onNavigate('home', county)} style={{ color: 'inherit', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', fontSize: 'inherit' }}>Home</button>
+                {countyLabel && <><IChevron s={12} /><button onClick={() => onNavigate('home', county)} style={{ color: 'rgba(255,255,255,0.60)', fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', fontSize: 'inherit' }}>{countyLabel}</button></>}
                 <IChevron s={12} />
                 <span style={{ color: '#FFFFFF', fontWeight: 600 }}>Events</span>
               </div>

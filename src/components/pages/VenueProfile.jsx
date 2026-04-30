@@ -26,7 +26,7 @@ const { IPin, IArrow } = Icons;
 const BACK_LABELS = {
   'places-to-visit': 'Places to Visit',
   'wellbeing':       'Wellbeing Support',
-  'activities':      'Activities',
+  'activities':      'Things to Do',
 };
 
 const PAGE_ACCENT = {
