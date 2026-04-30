@@ -607,7 +607,7 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
     <div style={{ height: mapH, borderRadius: 20, background: '#F0F5FB', border: '1px solid #DEE8F4', display: 'grid', placeItems: 'center' }}>
       <div style={{ textAlign: 'center', color: 'rgba(26,39,68,0.5)', fontSize: 14 }}>
         <div style={{ fontSize: 28, marginBottom: 8 }}>🗺️</div>
-        {geoLoading ? 'Locating activities…' : 'Loading map…'}
+        {geoLoading ? 'Locating things to do…' : 'Loading map…'}
       </div>
     </div>
   );
@@ -730,7 +730,7 @@ const ActivitiesMap = ({ localCounty, activityType, cost, accessibility, onNavig
         {allPins.length === 0 && (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, textAlign: 'center', padding: 32, background: 'rgba(240,245,251,0.88)', backdropFilter: 'blur(3px)', pointerEvents: 'none' }}>
             <IPin s={28} />
-            <div style={{ fontSize: 15, fontWeight: 700, color: '#1A2744' }}>No mapped activities yet</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#1A2744' }}>No things to do mapped yet</div>
             <div style={{ fontSize: 13, color: 'rgba(26,39,68,0.55)', maxWidth: 260, lineHeight: 1.6 }}>
               Things to do in this area are being added. Browse the list below.
             </div>
@@ -1275,7 +1275,7 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
               {!loading && !error && (
                 <div style={{ marginBottom: 18 }}>
                   <h2 style={{ fontSize: 'clamp(17px, 2.2vw, 22px)', fontWeight: 800, color: '#1A2744', margin: '0 0 4px', letterSpacing: '-0.01em' }}>
-                    {filterCat ? `${filterCat} in ${countyLabel}` : `Activities in ${countyLabel}`}
+                    {filterCat ? `${filterCat} in ${countyLabel}` : `Things to Do in ${countyLabel}`}
                   </h2>
                   <p style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.52)', margin: '0 0 8px', lineHeight: 1.5 }}>
                     {filterCat === 'Walks'
@@ -1286,8 +1286,8 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
                     {filterCat === 'Walks'
                       ? <><strong style={{ color: '#1A2744' }}>{filteredWalks.length}</strong> {walkSearch ? `of ${walksData.length}` : ''} walks in {countyLabel}</>
                       : filtered.length === venues.length
-                        ? <><strong style={{ color: '#1A2744' }}>{venues.length}</strong> {filterCat || 'activities'} in {countyLabel}</>
-                        : <><strong style={{ color: '#1A2744' }}>{filtered.length}</strong> of {venues.length} {filterCat || 'activities'}</>
+                        ? <><strong style={{ color: '#1A2744' }}>{venues.length}</strong> {filterCat || 'things to do'} in {countyLabel}</>
+                        : <><strong style={{ color: '#1A2744' }}>{filtered.length}</strong> of {venues.length} {filterCat || 'things to do'}</>
                     }
                   </div>
                 </div>
@@ -1312,7 +1312,7 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
               {!loading && error && (
                 <div style={{ textAlign: 'center', padding: '64px 20px' }}>
                   <div style={{ fontSize: 34, marginBottom: 14 }}>⚠️</div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>Could not load activities</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>Could not load things to do</div>
                   <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)', marginBottom: 20 }}>{error}</div>
                   <button className="btn btn-gold btn-sm" onClick={() => window.location.reload()}>Try again</button>
                 </div>
@@ -1372,7 +1372,7 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
                 <div style={{ textAlign: 'center', padding: '64px 20px' }}>
                   <div style={{ fontSize: 34, marginBottom: 14 }}>🗺️</div>
                   <div style={{ fontSize: 16, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>
-                    {venues.length === 0 ? `No activities listed yet for ${countyLabel}` : 'No activities match your filters'}
+                    {venues.length === 0 ? `No things to do listed yet for ${countyLabel}` : 'No things to do match your filters'}
                   </div>
                   <div style={{ fontSize: 13.5, color: 'rgba(26,39,68,0.55)', marginBottom: 16 }}>
                     {venues.length === 0 ? 'Check back soon — more listings are being added.' : 'Try adjusting or clearing your filters.'}
@@ -1403,7 +1403,7 @@ const CountyActivitiesView = ({ county, onNavigate, session }) => {
 
                   {visibleCount >= filtered.length && filtered.length > PAGE_SIZE && (
                     <div style={{ textAlign: 'center', fontSize: 13, color: 'rgba(26,39,68,0.38)', paddingTop: 8 }}>
-                      All {filtered.length} activities shown
+                      All {filtered.length} things to do shown
                     </div>
                   )}
                 </>
@@ -1511,7 +1511,7 @@ const ActivitiesNationalHub = ({ onNavigate, session }) => (
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#5BC94A', marginBottom: 10 }}>Select your county</div>
           <h2 style={{ fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 800, color: '#1A2744', margin: 0, letterSpacing: '-0.02em' }}>
-            Choose your area to find local activities
+            Choose your area to find local things to do
           </h2>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 16, maxWidth: 960, margin: '0 auto' }}>
@@ -1571,7 +1571,7 @@ const ActivitiesNationalHub = ({ onNavigate, session }) => (
 
     <SponsorCTA
       accent="#16A34A"
-      title="Promote activities, events and venues"
+      title="Promote things to do, events and venues"
       body="Submit events, walks, wellbeing places or carer-friendly venues. Organisations, community groups and businesses can all get involved."
       onNavigate={onNavigate}
     />

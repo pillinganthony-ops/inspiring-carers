@@ -1,5 +1,5 @@
 // DiscoveryCard — reusable venue/activity card shell.
-// Source of truth: Activities.jsx ActivityListCard (May 2026).
+// Source of truth: Things to Do — Activities.jsx ActivityListCard (May 2026).
 //
 // Required props:
 //   title        string             — card heading (16.5px / 800 weight)

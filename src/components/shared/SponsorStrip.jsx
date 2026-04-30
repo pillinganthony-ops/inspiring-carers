@@ -1,5 +1,5 @@
 // SponsorStrip — county-page sponsor/partnership strip.
-// Source of truth: Activities, PlacesToVisit, WellbeingSupport, Events (May 2026).
+// Source of truth: Things to Do (Activities.jsx), PlacesToVisit, WellbeingSupport, Events (May 2026).
 // Layout is identical across all types; copy, accent, and button config are
 // mapped internally from the type prop.
 //

@@ -55,7 +55,7 @@ const Footer = ({ onNavigate = () => {} }) => {
           <Col title="For carers">
             <ColLink label="Find help near me"   navKey="find-help" />
             <ColLink label="Benefits & offers"   navKey="benefits" />
-            <ColLink label="Activities"          navKey="activities" />
+            <ColLink label="Things to Do"        navKey="activities" />
             <ColLink label="Events near you"     navKey="events" />
             <ColLink label="Walks & outdoors"    navKey="walks" />
             <ColLink label="Wellbeing support"   navKey="wellbeing" />

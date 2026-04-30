@@ -1,10 +1,10 @@
 // FilterStrip — reusable filter UI component.
-// Source of truth: Activities.jsx filter sidebar (May 2026).
+// Source of truth: Things to Do — Activities.jsx filter sidebar (May 2026).
 // Handles layout only; all state and handlers are owned by the parent.
 //
 // layout prop (optional, default 'vertical'):
 //   'vertical'   — sidebar card with section labels and checkbox-style toggles
-//                  (Activities usage)
+//                  (Things to Do / Activities.jsx usage)
 //   'horizontal' — sticky-bar flex row with compact selects and pill chip toggles
 //                  (Wellbeing usage)
 //

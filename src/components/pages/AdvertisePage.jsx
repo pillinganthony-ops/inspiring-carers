@@ -694,7 +694,7 @@ const AdvertisePage = ({ onNavigate, session }) => {
                         </label>
                         <select value={form.preferredPlacement} onChange={set('preferredPlacement')} onFocus={onFocusField} onBlur={onBlurField} style={selectStyle} required>
                           <option value="">Select placement</option>
-                          {['Activities page', 'For You / discounts page', 'County sponsor area', 'Featured partner panel', 'Business profile', 'National — all pages', 'Not sure yet'].map(o => <option key={o} value={o}>{o}</option>)}
+                          {['Things to Do page', 'For You / discounts page', 'County sponsor area', 'Featured partner panel', 'Business profile', 'National — all pages', 'Not sure yet'].map(o => <option key={o} value={o}>{o}</option>)}
                         </select>
                       </div>
                       <div>

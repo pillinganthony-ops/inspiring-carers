@@ -1,6 +1,13 @@
 # Routing Architecture Audit
 _Generated from source — `src/main.jsx`, `src/components/Nav.jsx`, `src/components/pages/*`_
 
+> **Naming note (updated 2026-04-30):**
+> The user-facing name for this section is **"Things to Do"**.
+> The internal page key remains **`activities`** throughout the routing system.
+> Canonical URL: **`/things-to-do`** and **`/{county}/things-to-do`**
+> Legacy URLs **`/activities`** and **`/{county}/activities`** remain supported and are silently normalised to the same page key.
+> The source file **`Activities.jsx`** is intentionally not renamed.
+
 ---
 
 ## 1. Route Definitions
@@ -18,7 +25,8 @@ All routing is custom `pushState`-based — no React Router. `parseRoute()` in `
 | `/reset-password` | `reset-password` | `null` | — |
 | `/login` | `login` | `null` | — |
 | `/admin` `/recognition` `/business` `/about` `/card` | key as-is | `null` | GLOBAL list — no county prefix |
-| `/activities` | `activities` | `null` | Hub route |
+| `/things-to-do` | `activities` | `null` | Hub route — canonical URL |
+| `/activities` | `activities` | `null` | Hub route — legacy alias, still supported |
 | `/find-help` (1 segment) | `find-help` | `null` | Hub route — **requires `segs.length === 1`** |
 | `/events` (1 segment) | `events` | `null` | Hub route |
 | `/walks` (1 segment) | `walks` | `null` | Hub route |
@@ -43,7 +51,7 @@ All routing is custom `pushState`-based — no React Router. `parseRoute()` in `
 | `FindHelpLanding.jsx` | `FindHelpLandingPage` | `/find-help` (county null) | `onNavigate, session` | **Eager** |
 | `EventsHub.jsx` | `EventsHubPage` | `/events` (county null) | `onNavigate, session` | **Eager** |
 | `Events.jsx` | (default) | `/{county}/events` (county set) | `onNavigate, session, county` | **Lazy** |
-| `Activities.jsx` | `ActivitiesPage` | `/activities`, `/{county}/activities` | `onNavigate, session, county` | **Lazy** |
+| `Activities.jsx` | `ActivitiesPage` | `/things-to-do`, `/{county}/things-to-do` (canonical); `/activities`, `/{county}/activities` (legacy) | `onNavigate, session, county` | **Lazy** |
 | `Benefits.jsx` | (default) | `/{county}/for-you` | `onNavigate, session, county` | **Lazy** |
 | `Walks.jsx` | (default) | `/walks`, `/{county}/walks` | `onNavigate, session, county` | **Lazy** |
 | `PlacesToVisit.jsx` | (default) | `/{county}/places-to-visit` | `onNavigate, session, county, venueSlug` | **Lazy** |
@@ -68,8 +76,8 @@ All routing is custom `pushState`-based — no React Router. `parseRoute()` in `
 | `main.jsx` | 458 | `useEffect` — admin guard, not allowlist | `replaceState` → `/profile` |
 | `main.jsx` | 475 | `navigate('admin')`, no session | `pushState` → `/login` |
 | `main.jsx` | 482 | `navigate('admin')`, not allowlist | `pushState` → `/profile` |
-| `main.jsx` | 498/505 | `navigate('activities', null/undefined+no county)` | `pushState` → `/activities` |
-| `main.jsx` | 509 | `navigate('activities', county)` | `pushState` → `/{county}/activities` |
+| `main.jsx` | 498/505 | `navigate('activities', null/undefined+no county)` | `pushState` → `/things-to-do` (canonical) |
+| `main.jsx` | 509 | `navigate('activities', county)` | `pushState` → `/{county}/things-to-do` (canonical) |
 | `main.jsx` | 523 | `navigate('find-help', county)` | `pushState` → `/{county}/find-help` |
 | `main.jsx` | 526 | `navigate('find-help', null/undefined)` | `pushState` → `/find-help` |
 | `main.jsx` | 539 | `navigate('events', county)` | `pushState` → `/{county}/events` |
@@ -77,7 +85,7 @@ All routing is custom `pushState`-based — no React Router. `parseRoute()` in `
 | `main.jsx` | 553 | `navigate('walks', null)` | `pushState` → `/walks` |
 | `main.jsx` | 576 | `navigate(key)` standard path | `pushState` → `/{effectiveCounty}/{key}` or `/{key}` |
 | `Nav.jsx` | 149 | `handleNavigate(key)` — all generic buttons | calls `onNavigate(key)` |
-| `Nav.jsx` | 155 | Activities label click | `onNavigate('activities', null)` |
+| `Nav.jsx` | 155 | "Things to Do" label click | `onNavigate('activities', null)` — internal key |
 | `Nav.jsx` | 160 | Find Help click | `onNavigate('find-help', null)` |
 | `Nav.jsx` | 164 | Events click | `onNavigate('events', null)` |
 | `FindHelp.jsx` | 3103 | `openResource(listing)` — listing card click | `pushState` → `/{county}/find-help/{slug}` |
@@ -102,7 +110,7 @@ All routing is custom `pushState`-based — no React Router. `parseRoute()` in `
 |---|---|---|---|
 | `main.jsx` useState init | 367–378 | cold load | from URL, or localStorage, or null |
 | `main.jsx` popstate | 432 | browser back/forward | from URL (HUB_PAGES guard applied) |
-| `main.jsx` navigate activities | 497/504/507 | navigate call | null or targetCounty |
+| `main.jsx` navigate activities (Things to Do) | 497/504/507 | navigate call | null or targetCounty |
 | `main.jsx` navigate find-help | 521/525 | navigate call | explicitCounty or null |
 | `main.jsx` navigate events | 537/541 | navigate call | explicitCounty or null |
 | `main.jsx` navigate walks null | — | no setCounty | county NOT cleared for walks |

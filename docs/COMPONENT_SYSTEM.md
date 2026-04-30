@@ -42,8 +42,8 @@ ButtonSecondary
 🧠 3. Source of Truth
 Component	Source Page
 CountyHero	Places to Visit
-DiscoveryCard	Activities
-FilterStrip	Activities
+DiscoveryCard	Things to Do (Activities.jsx)
+FilterStrip	Things to Do (Activities.jsx)
 SponsorStrip	PlacesToVisit
 EmptyState	Events
 

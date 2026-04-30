@@ -548,7 +548,7 @@ const ADMIN_CAT_LABELS = {
   'disability-accessibility': 'Disability',
   'transport-access': 'Transport',
   'nature-activity-outdoors': 'Outdoors',
-  'activities-things-to-do': 'Activities',
+  'activities-things-to-do': 'Things to Do',
 };
 const resolveAdminCatLabel = (slug) => {
   if (!slug) return '';
@@ -3943,7 +3943,7 @@ const AdminPage = ({ onNavigate, session, sessionLoading = false }) => {
                       Convert to profile →
                     </button>
                     {/* Placeholders — coming next */}
-                    {['Push to Activities ad slot', 'Push to For You offer', 'Mark as county sponsor'].map(label => (
+                    {['Push to Things to Do ad slot', 'Push to For You offer', 'Mark as county sponsor'].map(label => (
                       <button key={label} disabled style={{ fontSize: 12, fontWeight: 600, padding: '7px 13px', borderRadius: 9, background: 'rgba(26,39,68,0.04)', border: '1px solid rgba(26,39,68,0.10)', color: 'rgba(26,39,68,0.30)', cursor: 'not-allowed' }}>
                         {label}
                       </button>
