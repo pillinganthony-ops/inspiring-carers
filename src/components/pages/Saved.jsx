@@ -38,6 +38,22 @@ const SavedPage = ({ onNavigate, session }) => {
   const { recentlyViewed } = useRecentlyViewed();
   const recentSlice = recentlyViewed.slice(0, 6);
 
+  const [email,     setEmail]     = React.useState('');
+  const [emailSent, setEmailSent] = React.useState(false);
+  const [emailError, setEmailError] = React.useState('');
+
+  const handleEmailSubmit = (e) => {
+    e.preventDefault();
+    const trimmed = email.trim();
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setEmailError('Please enter a valid email address.');
+      return;
+    }
+    setEmailError('');
+    setEmailSent(true);
+    // Phase 1 — frontend only. Backend connection pending.
+  };
+
   const handleOpen = (item) => {
     const dest   = getDest(item.category);
     const county = item.county ? item.county.toLowerCase() : null;
@@ -93,6 +109,57 @@ const SavedPage = ({ onNavigate, session }) => {
               >
                 Explore things to do
               </button>
+            </div>
+          )}
+
+          {/* Email capture CTA — soft, non-blocking, shown when items are saved */}
+          {savedItems.length > 0 && (
+            <div style={{ marginBottom: 28, padding: '20px 24px', borderRadius: 18, background: '#FFFFFF', border: '1px solid #E8EEF8', boxShadow: '0 2px 12px rgba(26,39,68,0.05)' }}>
+              {!emailSent ? (
+                <>
+                  <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.10em', color: '#7B5CF5', marginBottom: 5 }}>
+                    Keep your list
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: '#1A2744', marginBottom: 4 }}>
+                    Keep your saved list
+                  </div>
+                  <p style={{ fontSize: 13, color: 'rgba(26,39,68,0.58)', margin: '0 0 14px', lineHeight: 1.55 }}>
+                    Get your saved places and support options sent to your inbox so you can come back to them anytime.
+                  </p>
+                  <form onSubmit={handleEmailSubmit} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                    <div style={{ flex: '1 1 220px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => { setEmail(e.target.value); setEmailError(''); }}
+                        placeholder="Enter your email"
+                        style={{ padding: '9px 13px', borderRadius: 10, border: emailError ? '1.5px solid #E11D48' : '1px solid #DDE5F0', background: '#F8FAFD', fontSize: 13.5, color: '#1A2744', fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', width: '100%' }}
+                      />
+                      {emailError && (
+                        <span style={{ fontSize: 12, color: '#A03A2D' }}>{emailError}</span>
+                      )}
+                    </div>
+                    <button
+                      type="submit"
+                      style={{ padding: '9px 18px', borderRadius: 10, background: '#7B5CF5', color: 'white', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'opacity .13s', flexShrink: 0 }}
+                      onMouseEnter={e => { e.currentTarget.style.opacity = '0.88'; }}
+                      onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+                    >
+                      Send my list
+                    </button>
+                  </form>
+                </>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 999, background: 'rgba(16,185,129,0.10)', display: 'grid', placeItems: 'center', flexShrink: 0, color: '#059669' }}>
+                    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="m5 12 5 5L20 7"/></svg>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1A2744', marginBottom: 2 }}>You're all set</div>
+                    <div style={{ fontSize: 12.5, color: 'rgba(26,39,68,0.50)' }}>Saved list email capture is ready for backend connection.</div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
