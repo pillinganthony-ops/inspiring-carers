@@ -105,7 +105,7 @@ const QuickActions = ({ onNavigate }) => {
   const actions = [
     { icon: <IPin s={26} />,      tone: 'sky',   label: 'Find Support',        sub: 'Services near you',   route: 'find-help'        },
     { icon: <IDiscount s={26} />, tone: 'gold',  label: 'Rewards & Offers',    sub: 'Exclusive benefits',  route: 'benefits'         },
-    { icon: <IGroups s={26} />,   tone: 'lime',  label: 'Groups & Activities', sub: 'Community & events',  route: 'activities'       },
+    { icon: <IGroups s={26} />,   tone: 'lime',  label: 'Groups & Things to Do', sub: 'Community & events',  route: 'activities'       },
     { icon: <IReward s={26} />,   tone: 'coral', label: 'For Businesses',      sub: 'Offer a discount',    route: 'offer-a-discount' },
   ];
 
