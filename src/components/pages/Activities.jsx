@@ -18,6 +18,7 @@ import CountyCategoryNav from '../CountyCategoryNav.jsx';
 import CountyWalksBanner from '../CountyWalksBanner.jsx';
 import CountyHero from '../shared/CountyHero.jsx';
 import DiscoveryCard from '../shared/DiscoveryCard.jsx';
+import { COUNTY_LABELS } from '../../lib/countyConfig.js';
 import FilterStrip from '../shared/FilterStrip.jsx';
 import CardGrid from '../shared/CardGrid.jsx';
 import supabase, { isSupabaseConfigured } from '../../lib/supabaseClient.js';
@@ -37,15 +38,6 @@ const ACT_MAP_LIBS = ['places'];
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const COUNTY_DEFAULT = 'cornwall';
-
-const COUNTY_LABELS = {
-  cornwall:  'Cornwall',
-  devon:     'Devon',
-  dorset:    'Dorset',
-  somerset:  'Somerset',
-  bristol:   'Bristol',
-  wiltshire: 'Wiltshire',
-};
 
 const ACTIVITY_TYPE_OPTIONS = [
   { value: '',            label: 'All things to do' },

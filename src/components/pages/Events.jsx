@@ -6,6 +6,7 @@ import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient.js';
 import CountyCategoryNav from '../CountyCategoryNav.jsx';
 import SponsorStrip from '../shared/SponsorStrip.jsx';
 import CardGrid from '../shared/CardGrid.jsx';
+import { COUNTY_LABELS } from '../../lib/countyConfig.js';
 
 const { IEvent, IPin, IArrow, IClose, ISearch, IChevron, IHub } = Icons;
 
@@ -267,7 +268,7 @@ const EventsPage = ({ onNavigate, session, county }) => {
     return events.filter((event) => `${event.title} ${event.location || ''} ${event.profile?.display_name || ''}`.toLowerCase().includes(needle));
   }, [events, query]);
 
-  const countyLabel = county ? county.charAt(0).toUpperCase() + county.slice(1) : '';
+  const countyLabel = COUNTY_LABELS[county] || '';
 
 
   return (

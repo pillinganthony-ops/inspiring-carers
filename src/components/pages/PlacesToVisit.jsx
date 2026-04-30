@@ -20,30 +20,12 @@ import CountyCategoryNav from '../CountyCategoryNav.jsx';
 import CountyWalksBanner from '../CountyWalksBanner.jsx';
 import CountyHero from '../shared/CountyHero.jsx';
 import DiscoveryCard from '../shared/DiscoveryCard.jsx';
+import { COUNTY_DB, COUNTY_LABELS } from '../../lib/countyConfig.js';
 import { Compass, Building2, MapPin as LMapPin } from 'lucide-react';
 
 const { IArrow } = Icons;
 
 // ── Constants ──────────────────────────────────────────────────────────────
-
-// county prop is lowercase slug; DB stores capitalized county name
-const COUNTY_DB = {
-  cornwall:  'Cornwall',
-  devon:     'Devon',
-  somerset:  'Somerset',
-  bristol:   'Bristol',
-  dorset:    'Dorset',
-  wiltshire: 'Wiltshire',
-};
-
-const COUNTY_LABELS = {
-  cornwall:  'Cornwall',
-  devon:     'Devon',
-  somerset:  'Somerset',
-  bristol:   'Bristol',
-  dorset:    'Dorset',
-  wiltshire: 'Wiltshire',
-};
 
 // "Places to Visit" maps to these two DB categories
 const PLACES_CATEGORIES = ['Days Out', 'Attractions'];

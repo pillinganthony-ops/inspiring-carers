@@ -20,29 +20,12 @@ import CountyHero from '../shared/CountyHero.jsx';
 import DiscoveryCard from '../shared/DiscoveryCard.jsx';
 import FilterStrip from '../shared/FilterStrip.jsx';
 import SkeletonCard from '../shared/SkeletonCard.jsx';
+import { COUNTY_DB, COUNTY_LABELS } from '../../lib/countyConfig.js';
 import { Leaf } from 'lucide-react';
 
 const { IArrow } = Icons;
 
 // ── Constants ──────────────────────────────────────────────────────────────
-
-const COUNTY_DB = {
-  cornwall:  'Cornwall',
-  devon:     'Devon',
-  somerset:  'Somerset',
-  bristol:   'Bristol',
-  dorset:    'Dorset',
-  wiltshire: 'Wiltshire',
-};
-
-const COUNTY_LABELS = {
-  cornwall:  'Cornwall',
-  devon:     'Devon',
-  somerset:  'Somerset',
-  bristol:   'Bristol',
-  dorset:    'Dorset',
-  wiltshire: 'Wiltshire',
-};
 
 const WELLBEING_ACCENT = '#0D9488'; // teal — calm, therapeutic
 const WB_BADGE_BG = 'linear-gradient(145deg, rgba(13,148,136,0.64), rgba(9,110,100,0.46))';
