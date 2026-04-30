@@ -14,13 +14,14 @@ import CountyInterestModal from '../CountyInterestModal.jsx';
 import SponsorCTA from '../SponsorCTA.jsx';
 import SponsorStrip from '../shared/SponsorStrip.jsx';
 import CardGrid from '../shared/CardGrid.jsx';
+import FilterStrip from '../shared/FilterStrip.jsx';
 import CountyCategoryNav from '../CountyCategoryNav.jsx';
 import CountyWalksBanner from '../CountyWalksBanner.jsx';
 import CountyHero from '../shared/CountyHero.jsx';
 import DiscoveryCard from '../shared/DiscoveryCard.jsx';
 import { Compass, Building2, MapPin as LMapPin } from 'lucide-react';
 
-const { IArrow, ISearch } = Icons;
+const { IArrow } = Icons;
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -48,20 +49,6 @@ const PLACES_CATEGORIES = ['Days Out', 'Attractions'];
 
 const PTV_PAGE_SIZE = 12;
 
-const FREE_PAID_OPTS = [
-  { value: '', label: 'Any price' },
-  { value: 'Free', label: 'Free' },
-  { value: 'Paid', label: 'Paid' },
-  { value: 'Mixed', label: 'Mixed' },
-];
-
-const INDOOR_OUTDOOR_OPTS = [
-  { value: '', label: 'Indoor or outdoor' },
-  { value: 'Indoor', label: 'Indoor' },
-  { value: 'Outdoor', label: 'Outdoor' },
-  { value: 'Both', label: 'Both' },
-];
-
 const CAT_ACCENT = {
   'Days Out':    '#F5A623',
   'Attractions': '#7B5CF5',
@@ -76,23 +63,6 @@ const PTV_BADGE_BG = {
   'Days Out':    'linear-gradient(145deg, rgba(245,166,35,0.68), rgba(217,140,20,0.50))',
   'Attractions': 'linear-gradient(145deg, rgba(123,92,245,0.68), rgba(99,69,210,0.50))',
 };
-
-// ── Shared styles ──────────────────────────────────────────────────────────
-
-const iStyle = {
-  padding: '9px 13px', borderRadius: 10, border: '1px solid #E9EEF5',
-  background: '#FAFBFF', fontSize: 13, color: '#1A2744',
-  fontFamily: 'Inter, sans-serif', cursor: 'pointer', appearance: 'auto',
-  boxSizing: 'border-box',
-};
-
-const chip = (color, active) => ({
-  fontSize: 12.5, fontWeight: 700, padding: '8px 13px', borderRadius: 10,
-  border: active ? `1.5px solid ${color}` : '1px solid #E9EEF5',
-  background: active ? `${color}14` : '#FAFBFF',
-  color: active ? color : 'rgba(26,39,68,0.60)',
-  cursor: 'pointer', whiteSpace: 'nowrap',
-});
 
 // ── Venue card ─────────────────────────────────────────────────────────────
 
@@ -364,50 +334,28 @@ const PlacesToVisitCountyPage = ({ onNavigate, session, county, venueSlug }) => 
       {/* ── Sticky filter bar ─────────────────────────────────────────── */}
       <section id="ptv-filters" style={{ background: '#FFFFFF', borderBottom: '1px solid #EEF1F7', paddingTop: 12, paddingBottom: 12, position: 'sticky', top: 112, zIndex: 40 }}>
         <div className="container">
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, alignItems: 'center' }}>
-            {/* Search */}
-            <div style={{ position: 'relative', flex: '1 1 180px', minWidth: 0 }}>
-              <input
-                type="text" value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by name or town…"
-                style={{ ...iStyle, width: '100%', paddingLeft: 30 }}
-              />
-              <span style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'rgba(26,39,68,0.38)', display: 'flex', pointerEvents: 'none' }}>
-                <ISearch s={12} />
-              </span>
-            </div>
-
-            {/* Subcategory */}
-            {subcatOptions.length > 0 && (
-              <select value={filterSubcat} onChange={(e) => setFilterSubcat(e.target.value)} style={{ ...iStyle, flex: '1 1 140px' }}>
-                <option value="">All types</option>
-                {subcatOptions.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
-            )}
-
-            {/* Price */}
-            <select value={filterPrice} onChange={(e) => setFilterPrice(e.target.value)} style={{ ...iStyle, flex: '1 1 110px' }}>
-              {FREE_PAID_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-
-            {/* Indoor / outdoor */}
-            <select value={filterIndoorOut} onChange={(e) => setFilterIndoorOut(e.target.value)} style={{ ...iStyle, flex: '1 1 140px' }}>
-              {INDOOR_OUTDOOR_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-
-            {/* Toggle chips */}
-            <button onClick={() => setFilterFamily(!filterFamily)}     style={chip('#F5A623', filterFamily)}>Family friendly</button>
-            <button onClick={() => setFilterWheelchair(!filterWheelchair)} style={chip('#7B5CF5', filterWheelchair)}>Wheelchair</button>
-            <button onClick={() => setFilterDog(!filterDog)}           style={chip('#3DA832', filterDog)}>Dog friendly</button>
-
-            {/* Clear */}
-            {anyFilter && (
-              <button onClick={clearFilters} style={{ fontSize: 12, fontWeight: 600, color: 'rgba(26,39,68,0.45)', background: 'none', border: 'none', cursor: 'pointer', padding: '8px 4px', whiteSpace: 'nowrap' }}>
-                Clear all
-              </button>
-            )}
-          </div>
+          <FilterStrip
+            layout="horizontal"
+            search={search}
+            onSearchChange={(e) => setSearch(e.target.value)}
+            searchPlaceholder="Search by name or town…"
+            subcatVisible={subcatOptions.length > 0}
+            subcatOptions={subcatOptions}
+            subcat={filterSubcat}
+            onSubcatChange={(e) => setFilterSubcat(e.target.value)}
+            price={filterPrice}
+            onPriceChange={(e) => setFilterPrice(e.target.value)}
+            settingVisible
+            setting={filterIndoorOut}
+            onSettingChange={(e) => setFilterIndoorOut(e.target.value)}
+            suitability={[
+              { label: 'Family friendly', active: filterFamily,     onToggle: setFilterFamily,     color: '#F5A623' },
+              { label: 'Wheelchair',      active: filterWheelchair, onToggle: setFilterWheelchair, color: '#7B5CF5' },
+              { label: 'Dog friendly',    active: filterDog,        onToggle: setFilterDog,        color: '#3DA832' },
+            ]}
+            anyFilter={anyFilter}
+            onClear={clearFilters}
+          />
         </div>
       </section>
 
